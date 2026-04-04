@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
+import { progressMissions } from './_missions.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -103,6 +104,9 @@ export default async function handler(req, res) {
 
     rewards.levelUp = levelUp
   }
+
+  // Progreso de misiones (siempre, gane o no)
+  await progressMissions(supabase, user.id, 'tower_attempt', 1)
 
   return res.status(200).json({
     ok: true,

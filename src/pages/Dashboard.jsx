@@ -5,8 +5,9 @@ import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Torre from '../sections/Torre'
+import Misiones from '../sections/Misiones'
 import Ranking from '../sections/Ranking'
-import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl } from 'lucide-react'
+import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList } from 'lucide-react'
 import './Dashboard.css'
 
 /* ─── DEV ONLY: Catálogo de items ───────────────────────────────────────────── */
@@ -95,6 +96,7 @@ const NAV_ITEMS = [
   { id: 'base',          label: 'Base',          icon: Castle },
   { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
   { id: 'torre',         label: 'Torre',         icon: TowerControl },
+  { id: 'misiones',      label: 'Misiones',      icon: ClipboardList },
   { id: 'clasificacion', label: 'Clasificación', icon: Trophy },
 ]
 
@@ -192,6 +194,7 @@ function Dashboard({ session }) {
           {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} />}
           {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} />}
           {activeSection === 'torre'         && <Torre userId={session.user.id} />}
+          {activeSection === 'misiones'      && <Misiones />}
           {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
           {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}
         </main>

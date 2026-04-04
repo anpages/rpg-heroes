@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
+import { progressMissions } from './_missions.js'
 
 const INVENTORY_BASE_LIMIT = 20
 const INVENTORY_PER_WORKSHOP_LEVEL = 5
@@ -216,6 +217,15 @@ export default async function handler(req, res) {
 
   const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, dungeon) : null
   const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon, intelligenceBonus) : null
+
+  // Progreso de misiones diarias
+  await Promise.all([
+    progressMissions(supabase, user.id, 'expeditions_complete', 1),
+    progressMissions(supabase, user.id, 'gold_earn', finalGold),
+    progressMissions(supabase, user.id, 'xp_earn', finalXp),
+    dungeon ? progressMissions(supabase, user.id, `dungeon_type_${dungeon.type}`, 1) : Promise.resolve(),
+    drop && !drop.full ? progressMissions(supabase, user.id, 'item_drop', 1) : Promise.resolve(),
+  ])
 
   return res.status(200).json({
     ok: true,
