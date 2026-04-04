@@ -40,8 +40,20 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
+  // Aplicar bonus del taller (−5% duración por nivel, mín 50%)
+  const { data: workshop } = await supabase
+    .from('buildings')
+    .select('level')
+    .eq('player_id', user.id)
+    .eq('type', 'workshop')
+    .maybeSingle()
+
+  const workshopLevel = workshop?.level ?? 1
+  const reduction = Math.min(0.5, (workshopLevel - 1) * 0.05)
+  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - reduction))
+
   // Calcular duración y recompensas
-  const endsAt = new Date(Date.now() + dungeon.duration_minutes * 60 * 1000)
+  const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
   const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
   const woodEarned = Math.floor(dungeon.wood_min + Math.random() * (dungeon.wood_max - dungeon.wood_min))
   const manaEarned = Math.floor(dungeon.mana_min + Math.random() * (dungeon.mana_max - dungeon.mana_min))

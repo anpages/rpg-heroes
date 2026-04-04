@@ -42,8 +42,7 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s, border-color 0.2s;
 }
@@ -59,7 +58,6 @@
   align-items: flex-start;
 }
 
-/* Icon */
 .building-icon-wrap {
   width: 48px;
   height: 48px;
@@ -72,7 +70,6 @@
   flex-shrink: 0;
 }
 
-/* Info */
 .building-info {
   flex: 1;
   min-width: 0;
@@ -109,13 +106,87 @@
   font-size: 13px;
   color: var(--text-3);
   line-height: 1.5;
+  margin-bottom: 6px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Bottom */
+.building-effect {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ─── Upgrade progress ───────────────────────────────────────────────────────── */
+
+.building-upgrade-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+}
+
+.building-upgrade-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.building-upgrade-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.building-upgrade-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 1s linear;
+}
+
+.building-upgrade-pct {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.building-upgrade-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.building-upgrade-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.building-upgrade-timer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Bottom row ─────────────────────────────────────────────────────────────── */
+
 .building-card-bottom {
   display: flex;
   align-items: center;
@@ -125,13 +196,9 @@
   border-top: 1px solid var(--border);
 }
 
-.building-resource-tag {
+.building-next-effect {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-radius: 6px;
-  padding: 3px 10px;
+  color: var(--text-3);
 }
 
 /* Upgrade button */
@@ -139,7 +206,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 7px 13px;
   background: var(--blue-600);
   border: none;
   border-radius: 7px;
@@ -149,6 +216,7 @@
   font-family: 'Outfit', sans-serif;
   transition: background 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .building-upgrade-btn:not(:disabled):hover {
@@ -161,6 +229,11 @@
   cursor: not-allowed;
 }
 
+.building-upgrade-btn--cant-afford {
+  background: var(--border) !important;
+  color: var(--text-3) !important;
+}
+
 .upgrade-cost {
   display: flex;
   align-items: center;
@@ -168,6 +241,40 @@
   font-size: 11px;
   font-weight: 500;
   opacity: 0.85;
+}
+
+/* Collect button */
+.building-collect-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.building-collect-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.building-collect-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.building-error {
+  font-size: 12px;
+  color: #dc2626;
+  text-align: center;
+  margin-top: -6px;
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */

@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 export function useBuildings(userId) {
   const [buildings, setBuildings] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const refetch = useCallback(() => {
+    if (!userId) return
+    supabase
+      .from('buildings')
+      .select('*')
+      .eq('player_id', userId)
+      .then(({ data }) => setBuildings(data))
+  }, [userId])
+
   useEffect(() => {
     if (!userId) return
-
     supabase
       .from('buildings')
       .select('*')
@@ -18,5 +26,5 @@ export function useBuildings(userId) {
       })
   }, [userId])
 
-  return { buildings, loading, setBuildings }
+  return { buildings, loading, refetch }
 }
