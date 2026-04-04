@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-// Calcula los recursos actuales interpolando desde last_collected_at
 function interpolate(resources) {
   if (!resources) return null
   const now = Date.now()
@@ -21,12 +20,12 @@ function interpolate(resources) {
 export function useResources(userId) {
   const [resources, setResources] = useState(null)
   const [loading, setLoading] = useState(true)
-  const baseRef = useRef(null) // datos en bruto de la BD
+  const baseRef = useRef(null)
 
-  // Carga inicial
   useEffect(() => {
     if (!userId) return
 
+    // Carga inicial
     supabase
       .from('resources')
       .select('*')
@@ -37,14 +36,27 @@ export function useResources(userId) {
         setResources(interpolate(data))
         setLoading(false)
       })
+
+    // Realtime: escucha cambios en resources
+    const channel = supabase
+      .channel(`resources:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'resources', filter: `player_id=eq.${userId}` },
+        ({ new: newData }) => {
+          baseRef.current = newData
+          setResources(interpolate(newData))
+        }
+      )
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
   }, [userId])
 
-  // Ticker: actualiza los recursos cada segundo sin volver a la BD
+  // Ticker cada segundo para la interpolación
   useEffect(() => {
     const interval = setInterval(() => {
-      if (baseRef.current) {
-        setResources(interpolate(baseRef.current))
-      }
+      if (baseRef.current) setResources(interpolate(baseRef.current))
     }, 1000)
     return () => clearInterval(interval)
   }, [])
