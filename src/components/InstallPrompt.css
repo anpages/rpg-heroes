@@ -18,10 +18,10 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: #1a1035;
-  border: 1px solid #3b1d6e;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(134, 59, 255, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .install-prompt-text {
@@ -35,12 +35,12 @@
 .install-prompt-title {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #e2d9f3;
+  color: var(--text);
 }
 
 .install-prompt-sub {
   font-size: 0.7rem;
-  color: #7c6fa0;
+  color: var(--text-3);
 }
 
 .install-prompt-btn {
@@ -48,7 +48,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.75rem;
-  background: #6d28d9;
+  background: var(--blue-600);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -61,7 +61,7 @@
 }
 
 .install-prompt-btn:hover {
-  background: #7c3aed;
+  background: var(--blue-700);
 }
 
 .install-prompt-close {
@@ -72,7 +72,7 @@
   height: 24px;
   background: transparent;
   border: none;
-  color: #7c6fa0;
+  color: var(--text-3);
   cursor: pointer;
   border-radius: 6px;
   flex-shrink: 0;
@@ -80,5 +80,5 @@
 }
 
 .install-prompt-close:hover {
-  color: #e2d9f3;
+  color: var(--text);
 }
