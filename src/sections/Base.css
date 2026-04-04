@@ -83,11 +83,11 @@
 .nexus-balance {
   margin-left: auto;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--success-text);
 }
 
 .nexus-balance--deficit {
-  color: #dc2626;
+  color: var(--error-text);
 }
 
 .nexus-bar-track {
@@ -105,7 +105,7 @@
 }
 
 .nexus-bar-fill--deficit {
-  background: #dc2626;
+  background: var(--error-text);
 }
 
 /* ─── Grid ───────────────────────────────────────────────────────────────────── */
@@ -304,13 +304,13 @@
 }
 
 .cost-badge--ok {
-  color: #16a34a;
+  color: var(--success-text);
   background: var(--success-bg);
   border-color: var(--success-border);
 }
 
 .cost-badge--short {
-  color: #dc2626;
+  color: var(--error-text);
   background: var(--error-bg);
   border-color: var(--error-border);
 }
@@ -347,9 +347,15 @@
 
 .building-error {
   font-size: 12px;
-  color: #dc2626;
+  color: var(--error-text);
   text-align: center;
   margin-top: -6px;
+}
+
+/* ─── Dark mode: genera tintes oscuros desde --accent automáticamente ────────── */
+[data-theme="dark"] .building-card {
+  --accent-bg:     color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */

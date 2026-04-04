@@ -189,7 +189,7 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   padding-top: 0.5rem;
-  border-top: 1px solid #bbf7d0;
+  border-top: 1px solid var(--success-border);
 }
 
 .tower-result-milestone {
@@ -217,7 +217,7 @@
 
 .tower-reward-chip--levelup {
   background: var(--warning-bg);
-  border-color: #fde68a;
+  border-color: var(--warning-border);
   color: var(--warning-text);
 }
 

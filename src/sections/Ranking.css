@@ -108,9 +108,9 @@
 }
 
 .position-badge--gold {
-  background: #fef9c3;
-  color: #a16207;
-  border: 1px solid #fde047;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
 }
 
 .position-badge--silver {
@@ -120,9 +120,13 @@
 }
 
 .position-badge--bronze {
-  background: #fff7ed;
+  background: color-mix(in srgb, #f97316 10%, var(--surface));
   color: #c2410c;
-  border: 1px solid #fed7aa;
+  border: 1px solid color-mix(in srgb, #f97316 30%, var(--border));
+}
+
+[data-theme="dark"] .position-badge--bronze {
+  color: #fb923c;
 }
 
 /* ─── Misc ───────────────────────────────────────────────────────────────────── */

@@ -348,12 +348,12 @@
 }
 
 .eq-slot--critical {
-  border-color: #fcd34d;
+  border-color: var(--warning-border);
   background: var(--warning-bg);
 }
 
 .eq-slot--broken {
-  border-color: #fca5a5;
+  border-color: var(--error-border);
   background: var(--error-bg);
 }
 
@@ -399,15 +399,15 @@
 }
 
 .eq-slot-status--critical {
-  color: #b45309;
+  color: var(--warning-text);
   background: var(--warning-bg);
-  border-color: #fcd34d;
+  border-color: var(--warning-border);
 }
 
 .eq-slot-status--broken {
   color: #dc2626;
   background: var(--error-bg);
-  border-color: #fca5a5;
+  border-color: var(--error-border);
 }
 
 .eq-slot-actions {
@@ -422,16 +422,16 @@
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: var(--warning-bg);
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--warning-border);
   border-radius: 5px;
-  color: #b45309;
+  color: var(--warning-text);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .eq-repair-btn:hover:not(:disabled) {
   background: var(--warning-bg);
-  border-color: #f59e0b;
+  border-color: var(--warning-border);
 }
 
 .eq-repair-btn:disabled {
@@ -1025,16 +1025,16 @@
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: var(--warning-bg);
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--warning-border);
   border-radius: 6px;
-  color: #b45309;
+  color: var(--warning-text);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
 .card-fuse-btn:hover:not(:disabled) {
   background: var(--warning-bg);
-  border-color: #f59e0b;
+  border-color: var(--warning-border);
 }
 
 .card-fuse-btn:disabled {

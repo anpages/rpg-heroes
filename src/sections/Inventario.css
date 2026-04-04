@@ -68,7 +68,7 @@
 }
 
 .eq-slot--broken {
-  border-color: #fca5a5;
+  border-color: var(--error-border);
   background: var(--error-bg);
 }
 
