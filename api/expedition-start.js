@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getEffectiveStats } from './_stats.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -49,8 +50,14 @@ export default async function handler(req, res) {
     .maybeSingle()
 
   const workshopLevel = workshop?.level ?? 1
-  const reduction = Math.min(0.5, (workshopLevel - 1) * 0.05)
-  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - reduction))
+  const workshopReduction = Math.min(0.5, (workshopLevel - 1) * 0.05)
+
+  // Agilidad reduce duración (hasta −25%)
+  const stats = await getEffectiveStats(supabase, hero.id)
+  const agilityReduction = stats ? Math.min(0.25, stats.agility * 0.003) : 0
+
+  const totalReduction = Math.min(0.70, workshopReduction + agilityReduction)
+  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - totalReduction))
 
   // Calcular duración y recompensas
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)

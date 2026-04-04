@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getEffectiveStats } from './_stats.js'
 
 const INVENTORY_BASE_LIMIT = 20
 const INVENTORY_PER_WORKSHOP_LEVEL = 5
@@ -47,15 +48,18 @@ const CARD_DROP = {
   ancient: { chance: 0.25, categoryPool: ['intelligence','strength','agility'],                                weights: [40,30,20,8,2] },
 }
 
-async function rollCardDrop(supabase, heroId, dungeon) {
+async function rollCardDrop(supabase, heroId, dungeon, intelligenceBonus = 0) {
   const cfg = CARD_DROP[dungeon.type]
-  if (!cfg || Math.random() > cfg.chance) return null
+  if (!cfg || Math.random() > cfg.chance + intelligenceBonus) return null
 
   const category = cfg.categoryPool[Math.floor(Math.random() * cfg.categoryPool.length)]
-  const total = cfg.weights.reduce((a, b) => a + b, 0)
+  // Inteligencia desplaza pesos de rareza hacia mayor calidad
+  const intShift = intelligenceBonus * 100 // 0..20
+  const adjustedWeights = cfg.weights.map((w, i) => Math.max(0, w + (i - 1) * intShift))
+  const total = adjustedWeights.reduce((a, b) => a + b, 0)
   let roll = Math.random() * total
   let rarity = RARITIES[0]
-  for (let i = 0; i < RARITIES.length; i++) { roll -= cfg.weights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
+  for (let i = 0; i < RARITIES.length; i++) { roll -= adjustedWeights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
 
   const { data: candidates } = await supabase
     .from('skill_cards').select('id').eq('category', category).eq('rarity', rarity)
@@ -154,11 +158,25 @@ export default async function handler(req, res) {
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
+  // Stats efectivas para bonificaciones
+  const stats = await getEffectiveStats(supabase, hero.id)
+
+  // Ataque escala oro y XP (hasta +100%)
+  const attackMultiplier = stats ? 1 + Math.min(1.0, stats.attack * 0.008) : 1
+  const finalGold = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
+  const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier)
+
+  // Defensa reduce pérdida de durabilidad (mín 1)
+  const durabilityLoss = stats ? Math.max(1, 5 - Math.floor(stats.defense / 15)) : 5
+
+  // Inteligencia mejora drops de cartas
+  const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
+
   // Añadir recursos
   const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
-      gold: resources.gold + (expedition.gold_earned ?? 0),
+      gold: resources.gold + finalGold,
       wood: resources.wood + (expedition.wood_earned ?? 0),
       mana: resources.mana + (expedition.mana_earned ?? 0),
       last_collected_at: new Date().toISOString(),
@@ -168,7 +186,7 @@ export default async function handler(req, res) {
   if (updateResourcesError) return res.status(500).json({ error: updateResourcesError.message })
 
   // Añadir XP y subir nivel si corresponde
-  const newXp = hero.experience + (expedition.experience_earned ?? 0)
+  const newXp = hero.experience + finalXp
   const xpForLevel = hero.level * 150
   const levelUp = newXp >= xpForLevel
 
@@ -189,23 +207,23 @@ export default async function handler(req, res) {
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', expeditionId)
 
-  // Reducir durabilidad del equipo equipado (−5 por expedición)
-  await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: 5 })
+  // Reducir durabilidad del equipo equipado
+  await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
 
   // Obtener dungeon para el drop
   const { data: dungeon } = await supabase
     .from('dungeons').select('difficulty, type').eq('id', expedition.dungeon_id).single()
 
   const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, dungeon) : null
-  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon)          : null
+  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon, intelligenceBonus) : null
 
   return res.status(200).json({
     ok: true,
     rewards: {
-      gold: expedition.gold_earned,
+      gold: finalGold,
       wood: expedition.wood_earned,
       mana: expedition.mana_earned,
-      experience: expedition.experience_earned,
+      experience: finalXp,
     },
     levelUp,
     drop:     drop     ?? null,
