@@ -25,189 +25,87 @@
   line-height: 1.5;
 }
 
-/* ─── Nexo Arcano ────────────────────────────────────────────────────────────── */
+/* ─── Featured card (Nexo Arcano) ────────────────────────────────────────────── */
 
 @keyframes nexo-pulse {
-  0%, 100% { filter: drop-shadow(0 0 4px #0891b2); opacity: 1; }
-  50%       { filter: drop-shadow(0 0 10px #0891b2); opacity: 0.8; }
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
 }
 
-.nexo-card {
-  background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
-  border: 1px solid #67e8f9;
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 2px 12px rgba(8, 145, 178, 0.12);
+.building-card--featured {
+  border-color: var(--accent-border);
+  background: linear-gradient(180deg, var(--accent-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 0 0 1px var(--accent-border), var(--shadow-sm);
 }
 
-.nexo-card--deficit {
-  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-  border-color: #fda4af;
-  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.1);
+.building-card--featured:hover {
+  box-shadow: 0 0 0 1px var(--accent-border), var(--shadow-md);
 }
 
-.nexo-top {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.nexo-identity {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  flex: 1;
-  min-width: 200px;
-}
-
-.nexo-icon-wrap {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: #0891b2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: white;
+.building-card--featured .building-icon-wrap {
   animation: nexo-pulse 2.5s ease-in-out infinite;
 }
 
-.nexo-card--deficit .nexo-icon-wrap {
-  background: #dc2626;
-  animation: none;
+/* ─── Nexus energy bar ───────────────────────────────────────────────────────── */
+
+.building-nexus-energy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
 }
 
-.nexo-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.nexo-name-row {
+.nexus-energy-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.nexo-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.nexo-level {
+  gap: 4px;
   font-size: 12px;
+}
+
+.nexus-energy-num {
   font-weight: 700;
-  color: #0891b2;
-  background: white;
-  border: 1px solid #a5f3fc;
-  border-radius: 6px;
-  padding: 2px 8px;
-  flex-shrink: 0;
+  color: var(--accent);
 }
 
-.nexo-card--deficit .nexo-level {
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.nexo-desc {
-  font-size: 13px;
+.nexus-energy-lbl {
   color: var(--text-3);
-  line-height: 1.4;
+  font-weight: 500;
 }
 
-.nexo-energy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 180px;
+.nexus-energy-div {
+  color: var(--border-2);
+  margin: 0 2px;
 }
 
-.nexo-energy-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.nexo-energy-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.nexo-energy-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: #0891b2;
-  line-height: 1;
-}
-
-.nexo-card--deficit .nexo-energy-value {
-  color: #dc2626;
-}
-
-.nexo-energy-label {
-  font-size: 10px;
+.nexus-balance {
+  margin-left: auto;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-3);
+  color: #16a34a;
 }
 
-.nexo-energy-sep {
-  font-size: 20px;
-  font-weight: 300;
-  color: var(--text-3);
+.nexus-balance--deficit {
+  color: #dc2626;
 }
 
-.nexo-energy-track {
-  height: 6px;
-  background: rgba(0, 0, 0, 0.08);
+.nexus-bar-track {
+  height: 4px;
+  background: var(--border);
   border-radius: 99px;
   overflow: hidden;
 }
 
-.nexo-energy-fill {
+.nexus-bar-fill {
   height: 100%;
-  background: #0891b2;
+  background: var(--accent);
   border-radius: 99px;
   transition: width 0.4s ease;
 }
 
-.nexo-energy-fill--deficit {
+.nexus-bar-fill--deficit {
   background: #dc2626;
-}
-
-.nexo-energy-status {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.nexo-energy-status--ok     { color: #16a34a; }
-.nexo-energy-status--deficit { color: #dc2626; }
-
-.nexo-bottom {
-  padding-top: 12px;
-  border-top: 1px solid rgba(8, 145, 178, 0.2);
-}
-
-.nexo-card--deficit .nexo-bottom {
-  border-color: rgba(220, 38, 38, 0.2);
-}
-
-.nexo-card .building-upgrade-progress {
-  background: rgba(255,255,255,0.5);
-  border: 1px solid rgba(8, 145, 178, 0.2);
-  border-radius: 8px;
-  padding: 10px 12px;
 }
 
 /* ─── Grid ───────────────────────────────────────────────────────────────────── */
@@ -380,54 +278,70 @@
 /* ─── Bottom row ─────────────────────────────────────────────────────────────── */
 
 .building-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+}
+
+.building-costs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cost-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.cost-badge--ok {
+  color: #16a34a;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.cost-badge--short {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 /* Upgrade button */
 .building-upgrade-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 14px;
-  background: var(--blue-600);
-  border: none;
+  gap: 5px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-2);
   border-radius: 7px;
-  color: white;
+  color: var(--text-2);
   font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
-  transition: background 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .building-upgrade-btn:not(:disabled):hover {
-  background: var(--blue-700);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .building-upgrade-btn:disabled {
-  background: var(--border);
-  color: var(--text-3);
+  opacity: 0.4;
   cursor: not-allowed;
-}
-
-.building-upgrade-btn--cant-afford {
-  background: var(--border) !important;
-  color: var(--text-3) !important;
-}
-
-.upgrade-btn-label {
-  margin-left: 4px;
-}
-
-.upgrade-cost {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0.85;
 }
 
 

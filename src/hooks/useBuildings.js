@@ -6,8 +6,8 @@ export function useBuildings(userId) {
   const [loading, setLoading] = useState(true)
 
   const refetch = useCallback(() => {
-    if (!userId) return
-    supabase
+    if (!userId) return Promise.resolve()
+    return supabase
       .from('buildings')
       .select('*')
       .eq('player_id', userId)

@@ -50,21 +50,20 @@ export default async function handler(req, res) {
 
   const newLevel = building.level + 1
 
-  // Aplicar efecto especial: cuartel → stats del héroe
+  // Aplicar efecto especial: cuartel → atributos base del héroe (presupuesto de cartas)
   if (building.type === 'barracks') {
     const { data: hero } = await supabase
       .from('heroes')
-      .select('attack, defense, max_hp, current_hp')
+      .select('strength, agility, intelligence')
       .eq('player_id', user.id)
       .single()
     if (hero) {
       await supabase
         .from('heroes')
         .update({
-          attack:     hero.attack + 2,
-          defense:    hero.defense + 1,
-          max_hp:     hero.max_hp + 5,
-          current_hp: hero.current_hp + 5,
+          strength:     hero.strength     + 2,
+          agility:      hero.agility      + 2,
+          intelligence: hero.intelligence + 2,
         })
         .eq('player_id', user.id)
     }

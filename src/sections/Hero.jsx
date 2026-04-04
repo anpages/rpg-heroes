@@ -58,14 +58,17 @@ function XpBar({ level, experience }) {
   )
 }
 
-function StatRow({ icon: Icon, label, value, color }) {
+function StatRow({ icon: Icon, label, value, color, bonus }) {
   return (
     <div className="stat-row">
       <div className="stat-icon" style={{ color }}>
         <Icon size={16} strokeWidth={1.8} />
       </div>
       <span className="stat-label">{label}</span>
-      <span className="stat-value">{value}</span>
+      <span className="stat-value">
+        {value}
+        {bonus > 0 && <span className="stat-bonus">+{bonus}</span>}
+      </span>
     </div>
   )
 }
@@ -247,6 +250,29 @@ function Hero({ userId }) {
     return acc
   }, {})
 
+  // Stats efectivas: base del héroe + bonos del equipo equipado con durabilidad > 0
+  const bonuses = (items ?? [])
+    .filter(i => i.equipped_slot && i.current_durability > 0)
+    .reduce((acc, i) => {
+      const c = i.item_catalog
+      acc.attack       += c.attack_bonus       ?? 0
+      acc.defense      += c.defense_bonus      ?? 0
+      acc.max_hp       += c.hp_bonus           ?? 0
+      acc.strength     += c.strength_bonus     ?? 0
+      acc.agility      += c.agility_bonus      ?? 0
+      acc.intelligence += c.intelligence_bonus ?? 0
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
+
+  const effective = {
+    attack:       hero.attack       + bonuses.attack,
+    defense:      hero.defense      + bonuses.defense,
+    max_hp:       hero.max_hp       + bonuses.max_hp,
+    strength:     hero.strength     + bonuses.strength,
+    agility:      hero.agility      + bonuses.agility,
+    intelligence: hero.intelligence + bonuses.intelligence,
+  }
+
   const bag = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT
 
@@ -303,19 +329,19 @@ function Hero({ userId }) {
           </div>
 
           <XpBar level={hero.level} experience={hero.experience} />
-          <HpBar current={hero.current_hp} max={hero.max_hp} />
+          <HpBar current={hero.current_hp} max={effective.max_hp} />
 
           <div className="hero-stats-grid">
             <div className="hero-stats-group">
               <p className="stats-group-title">Atributos</p>
-              <StatRow icon={Dumbbell} label="Fuerza"       value={hero.strength}     color="#dc2626" />
-              <StatRow icon={Wind}     label="Agilidad"     value={hero.agility}      color="#0369a1" />
-              <StatRow icon={Brain}    label="Inteligencia" value={hero.intelligence} color="#7c3aed" />
+              <StatRow icon={Dumbbell} label="Fuerza"       value={effective.strength}     color="#dc2626" bonus={bonuses.strength} />
+              <StatRow icon={Wind}     label="Agilidad"     value={effective.agility}      color="#0369a1" bonus={bonuses.agility} />
+              <StatRow icon={Brain}    label="Inteligencia" value={effective.intelligence}  color="#7c3aed" bonus={bonuses.intelligence} />
             </div>
             <div className="hero-stats-group">
               <p className="stats-group-title">Combate</p>
-              <StatRow icon={Sword}  label="Ataque"  value={hero.attack}  color="#d97706" />
-              <StatRow icon={Shield} label="Defensa" value={hero.defense} color="#475569" />
+              <StatRow icon={Sword}  label="Ataque"  value={effective.attack}  color="#d97706" bonus={bonuses.attack} />
+              <StatRow icon={Shield} label="Defensa" value={effective.defense} color="#475569" bonus={bonuses.defense} />
             </div>
           </div>
         </div>

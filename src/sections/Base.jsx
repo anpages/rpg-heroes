@@ -47,13 +47,13 @@ const BUILDING_META = {
   },
   barracks: {
     name: 'Cuartel',
-    description: 'Entrena y fortalece las capacidades de tu héroe.',
+    description: 'Forja los atributos fundamentales de tu héroe, ampliando su potencial para equipar cartas de habilidad.',
     icon: Swords,
     color: '#dc2626',
     colorBg: '#fef2f2',
     colorBorder: '#fecaca',
-    effect: (level) => level === 1 ? 'Sin bonificación' : `+${(level - 1) * 2} atq · +${level - 1} def · +${(level - 1) * 5} hp`,
-    nextEffect: (level) => `+${level * 2} atq · +${level} def · +${level * 5} hp`,
+    effect: (level) => level === 1 ? 'Sin bonificación' : `+${(level - 1) * 2} fue · +${(level - 1) * 2} agi · +${(level - 1) * 2} int`,
+    nextEffect: (level) => `+${level * 2} fue · +${level * 2} agi · +${level * 2} int`,
   },
   workshop: {
     name: 'Taller',
@@ -87,7 +87,7 @@ function fmtTime(seconds) {
   return `${m}m ${s}s`
 }
 
-function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect }) {
+function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, nexusData, featured }) {
   const meta = BUILDING_META[building.type]
   const { level } = building
   const hasUpgrade = !!building.upgrade_ends_at
@@ -105,7 +105,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
 
   return (
     <div
-      className="building-card"
+      className={`building-card ${featured ? 'building-card--featured' : ''}`}
       style={{ '--accent': meta.color, '--accent-bg': meta.colorBg, '--accent-border': meta.colorBorder }}
     >
       <div className="building-card-top">
@@ -124,6 +124,27 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
           </p>
         </div>
       </div>
+
+      {nexusData && (
+        <div className="building-nexus-energy">
+          <div className="nexus-energy-row">
+            <span className="nexus-energy-num">{nexusData.produced}</span>
+            <span className="nexus-energy-lbl">prod.</span>
+            <span className="nexus-energy-div">·</span>
+            <span className="nexus-energy-num">{nexusData.consumed}</span>
+            <span className="nexus-energy-lbl">cons.</span>
+            <span className={`nexus-balance ${nexusData.deficit ? 'nexus-balance--deficit' : ''}`}>
+              {nexusData.deficit ? `déficit · ${nexusData.efficiency}% eficiencia` : `+${nexusData.balance} excedente`}
+            </span>
+          </div>
+          <div className="nexus-bar-track">
+            <div
+              className={`nexus-bar-fill ${nexusData.deficit ? 'nexus-bar-fill--deficit' : ''}`}
+              style={{ width: `${nexusData.barPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {hasUpgrade && (
         <div className="building-upgrade-progress">
@@ -153,15 +174,22 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
 
       {!hasUpgrade && (
         <div className="building-card-bottom">
+          <div className="building-costs">
+            <span className={`cost-badge ${resources?.gold >= cost.gold ? 'cost-badge--ok' : 'cost-badge--short'}`}>
+              <Coins size={11} strokeWidth={2} />
+              {fmt(cost.gold)}
+            </span>
+            <span className={`cost-badge ${resources?.wood >= cost.wood ? 'cost-badge--ok' : 'cost-badge--short'}`}>
+              <Axe size={11} strokeWidth={2} />
+              {fmt(cost.wood)}
+            </span>
+          </div>
           <button
-            className={`building-upgrade-btn ${!canAfford ? 'building-upgrade-btn--cant-afford' : ''}`}
+            className="building-upgrade-btn"
             onClick={() => startUpgrade(building.id, setLoading, setError, onUpgradeStart)}
             disabled={loading || !canAfford}
           >
-            {loading
-              ? 'Iniciando...'
-              : <><Coins size={12} strokeWidth={2} />{fmt(cost.gold)}<Axe size={12} strokeWidth={2} />{fmt(cost.wood)}<span className="upgrade-btn-label">Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>
-            }
+            {loading ? 'Iniciando...' : <><span>Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>}
           </button>
         </div>
       )}
@@ -237,116 +265,15 @@ async function startUpgrade(buildingId, setLoading, setError, onUpgradeStart) {
     body: JSON.stringify({ buildingId }),
   })
   const data = await res.json()
-  if (res.ok) onUpgradeStart()
-  else {
+  if (res.ok) {
+    await onUpgradeStart()
+    setLoading(false)
+  } else {
     setError(data.error ?? 'Error al iniciar mejora')
     setLoading(false)
   }
 }
 
-function NexoCard({ building, buildings, resources, onUpgradeStart, onUpgradeCollect }) {
-  const { level } = building
-  const hasUpgrade = !!building.upgrade_ends_at
-  const { secondsLeft, loading, error, setLoading, setError, mountedRef } = useUpgradeTimer(building, onUpgradeCollect)
-
-  const energyProduced = level * 30
-  const energyConsumed = buildings
-    .filter(b => PRODUCTION_TYPES.includes(b.type))
-    .reduce((sum, b) => sum + b.level * 10, 0)
-  const balance = energyProduced - energyConsumed
-  const deficit = balance < 0
-  const efficiency = energyConsumed > 0 ? Math.min(100, Math.round((energyProduced / energyConsumed) * 100)) : 100
-  const barPct = energyConsumed > 0 ? Math.min(100, Math.round((energyProduced / energyConsumed) * 100)) : 100
-
-  const cost = upgradeCost(level)
-  const canAfford = resources && resources.gold >= cost.gold && resources.wood >= cost.wood
-
-  const totalSeconds = level * 2 * 60
-  const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
-  const upgradePct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
-
-  return (
-    <div className={`nexo-card ${deficit ? 'nexo-card--deficit' : ''}`}>
-      <div className="nexo-top">
-        <div className="nexo-identity">
-          <div className="nexo-icon-wrap">
-            <Zap size={28} strokeWidth={1.8} />
-          </div>
-          <div className="nexo-info">
-            <div className="nexo-name-row">
-              <h3 className="nexo-name">Nexo Arcano</h3>
-              <span className="nexo-level">Nv. {level}</span>
-            </div>
-            <p className="nexo-desc">Fuente de energía de la base. Sin ella, la producción se detiene.</p>
-          </div>
-        </div>
-
-        <div className="nexo-energy">
-          <div className="nexo-energy-stats">
-            <div className="nexo-energy-stat">
-              <span className="nexo-energy-value">{energyProduced}</span>
-              <span className="nexo-energy-label">producida</span>
-            </div>
-            <div className="nexo-energy-sep">/</div>
-            <div className="nexo-energy-stat">
-              <span className="nexo-energy-value">{energyConsumed}</span>
-              <span className="nexo-energy-label">consumida</span>
-            </div>
-          </div>
-          <div className="nexo-energy-track">
-            <div
-              className={`nexo-energy-fill ${deficit ? 'nexo-energy-fill--deficit' : ''}`}
-              style={{ width: `${barPct}%` }}
-            />
-          </div>
-          <p className={`nexo-energy-status ${deficit ? 'nexo-energy-status--deficit' : 'nexo-energy-status--ok'}`}>
-            {deficit ? `Déficit — producción al ${efficiency}%` : `+${balance} excedente`}
-          </p>
-        </div>
-      </div>
-
-      {hasUpgrade && (
-        <div className="building-upgrade-progress">
-          <div className="building-upgrade-bar-wrap">
-            <div className="building-upgrade-track">
-              <div
-                className="building-upgrade-fill"
-                style={{ width: `${upgradePct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
-              />
-            </div>
-            <span className="building-upgrade-pct">{upgradePct}%</span>
-          </div>
-          <div className="building-upgrade-meta">
-            <span className="building-upgrade-label">
-              Mejorando a Nv. {level + 1} · {(level + 1) * 30} energía
-            </span>
-            <span className="building-upgrade-timer">
-              <Clock size={12} strokeWidth={2} />
-              {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {!hasUpgrade && (
-        <div className="nexo-bottom">
-          <button
-            className={`building-upgrade-btn ${!canAfford ? 'building-upgrade-btn--cant-afford' : ''}`}
-            onClick={() => startUpgrade(building.id, setLoading, setError, onUpgradeStart)}
-            disabled={loading || !canAfford}
-          >
-            {loading
-              ? 'Iniciando...'
-              : <><Coins size={12} strokeWidth={2} />{fmt(cost.gold)}<Axe size={12} strokeWidth={2} />{fmt(cost.wood)}<span className="upgrade-btn-label">Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>
-            }
-          </button>
-        </div>
-      )}
-
-      {error && <p className="building-error">{error}</p>}
-    </div>
-  )
-}
 
 function Base({ userId, resources }) {
   const { buildings, loading, refetch } = useBuildings(userId)
@@ -358,7 +285,16 @@ function Base({ userId, resources }) {
 
   const sorted = ORDER.map(type => buildings?.find(b => b.type === type)).filter(Boolean)
   const nexus = sorted.find(b => b.type === 'energy_nexus')
-  const rest = sorted.filter(b => b.type !== 'energy_nexus')
+
+  const nexusData = nexus ? (() => {
+    const produced = nexus.level * 30
+    const consumed = sorted.filter(b => PRODUCTION_TYPES.includes(b.type)).reduce((s, b) => s + b.level * 10, 0)
+    const balance = produced - consumed
+    const deficit = balance < 0
+    const barPct = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
+    const efficiency = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
+    return { produced, consumed, balance, deficit, barPct, efficiency }
+  })() : null
 
   return (
     <div className="base-section">
@@ -366,21 +302,14 @@ function Base({ userId, resources }) {
         <h2 className="section-title">Base</h2>
         <p className="section-subtitle">Mejora tus edificios para aumentar la producción de recursos y las capacidades de tu héroe.</p>
       </div>
-      {nexus && (
-        <NexoCard
-          building={nexus}
-          buildings={sorted}
-          resources={resources}
-          onUpgradeStart={handleUpgradeStart}
-          onUpgradeCollect={handleUpgradeCollect}
-        />
-      )}
       <div className="buildings-grid">
-        {rest.map(b => (
+        {sorted.map(b => (
           <BuildingCard
             key={b.id}
             building={b}
             resources={resources}
+            featured={b.type === 'energy_nexus'}
+            nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
             onUpgradeStart={handleUpgradeStart}
             onUpgradeCollect={handleUpgradeCollect}
           />
