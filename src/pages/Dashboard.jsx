@@ -5,12 +5,12 @@ import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Ranking from '../sections/Ranking'
-import { Home, Sword, Skull, Trophy, Coins, Axe, Sparkles } from 'lucide-react'
+import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles } from 'lucide-react'
 import './Dashboard.css'
 
 const NAV_ITEMS = [
   { id: 'heroe',         label: 'Héroe',         icon: Sword },
-  { id: 'base',          label: 'Base',          icon: Home },
+  { id: 'base',          label: 'Base',          icon: Castle },
   { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
   { id: 'clasificacion', label: 'Clasificación', icon: Trophy },
 ]
