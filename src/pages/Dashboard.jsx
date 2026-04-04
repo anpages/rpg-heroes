@@ -7,6 +7,8 @@ import Dungeons from '../sections/Dungeons'
 import Torre from '../sections/Torre'
 import Misiones from '../sections/Misiones'
 import Ranking from '../sections/Ranking'
+import ThemeToggle from '../components/ThemeToggle'
+import { useTheme } from '../hooks/useTheme'
 import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList } from 'lucide-react'
 import './Dashboard.css'
 
@@ -129,6 +131,7 @@ function SectionPlaceholder({ title }) {
 function Dashboard({ session }) {
   const [activeSection, setActiveSection] = useState('heroe')
   const { resources } = useResources(session.user.id)
+  const { theme, setTheme } = useTheme()
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -148,6 +151,7 @@ function Dashboard({ session }) {
         </div>
 
         <div className="dash-user">
+          <ThemeToggle theme={theme} setTheme={setTheme} />
           <span className="dash-email">{session.user.email}</span>
           <button className="dash-logout" onClick={handleLogout}>Salir</button>
         </div>

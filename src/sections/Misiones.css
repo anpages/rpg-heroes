@@ -35,11 +35,11 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.9rem 1rem;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   border-radius: 10px;
   font-size: 0.85rem;
-  color: #15803d;
+  color: var(--success-text);
   font-weight: 500;
 }
 
@@ -63,8 +63,8 @@
 }
 
 .mission-card--completed {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--info-border);
+  background: var(--info-bg);
 }
 
 .mission-card--claimed {

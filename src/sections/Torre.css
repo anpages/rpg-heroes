@@ -102,8 +102,8 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.tower-result--win  { background: #f0fdf4; border-color: #bbf7d0; }
-.tower-result--lose { background: #fef2f2; border-color: #fecaca; }
+.tower-result--win  { background: var(--success-bg); border-color: var(--success-border); }
+.tower-result--lose { background: var(--error-bg); border-color: var(--error-border); }
 
 .tower-result-header {
   display: flex;
@@ -216,9 +216,9 @@
 }
 
 .tower-reward-chip--levelup {
-  background: #fef3c7;
+  background: var(--warning-bg);
   border-color: #fde68a;
-  color: #92400e;
+  color: var(--warning-text);
 }
 
 /* Attempt card */
@@ -254,9 +254,9 @@
   gap: 0.25rem;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #92400e;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
   padding: 2px 8px;
   border-radius: 20px;
 }

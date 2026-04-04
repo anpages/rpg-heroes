@@ -305,14 +305,14 @@
 
 .cost-badge--ok {
   color: #16a34a;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  background: var(--success-bg);
+  border-color: var(--success-border);
 }
 
 .cost-badge--short {
   color: #dc2626;
-  background: #fef2f2;
-  border-color: #fecaca;
+  background: var(--error-bg);
+  border-color: var(--error-border);
 }
 
 /* Upgrade button */

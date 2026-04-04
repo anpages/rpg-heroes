@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 50%, #e0f2fe 100%);
+  background: var(--bg);
   padding: 24px;
 }
 
@@ -171,7 +171,7 @@
 .google-btn-glyph {
   display: flex;
   align-items: center;
-  background: white;
+  background: var(--surface);
   border-radius: 4px;
   padding: 2px;
   flex-shrink: 0;

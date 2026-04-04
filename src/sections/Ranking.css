@@ -114,9 +114,9 @@
 }
 
 .position-badge--silver {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: var(--bg);
+  color: var(--text-2);
+  border: 1px solid var(--border-2);
 }
 
 .position-badge--bronze {
