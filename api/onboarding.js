@@ -96,5 +96,24 @@ export default async function handler(req, res) {
     type: classData.starting_ability,
   })
 
+  // Equip starter gear (common tier 1: helmet, chest, legs)
+  const { data: starterCatalog } = await supabase
+    .from('item_catalog')
+    .select('id, slot, max_durability')
+    .in('slot', ['helmet', 'chest', 'legs'])
+    .eq('tier', 1)
+    .eq('rarity', 'common')
+
+  if (starterCatalog?.length) {
+    await supabase.from('inventory_items').insert(
+      starterCatalog.map(item => ({
+        hero_id: hero.id,
+        catalog_id: item.id,
+        current_durability: item.max_durability,
+        equipped_slot: item.slot,
+      }))
+    )
+  }
+
   return res.status(200).json({ ok: true })
 }
