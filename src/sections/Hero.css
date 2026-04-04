@@ -730,6 +730,363 @@
   cursor: not-allowed;
 }
 
+/* ─── Cards section ──────────────────────────────────────────────────────────── */
+
+.hero-cards-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-cards-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-cards-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.hero-cards-empty {
+  font-size: 13px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ─── Budget bars ────────────────────────────────────────────────────────────── */
+
+.card-budgets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.card-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-budget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.card-budget-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.card-budget-nums {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.card-budget-nums--over {
+  color: #dc2626;
+}
+
+.card-budget-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.card-budget-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+/* ─── Equipped card chips ────────────────────────────────────────────────────── */
+
+.equipped-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.card-chip {
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--card-color) 25%, var(--border));
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.card-chip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.card-chip-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  flex: 1;
+}
+
+.card-chip-rank {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--card-color);
+  background: color-mix(in srgb, var(--card-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-color) 25%, transparent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.card-chip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.card-chip-category {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.card-chip-cost {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.card-chip-unequip {
+  margin-top: 2px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-3);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.card-chip-unequip:hover:not(:disabled) {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.card-chip-unequip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Card collection modal items ────────────────────────────────────────────── */
+
+.card-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+
+.card-item--equipped {
+  border-color: color-mix(in srgb, var(--card-color) 40%, var(--border));
+  background: color-mix(in srgb, var(--card-color) 3%, var(--surface));
+}
+
+.card-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  line-height: 1.3;
+}
+
+.card-item-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.card-item-rank {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--card-color);
+  background: color-mix(in srgb, var(--card-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-color) 25%, transparent);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.card-item-fuseable {
+  display: flex;
+  align-items: center;
+  color: #d97706;
+}
+
+.card-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card-item-category {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card-item-cost {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.card-item-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.card-item-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.card-item-effect {
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.card-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.card-fuse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  color: #b45309;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.card-fuse-btn:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.card-fuse-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-equip-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  background: var(--blue-600);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.card-equip-btn:hover:not(:disabled) {
+  background: var(--blue-700);
+}
+
+.card-equip-btn:disabled {
+  background: var(--border);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.card-unequip-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  background: transparent;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.card-unequip-btn:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.card-unequip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 
 

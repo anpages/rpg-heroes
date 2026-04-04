@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
+import { useHeroCards } from '../hooks/useHeroCards'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
+  BookOpen, Zap, FlameKindling,
 } from 'lucide-react'
 import './Hero.css'
 
@@ -243,16 +245,183 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
   )
 }
 
+/* ─── Card constants ──────────────────────────────────────────────────────────── */
+
+const CATEGORY_META = {
+  strength:     { label: 'Fuerza',        color: '#dc2626', icon: Dumbbell },
+  agility:      { label: 'Agilidad',      color: '#0369a1', icon: Wind     },
+  intelligence: { label: 'Inteligencia',  color: '#7c3aed', icon: Brain    },
+}
+
+/* ─── Card budget bar ─────────────────────────────────────────────────────────── */
+
+function CardBudgetBar({ category, used, total }) {
+  const meta = CATEGORY_META[category]
+  const Icon = meta.icon
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  const over = used > total
+  return (
+    <div className="card-budget">
+      <div className="card-budget-header">
+        <span className="card-budget-label" style={{ color: meta.color }}>
+          <Icon size={11} strokeWidth={2} /> {meta.label}
+        </span>
+        <span className={`card-budget-nums ${over ? 'card-budget-nums--over' : ''}`}>{used}/{total}</span>
+      </div>
+      <div className="card-budget-track">
+        <div className="card-budget-fill" style={{ width: `${pct}%`, background: over ? '#dc2626' : meta.color }} />
+      </div>
+    </div>
+  )
+}
+
+/* ─── Equipped card chip ──────────────────────────────────────────────────────── */
+
+function CardChip({ card, onUnequip, loading }) {
+  const sc = card.skill_cards
+  const meta = CATEGORY_META[sc.category]
+  return (
+    <div className="card-chip" style={{ '--card-color': meta.color }}>
+      <div className="card-chip-top">
+        <span className="card-chip-name">{sc.name}</span>
+        <span className="card-chip-rank">R{card.rank}</span>
+      </div>
+      <div className="card-chip-meta">
+        <span className="card-chip-category" style={{ color: meta.color }}>{meta.label}</span>
+        <span className="card-chip-cost">{sc.base_cost * card.rank} pts</span>
+      </div>
+      <button className="card-chip-unequip" onClick={() => onUnequip(card.id)} disabled={loading}>
+        Desequipar
+      </button>
+    </div>
+  )
+}
+
+/* ─── Card collection modal ───────────────────────────────────────────────────── */
+
+function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading }) {
+  const sc = card.skill_cards
+  const meta = CATEGORY_META[sc.category]
+  const Icon = meta.icon
+  const effects = [
+    sc.attack_bonus       > 0 && `+${sc.attack_bonus * card.rank} Atq`,
+    sc.defense_bonus      > 0 && `+${sc.defense_bonus * card.rank} Def`,
+    sc.hp_bonus           > 0 && `+${sc.hp_bonus * card.rank} HP`,
+    sc.strength_bonus     > 0 && `+${sc.strength_bonus * card.rank} Fue`,
+    sc.agility_bonus      > 0 && `+${sc.agility_bonus * card.rank} Agi`,
+    sc.intelligence_bonus > 0 && `+${sc.intelligence_bonus * card.rank} Int`,
+  ].filter(Boolean)
+
+  return (
+    <div className={`card-item ${card.equipped ? 'card-item--equipped' : ''}`} style={{ '--card-color': meta.color }}>
+      <div className="card-item-header">
+        <span className="card-item-name">{sc.name}</span>
+        <div className="card-item-badges">
+          <span className="card-item-rank">R{card.rank}</span>
+          {canFuseWith && <span className="card-item-fuseable"><FlameKindling size={10} strokeWidth={2} /></span>}
+        </div>
+      </div>
+      <div className="card-item-meta">
+        <span className="card-item-category" style={{ color: meta.color }}>
+          <Icon size={10} strokeWidth={2} /> {meta.label}
+        </span>
+        <span className="card-item-cost">{sc.base_cost * card.rank} pts · {sc.rarity}</span>
+      </div>
+      {sc.description && <p className="card-item-desc">{sc.description}</p>}
+      <div className="card-item-effects">
+        {effects.map(e => <span key={e} className="card-item-effect">{e}</span>)}
+      </div>
+      <div className="card-item-actions">
+        {canFuseWith && !card.equipped && (
+          <button className="card-fuse-btn" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading}>
+            <FlameKindling size={12} strokeWidth={2} /> Fusionar · {sc.base_mana_fuse * Math.pow(2, card.rank - 1)} maná
+          </button>
+        )}
+        {card.equipped ? (
+          <button className="card-unequip-btn" onClick={() => onUnequip(card.id)} disabled={loading}>Desequipar</button>
+        ) : (
+          <button className="card-equip-btn" onClick={() => onEquip(card.id)} disabled={loading || !canEquip}>
+            Equipar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose }) {
+  const equippedCount = cards.filter(c => c.equipped).length
+
+  // Detectar cartas fusionables: misma card_id y mismo rango, sin equipar
+  const fuseMap = {}
+  cards.filter(c => !c.equipped).forEach(c => {
+    const key = `${c.card_id}-${c.rank}`
+    if (!fuseMap[key]) fuseMap[key] = []
+    fuseMap[key].push(c)
+  })
+
+  // Presupuesto usado por categoría (para saber si puede equipar)
+  const budgetUsed = { strength: 0, agility: 0, intelligence: 0 }
+  cards.filter(c => c.equipped).forEach(c => {
+    budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
+  })
+
+  return (
+    <div className="bag-modal-overlay" onClick={onClose}>
+      <div className="bag-modal-panel" onClick={e => e.stopPropagation()}>
+        <div className="bag-modal-header">
+          <div className="bag-modal-title-wrap">
+            <BookOpen size={18} strokeWidth={1.8} />
+            <span className="bag-modal-title">Colección de Cartas</span>
+            <span className="bag-modal-count">{cards.length} cartas · {equippedCount}/{cardSlots} equipadas</span>
+          </div>
+          <button className="bag-modal-close" onClick={onClose}><X size={18} strokeWidth={2} /></button>
+        </div>
+
+        {error && <p className="inv-error">{error}</p>}
+
+        {cards.length === 0 ? (
+          <p className="inv-bag-empty">Sin cartas. Explora mazmorras mágicas o antiguas para conseguirlas.</p>
+        ) : (
+          <div className="bag-grid">
+            {cards.map(card => {
+              const key = `${card.card_id}-${card.rank}`
+              const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
+              const cat = card.skill_cards.category
+              const cost = card.skill_cards.base_cost * card.rank
+              const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
+              return (
+                <CardItem
+                  key={card.id}
+                  card={card}
+                  canEquip={wouldFit}
+                  canFuseWith={!card.equipped ? fusePair : null}
+                  onEquip={onEquip}
+                  onUnequip={onUnequip}
+                  onFuse={onFuse}
+                  loading={loading}
+                />
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
 function Hero({ userId }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(userId)
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
+  const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
+  const [cardModalOpen, setCardModalOpen] = useState(false)
 
-  if (heroLoading || invLoading) return <div className="hero-loading">Cargando héroe...</div>
+  if (heroLoading || invLoading || cardsLoading) return <div className="hero-loading">Cargando héroe...</div>
   if (!hero) return <div className="hero-loading">No se encontró el héroe.</div>
 
   const cls = hero.classes
@@ -263,8 +432,8 @@ function Hero({ userId }) {
     return acc
   }, {})
 
-  // Stats efectivas: base del héroe + bonos del equipo equipado con durabilidad > 0
-  const bonuses = (items ?? [])
+  // Bonos del equipo equipado (durabilidad > 0)
+  const equipBonuses = (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
     .reduce((acc, i) => {
       const c = i.item_catalog
@@ -277,6 +446,30 @@ function Hero({ userId }) {
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
+  // Bonos de cartas equipadas (efectos × rango)
+  const cardBonuses = (cards ?? [])
+    .filter(c => c.equipped)
+    .reduce((acc, c) => {
+      const sc = c.skill_cards
+      const r  = c.rank
+      acc.attack       += (sc.attack_bonus       ?? 0) * r
+      acc.defense      += (sc.defense_bonus      ?? 0) * r
+      acc.max_hp       += (sc.hp_bonus           ?? 0) * r
+      acc.strength     += (sc.strength_bonus     ?? 0) * r
+      acc.agility      += (sc.agility_bonus      ?? 0) * r
+      acc.intelligence += (sc.intelligence_bonus ?? 0) * r
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
+
+  const bonuses = {
+    attack:       equipBonuses.attack       + cardBonuses.attack,
+    defense:      equipBonuses.defense      + cardBonuses.defense,
+    max_hp:       equipBonuses.max_hp       + cardBonuses.max_hp,
+    strength:     equipBonuses.strength     + cardBonuses.strength,
+    agility:      equipBonuses.agility      + cardBonuses.agility,
+    intelligence: equipBonuses.intelligence + cardBonuses.intelligence,
+  }
+
   const effective = {
     attack:       hero.attack       + bonuses.attack,
     defense:      hero.defense      + bonuses.defense,
@@ -285,6 +478,13 @@ function Hero({ userId }) {
     agility:      hero.agility      + bonuses.agility,
     intelligence: hero.intelligence + bonuses.intelligence,
   }
+
+  // Presupuesto de cartas por categoría (usa stats BASE del héroe, no efectivas)
+  const cardBudgetUsed = { strength: 0, agility: 0, intelligence: 0 }
+  ;(cards ?? []).filter(c => c.equipped).forEach(c => {
+    cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
+  })
+  const cardSlotCount = 3 // se sobreescribe en el modal con el nivel real de la biblioteca
 
   const bag = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT
@@ -305,13 +505,33 @@ function Hero({ userId }) {
     else refetchInv()
   }
 
-  function handleEquip(itemId)   { callApi('/api/item-equip',   { itemId, equip: true  }) }
-  function handleUnequip(itemId) { callApi('/api/item-equip',   { itemId, equip: false }) }
-  function handleRepair(itemId)  { callApi('/api/item-repair',  { itemId }) }
+  function handleEquip(itemId)      { callApi('/api/item-equip',  { itemId, equip: true  }) }
+  function handleUnequip(itemId)    { callApi('/api/item-equip',  { itemId, equip: false }) }
+  function handleRepair(itemId)     { callApi('/api/item-repair', { itemId }) }
   function handleDiscard(itemId) {
     if (!confirm('¿Descartar este item? Esta acción no se puede deshacer.')) return
     callApi('/api/item-discard', { itemId })
   }
+
+  async function callCardApi(endpoint, body) {
+    setActionLoading(true)
+    setError(null)
+    await supabase.auth.refreshSession()
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    setActionLoading(false)
+    if (!res.ok) setError(data.error ?? 'Error')
+    else refetchCards()
+  }
+
+  function handleCardEquip(cardId)   { callCardApi('/api/card-equip', { cardId, equip: true  }) }
+  function handleCardUnequip(cardId) { callCardApi('/api/card-equip', { cardId, equip: false }) }
+  function handleCardFuse(id1, id2)  { callCardApi('/api/card-fuse',  { cardId1: id1, cardId2: id2 }) }
 
   return (
     <div className="hero-section">
@@ -414,6 +634,41 @@ function Hero({ userId }) {
 
       </div>
 
+      {/* Panel de cartas */}
+      <div className="hero-cards-section">
+        <div className="hero-cards-header">
+          <p className="hero-cards-title">
+            <BookOpen size={14} strokeWidth={2} />
+            Cartas de Habilidad
+          </p>
+          <button className="hero-bag-btn" onClick={() => setCardModalOpen(true)}>
+            <Zap size={13} strokeWidth={2} />
+            Colección {(cards ?? []).length}
+          </button>
+        </div>
+
+        <div className="card-budgets">
+          {['strength', 'agility', 'intelligence'].map(cat => (
+            <CardBudgetBar
+              key={cat}
+              category={cat}
+              used={cardBudgetUsed[cat]}
+              total={hero[cat]}
+            />
+          ))}
+        </div>
+
+        {(cards ?? []).filter(c => c.equipped).length === 0 ? (
+          <p className="hero-cards-empty">Sin cartas equipadas. Abre la colección para equipar.</p>
+        ) : (
+          <div className="equipped-cards-grid">
+            {(cards ?? []).filter(c => c.equipped).map(card => (
+              <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {bagOpen && (
         <BagModal
           bag={bag}
@@ -423,6 +678,20 @@ function Hero({ userId }) {
           loading={actionLoading}
           error={error}
           onClose={() => setBagOpen(false)}
+        />
+      )}
+
+      {cardModalOpen && (
+        <CardModal
+          cards={cards ?? []}
+          hero={hero}
+          cardSlots={cardSlotCount}
+          onEquip={handleCardEquip}
+          onUnequip={handleCardUnequip}
+          onFuse={handleCardFuse}
+          loading={actionLoading}
+          error={error}
+          onClose={() => { setCardModalOpen(false); setError(null) }}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer } from 'lucide-react'
+import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen } from 'lucide-react'
 import './Base.css'
 
 const BUILDING_META = {
@@ -74,6 +74,16 @@ const BUILDING_META = {
     colorBorder: '#fde68a',
     effect: (level) => level === 1 ? 'Sin descuento' : `-${(level - 1) * 5}% coste de reparación`,
     nextEffect: (level) => `-${level * 5}% coste de reparación`,
+  },
+  library: {
+    name: 'Biblioteca',
+    description: 'Custodia las cartas de habilidad. Cada nivel amplía el mazo que puedes equipar.',
+    icon: BookOpen,
+    color: '#0f766e',
+    colorBg: '#f0fdfa',
+    colorBorder: '#99f6e4',
+    effect: (level) => `${1 + level * 2} cartas equipables`,
+    nextEffect: (level) => `${1 + (level + 1) * 2} cartas equipables`,
   },
 }
 
@@ -210,7 +220,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
 }
 
 
-const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge']
+const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge', 'library']
 const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
 
 function useUpgradeTimer(building, onUpgradeCollect) {

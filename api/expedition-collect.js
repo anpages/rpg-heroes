@@ -41,6 +41,36 @@ function pickSlot(dungeonType) {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+// Drops de cartas para mazmorras magic y ancient
+const CARD_DROP = {
+  magic:   { chance: 0.35, categoryPool: ['intelligence','intelligence','intelligence','strength','agility'],   weights: [50,30,15,4,1] },
+  ancient: { chance: 0.25, categoryPool: ['intelligence','strength','agility'],                                weights: [40,30,20,8,2] },
+}
+
+async function rollCardDrop(supabase, heroId, dungeon) {
+  const cfg = CARD_DROP[dungeon.type]
+  if (!cfg || Math.random() > cfg.chance) return null
+
+  const category = cfg.categoryPool[Math.floor(Math.random() * cfg.categoryPool.length)]
+  const total = cfg.weights.reduce((a, b) => a + b, 0)
+  let roll = Math.random() * total
+  let rarity = RARITIES[0]
+  for (let i = 0; i < RARITIES.length; i++) { roll -= cfg.weights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
+
+  const { data: candidates } = await supabase
+    .from('skill_cards').select('id').eq('category', category).eq('rarity', rarity)
+  if (!candidates?.length) return null
+
+  const picked = candidates[Math.floor(Math.random() * candidates.length)]
+  const { data: newCard } = await supabase
+    .from('hero_cards')
+    .insert({ hero_id: heroId, card_id: picked.id, rank: 1, equipped: false })
+    .select('*, skill_cards(name, category, rarity)')
+    .single()
+
+  return newCard
+}
+
 async function rollItemDrop(supabase, heroId, playerId, dungeon) {
   const { chance, tiers, weights } = getDropConfig(dungeon.difficulty)
   if (Math.random() > chance) return null
@@ -166,7 +196,8 @@ export default async function handler(req, res) {
   const { data: dungeon } = await supabase
     .from('dungeons').select('difficulty, type').eq('id', expedition.dungeon_id).single()
 
-  const drop = dungeon ? await rollItemDrop(supabase, hero.id, user.id, dungeon) : null
+  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, dungeon) : null
+  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon)          : null
 
   return res.status(200).json({
     ok: true,
@@ -177,6 +208,7 @@ export default async function handler(req, res) {
       experience: expedition.experience_earned,
     },
     levelUp,
-    drop: drop ?? null,
+    drop:     drop     ?? null,
+    cardDrop: cardDrop ?? null,
   })
 }
