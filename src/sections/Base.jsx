@@ -126,7 +126,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
   return (
     <div
       className={`building-card ${featured ? 'building-card--featured' : ''}`}
-      style={{ '--accent': meta.color, '--accent-bg': meta.colorBg, '--accent-border': meta.colorBorder }}
+      style={{ '--accent': meta.color }}
     >
       <div className="building-card-top">
         <div className="building-icon-wrap">
@@ -295,11 +295,11 @@ async function startUpgrade(buildingId, setLoading, setError, onUpgradeStart) {
 }
 
 
-function Base({ userId, resources }) {
+function Base({ userId, resources, onResourceChange }) {
   const { buildings, loading, refetch } = useBuildings(userId)
 
-  function handleUpgradeStart() { refetch() }
-  function handleUpgradeCollect() { refetch() }
+  function handleUpgradeStart() { refetch(); onResourceChange?.() }
+  function handleUpgradeCollect() { refetch(); onResourceChange?.() }
 
   if (loading) return <div className="base-loading">Cargando base...</div>
 

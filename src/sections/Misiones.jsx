@@ -119,7 +119,7 @@ function ResetTimer({ seconds }) {
   )
 }
 
-export default function Misiones() {
+export default function Misiones({ onResourceChange }) {
   const { missions, secondsToReset, loading, refetch } = useMissions()
 
   if (loading) return <div className="missions-loading">Cargando misiones...</div>
@@ -147,7 +147,7 @@ export default function Misiones() {
 
       <div className="missions-list">
         {missions?.map(m => (
-          <MissionCard key={m.id} mission={m} onClaim={refetch} />
+          <MissionCard key={m.id} mission={m} onClaim={() => { refetch(); onResourceChange?.() }} />
         ))}
       </div>
     </div>

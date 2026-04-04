@@ -61,5 +61,18 @@ export function useResources(userId) {
     return () => clearInterval(interval)
   }, [])
 
-  return { resources, loading }
+  async function refetch() {
+    if (!userId) return
+    const { data } = await supabase
+      .from('resources')
+      .select('*')
+      .eq('player_id', userId)
+      .single()
+    if (data) {
+      baseRef.current = data
+      setResources(interpolate(data))
+    }
+  }
+
+  return { resources, loading, refetch }
 }

@@ -112,7 +112,7 @@ function ResultBanner({ result, onClose }) {
   )
 }
 
-export default function Torre({ userId, heroId }) {
+export default function Torre({ userId, heroId, onResourceChange }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { maxFloor, loading: towerLoading, refetch: refetchTower } = useTowerProgress(hero?.id)
   const [loading, setLoading] = useState(false)
@@ -142,7 +142,7 @@ export default function Torre({ userId, heroId }) {
     if (res.ok) {
       setResult(data)
       await refetchTower()
-      if (data.won) refetchHero()
+      if (data.won) { refetchHero(); onResourceChange?.() }
     } else {
       setError(data.error ?? 'Error al intentar el piso')
     }

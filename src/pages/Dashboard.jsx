@@ -132,7 +132,7 @@ function SectionPlaceholder({ title }) {
 
 function Dashboard({ session }) {
   const [activeSection, setActiveSection] = useState('heroe')
-  const { resources } = useResources(session.user.id)
+  const { resources, refetch: refetchResources } = useResources(session.user.id)
   const { theme, setTheme } = useTheme()
   const { heroes, refetch: refetchHeroes } = useHeroes(session.user.id)
   const [selectedHeroId, setSelectedHeroId] = useState(null)
@@ -210,10 +210,10 @@ function Dashboard({ session }) {
             />
           )}
           {activeSection === 'heroe'         && <Hero userId={session.user.id} heroId={heroId} />}
-          {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} />}
-          {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} />}
-          {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} />}
-          {activeSection === 'misiones'      && <Misiones />}
+          {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} />}
+          {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+          {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+          {activeSection === 'misiones'      && <Misiones onResourceChange={refetchResources} />}
           {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
           {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}
         </main>

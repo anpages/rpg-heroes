@@ -60,17 +60,29 @@ function XpBar({ level, experience }) {
   )
 }
 
-function StatRow({ icon: Icon, label, value, color, bonus }) {
+function StatRow({ icon: Icon, label, value, color, bonus, equipBonus = 0, cardBonus = 0 }) {
+  const [open, setOpen] = useState(false)
+  const hasBonus = bonus > 0
+
   return (
-    <div className="stat-row">
-      <div className="stat-icon" style={{ color }}>
-        <Icon size={16} strokeWidth={1.8} />
+    <div className="stat-row-wrap">
+      <div
+        className={`stat-row ${hasBonus ? 'stat-row--tappable' : ''}`}
+        onClick={() => hasBonus && setOpen(o => !o)}
+      >
+        <div className="stat-icon" style={{ color }}>
+          <Icon size={16} strokeWidth={1.8} />
+        </div>
+        <span className="stat-label">{label}</span>
+        <span className="stat-value">{value}</span>
+        <span className="stat-bonus">{hasBonus ? `+${bonus}` : ''}</span>
       </div>
-      <span className="stat-label">{label}</span>
-      <span className="stat-value">
-        {value}
-        {bonus > 0 && <span className="stat-bonus">+{bonus}</span>}
-      </span>
+      {open && hasBonus && (
+        <div className="stat-breakdown">
+          {equipBonus > 0 && <span className="stat-breakdown-item">⚔ Equipo +{equipBonus}</span>}
+          {cardBonus  > 0 && <span className="stat-breakdown-item">✦ Cartas +{cardBonus}</span>}
+        </div>
+      )}
     </div>
   )
 }
@@ -542,7 +554,9 @@ function Hero({ userId, heroId }) {
 
       <div className="hero-layout">
 
-        {/* Ficha del héroe */}
+        {/* Columna izquierda: ficha + cartas */}
+        <div className="hero-left-col">
+
         <div className="hero-card">
           <div className="hero-card-header">
             <div className="hero-avatar">
@@ -568,17 +582,54 @@ function Hero({ userId, heroId }) {
           <div className="hero-stats-grid">
             <div className="hero-stats-group">
               <p className="stats-group-title">Atributos</p>
-              <StatRow icon={Dumbbell} label="Fuerza"       value={effective.strength}     color="#dc2626" bonus={bonuses.strength} />
-              <StatRow icon={Wind}     label="Agilidad"     value={effective.agility}      color="#0369a1" bonus={bonuses.agility} />
-              <StatRow icon={Brain}    label="Inteligencia" value={effective.intelligence}  color="#7c3aed" bonus={bonuses.intelligence} />
+              <StatRow icon={Dumbbell} label="Fuerza"       value={effective.strength}     color="#dc2626" bonus={bonuses.strength}     equipBonus={equipBonuses.strength}     cardBonus={cardBonuses.strength} />
+              <StatRow icon={Wind}     label="Agilidad"     value={effective.agility}      color="#0369a1" bonus={bonuses.agility}      equipBonus={equipBonuses.agility}      cardBonus={cardBonuses.agility} />
+              <StatRow icon={Brain}    label="Inteligencia" value={effective.intelligence}  color="#7c3aed" bonus={bonuses.intelligence} equipBonus={equipBonuses.intelligence} cardBonus={cardBonuses.intelligence} />
             </div>
             <div className="hero-stats-group">
               <p className="stats-group-title">Combate</p>
-              <StatRow icon={Sword}  label="Ataque"  value={effective.attack}  color="#d97706" bonus={bonuses.attack} />
-              <StatRow icon={Shield} label="Defensa" value={effective.defense} color="#475569" bonus={bonuses.defense} />
+              <StatRow icon={Sword}  label="Ataque"  value={effective.attack}  color="#d97706" bonus={bonuses.attack}  equipBonus={equipBonuses.attack}  cardBonus={cardBonuses.attack} />
+              <StatRow icon={Shield} label="Defensa" value={effective.defense} color="#475569" bonus={bonuses.defense} equipBonus={equipBonuses.defense} cardBonus={cardBonuses.defense} />
             </div>
           </div>
         </div>
+
+        {/* Panel de cartas */}
+        <div className="hero-cards-section">
+          <div className="hero-cards-header">
+            <p className="hero-cards-title">
+              <BookOpen size={14} strokeWidth={2} />
+              Cartas de Habilidad
+            </p>
+            <button className="hero-bag-btn" onClick={() => setCardModalOpen(true)}>
+              <Zap size={13} strokeWidth={2} />
+              Colección {(cards ?? []).length}
+            </button>
+          </div>
+
+          <div className="card-budgets">
+            {['strength', 'agility', 'intelligence'].map(cat => (
+              <CardBudgetBar
+                key={cat}
+                category={cat}
+                used={cardBudgetUsed[cat]}
+                total={hero[cat]}
+              />
+            ))}
+          </div>
+
+          {(cards ?? []).filter(c => c.equipped).length === 0 ? (
+            <p className="hero-cards-empty">Sin cartas equipadas. Abre la colección para equipar.</p>
+          ) : (
+            <div className="equipped-cards-grid">
+              {(cards ?? []).filter(c => c.equipped).map(card => (
+                <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        </div>{/* /hero-left-col */}
 
         {/* Panel de equipo */}
         <div className="hero-equipment-panel">
@@ -632,41 +683,6 @@ function Hero({ userId, heroId }) {
           </div>
         </div>
 
-      </div>
-
-      {/* Panel de cartas */}
-      <div className="hero-cards-section">
-        <div className="hero-cards-header">
-          <p className="hero-cards-title">
-            <BookOpen size={14} strokeWidth={2} />
-            Cartas de Habilidad
-          </p>
-          <button className="hero-bag-btn" onClick={() => setCardModalOpen(true)}>
-            <Zap size={13} strokeWidth={2} />
-            Colección {(cards ?? []).length}
-          </button>
-        </div>
-
-        <div className="card-budgets">
-          {['strength', 'agility', 'intelligence'].map(cat => (
-            <CardBudgetBar
-              key={cat}
-              category={cat}
-              used={cardBudgetUsed[cat]}
-              total={hero[cat]}
-            />
-          ))}
-        </div>
-
-        {(cards ?? []).filter(c => c.equipped).length === 0 ? (
-          <p className="hero-cards-empty">Sin cartas equipadas. Abre la colección para equipar.</p>
-        ) : (
-          <div className="equipped-cards-grid">
-            {(cards ?? []).filter(c => c.equipped).map(card => (
-              <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} />
-            ))}
-          </div>
-        )}
       </div>
 
       {bagOpen && (

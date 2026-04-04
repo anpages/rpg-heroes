@@ -186,7 +186,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, heroId, onStart }) {
   )
 }
 
-function Dungeons({ userId, heroId }) {
+function Dungeons({ userId, heroId, onResourceChange }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
@@ -204,6 +204,7 @@ function Dungeons({ userId, heroId }) {
     setReward(data.rewards)
     setExpedition(null)
     refetchHero()
+    onResourceChange?.()
   }
 
   if (heroLoading || dungeonsLoading || expLoading) {

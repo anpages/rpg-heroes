@@ -18,6 +18,14 @@
   align-items: start;
 }
 
+/* ─── Left column ────────────────────────────────────────────────────────────── */
+
+.hero-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* ─── Hero card ──────────────────────────────────────────────────────────────── */
 
 .hero-card {
@@ -185,10 +193,43 @@
   margin-bottom: 2px;
 }
 
+.stat-row-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
 .stat-row {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.stat-row--tappable {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+.stat-row--tappable:active {
+  background: var(--surface-2);
+}
+
+.stat-breakdown {
+  display: flex;
+  gap: 10px;
+  padding: 3px 4px 3px 38px;
+  animation: breakdown-in 0.15s ease;
+}
+
+@keyframes breakdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stat-breakdown-item {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success-text);
 }
 
 .stat-icon {
@@ -213,22 +254,18 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  min-width: 28px;
+  width: 30px;
   text-align: right;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .stat-bonus {
   font-size: 11px;
   font-weight: 700;
-  color: #16a34a;
-  background: var(--success-bg);
-  border: 1px solid var(--success-border);
-  border-radius: 4px;
-  padding: 1px 5px;
+  color: var(--success-text);
+  width: 26px;
+  flex-shrink: 0;
+  text-align: left;
 }
 
 /* ─── Equipment panel ────────────────────────────────────────────────────────── */
@@ -771,7 +808,7 @@
 .card-budgets {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 12px;
 }
 
 .card-budget {
@@ -825,7 +862,7 @@
 .equipped-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 6px;
+  gap: 10px;
 }
 
 .card-chip {
