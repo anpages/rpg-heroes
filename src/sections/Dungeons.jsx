@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
+import { useWakeLock } from '../hooks/useWakeLock'
 import { Coins, Axe, Sparkles, Star, Clock, Swords, ChevronRight, PackageOpen } from 'lucide-react'
 import './Dungeons.css'
 
@@ -190,6 +191,9 @@ function Dungeons({ userId }) {
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
+
+  // Mantener pantalla encendida mientras hay expedición en curso
+  useWakeLock(!!expedition)
 
   // Fix 2: sin reload — refetch la expedición tras iniciarla
   async function handleStart() {

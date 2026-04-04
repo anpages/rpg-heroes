@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import LoginPage from './pages/LoginPage'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
+import InstallPrompt from './components/InstallPrompt'
 import './App.css'
 
 function LoadingScreen() {
@@ -49,7 +50,12 @@ function App() {
   if (!session) return <LoginPage />
   if (playerExists === null) return <LoadingScreen />
   if (!playerExists) return <Onboarding session={session} onComplete={() => setPlayerExists(true)} />
-  return <Dashboard session={session} />
+  return (
+    <>
+      <Dashboard session={session} />
+      <InstallPrompt />
+    </>
+  )
 }
 
 export default App
