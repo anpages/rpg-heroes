@@ -104,26 +104,39 @@ function DurabilityBar({ current, max }) {
 
 /* ─── Equipment slot (panel lateral) ─────────────────────────────────────────── */
 
-function EquipmentSlot({ slot, item, onUnequip, loading }) {
+function EquipmentSlot({ slot, item, onUnequip, onRepair, loading }) {
   const meta = SLOT_META[slot]
   const Icon = meta.icon
   const catalog = item?.item_catalog
   const rarity = catalog ? RARITY_META[catalog.rarity] : null
   const durPct = item ? Math.round((item.current_durability / catalog.max_durability) * 100) : 100
 
+  const isCritical = item && durPct > 0 && durPct <= 25
+  const isBroken   = item && durPct === 0
+  const needsRepair = item && durPct < 100
+
   return (
-    <div className={`eq-slot ${item ? 'eq-slot--filled' : ''} ${item && durPct === 0 ? 'eq-slot--broken' : ''}`}>
+    <div className={`eq-slot ${item ? 'eq-slot--filled' : ''} ${isCritical ? 'eq-slot--critical' : ''} ${isBroken ? 'eq-slot--broken' : ''}`}>
       <div className="eq-slot-header">
         <Icon size={13} strokeWidth={1.8} className="eq-slot-icon" />
         <span className="eq-slot-label">{meta.label}</span>
+        {isBroken   && <span className="eq-slot-status eq-slot-status--broken">Roto</span>}
+        {isCritical && <span className="eq-slot-status eq-slot-status--critical">Crítico</span>}
       </div>
       {item ? (
         <>
           <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-          <button className="eq-unequip-btn" onClick={() => onUnequip(item.id)} disabled={loading}>
-            Desequipar
-          </button>
+          <div className="eq-slot-actions">
+            {needsRepair && (
+              <button className="eq-repair-btn" onClick={() => onRepair(item.id)} disabled={loading}>
+                Reparar
+              </button>
+            )}
+            <button className="eq-unequip-btn" onClick={() => onUnequip(item.id)} disabled={loading}>
+              Desequipar
+            </button>
+          </div>
         </>
       ) : (
         <p className="eq-slot-empty">Vacío</p>
@@ -294,6 +307,7 @@ function Hero({ userId }) {
 
   function handleEquip(itemId)   { callApi('/api/item-equip',   { itemId, equip: true  }) }
   function handleUnequip(itemId) { callApi('/api/item-equip',   { itemId, equip: false }) }
+  function handleRepair(itemId)  { callApi('/api/item-repair',  { itemId }) }
   function handleDiscard(itemId) {
     if (!confirm('¿Descartar este item? Esta acción no se puede deshacer.')) return
     callApi('/api/item-discard', { itemId })
@@ -366,7 +380,7 @@ function Hero({ userId }) {
             </div>
             <div className="eq-slots-grid">
               {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
               ))}
             </div>
           </div>
@@ -379,7 +393,7 @@ function Hero({ userId }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
               ))}
             </div>
           </div>
@@ -392,7 +406,7 @@ function Hero({ userId }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
               ))}
             </div>
           </div>

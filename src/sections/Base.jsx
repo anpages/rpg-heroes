@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap } from 'lucide-react'
+import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer } from 'lucide-react'
 import './Base.css'
 
 const BUILDING_META = {
@@ -57,13 +57,23 @@ const BUILDING_META = {
   },
   workshop: {
     name: 'Taller',
-    description: 'Fabrica equipamiento y optimiza las expediciones.',
+    description: 'Optimiza las expediciones y amplía la capacidad de la mochila.',
     icon: Wrench,
     color: '#0369a1',
     colorBg: '#f0f9ff',
     colorBorder: '#bae6fd',
     effect: (level) => level === 1 ? 'Sin bonificación' : `-${(level - 1) * 5}% duración`,
     nextEffect: (level) => `-${level * 5}% duración`,
+  },
+  forge: {
+    name: 'Herrería',
+    description: 'Repara el equipo dañado. Mayor nivel reduce el coste de reparación.',
+    icon: Hammer,
+    color: '#b45309',
+    colorBg: '#fffbeb',
+    colorBorder: '#fde68a',
+    effect: (level) => level === 1 ? 'Sin descuento' : `-${(level - 1) * 5}% coste de reparación`,
+    nextEffect: (level) => `-${level * 5}% coste de reparación`,
   },
 }
 
@@ -200,7 +210,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
 }
 
 
-const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop']
+const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge']
 const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
 
 function useUpgradeTimer(building, onUpgradeCollect) {
