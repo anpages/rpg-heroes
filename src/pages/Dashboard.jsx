@@ -42,7 +42,7 @@ function SectionPlaceholder({ title }) {
 }
 
 function Dashboard({ session }) {
-  const [activeSection, setActiveSection] = useState('base')
+  const [activeSection, setActiveSection] = useState('heroe')
   const { resources } = useResources(session.user.id)
 
   async function handleLogout() {
