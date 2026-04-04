@@ -140,8 +140,6 @@ function Dashboard({ session }) {
   // Seleccionar el primer héroe disponible cuando carguen
   const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
 
-  const barrackLevel = null // se podría pasar desde useBuildings; por ahora HeroPicker lo obtiene via API
-
   async function handleLogout() {
     await supabase.auth.signOut()
   }
@@ -208,7 +206,6 @@ function Dashboard({ session }) {
               heroes={heroes}
               selectedHeroId={heroId}
               onSelect={setSelectedHeroId}
-              barrackLevel={barrackLevel}
               onRefetch={refetchHeroes}
             />
           )}

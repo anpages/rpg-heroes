@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Lock, Plus, Swords } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import './HeroPicker.css'
 
 const STATUS_COLOR = {
@@ -11,7 +11,7 @@ const STATUS_COLOR = {
 
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
 
-function RecruitModal({ slot, classes, onRecruit, onClose }) {
+function RecruitModal({ classes, onRecruit, onClose }) {
   const [name, setName]       = useState('')
   const [classId, setClassId] = useState(classes?.[0]?.id ?? '')
   const [loading, setLoading] = useState(false)
@@ -36,7 +36,7 @@ function RecruitModal({ slot, classes, onRecruit, onClose }) {
   return (
     <div className="recruit-overlay" onClick={onClose}>
       <div className="recruit-modal" onClick={e => e.stopPropagation()}>
-        <h3 className="recruit-title">Reclutar héroe — Slot {slot}</h3>
+        <h3 className="recruit-title">Reclutar héroe</h3>
         <form onSubmit={handleSubmit}>
           <div className="recruit-field">
             <label className="recruit-label">Nombre</label>
@@ -46,6 +46,7 @@ function RecruitModal({ slot, classes, onRecruit, onClose }) {
               onChange={e => setName(e.target.value)}
               placeholder="Nombre del héroe"
               maxLength={20}
+              autoFocus
               required
             />
           </div>
@@ -77,76 +78,72 @@ function RecruitModal({ slot, classes, onRecruit, onClose }) {
   )
 }
 
-export default function HeroPicker({ heroes, selectedHeroId, onSelect, barrackLevel, onRefetch }) {
-  const [recruitSlot, setRecruitSlot] = useState(null)
-  const [classes, setClasses]         = useState(null)
+export default function HeroPicker({ heroes, selectedHeroId, onSelect, onRefetch }) {
+  const [barrackLevel, setBarrackLevel] = useState(1)
+  const [showModal, setShowModal]       = useState(false)
+  const [classes, setClasses]           = useState(null)
 
-  async function openRecruit(slot) {
+  useEffect(() => {
+    supabase
+      .from('buildings')
+      .select('level')
+      .eq('type', 'barracks')
+      .maybeSingle()
+      .then(({ data }) => { if (data) setBarrackLevel(data.level) })
+  }, [])
+
+  // Siguiente slot disponible para reclutar
+  const usedSlots = heroes.map(h => h.slot)
+  const nextSlot  = [1, 2, 3].find(s => !usedSlots.includes(s))
+  const canRecruit = nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot])
+
+  // Con un solo héroe y sin posibilidad de reclutar → no renderizar
+  if (heroes.length <= 1 && !canRecruit) return null
+
+  async function openRecruit() {
     if (!classes) {
       const { data } = await supabase.from('classes').select('*').order('name')
       setClasses(data ?? [])
     }
-    setRecruitSlot(slot)
+    setShowModal(true)
   }
 
-  const slots = [1, 2, 3]
-
   return (
-    <div className="hero-picker">
-      {slots.map(slot => {
-        const hero    = heroes.find(h => h.slot === slot)
-        const required = SLOT_UNLOCK[slot]
-        const locked  = required && (barrackLevel ?? 1) < required
-
-        if (hero) {
+    <>
+      <div className="hero-picker">
+        {heroes.map(hero => {
           const active = hero.id === selectedHeroId
           return (
             <button
-              key={slot}
-              className={`hero-picker-slot ${active ? 'hero-picker-slot--active' : ''}`}
+              key={hero.id}
+              className={`hero-tab ${active ? 'hero-tab--active' : ''}`}
               onClick={() => onSelect(hero.id)}
             >
-              <div className="hero-picker-avatar">
-                <Swords size={14} strokeWidth={1.8} />
-              </div>
-              <div className="hero-picker-info">
-                <span className="hero-picker-name">{hero.name}</span>
-                <span className="hero-picker-meta">Nv.{hero.level} · {hero.classes?.name ?? ''}</span>
-              </div>
               <span
-                className="hero-picker-status"
+                className="hero-tab-dot"
                 style={{ background: STATUS_COLOR[hero.status] ?? STATUS_COLOR.idle }}
-                title={hero.status}
               />
+              <span className="hero-tab-name">{hero.name}</span>
+              <span className="hero-tab-level">Nv.{hero.level}</span>
             </button>
           )
-        }
+        })}
 
-        if (locked) {
-          return (
-            <div key={slot} className="hero-picker-slot hero-picker-slot--locked">
-              <Lock size={13} color="var(--text-3)" strokeWidth={2} />
-              <span className="hero-picker-locked-label">Cuartel Nv.{required}</span>
-            </div>
-          )
-        }
-
-        return (
-          <button key={slot} className="hero-picker-slot hero-picker-slot--empty" onClick={() => openRecruit(slot)}>
-            <Plus size={14} strokeWidth={2} color="var(--text-3)" />
-            <span className="hero-picker-locked-label">Reclutar</span>
+        {canRecruit && (
+          <button className="hero-tab hero-tab--recruit" onClick={openRecruit}>
+            <Plus size={12} strokeWidth={2.5} />
+            <span>Reclutar</span>
           </button>
-        )
-      })}
+        )}
+      </div>
 
-      {recruitSlot && (
+      {showModal && classes && (
         <RecruitModal
-          slot={recruitSlot}
           classes={classes}
           onRecruit={onRefetch}
-          onClose={() => setRecruitSlot(null)}
+          onClose={() => setShowModal(false)}
         />
       )}
-    </div>
+    </>
   )
 }
