@@ -25,48 +25,194 @@
   line-height: 1.5;
 }
 
-/* ─── Energy bar ─────────────────────────────────────────────────────────────── */
+/* ─── Nexo Arcano ────────────────────────────────────────────────────────────── */
 
-.energy-bar {
+@keyframes nexo-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px #0891b2); opacity: 1; }
+  50%       { filter: drop-shadow(0 0 10px #0891b2); opacity: 0.8; }
+}
+
+.nexo-card {
+  background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+  border: 1px solid #67e8f9;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(8, 145, 178, 0.12);
+}
+
+.nexo-card--deficit {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border-color: #fda4af;
+  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.1);
+}
+
+.nexo-top {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nexo-identity {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+}
+
+.nexo-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #0891b2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  animation: nexo-pulse 2.5s ease-in-out infinite;
+}
+
+.nexo-card--deficit .nexo-icon-wrap {
+  background: #dc2626;
+  animation: none;
+}
+
+.nexo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nexo-name-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  background: #ecfeff;
-  border: 1px solid #a5f3fc;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  color: #0891b2;
+  margin-bottom: 4px;
 }
 
-.energy-bar--deficit {
-  background: #fef2f2;
+.nexo-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nexo-level {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0891b2;
+  background: white;
+  border: 1px solid #a5f3fc;
+  border-radius: 6px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.nexo-card--deficit .nexo-level {
+  color: #dc2626;
   border-color: #fecaca;
+}
+
+.nexo-desc {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.nexo-energy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.nexo-energy-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nexo-energy-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.nexo-energy-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0891b2;
+  line-height: 1;
+}
+
+.nexo-card--deficit .nexo-energy-value {
   color: #dc2626;
 }
 
-.energy-bar-label {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.energy-bar-values {
-  font-size: 13px;
+.nexo-energy-label {
+  font-size: 10px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
 }
 
-.energy-bar-status {
+.nexo-energy-sep {
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--text-3);
+}
+
+.nexo-energy-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.nexo-energy-fill {
+  height: 100%;
+  background: #0891b2;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.nexo-energy-fill--deficit {
+  background: #dc2626;
+}
+
+.nexo-energy-status {
   font-size: 12px;
   font-weight: 600;
-  margin-left: auto;
 }
 
-.energy-bar-status--ok {
-  color: #16a34a;
+.nexo-energy-status--ok     { color: #16a34a; }
+.nexo-energy-status--deficit { color: #dc2626; }
+
+.nexo-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(8, 145, 178, 0.2);
+  flex-wrap: wrap;
 }
 
-.energy-bar-status--deficit {
-  color: #dc2626;
+.nexo-card--deficit .nexo-bottom {
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.nexo-card .building-upgrade-progress {
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(8, 145, 178, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 /* ─── Grid ───────────────────────────────────────────────────────────────────── */
