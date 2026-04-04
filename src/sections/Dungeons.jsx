@@ -59,6 +59,7 @@ function ActiveExpedition({ expedition, onCollect }) {
 
   async function handleCollect() {
     setCollecting(true)
+    await supabase.auth.refreshSession()
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/expedition-collect', {
       method: 'POST',
@@ -185,7 +186,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, onStart }) {
 }
 
 function Dungeons({ userId }) {
-  const { hero, loading: heroLoading } = useHero(userId)
+  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(userId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
@@ -198,6 +199,7 @@ function Dungeons({ userId }) {
   function handleCollect(data) {
     setReward(data.rewards)
     setExpedition(null)
+    refetchHero()
   }
 
   if (heroLoading || dungeonsLoading || expLoading) {
