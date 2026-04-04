@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useMissions } from '../hooks/useMissions'
-import { MISSION_POOL } from '../../api/_missions.js'
+import { MISSION_POOL } from '../lib/missionPool.js'
 import { Coins, Sparkles, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
 import './Misiones.css'
 
