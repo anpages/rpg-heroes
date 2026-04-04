@@ -18,15 +18,18 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
-  // Obtener héroe
+  const { heroId } = req.body
+  if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
+
+  // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
     .select('id, player_id, status, experience, level')
+    .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
 
   // Obtener o inicializar progreso en la torre

@@ -1,33 +1,32 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useHero(userId) {
-  const [hero, setHero] = useState(null)
+export function useHero(heroId) {
+  const [hero, setHero]       = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const refetch = useCallback(() => {
-    if (!userId) return
-    supabase
+  const refetch = useCallback(async () => {
+    if (!heroId) return
+    const { data } = await supabase
       .from('heroes')
       .select('*, classes(*)')
-      .eq('player_id', userId)
+      .eq('id', heroId)
       .single()
-      .then(({ data }) => setHero(data))
-  }, [userId])
+    setHero(data ?? null)
+  }, [heroId])
 
   useEffect(() => {
-    if (!userId) return
-
+    if (!heroId) return
     supabase
       .from('heroes')
       .select('*, classes(*)')
-      .eq('player_id', userId)
+      .eq('id', heroId)
       .single()
       .then(({ data }) => {
-        setHero(data)
+        setHero(data ?? null)
         setLoading(false)
       })
-  }, [userId])
+  }, [heroId])
 
   return { hero, loading, refetch }
 }

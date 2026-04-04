@@ -117,7 +117,7 @@ function ActiveExpedition({ expedition, onCollect }) {
   )
 }
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, onStart }) {
+function DungeonCard({ dungeon, heroLevel, heroStatus, heroId, onStart }) {
   const [loading, setLoading] = useState(false)
   const name = dungeon.name
   const description = dungeon.description
@@ -134,7 +134,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, onStart }) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ dungeonId: dungeon.id }),
+      body: JSON.stringify({ dungeonId: dungeon.id, heroId }),
     })
     const data = await res.json()
     if (res.ok) onStart(data)
@@ -186,8 +186,8 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, onStart }) {
   )
 }
 
-function Dungeons({ userId }) {
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(userId)
+function Dungeons({ userId, heroId }) {
+  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
@@ -242,6 +242,7 @@ function Dungeons({ userId }) {
             dungeon={dungeon}
             heroLevel={hero?.level ?? 1}
             heroStatus={heroStatus}
+            heroId={hero?.id}
             onStart={handleStart}
           />
         ))}

@@ -412,8 +412,8 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
-function Hero({ userId }) {
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(userId)
+function Hero({ userId, heroId }) {
+  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
   const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
   const [actionLoading, setActionLoading] = useState(false)

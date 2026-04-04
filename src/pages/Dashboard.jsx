@@ -8,7 +8,9 @@ import Torre from '../sections/Torre'
 import Misiones from '../sections/Misiones'
 import Ranking from '../sections/Ranking'
 import ThemeToggle from '../components/ThemeToggle'
+import HeroPicker from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
+import { useHeroes } from '../hooks/useHeroes'
 import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList } from 'lucide-react'
 import './Dashboard.css'
 
@@ -132,6 +134,13 @@ function Dashboard({ session }) {
   const [activeSection, setActiveSection] = useState('heroe')
   const { resources } = useResources(session.user.id)
   const { theme, setTheme } = useTheme()
+  const { heroes, refetch: refetchHeroes } = useHeroes(session.user.id)
+  const [selectedHeroId, setSelectedHeroId] = useState(null)
+
+  // Seleccionar el primer héroe disponible cuando carguen
+  const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
+
+  const barrackLevel = null // se podría pasar desde useBuildings; por ahora HeroPicker lo obtiene via API
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -194,10 +203,19 @@ function Dashboard({ session }) {
 
         {/* Main content */}
         <main className="dash-main">
-          {activeSection === 'heroe'         && <Hero userId={session.user.id} />}
+          {heroId && ['heroe','mazmorras','torre'].includes(activeSection) && (
+            <HeroPicker
+              heroes={heroes}
+              selectedHeroId={heroId}
+              onSelect={setSelectedHeroId}
+              barrackLevel={barrackLevel}
+              onRefetch={refetchHeroes}
+            />
+          )}
+          {activeSection === 'heroe'         && <Hero userId={session.user.id} heroId={heroId} />}
           {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} />}
-          {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} />}
-          {activeSection === 'torre'         && <Torre userId={session.user.id} />}
+          {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} />}
+          {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} />}
           {activeSection === 'misiones'      && <Misiones />}
           {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
           {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}

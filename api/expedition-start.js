@@ -16,13 +16,15 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
-  const { dungeonId } = req.body
+  const { dungeonId, heroId } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
+  if (!heroId)    return res.status(400).json({ error: 'heroId requerido' })
 
-  // Obtener héroe
+  // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status')
+    .select('id, level, status, player_id')
+    .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 

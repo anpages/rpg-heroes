@@ -112,8 +112,8 @@ function ResultBanner({ result, onClose }) {
   )
 }
 
-export default function Torre({ userId }) {
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(userId)
+export default function Torre({ userId, heroId }) {
+  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { maxFloor, loading: towerLoading, refetch: refetchTower } = useTowerProgress(hero?.id)
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState(null)
@@ -135,6 +135,7 @@ export default function Torre({ userId }) {
     const res = await fetch('/api/tower-attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ heroId: hero?.id }),
     })
     const data = await res.json()
 
