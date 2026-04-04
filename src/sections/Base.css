@@ -243,32 +243,6 @@
   opacity: 0.85;
 }
 
-/* Collect button */
-.building-collect-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
-  background: var(--accent);
-  border: none;
-  border-radius: 7px;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  transition: opacity 0.2s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.building-collect-btn:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
-.building-collect-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .building-error {
   font-size: 12px;

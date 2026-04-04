@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, PackageOpen } from 'lucide-react'
+import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight } from 'lucide-react'
 import './Base.css'
 
 const BUILDING_META = {
@@ -82,23 +82,44 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
   const { level } = building
   const hasUpgrade = !!building.upgrade_ends_at
   const [secondsLeft, setSecondsLeft] = useState(null)
-  const [canCollect, setCanCollect] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const mountedRef = useRef(false)
+  const collectingRef = useRef(false)
 
   useEffect(() => {
     if (!hasUpgrade) {
       setSecondsLeft(null)
-      setCanCollect(false)
       mountedRef.current = false
+      collectingRef.current = false
       return
     }
     const endTime = new Date(building.upgrade_ends_at)
+
+    async function autoCollect() {
+      if (collectingRef.current) return
+      collectingRef.current = true
+      setLoading(true)
+      await supabase.auth.refreshSession()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/building-upgrade-collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ buildingId: building.id }),
+      })
+      const data = await res.json()
+      if (res.ok) onUpgradeCollect()
+      else {
+        setError(data.error ?? 'Error al aplicar mejora')
+        setLoading(false)
+        collectingRef.current = false
+      }
+    }
+
     function tick() {
       const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000))
       setSecondsLeft(remaining)
-      setCanCollect(remaining === 0)
+      if (remaining === 0) autoCollect()
     }
     tick()
     requestAnimationFrame(() => { mountedRef.current = true })
@@ -130,24 +151,6 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
     if (res.ok) onUpgradeStart()
     else {
       setError(data.error ?? 'Error al iniciar mejora')
-      setLoading(false)
-    }
-  }
-
-  async function handleCollect() {
-    setLoading(true)
-    setError(null)
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/building-upgrade-collect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ buildingId: building.id }),
-    })
-    const data = await res.json()
-    if (res.ok) onUpgradeCollect()
-    else {
-      setError(data.error ?? 'Error al recoger mejora')
       setLoading(false)
     }
   }
@@ -191,7 +194,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
             </span>
             <span className="building-upgrade-timer">
               <Clock size={12} strokeWidth={2} />
-              {canCollect ? 'Completada' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
+              {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
             </span>
           </div>
         </div>
@@ -223,14 +226,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
           </button>
         )}
 
-        {canCollect && (
-          <button className="building-collect-btn" onClick={handleCollect} disabled={loading}>
-            <PackageOpen size={15} strokeWidth={2} />
-            {loading ? 'Recogiendo...' : 'Recoger mejora'}
-          </button>
-        )}
-
-        {!canCollect && hasUpgrade && <div />}
+        {hasUpgrade && <div />}
       </div>
 
       {error && <p className="building-error">{error}</p>}
