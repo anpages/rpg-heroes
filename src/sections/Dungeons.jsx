@@ -35,6 +35,7 @@ function ActiveExpedition({ expedition, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [canCollect, setCanCollect] = useState(false)
   const [collecting, setCollecting] = useState(false)
+  const [collectError, setCollectError] = useState(null)
   const mountedRef = useRef(false)
 
   const totalSeconds = expedition.dungeons.duration_minutes * 60
@@ -69,7 +70,10 @@ function ActiveExpedition({ expedition, onCollect }) {
     })
     const data = await res.json()
     if (res.ok) onCollect(data)
-    else setCollecting(false)
+    else {
+      setCollectError(data.error ?? 'Error al recoger recompensas')
+      setCollecting(false)
+    }
   }
 
   return (
@@ -99,10 +103,13 @@ function ActiveExpedition({ expedition, onCollect }) {
       </div>
 
       {canCollect && (
-        <button className="collect-btn" onClick={handleCollect} disabled={collecting}>
-          <PackageOpen size={16} strokeWidth={2} />
-          {collecting ? 'Recogiendo...' : 'Recoger recompensas'}
-        </button>
+        <>
+          <button className="collect-btn" onClick={handleCollect} disabled={collecting}>
+            <PackageOpen size={16} strokeWidth={2} />
+            {collecting ? 'Recogiendo...' : 'Recoger recompensas'}
+          </button>
+          {collectError && <p className="collect-error">{collectError}</p>}
+        </>
       )}
     </div>
   )

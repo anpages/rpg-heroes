@@ -18,28 +18,38 @@ export default async function handler(req, res) {
   const { expeditionId } = req.body
   if (!expeditionId) return res.status(400).json({ error: 'expeditionId requerido' })
 
-  // Obtener expedición con héroe
-  const { data: expedition } = await supabase
+  // Obtener expedición
+  const { data: expedition, error: expError } = await supabase
     .from('expeditions')
-    .select('*, heroes!inner(id, player_id, experience, level)')
+    .select('*')
     .eq('id', expeditionId)
     .single()
 
-  if (!expedition) return res.status(404).json({ error: 'Expedición no encontrada' })
-  if (expedition.heroes.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (expError || !expedition) return res.status(404).json({ error: 'Expedición no encontrada' })
   if (new Date(expedition.ends_at) > new Date()) return res.status(409).json({ error: 'La expedición aún no ha terminado' })
   if (expedition.status === 'completed') return res.status(409).json({ error: 'Las recompensas ya fueron recogidas' })
 
-  const heroId = expedition.heroes.id
+  // Obtener héroe y verificar que pertenece al usuario
+  const { data: hero, error: heroError } = await supabase
+    .from('heroes')
+    .select('id, player_id, experience, level')
+    .eq('id', expedition.hero_id)
+    .single()
 
-  // Añadir recursos al jugador
-  const { data: resources } = await supabase
+  if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
+  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+
+  // Obtener recursos actuales
+  const { data: resources, error: resourcesError } = await supabase
     .from('resources')
     .select('gold, wood, mana')
     .eq('player_id', user.id)
     .single()
 
-  await supabase
+  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
+
+  // Añadir recursos
+  const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
       gold: resources.gold + (expedition.gold_earned ?? 0),
@@ -49,19 +59,23 @@ export default async function handler(req, res) {
     })
     .eq('player_id', user.id)
 
-  // Añadir experiencia al héroe (y subir nivel si corresponde)
-  const newXp = expedition.heroes.experience + (expedition.experience_earned ?? 0)
-  const xpForLevel = expedition.heroes.level * 150
+  if (updateResourcesError) return res.status(500).json({ error: updateResourcesError.message })
+
+  // Añadir XP y subir nivel si corresponde
+  const newXp = hero.experience + (expedition.experience_earned ?? 0)
+  const xpForLevel = hero.level * 150
   const levelUp = newXp >= xpForLevel
 
-  await supabase
+  const { error: updateHeroError } = await supabase
     .from('heroes')
     .update({
       status: 'idle',
       experience: levelUp ? newXp - xpForLevel : newXp,
-      level: levelUp ? expedition.heroes.level + 1 : expedition.heroes.level,
+      level: levelUp ? hero.level + 1 : hero.level,
     })
-    .eq('id', heroId)
+    .eq('id', hero.id)
+
+  if (updateHeroError) return res.status(500).json({ error: updateHeroError.message })
 
   // Marcar expedición como completada
   await supabase
