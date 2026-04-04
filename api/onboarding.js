@@ -1,20 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-const VALID_CLASSES = ['caudillo', 'arcanista', 'sombra', 'domador']
-
-const CLASS_STATS = {
-  caudillo:  { strength: 16, agility: 10, intelligence: 5,  max_hp: 140, attack: 14, defense: 8 },
-  arcanista: { strength: 5,  agility: 8,  intelligence: 18, max_hp: 70,  attack: 18, defense: 2 },
-  sombra:    { strength: 8,  agility: 18, intelligence: 8,  max_hp: 80,  attack: 13, defense: 3 },
-  domador:   { strength: 10, agility: 10, intelligence: 12, max_hp: 110, attack: 11, defense: 6 },
-}
-
-const CLASS_ABILITY = {
-  caudillo:  'torbellino',
-  arcanista: 'bola_de_fuego',
-  sombra:    'golpe_sombrio',
-  domador:   'invocar_bestia',
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -37,9 +22,15 @@ export default async function handler(req, res) {
   if (!name || name.length < 2 || name.length > 20) {
     return res.status(400).json({ error: 'El nombre debe tener entre 2 y 20 caracteres' })
   }
-  if (!VALID_CLASSES.includes(heroClass)) {
-    return res.status(400).json({ error: 'Clase inválida' })
-  }
+
+  // Obtener datos de la clase desde la BD
+  const { data: classData } = await supabase
+    .from('classes')
+    .select('*')
+    .eq('id', heroClass)
+    .single()
+
+  if (!classData) return res.status(400).json({ error: 'Clase inválida' })
 
   // Check player doesn't already exist
   const { data: existing } = await supabase
@@ -80,15 +71,19 @@ export default async function handler(req, res) {
   if (buildingsError) return res.status(500).json({ error: buildingsError.message })
 
   // Create hero
-  const stats = CLASS_STATS[heroClass]
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
     .insert({
       player_id: user.id,
       name,
       class: heroClass,
-      ...stats,
-      current_hp: stats.max_hp,
+      strength:     classData.strength,
+      agility:      classData.agility,
+      intelligence: classData.intelligence,
+      max_hp:       classData.max_hp,
+      current_hp:   classData.max_hp,
+      attack:       classData.attack,
+      defense:      classData.defense,
     })
     .select('id')
     .single()
@@ -98,7 +93,7 @@ export default async function handler(req, res) {
   // Create initial ability
   await supabase.from('hero_abilities').insert({
     hero_id: hero.id,
-    type: CLASS_ABILITY[heroClass],
+    type: classData.starting_ability,
   })
 
   return res.status(200).json({ ok: true })

@@ -4,6 +4,7 @@ import { useResources } from '../hooks/useResources'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
+import Ranking from '../sections/Ranking'
 import { Home, Sword, Skull, Trophy, Coins, Axe, Sparkles } from 'lucide-react'
 import './Dashboard.css'
 
@@ -97,7 +98,7 @@ function Dashboard({ session }) {
           {activeSection === 'base'          && <Base userId={session.user.id} />}
           {activeSection === 'heroe'         && <Hero userId={session.user.id} />}
           {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} />}
-          {activeSection === 'clasificacion' && <SectionPlaceholder title="Clasificación" />}
+          {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
         </main>
 
       </div>

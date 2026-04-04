@@ -10,7 +10,7 @@ export function useHero(userId) {
 
     supabase
       .from('heroes')
-      .select('*')
+      .select('*, classes(*)')
       .eq('player_id', userId)
       .single()
       .then(({ data }) => {

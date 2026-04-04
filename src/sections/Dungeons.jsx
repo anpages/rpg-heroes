@@ -6,24 +6,6 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { Coins, Axe, Sparkles, Star, Clock, Swords, ChevronRight, PackageOpen } from 'lucide-react'
 import './Dungeons.css'
 
-const DUNGEON_META = {
-  'Goblin Cave':   {
-    name: 'Cueva de Goblins',
-    description: 'Una pequeña cueva infestada de goblins. Botín fácil para un héroe novato.',
-  },
-  'Dark Forest':   {
-    name: 'Bosque Oscuro',
-    description: 'Árboles ancestrales ocultan bestias peligrosas. Lleva suficientes pociones.',
-  },
-  'Haunted Ruins': {
-    name: 'Ruinas Encantadas',
-    description: 'Antigua fortaleza habitada por muertos vivientes. El maná fluye libremente aquí.',
-  },
-  "Dragon's Lair": {
-    name: 'Guarida del Dragón',
-    description: 'Pocos los que entran regresan. Las recompensas son legendarias.',
-  },
-}
 
 function fmt(n) {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
@@ -72,8 +54,7 @@ function ActiveExpedition({ expedition, onCollect }) {
 
   const elapsed = totalSeconds - (secondsLeft ?? totalSeconds)
   const pct = Math.min(100, Math.round((elapsed / totalSeconds) * 100))
-  const meta = DUNGEON_META[expedition.dungeons.name]
-  const name = meta?.name ?? expedition.dungeons.name
+  const name = expedition.dungeons.name
 
   async function handleCollect() {
     setCollecting(true)
@@ -129,9 +110,8 @@ function ActiveExpedition({ expedition, onCollect }) {
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, onStart }) {
   const [loading, setLoading] = useState(false)
-  const meta = DUNGEON_META[dungeon.name]
-  const name = meta?.name ?? dungeon.name
-  const description = meta?.description ?? dungeon.description
+  const name = dungeon.name
+  const description = dungeon.description
   const locked = heroLevel < dungeon.min_hero_level
   const busy = heroStatus !== 'idle'
   const disabled = locked || busy || loading

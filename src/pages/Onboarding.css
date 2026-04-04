@@ -239,6 +239,14 @@
 }
 
 /* Error */
+.ob-loading {
+  color: var(--text-3);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+}
+
 .ob-error {
   font-size: 14px;
   color: #dc2626;

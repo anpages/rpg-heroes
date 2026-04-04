@@ -71,6 +71,7 @@
   padding: 3px 10px;
   border-radius: 6px;
   border: 1px solid;
+  text-transform: capitalize;
 }
 
 .hero-status-badge {

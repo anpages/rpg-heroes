@@ -2,13 +2,6 @@ import { useHero } from '../hooks/useHero'
 import { Sword, Shield, Heart, Dumbbell, Wind, Sparkles, CircleDot } from 'lucide-react'
 import './Hero.css'
 
-const CLASS_META = {
-  caudillo:  { label: 'Caudillo',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-  arcanista: { label: 'Arcanista', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-sombra:    { label: 'Sombra',    color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' },
-  domador:   { label: 'Domador',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-}
-
 const STATUS_META = {
   idle:      { label: 'En reposo',    color: '#16a34a' },
   exploring: { label: 'Explorando',   color: '#d97706' },
@@ -70,7 +63,7 @@ function Hero({ userId }) {
   if (loading) return <div className="hero-loading">Cargando héroe...</div>
   if (!hero) return <div className="hero-loading">No se encontró el héroe.</div>
 
-  const cls = CLASS_META[hero.class] ?? CLASS_META.caudillo
+  const cls = hero.classes
   const status = STATUS_META[hero.status] ?? STATUS_META.idle
 
   return (
@@ -85,13 +78,13 @@ function Hero({ userId }) {
         {/* Header del héroe */}
         <div className="hero-card-header">
           <div className="hero-avatar">
-            <Sword size={32} strokeWidth={1.5} color={cls.color} />
+            <Sword size={32} strokeWidth={1.5} color={cls?.color} />
           </div>
           <div className="hero-identity">
             <h3 className="hero-name">{hero.name}</h3>
             <div className="hero-badges">
-              <span className="hero-class-badge" style={{ color: cls.color, background: cls.bg, borderColor: cls.border }}>
-                {cls.label}
+              <span className="hero-class-badge" style={{ color: cls?.color, background: cls?.bg_color, borderColor: cls?.border_color }}>
+                {cls?.name}
               </span>
               <span className="hero-status-badge" style={{ color: status.color }}>
                 <CircleDot size={10} strokeWidth={2.5} />
