@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const VALID_CLASSES = ['caudillo', 'arcanista', 'segador', 'sombra', 'domador']
+const VALID_CLASSES = ['caudillo', 'arcanista', 'sombra', 'domador']
 
 const CLASS_STATS = {
   caudillo:  { strength: 16, agility: 10, intelligence: 5,  max_hp: 140, attack: 14, defense: 8 },
   arcanista: { strength: 5,  agility: 8,  intelligence: 18, max_hp: 70,  attack: 18, defense: 2 },
-  segador:   { strength: 8,  agility: 7,  intelligence: 15, max_hp: 90,  attack: 12, defense: 4 },
   sombra:    { strength: 8,  agility: 18, intelligence: 8,  max_hp: 80,  attack: 13, defense: 3 },
   domador:   { strength: 10, agility: 10, intelligence: 12, max_hp: 110, attack: 11, defense: 6 },
 }
@@ -13,7 +12,6 @@ const CLASS_STATS = {
 const CLASS_ABILITY = {
   caudillo:  'torbellino',
   arcanista: 'bola_de_fuego',
-  segador:   'invocar_muertos',
   sombra:    'golpe_sombrio',
   domador:   'invocar_bestia',
 }

@@ -5,8 +5,7 @@ import './Hero.css'
 const CLASS_META = {
   caudillo:  { label: 'Caudillo',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
   arcanista: { label: 'Arcanista', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-  segador:   { label: 'Segador',   color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' },
-  sombra:    { label: 'Sombra',    color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' },
+sombra:    { label: 'Sombra',    color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' },
   domador:   { label: 'Domador',   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
 }
 

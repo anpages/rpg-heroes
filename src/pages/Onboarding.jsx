@@ -16,12 +16,6 @@ const CLASSES = [
     stats: { str: 5, agi: 8, int: 18 },
   },
   {
-    id: 'segador',
-    name: 'Segador',
-    description: 'Maestro de la muerte y las maldiciones. Sus ejércitos de muertos combaten por él.',
-    stats: { str: 8, agi: 7, int: 15 },
-  },
-  {
     id: 'sombra',
     name: 'Sombra',
     description: 'Cazador veloz que actúa desde la oscuridad. Golpea primero, desaparece después.',
