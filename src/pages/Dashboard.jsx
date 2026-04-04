@@ -95,7 +95,7 @@ function Dashboard({ session }) {
 
         {/* Main content */}
         <main className="dash-main">
-          {activeSection === 'base'          && <Base userId={session.user.id} />}
+          {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} />}
           {activeSection === 'heroe'         && <Hero userId={session.user.id} />}
           {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} />}
           {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}

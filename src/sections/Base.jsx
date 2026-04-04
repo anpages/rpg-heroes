@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { useResources } from '../hooks/useResources'
 import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, PackageOpen } from 'lucide-react'
 import './Base.css'
 
@@ -241,9 +240,8 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
 
 const ORDER = ['gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop']
 
-function Base({ userId }) {
+function Base({ userId, resources }) {
   const { buildings, loading, refetch } = useBuildings(userId)
-  const { resources } = useResources(userId)
 
   function handleUpgradeStart() { refetch() }
   function handleUpgradeCollect() { refetch() }
