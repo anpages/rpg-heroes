@@ -1,5 +1,5 @@
 import { useHero } from '../hooks/useHero'
-import { Sword, Shield, Heart, Dumbbell, Wind, Sparkles, CircleDot } from 'lucide-react'
+import { Sword, Shield, Heart, Dumbbell, Wind, Sparkles, Brain, CircleDot } from 'lucide-react'
 import './Hero.css'
 
 const STATUS_META = {
@@ -106,7 +106,7 @@ function Hero({ userId }) {
             <p className="stats-group-title">Atributos</p>
             <StatRow icon={Dumbbell} label="Fuerza"       value={hero.strength}     color="#dc2626" />
             <StatRow icon={Wind}     label="Agilidad"     value={hero.agility}      color="#0369a1" />
-            <StatRow icon={Sparkles} label="Inteligencia" value={hero.intelligence} color="#7c3aed" />
+            <StatRow icon={Brain}    label="Inteligencia" value={hero.intelligence} color="#7c3aed" />
           </div>
           <div className="hero-stats-group">
             <p className="stats-group-title">Combate</p>

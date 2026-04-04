@@ -118,7 +118,10 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
             <span className="building-level">Nv. {level}</span>
           </div>
           <p className="building-desc">{meta.description}</p>
-          <p className="building-effect">{meta.effect(level)}</p>
+          <p className="building-effect">
+            {meta.effect(level)}
+            {!hasUpgrade && <span className="building-effect-next"> → {meta.nextEffect(level)}</span>}
+          </p>
         </div>
       </div>
 
@@ -148,14 +151,8 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
         </div>
       )}
 
-      <div className="building-card-bottom">
-        {!hasUpgrade && (
-          <span className="building-next-effect">
-            Próximo nivel: {meta.nextEffect(level)}
-          </span>
-        )}
-
-        {!hasUpgrade && (
+      {!hasUpgrade && (
+        <div className="building-card-bottom">
           <button
             className={`building-upgrade-btn ${!canAfford ? 'building-upgrade-btn--cant-afford' : ''}`}
             onClick={() => startUpgrade(building.id, setLoading, setError, onUpgradeStart)}
@@ -163,19 +160,11 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
           >
             {loading
               ? 'Iniciando...'
-              : <>
-                  <span>Mejorar</span>
-                  <span className="upgrade-cost">
-                    <Coins size={12} strokeWidth={2} />{fmt(cost.gold)}
-                    <Axe size={12} strokeWidth={2} />{fmt(cost.wood)}
-                  </span>
-                </>
+              : <><Coins size={12} strokeWidth={2} />{fmt(cost.gold)}<Axe size={12} strokeWidth={2} />{fmt(cost.wood)}<span className="upgrade-btn-label">Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>
             }
           </button>
-        )}
-
-        {hasUpgrade && <div />}
-      </div>
+        </div>
+      )}
 
       {error && <p className="building-error">{error}</p>}
     </div>
@@ -341,7 +330,6 @@ function NexoCard({ building, buildings, resources, onUpgradeStart, onUpgradeCol
 
       {!hasUpgrade && (
         <div className="nexo-bottom">
-          <span className="building-next-effect">Próximo nivel: {(level + 1) * 30} energía</span>
           <button
             className={`building-upgrade-btn ${!canAfford ? 'building-upgrade-btn--cant-afford' : ''}`}
             onClick={() => startUpgrade(building.id, setLoading, setError, onUpgradeStart)}
@@ -349,7 +337,7 @@ function NexoCard({ building, buildings, resources, onUpgradeStart, onUpgradeCol
           >
             {loading
               ? 'Iniciando...'
-              : <><span>Mejorar</span><span className="upgrade-cost"><Coins size={12} strokeWidth={2} />{fmt(cost.gold)}<Axe size={12} strokeWidth={2} />{fmt(cost.wood)}</span></>
+              : <><Coins size={12} strokeWidth={2} />{fmt(cost.gold)}<Axe size={12} strokeWidth={2} />{fmt(cost.wood)}<span className="upgrade-btn-label">Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>
             }
           </button>
         </div>
