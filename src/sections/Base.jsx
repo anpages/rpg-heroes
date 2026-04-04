@@ -80,12 +80,7 @@ function fmtTime(seconds) {
 
 function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect }) {
   const meta = BUILDING_META[building.type]
-  if (!meta) return null
-
   const { level } = building
-  const cost = upgradeCost(level)
-  const Icon = meta.icon
-
   const hasUpgrade = !!building.upgrade_ends_at
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [canCollect, setCanCollect] = useState(false)
@@ -112,6 +107,10 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
     return () => clearInterval(interval)
   }, [building.upgrade_ends_at, hasUpgrade])
 
+  if (!meta) return null
+
+  const cost = upgradeCost(level)
+  const Icon = meta.icon
   const totalSeconds = level * 2 * 60
   const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
