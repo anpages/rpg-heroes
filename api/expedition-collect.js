@@ -2,18 +2,47 @@ import { createClient } from '@supabase/supabase-js'
 
 const INVENTORY_BASE_LIMIT = 20
 const INVENTORY_PER_WORKSHOP_LEVEL = 5
-const DROP_CONFIG = [
-  [1, 3,  0.20, [1],    [70, 25, 5,  0,  0]],
-  [4, 6,  0.30, [1, 2], [50, 35, 12, 3,  0]],
-  [7, 10, 0.40, [2, 3], [30, 35, 25, 8,  2]],
-]
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
-const ALL_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'feet', 'main_hand', 'off_hand', 'accessory']
+
+// Probabilidad de drop y calidad según dificultad (1-10)
+function getDropConfig(difficulty) {
+  const d = Math.max(1, Math.min(10, difficulty))
+  const chance = 0.10 + d * 0.03                          // 13% dif1 → 40% dif10
+  const tiers   = d <= 3 ? [1] : d <= 6 ? [1, 2] : [2, 3]
+  // Pesos rareza: cuanto mayor dificultad, más hacia rare/epic/legendary
+  const weights = [
+    Math.max(0,  70 - d * 6),   // common
+    Math.max(0,  25 - d * 0.5), // uncommon
+    Math.min(40, d * 4),        // rare
+    Math.min(25, Math.max(0, (d - 4) * 4)), // epic
+    Math.min(15, Math.max(0, (d - 7) * 5)), // legendary
+  ]
+  return { chance, tiers, weights }
+}
+
+// Pool de slots ponderados por tipo de mazmorra
+const SLOT_POOL_BY_TYPE = {
+  combat:     ['main_hand','main_hand','main_hand','off_hand','off_hand',
+               'chest','arms','helmet','legs','accessory'],
+  wilderness: ['legs','legs','arms','arms','accessory','accessory',
+               'main_hand','off_hand','chest','helmet'],
+  magic:      ['accessory','accessory','accessory','accessory',
+               'helmet','chest','main_hand','off_hand','arms','legs'],
+  crypt:      ['off_hand','off_hand','off_hand','chest','chest',
+               'helmet','helmet','accessory','accessory','main_hand'],
+  mine:       ['arms','arms','arms','chest','chest',
+               'main_hand','main_hand','legs','helmet','off_hand'],
+  ancient:    ['accessory','accessory','accessory','helmet','helmet',
+               'chest','main_hand','off_hand','arms','legs'],
+}
+
+function pickSlot(dungeonType) {
+  const pool = SLOT_POOL_BY_TYPE[dungeonType] ?? SLOT_POOL_BY_TYPE.combat
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 async function rollItemDrop(supabase, heroId, playerId, dungeon) {
-  const cfg = DROP_CONFIG.find(([mn, mx]) => dungeon.difficulty >= mn && dungeon.difficulty <= mx)
-  if (!cfg) return null
-  const [,, chance, tiers, weights] = cfg
+  const { chance, tiers, weights } = getDropConfig(dungeon.difficulty)
   if (Math.random() > chance) return null
 
   const total = weights.reduce((a, b) => a + b, 0)
@@ -22,7 +51,7 @@ async function rollItemDrop(supabase, heroId, playerId, dungeon) {
   for (let i = 0; i < RARITIES.length; i++) { roll -= weights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
 
   const tier = tiers[Math.floor(Math.random() * tiers.length)]
-  const slot = ALL_SLOTS[Math.floor(Math.random() * ALL_SLOTS.length)]
+  const slot = pickSlot(dungeon.type)
 
   const { data: candidates } = await supabase
     .from('item_catalog').select('id, max_durability').eq('slot', slot).eq('tier', tier).eq('rarity', rarity)
@@ -135,7 +164,7 @@ export default async function handler(req, res) {
 
   // Obtener dungeon para el drop
   const { data: dungeon } = await supabase
-    .from('dungeons').select('difficulty').eq('id', expedition.dungeon_id).single()
+    .from('dungeons').select('difficulty, type').eq('id', expedition.dungeon_id).single()
 
   const drop = dungeon ? await rollItemDrop(supabase, hero.id, user.id, dungeon) : null
 
