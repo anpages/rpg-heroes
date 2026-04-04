@@ -1,10 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight } from 'lucide-react'
+import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap } from 'lucide-react'
 import './Base.css'
 
 const BUILDING_META = {
+  energy_nexus: {
+    name: 'Nexo Arcano',
+    description: 'Canaliza la energía del mundo para alimentar las estructuras de la base.',
+    icon: Zap,
+    color: '#0891b2',
+    colorBg: '#ecfeff',
+    colorBorder: '#a5f3fc',
+    effect: (level) => `${level * 30} energía`,
+    nextEffect: (level) => `${(level + 1) * 30} energía`,
+  },
   gold_mine: {
     name: 'Mina de Oro',
     description: 'Extrae oro de las profundidades de la tierra.',
@@ -234,7 +244,31 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect })
   )
 }
 
-const ORDER = ['gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop']
+const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop']
+const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
+
+function EnergyBar({ buildings }) {
+  const nexusLevel = buildings.find(b => b.type === 'energy_nexus')?.level ?? 1
+  const energyProduced = nexusLevel * 30
+  const energyConsumed = buildings
+    .filter(b => PRODUCTION_TYPES.includes(b.type))
+    .reduce((sum, b) => sum + b.level * 10, 0)
+  const balance = energyProduced - energyConsumed
+  const deficit = balance < 0
+  const efficiency = energyConsumed > 0 ? Math.min(100, Math.round((energyProduced / energyConsumed) * 100)) : 100
+
+  return (
+    <div className={`energy-bar ${deficit ? 'energy-bar--deficit' : ''}`}>
+      <Zap size={14} strokeWidth={2} />
+      <span className="energy-bar-label">Energía</span>
+      <span className="energy-bar-values">{energyProduced} / {energyConsumed}</span>
+      {deficit
+        ? <span className="energy-bar-status energy-bar-status--deficit">Déficit · {efficiency}% producción</span>
+        : <span className="energy-bar-status energy-bar-status--ok">+{balance} excedente</span>
+      }
+    </div>
+  )
+}
 
 function Base({ userId, resources }) {
   const { buildings, loading, refetch } = useBuildings(userId)
@@ -252,6 +286,7 @@ function Base({ userId, resources }) {
         <h2 className="section-title">Base</h2>
         <p className="section-subtitle">Mejora tus edificios para aumentar la producción de recursos y las capacidades de tu héroe.</p>
       </div>
+      {sorted.length > 0 && <EnergyBar buildings={sorted} />}
       <div className="buildings-grid">
         {sorted.map(b => (
           <BuildingCard

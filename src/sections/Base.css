@@ -25,6 +25,50 @@
   line-height: 1.5;
 }
 
+/* ─── Energy bar ─────────────────────────────────────────────────────────────── */
+
+.energy-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: #0891b2;
+}
+
+.energy-bar--deficit {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.energy-bar-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.energy-bar-values {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.energy-bar-status {
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.energy-bar-status--ok {
+  color: #16a34a;
+}
+
+.energy-bar-status--deficit {
+  color: #dc2626;
+}
+
 /* ─── Grid ───────────────────────────────────────────────────────────────────── */
 
 .buildings-grid {

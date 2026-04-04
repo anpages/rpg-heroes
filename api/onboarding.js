@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   const { error: buildingsError } = await supabase
     .from('buildings')
     .insert(
-      ['gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop'].map(type => ({
+      ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop'].map(type => ({
         player_id: user.id,
         type,
       }))

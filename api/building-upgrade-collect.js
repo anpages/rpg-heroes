@@ -1,5 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
+function computeRates(buildings) {
+  const level = (type) => buildings.find(b => b.type === type)?.level ?? 1
+
+  const goldMine = level('gold_mine')
+  const lumber   = level('lumber_mill')
+  const mana     = level('mana_well')
+  const nexus    = level('energy_nexus')
+
+  const energyProduced = nexus * 30
+  const energyConsumed = (goldMine + lumber + mana) * 10
+  const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
+
+  return {
+    gold_rate: Math.floor((10 + (goldMine - 1) * 5) * ratio),
+    wood_rate: Math.floor((6  + (lumber   - 1) * 3) * ratio),
+    mana_rate: Math.floor((2  + (mana     - 1))     * ratio),
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
@@ -31,23 +50,8 @@ export default async function handler(req, res) {
 
   const newLevel = building.level + 1
 
-  // Aplicar efecto según tipo
-  if (building.type === 'gold_mine') {
-    await supabase
-      .from('resources')
-      .update({ gold_rate: 10 + (newLevel - 1) * 5 })
-      .eq('player_id', user.id)
-  } else if (building.type === 'lumber_mill') {
-    await supabase
-      .from('resources')
-      .update({ wood_rate: 6 + (newLevel - 1) * 3 })
-      .eq('player_id', user.id)
-  } else if (building.type === 'mana_well') {
-    await supabase
-      .from('resources')
-      .update({ mana_rate: 2 + (newLevel - 1) })
-      .eq('player_id', user.id)
-  } else if (building.type === 'barracks') {
+  // Aplicar efecto especial: cuartel → stats del héroe
+  if (building.type === 'barracks') {
     const { data: hero } = await supabase
       .from('heroes')
       .select('attack, defense, max_hp, current_hp')
@@ -57,23 +61,35 @@ export default async function handler(req, res) {
       await supabase
         .from('heroes')
         .update({
-          attack: hero.attack + 2,
-          defense: hero.defense + 1,
-          max_hp: hero.max_hp + 5,
+          attack:     hero.attack + 2,
+          defense:    hero.defense + 1,
+          max_hp:     hero.max_hp + 5,
           current_hp: hero.current_hp + 5,
         })
         .eq('player_id', user.id)
     }
   }
-  // workshop: su efecto se aplica dinámicamente en expedition-start
 
-  // Subir nivel del edificio y limpiar timer
+  // Subir nivel del edificio
   const { error: buildingError } = await supabase
     .from('buildings')
     .update({ level: newLevel, upgrade_started_at: null, upgrade_ends_at: null })
     .eq('id', buildingId)
 
   if (buildingError) return res.status(500).json({ error: buildingError.message })
+
+  // Recalcular tasas con factor de energía (para todos los edificios relevantes)
+  const { data: allBuildings } = await supabase
+    .from('buildings')
+    .select('type, level')
+    .eq('player_id', user.id)
+
+  const rates = computeRates(allBuildings ?? [])
+
+  await supabase
+    .from('resources')
+    .update(rates)
+    .eq('player_id', user.id)
 
   return res.status(200).json({ ok: true, newLevel, type: building.type })
 }
