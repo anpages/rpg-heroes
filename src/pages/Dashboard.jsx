@@ -9,8 +9,8 @@ import { Home, Sword, Skull, Trophy, Coins, Axe, Sparkles } from 'lucide-react'
 import './Dashboard.css'
 
 const NAV_ITEMS = [
-  { id: 'base',          label: 'Base',          icon: Home },
   { id: 'heroe',         label: 'Héroe',         icon: Sword },
+  { id: 'base',          label: 'Base',          icon: Home },
   { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
   { id: 'clasificacion', label: 'Clasificación', icon: Trophy },
 ]

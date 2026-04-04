@@ -241,6 +241,7 @@
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  flex: 1;
 }
 
 .building-icon-wrap {
