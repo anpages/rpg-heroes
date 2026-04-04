@@ -1,0 +1,119 @@
+import { createClient } from '@supabase/supabase-js'
+import { getEffectiveStats } from './_stats.js'
+import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end()
+
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'Sin token' })
+
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+
+  // Obtener héroe
+  const { data: hero } = await supabase
+    .from('heroes')
+    .select('id, player_id, status, experience, level')
+    .eq('player_id', user.id)
+    .single()
+
+  if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
+  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
+
+  // Obtener o inicializar progreso en la torre
+  let { data: progress } = await supabase
+    .from('tower_progress')
+    .select('max_floor')
+    .eq('hero_id', hero.id)
+    .maybeSingle()
+
+  if (!progress) {
+    await supabase.from('tower_progress').insert({ hero_id: hero.id, max_floor: 0 })
+    progress = { max_floor: 0 }
+  }
+
+  const targetFloor = progress.max_floor + 1
+
+  // Stats efectivas del héroe
+  const heroStats = await getEffectiveStats(supabase, hero.id)
+  if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats del héroe' })
+
+  // Stats del enemigo
+  const enemyStats = floorEnemyStats(targetFloor)
+
+  // Simular combate
+  const result = simulateCombat(heroStats, enemyStats)
+  const won = result.winner === 'a'
+
+  // Registrar intento
+  await supabase.from('tower_attempts').insert({
+    hero_id:       hero.id,
+    floor:         targetFloor,
+    won,
+    rounds:        result.rounds,
+    hero_hp_left:  result.hpLeftA,
+    enemy_hp_left: result.hpLeftB,
+  })
+
+  let rewards = null
+
+  if (won) {
+    // Actualizar progreso
+    await supabase
+      .from('tower_progress')
+      .update({ max_floor: targetFloor, updated_at: new Date().toISOString() })
+      .eq('hero_id', hero.id)
+
+    rewards = floorRewards(targetFloor)
+
+    // Dar recompensas: oro
+    const { data: resources } = await supabase
+      .from('resources')
+      .select('gold')
+      .eq('player_id', user.id)
+      .single()
+
+    if (resources) {
+      await supabase
+        .from('resources')
+        .update({ gold: resources.gold + rewards.gold })
+        .eq('player_id', user.id)
+    }
+
+    // Dar XP
+    const newXp = hero.experience + rewards.experience
+    const xpForLevel = hero.level * 150
+    const levelUp = newXp >= xpForLevel
+
+    await supabase
+      .from('heroes')
+      .update({
+        experience: levelUp ? newXp - xpForLevel : newXp,
+        level: levelUp ? hero.level + 1 : hero.level,
+      })
+      .eq('id', hero.id)
+
+    rewards.levelUp = levelUp
+  }
+
+  return res.status(200).json({
+    ok: true,
+    won,
+    floor: targetFloor,
+    rounds: result.rounds,
+    heroHpLeft: result.hpLeftA,
+    enemyHpLeft: result.hpLeftB,
+    heroMaxHp: heroStats.max_hp,
+    enemyMaxHp: enemyStats.max_hp,
+    maxFloor: won ? targetFloor : progress.max_floor,
+    rewards,
+  })
+}
