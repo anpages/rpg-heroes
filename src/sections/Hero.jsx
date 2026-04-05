@@ -8,7 +8,25 @@ import {
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
   BookOpen, Zap, FlameKindling, Wrench, Moon, Sun,
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import './Hero.css'
+
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
+
+const overlayVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+}
+
+function sheetVariants() {
+  return isMobile()
+    ? { initial: { y: '100%' }, animate: { y: 0 }, exit: { y: '100%' } }
+    : { initial: { opacity: 0, scale: 0.96, y: 8 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.97, y: 4 } }
+}
+
+const sheetTransition = { type: 'spring', stiffness: 340, damping: 30 }
+const overlayTransition = { duration: 0.18 }
 
 /* ─── Hero status ─────────────────────────────────────────────────────────────── */
 
@@ -152,16 +170,24 @@ function DurabilityBar({ current, max }) {
 
 function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
   return (
-    <div className="confirm-overlay" onClick={onCancel}>
-      <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+    <motion.div className="confirm-overlay" onClick={onCancel}
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+    >
+      <motion.div className="confirm-modal" onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.94, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 6 }}
+        transition={sheetTransition}
+      >
         <p className="confirm-title">{title}</p>
         {body && <p className="confirm-body">{body}</p>}
         <div className="confirm-actions">
           <button className="confirm-cancel" onClick={onCancel}>Cancelar</button>
           <button className="confirm-ok" onClick={onConfirm}>{confirmLabel}</button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -271,9 +297,16 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
 /* ─── Bag modal ───────────────────────────────────────────────────────────────── */
 
 function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }) {
+  const sv = sheetVariants()
   return (
-    <div className="bag-modal-overlay" onClick={onClose}>
-      <div className="bag-modal-panel" onClick={e => e.stopPropagation()}>
+    <motion.div className="bag-modal-overlay" onClick={onClose}
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+    >
+      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
+        variants={sv} initial="initial" animate="animate" exit="exit"
+        transition={sheetTransition}
+      >
         <div className="bag-modal-header">
           <div className="bag-modal-title-wrap">
             <Backpack size={18} strokeWidth={1.8} />
@@ -302,8 +335,8 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -425,14 +458,21 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
   })
 
   // Presupuesto usado por categoría (para saber si puede equipar)
-  const budgetUsed = { strength: 0, agility: 0, intelligence: 0 }
+  const budgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
   cards.filter(c => c.equipped).forEach(c => {
     budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
 
+  const sv = sheetVariants()
   return (
-    <div className="bag-modal-overlay" onClick={onClose}>
-      <div className="bag-modal-panel" onClick={e => e.stopPropagation()}>
+    <motion.div className="bag-modal-overlay" onClick={onClose}
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+    >
+      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
+        variants={sv} initial="initial" animate="animate" exit="exit"
+        transition={sheetTransition}
+      >
         <div className="bag-modal-header">
           <div className="bag-modal-title-wrap">
             <BookOpen size={18} strokeWidth={1.8} />
@@ -469,8 +509,8 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
             })}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -833,41 +873,47 @@ function Hero({ userId, heroId }) {
 
       </div>
 
-      {bagOpen && (
-        <BagModal
-          bag={bag}
-          bagLimit={bagLimit}
-          onEquip={handleEquip}
-          onDiscard={handleDiscard}
-          loading={actionLoading}
-          error={error}
-          onClose={() => setBagOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {bagOpen && (
+          <BagModal
+            bag={bag}
+            bagLimit={bagLimit}
+            onEquip={handleEquip}
+            onDiscard={handleDiscard}
+            loading={actionLoading}
+            error={error}
+            onClose={() => setBagOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      {cardModalOpen && (
-        <CardModal
-          cards={cards ?? []}
-          hero={hero}
-          cardSlots={cardSlotCount}
-          onEquip={handleCardEquip}
-          onUnequip={handleCardUnequip}
-          onFuse={handleCardFuse}
-          loading={actionLoading}
-          error={error}
-          onClose={() => { setCardModalOpen(false); setError(null) }}
-        />
-      )}
+      <AnimatePresence>
+        {cardModalOpen && (
+          <CardModal
+            cards={cards ?? []}
+            hero={hero}
+            cardSlots={cardSlotCount}
+            onEquip={handleCardEquip}
+            onUnequip={handleCardUnequip}
+            onFuse={handleCardFuse}
+            loading={actionLoading}
+            error={error}
+            onClose={() => { setCardModalOpen(false); setError(null) }}
+          />
+        )}
+      </AnimatePresence>
 
-      {confirmModal && (
-        <ConfirmModal
-          title={confirmModal.title}
-          body={confirmModal.body}
-          confirmLabel={confirmModal.confirmLabel}
-          onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal(null)}
-        />
-      )}
+      <AnimatePresence>
+        {confirmModal && (
+          <ConfirmModal
+            title={confirmModal.title}
+            body={confirmModal.body}
+            confirmLabel={confirmModal.confirmLabel}
+            onConfirm={confirmModal.onConfirm}
+            onCancel={() => setConfirmModal(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
