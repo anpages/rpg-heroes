@@ -37,6 +37,18 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El edificio ya está mejorando' })
   }
 
+  // Solo se puede mejorar un edificio a la vez
+  const { data: busyBuildings } = await supabase
+    .from('buildings')
+    .select('id')
+    .eq('player_id', user.id)
+    .gt('upgrade_ends_at', new Date().toISOString())
+    .limit(1)
+
+  if (busyBuildings?.length > 0) {
+    return res.status(409).json({ error: 'Ya hay un edificio en construcción. Espera a que termine.' })
+  }
+
   const cost = upgradeCost(building.level)
   const durationMs = building.level * 2 * 60 * 1000
 

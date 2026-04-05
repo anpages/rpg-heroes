@@ -33,7 +33,7 @@ const overlayTransition = { duration: 0.18 }
 const STATUS_META = {
   idle:      { label: 'En reposo',   color: '#16a34a' },
   exploring: { label: 'Explorando',  color: '#d97706' },
-  resting:   { label: 'Recuperando', color: '#0369a1' },
+  resting:   { label: 'Recuperando', color: '#60a5fa' },
 }
 
 /* ─── Inventory constants ─────────────────────────────────────────────────────── */
@@ -193,7 +193,7 @@ function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCa
 
 /* ─── Equipment slot (panel lateral) ─────────────────────────────────────────── */
 
-function EquipmentSlot({ slot, item, onUnequip, onRepair, loading }) {
+function EquipmentSlot({ slot, item, onUnequip, onRepair, loading, isOccupied }) {
   const meta = SLOT_META[slot]
   const Icon = meta.icon
   const catalog = item?.item_catalog
@@ -219,11 +219,11 @@ function EquipmentSlot({ slot, item, onUnequip, onRepair, loading }) {
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
           <div className="eq-slot-actions">
             {needsRepair && (
-              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(item)} disabled={loading} title="Reparar">
+              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
                 <Wrench size={13} strokeWidth={2} />
               </button>
             )}
-            <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(item.id)} disabled={loading}>
+            <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(item.id)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
               Desequipar
             </button>
           </div>
@@ -257,7 +257,7 @@ function StatsList({ catalog }) {
   )
 }
 
-function BagItem({ item, onEquip, onDiscard, loading }) {
+function BagItem({ item, onEquip, onDiscard, loading, isOccupied }) {
   const catalog = item.item_catalog
   const rarity = RARITY_META[catalog.rarity]
   const slotMeta = SLOT_META[catalog.slot]
@@ -280,13 +280,13 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
         <button
           className="btn btn--primary btn--sm"
           onClick={() => onEquip(item.id)}
-          disabled={loading || durPct === 0}
-          title={durPct === 0 ? 'Repara el item antes de equiparlo' : ''}
+          disabled={loading || durPct === 0 || isOccupied}
+          title={isOccupied ? 'El héroe está en expedición' : durPct === 0 ? 'Repara el item antes de equiparlo' : ''}
         >
           <ArrowUpDown size={13} strokeWidth={2} />
           Equipar
         </button>
-        <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading}>
+        <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
           <Trash2 size={13} strokeWidth={2} />
         </button>
       </div>
@@ -296,7 +296,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
 
 /* ─── Bag modal ───────────────────────────────────────────────────────────────── */
 
-function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }) {
+function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose, isOccupied }) {
   const sv = sheetVariants()
   return (
     <motion.div className="bag-modal-overlay" onClick={onClose}
@@ -323,6 +323,9 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
         {bag.length === 0 ? (
           <p className="inv-bag-empty">La mochila está vacía. Explora mazmorras para conseguir equipo.</p>
         ) : (
+          {isOccupied && (
+            <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
+          )}
           <div className="bag-grid">
             {bag.map(item => (
               <BagItem
@@ -331,6 +334,7 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
                 onEquip={onEquip}
                 onDiscard={onDiscard}
                 loading={loading}
+                isOccupied={isOccupied}
               />
             ))}
           </div>
@@ -374,7 +378,7 @@ function CardBudgetBar({ category, used, total }) {
 
 /* ─── Equipped card chip ──────────────────────────────────────────────────────── */
 
-function CardChip({ card, onUnequip, loading }) {
+function CardChip({ card, onUnequip, loading, isOccupied }) {
   const sc = card.skill_cards
   const meta = CATEGORY_META[sc.category]
   return (
@@ -387,7 +391,7 @@ function CardChip({ card, onUnequip, loading }) {
         <span className="card-chip-category" style={{ color: meta.color }}>{meta.label}</span>
         <span className="card-chip-cost">{sc.base_cost * card.rank} pts</span>
       </div>
-      <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading}>
+      <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
         Desequipar
       </button>
     </div>
@@ -396,7 +400,7 @@ function CardChip({ card, onUnequip, loading }) {
 
 /* ─── Card collection modal ───────────────────────────────────────────────────── */
 
-function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading }) {
+function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading, isOccupied }) {
   const sc = card.skill_cards
   const meta = CATEGORY_META[sc.category]
   const Icon = meta.icon
@@ -430,14 +434,14 @@ function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loa
       </div>
       <div className="card-item-actions">
         {canFuseWith && !card.equipped && (
-          <button className="btn btn--warning btn--sm" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading}>
+          <button className="btn btn--warning btn--sm" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading || isOccupied}>
             <FlameKindling size={12} strokeWidth={2} /> Fusionar · {sc.base_mana_fuse * Math.pow(2, card.rank - 1)} maná
           </button>
         )}
         {card.equipped ? (
-          <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading}>Desequipar</button>
+          <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied}>Desequipar</button>
         ) : (
-          <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip}>
+          <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip || isOccupied}>
             Equipar
           </button>
         )}
@@ -446,7 +450,7 @@ function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loa
   )
 }
 
-function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose }) {
+function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose, isOccupied }) {
   const equippedCount = cards.filter(c => c.equipped).length
 
   // Detectar cartas fusionables: misma card_id y mismo rango, sin equipar
@@ -483,6 +487,9 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
         </div>
 
         {error && <p className="inv-error">{error}</p>}
+        {isOccupied && (
+          <p className="inv-locked-notice">El héroe está en expedición — las cartas no se pueden modificar.</p>
+        )}
 
         {cards.length === 0 ? (
           <p className="inv-bag-empty">Sin cartas. Explora mazmorras mágicas o antiguas para conseguirlas.</p>
@@ -504,6 +511,7 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
                   onUnequip={onUnequip}
                   onFuse={onFuse}
                   loading={loading}
+                  isOccupied={isOccupied}
                 />
               )
             })}
@@ -573,6 +581,7 @@ function Hero({ userId, heroId }) {
 
   const cls = hero.classes
   const status = STATUS_META[hero.status] ?? STATUS_META.idle
+  const isOccupied = hero.status === 'exploring'
 
   const displayItems = optimisticItems ?? items
 
@@ -816,7 +825,7 @@ function Hero({ userId, heroId }) {
           ) : (
             <div className="equipped-cards-grid">
               {(cards ?? []).filter(c => c.equipped).map(card => (
-                <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} />
+                <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           )}
@@ -844,7 +853,7 @@ function Hero({ userId, heroId }) {
             </div>
             <div className="eq-slots-grid">
               {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -857,7 +866,7 @@ function Hero({ userId, heroId }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -870,7 +879,7 @@ function Hero({ userId, heroId }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -888,6 +897,7 @@ function Hero({ userId, heroId }) {
             loading={actionLoading}
             error={error}
             onClose={() => setBagOpen(false)}
+            isOccupied={isOccupied}
           />
         )}
       </AnimatePresence>
@@ -904,6 +914,7 @@ function Hero({ userId, heroId }) {
             loading={actionLoading}
             error={error}
             onClose={() => { setCardModalOpen(false); setError(null) }}
+            isOccupied={isOccupied}
           />
         )}
       </AnimatePresence>

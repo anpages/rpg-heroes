@@ -118,7 +118,7 @@ function fmtTime(seconds) {
   return `${m}m ${s}s`
 }
 
-function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, nexusRatio, featured }) {
+function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, nexusRatio, featured, anyUpgrading }) {
   const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
 
   // Cuando llegan datos reales del servidor, limpiar el optimista
@@ -147,6 +147,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
   const canAfford = resources && resources.gold >= cost.gold && resources.wood >= cost.wood
+  const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
     // Optimistic: mostrar timer y descontar recursos inmediatamente
@@ -262,9 +263,10 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
           <motion.button
             className="btn btn--ghost building-upgrade-btn"
             onClick={handleUpgradeStart}
-            disabled={!canAfford}
-            whileTap={!canAfford ? {} : { scale: 0.96 }}
-            whileHover={!canAfford ? {} : { scale: 1.02 }}
+            disabled={!canAfford || blockedByOther}
+            title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
+            whileTap={(!canAfford || blockedByOther) ? {} : { scale: 0.96 }}
+            whileHover={(!canAfford || blockedByOther) ? {} : { scale: 1.02 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
             <span>Mejorar</span><ChevronRight size={13} strokeWidth={2} />
@@ -413,6 +415,9 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
   })() : null
 
   const nexusRatio = nexusData?.ratio ?? 1
+  const anyUpgrading = (buildings ?? []).some(
+    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
+  )
 
   return (
     <div className="base-section">
@@ -445,6 +450,7 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
                     onUpgradeStart={handleUpgradeStart}
                     onUpgradeCollect={handleUpgradeCollect}
                     onOptimisticDeduct={handleOptimisticDeduct}
+                    anyUpgrading={anyUpgrading}
                   />
                 ))}
               </div>
