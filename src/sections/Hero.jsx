@@ -33,7 +33,6 @@ const overlayTransition = { duration: 0.18 }
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
 const STAT_BARS = [
-  { key: 'max_hp',       label: 'Vida',     Icon: Heart,    color: '#e11d48' },
   { key: 'attack',       label: 'Ataque',   Icon: Sword,    color: '#d97706' },
   { key: 'defense',      label: 'Defensa',  Icon: Shield,   color: '#475569' },
   { key: 'strength',     label: 'Fuerza',   Icon: Dumbbell, color: '#dc2626' },
@@ -623,11 +622,15 @@ function Hero({ userId, heroId }) {
   useEffect(() => { setOptimisticItems(null) }, [items])
   useEffect(() => { setOptimisticCards(null) }, [cards])
 
-  if (heroLoading || invLoading || cardsLoading) return <div className="hero-loading">Cargando héroe...</div>
+  if (heroLoading || invLoading || cardsLoading) return (
+    <motion.div key="hero-loading" className="hero-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+      Cargando héroe...
+    </motion.div>
+  )
   if (!hero) return (
-    <div className="hero-loading">
+    <motion.div key="hero-empty" className="hero-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       {heroId ? 'No se encontró el héroe.' : 'Recluta tu primer héroe para comenzar.'}
-    </div>
+    </motion.div>
   )
 
   const cls = hero.classes
@@ -793,7 +796,7 @@ function Hero({ userId, heroId }) {
 
 
   return (
-    <div className="hero-section">
+    <motion.div key="hero-content" className="hero-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
       <div className="hero-layout">
 
         {/* Columna izquierda: ficha + cartas */}
@@ -965,7 +968,7 @@ function Hero({ userId, heroId }) {
           />
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   )
 }
 
