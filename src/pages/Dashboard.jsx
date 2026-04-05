@@ -309,12 +309,7 @@ function Dashboard({ session }) {
   }
 
   return (
-    <motion.div
-      className="dash-root"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: heroesLoading || resourcesLoading ? 0 : 1 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-    >
+    <div className="dash-root">
 
       {/* Header */}
       <header className="dash-header">
@@ -532,7 +527,7 @@ function Dashboard({ session }) {
         />
       )}
 
-    </motion.div>
+    </div>
   )
 }
 

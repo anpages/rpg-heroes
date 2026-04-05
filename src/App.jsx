@@ -4,13 +4,20 @@ import LoginPage from './pages/LoginPage'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import InstallPrompt from './components/InstallPrompt'
+import { AnimatePresence, motion } from 'framer-motion'
 import './App.css'
+
+const pageVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.25, ease: 'easeOut' } },
+  exit:    { opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } },
+}
 
 function LoadingScreen() {
   return (
-    <div className="app-loading">
+    <motion.div className="app-loading" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <div className="app-loading-dot" />
-    </div>
+    </motion.div>
   )
 }
 
@@ -46,15 +53,39 @@ function App() {
       })
   }, [session])
 
-  if (loading) return <LoadingScreen />
-  if (!session) return <LoginPage />
-  if (playerExists === null) return <LoadingScreen />
-  if (!playerExists) return <Onboarding session={session} onComplete={() => setPlayerExists(true)} />
+  // Determinar qué página mostrar y su key para AnimatePresence
+  let pageKey, pageContent
+  if (loading || (session && playerExists === null)) {
+    pageKey = 'loading'
+    pageContent = <LoadingScreen key="loading" />
+  } else if (!session) {
+    pageKey = 'login'
+    pageContent = (
+      <motion.div key="login" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ minHeight: '100vh' }}>
+        <LoginPage />
+      </motion.div>
+    )
+  } else if (!playerExists) {
+    pageKey = 'onboarding'
+    pageContent = (
+      <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ minHeight: '100vh' }}>
+        <Onboarding session={session} onComplete={() => setPlayerExists(true)} />
+      </motion.div>
+    )
+  } else {
+    pageKey = 'dashboard'
+    pageContent = (
+      <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ height: '100vh' }}>
+        <Dashboard session={session} />
+        <InstallPrompt />
+      </motion.div>
+    )
+  }
+
   return (
-    <>
-      <Dashboard session={session} />
-      <InstallPrompt />
-    </>
+    <AnimatePresence mode="wait">
+      {pageContent}
+    </AnimatePresence>
   )
 }
 
