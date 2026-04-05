@@ -278,8 +278,8 @@ function Dashboard({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  const heroExploringReady    = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
-  const heroExploringInProgress = !heroExploringReady && heroes.some(h => h.status === 'exploring')
+  const heroExploringReady      = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
+  const heroExploringInProgress = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
   const buildingUpgradingReady    = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
   const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
