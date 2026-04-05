@@ -30,90 +30,46 @@ const overlayTransition = { duration: 0.18 }
 
 /* ─── Stat radar ──────────────────────────────────────────────────────────────── */
 
-const RADAR_STATS = [
-  { key: 'attack',       label: 'Ataque',   angle: -90, anchor: 'middle', dy: -8  },
-  { key: 'strength',     label: 'Fuerza',   angle: -18, anchor: 'start',  dy: -4  },
-  { key: 'intelligence', label: 'Int.',      angle:  54, anchor: 'start',  dy:  12 },
-  { key: 'agility',      label: 'Agilidad', angle: 126, anchor: 'end',    dy:  12 },
-  { key: 'defense',      label: 'Defensa',  angle: 198, anchor: 'end',    dy: -4  },
+/* ─── Stat bars ───────────────────────────────────────────────────────────────── */
+
+const STAT_BARS = [
+  { key: 'attack',       label: 'Ataque',      Icon: Sword,    color: '#d97706' },
+  { key: 'defense',      label: 'Defensa',     Icon: Shield,   color: '#475569' },
+  { key: 'strength',     label: 'Fuerza',      Icon: Dumbbell, color: '#dc2626' },
+  { key: 'agility',      label: 'Agilidad',    Icon: Wind,     color: '#2563eb' },
+  { key: 'intelligence', label: 'Inteligencia',Icon: Brain,    color: '#7c3aed' },
 ]
 
-function StatRadar({ effective, base, classColor }) {
-  const CX = 110, CY = 112, R = 72
-  const color = classColor ?? '#2563eb'
-
-  const effVals  = RADAR_STATS.map(s => effective[s.key]  ?? 0)
-  const baseVals = RADAR_STATS.map(s => base[s.key]       ?? 0)
-  const maxVal   = Math.max(20, ...effVals) * 1.35
-
-  function toXY(angle, val) {
-    const rad = (angle * Math.PI) / 180
-    const r   = (val / maxVal) * R
-    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)]
-  }
-  function toXYr(angle, r) {
-    const rad = (angle * Math.PI) / 180
-    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)]
-  }
-  function pts(vals) {
-    return RADAR_STATS.map((s, i) => toXY(s.angle, vals[i]).join(',')).join(' ')
-  }
+function StatBars({ effective, base }) {
+  const maxVal = Math.max(20, ...STAT_BARS.map(s => effective[s.key] ?? 0)) * 1.4
 
   return (
-    <svg viewBox="0 0 220 224" className="stat-radar">
-      {/* Grid rings */}
-      {[0.25, 0.5, 0.75, 1].map(g => (
-        <polygon key={g}
-          points={RADAR_STATS.map(s => toXYr(s.angle, R * g).join(',')).join(' ')}
-          fill="none" stroke="var(--border)"
-          strokeWidth={g === 1 ? 1.5 : 0.8}
-          opacity={g === 1 ? 0.7 : 0.3}
-        />
-      ))}
-      {/* Axes */}
-      {RADAR_STATS.map(s => {
-        const [x2, y2] = toXYr(s.angle, R)
-        return <line key={s.key} x1={CX} y1={CY} x2={x2} y2={y2} stroke="var(--border)" strokeWidth="0.8" opacity="0.4" />
-      })}
-      {/* Base polygon */}
-      <polygon points={pts(baseVals)}
-        fill={color} fillOpacity="0.08"
-        stroke={color} strokeWidth="1.2" strokeOpacity="0.35"
-        strokeDasharray="4 3" strokeLinejoin="round"
-      />
-      {/* Effective polygon */}
-      <polygon points={pts(effVals)}
-        fill={color} fillOpacity="0.22"
-        stroke={color} strokeWidth="2.2" strokeLinejoin="round"
-      />
-      {/* Vertex dots */}
-      {RADAR_STATS.map((s, i) => {
-        const [x, y] = toXY(s.angle, effVals[i])
-        return <circle key={s.key} cx={x} cy={y} r="4" fill={color} stroke="var(--surface)" strokeWidth="1.5" />
-      })}
-      {/* Labels */}
-      {RADAR_STATS.map((s, i) => {
-        const [lx, ly] = toXYr(s.angle, R + 24)
-        const bonus = effVals[i] - baseVals[i]
+    <div className="stat-bars">
+      {STAT_BARS.map(({ key, label, Icon, color }) => {
+        const total = effective[key] ?? 0
+        const baseV = base[key]      ?? 0
+        const bonus = total - baseV
+        const basePct  = Math.min(100, (baseV  / maxVal) * 100)
+        const bonusPct = Math.min(100 - basePct, (bonus / maxVal) * 100)
+
         return (
-          <g key={s.key}>
-            <text x={lx} y={ly + s.dy} textAnchor={s.anchor}
-              fontSize="8" fill="var(--text-3)"
-              fontFamily="Outfit,sans-serif" fontWeight="600" letterSpacing="0.07em">
-              {s.label.toUpperCase()}
-            </text>
-            <text x={lx} y={ly + s.dy + 13} textAnchor={s.anchor}
-              fontSize="14" fill="var(--text)"
-              fontFamily="Outfit,sans-serif" fontWeight="700">
-              {effVals[i]}
-              {bonus > 0 && (
-                <tspan fontSize="10" fill={color} fontWeight="700"> +{bonus}</tspan>
-              )}
-            </text>
-          </g>
+          <div key={key} className="stat-bar-row">
+            <div className="stat-bar-icon" style={{ color }}>
+              <Icon size={13} strokeWidth={2} />
+            </div>
+            <span className="stat-bar-label">{label}</span>
+            <div className="stat-bar-track">
+              <div className="stat-bar-base"  style={{ width: `${basePct}%`,  background: color, opacity: 0.55 }} />
+              <div className="stat-bar-bonus" style={{ width: `${bonusPct}%`, background: color }} />
+            </div>
+            <span className="stat-bar-value">{total}</span>
+            {bonus > 0 && (
+              <span className="stat-bar-bonus-label" style={{ color }}>+{bonus}</span>
+            )}
+          </div>
         )
       })}
-    </svg>
+    </div>
   )
 }
 
@@ -876,10 +832,9 @@ function Hero({ userId, heroId }) {
             </button>
           )}
 
-          <StatRadar
+          <StatBars
             effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
             base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
-            classColor={cls?.color}
           />
         </div>
 

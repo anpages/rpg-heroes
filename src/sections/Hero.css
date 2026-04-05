@@ -216,14 +216,69 @@
 
 /* ─── Stats list ─────────────────────────────────────────────────────────────── */
 
-/* ─── Stat radar ──────────────────────────────────────────────────────────────── */
+/* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
-.stat-radar {
-  width: 100%;
-  max-width: 260px;
-  margin: 4px auto 0;
-  display: block;
-  overflow: visible;
+.stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.stat-bar-row {
+  display: grid;
+  grid-template-columns: 16px 90px 1fr 26px 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-bar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-bar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.stat-bar-track {
+  height: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  display: flex;
+}
+
+.stat-bar-base {
+  height: 100%;
+  border-radius: 99px 0 0 99px;
+  transition: width 0.4s ease;
+}
+
+.stat-bar-bonus {
+  height: 100%;
+  border-radius: 0 99px 99px 0;
+  transition: width 0.4s ease;
+}
+
+.stat-bar-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+}
+
+.stat-bar-bonus-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
 }
 
 /* ─── Equipment panel ────────────────────────────────────────────────────────── */
