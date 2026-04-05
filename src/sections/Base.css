@@ -339,15 +339,6 @@
 }
 
 /* Upgrade button — solo override del hover accent (base en .btn --ghost) */
-.building-upgrade-btn {
-  padding: 6px 12px;
-}
-
-.building-upgrade-btn:not(:disabled):hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-bg);
-}
 
 
 .building-error {

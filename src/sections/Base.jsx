@@ -261,7 +261,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
             </span>
           </div>
           <motion.button
-            className="btn btn--ghost building-upgrade-btn"
+            className="btn btn--primary btn--sm"
             onClick={handleUpgradeStart}
             disabled={!canAfford || blockedByOther}
             title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
