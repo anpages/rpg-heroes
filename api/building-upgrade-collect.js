@@ -13,9 +13,9 @@ function computeRates(buildings) {
   const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
 
   return {
-    gold_rate: Math.floor((2 + (goldMine - 1)) * ratio),
-    wood_rate: Math.floor((1 + (lumber   - 1)) * ratio),
-    mana_rate: Math.floor((1 + (mana     - 1)) * ratio),
+    gold_rate: Math.max(1, Math.floor((2 + (goldMine - 1)) * ratio)),
+    wood_rate: Math.max(1, Math.floor((1 + (lumber   - 1)) * ratio)),
+    mana_rate: Math.max(1, Math.floor((1 + (mana     - 1)) * ratio)),
   }
 }
 

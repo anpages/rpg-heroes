@@ -242,6 +242,13 @@
   color: var(--accent);
 }
 
+.building-nexus-penalty {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d97706;
+  margin-top: -4px;
+}
+
 .building-effect-next {
   font-size: 13px;
   font-weight: 500;

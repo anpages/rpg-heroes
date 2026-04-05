@@ -118,7 +118,7 @@ function fmtTime(seconds) {
   return `${m}m ${s}s`
 }
 
-function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, featured }) {
+function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, nexusRatio, featured }) {
   const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
 
   // Cuando llegan datos reales del servidor, limpiar el optimista
@@ -191,6 +191,11 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
             {meta.effect(level)}
             {!hasUpgrade && <span className="building-effect-next"> → {meta.nextEffect(level)}</span>}
           </p>
+          {nexusRatio !== undefined && nexusRatio < 1 && (
+            <p className="building-nexus-penalty">
+              ⚡ Energía insuficiente · tasa real reducida al {Math.round(nexusRatio * 100)}%
+            </p>
+          )}
         </div>
       </div>
 
@@ -403,8 +408,11 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
     const deficit = balance < 0
     const barPct = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
     const efficiency = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
-    return { produced, consumed, balance, deficit, barPct, efficiency }
+    const ratio = consumed > 0 ? Math.min(1, produced / consumed) : 1
+    return { produced, consumed, balance, deficit, barPct, efficiency, ratio }
   })() : null
+
+  const nexusRatio = nexusData?.ratio ?? 1
 
   return (
     <div className="base-section">
@@ -433,6 +441,7 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
                     resources={effectiveResources}
                     featured={b.type === 'energy_nexus'}
                     nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
+                    nexusRatio={PRODUCTION_TYPES.includes(b.type) ? nexusRatio : undefined}
                     onUpgradeStart={handleUpgradeStart}
                     onUpgradeCollect={handleUpgradeCollect}
                     onOptimisticDeduct={handleOptimisticDeduct}
