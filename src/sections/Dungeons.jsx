@@ -127,6 +127,11 @@ function ExpeditionProgress({ expedition, onCollect }) {
 }
 
 // DungeonCard es puro display: no hace fetch, onStart(dungeon) dispara la lógica en el padre
+function dungeonHpCost(maxHp, difficulty) {
+  const pct = difficulty <= 3 ? 0.05 : difficulty <= 6 ? 0.07 : 0.10
+  return Math.floor((maxHp ?? 100) * pct)
+}
+
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp }) {
   const locked = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
@@ -134,6 +139,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   const minHp = Math.floor((heroMaxHp ?? 100) * 0.2)
   const lowHp = !isActive && !locked && !busy && (heroHpNow ?? minHp) < minHp
   const disabled = locked || busy || lowHp
+  const hpCost = dungeonHpCost(heroMaxHp, dungeon.difficulty)
 
   return (
     <div className={`dungeon-card ${locked ? 'dungeon-card--locked' : ''} ${isActive ? 'dungeon-card--active' : ''}`}>
@@ -178,6 +184,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
         <div className="dungeon-card-bottom">
           <div className="dungeon-rewards">
             <span className="reward-item"><Star size={13} strokeWidth={2} color="#0369a1" />{dungeon.experience_reward} XP</span>
+            <span className="reward-item reward-item--hp-cost">−{hpCost} HP</span>
           </div>
           <motion.button
             className="btn btn--primary"

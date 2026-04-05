@@ -485,3 +485,10 @@
 .tower-hp-label--low {
   color: #dc2626;
 }
+
+.tower-hp-cost {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+}

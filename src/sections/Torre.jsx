@@ -287,6 +287,7 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
             {hpNow}/{hero?.max_hp ?? 0} HP
             {!hasEnoughHp && ` · mín. ${minHp}`}
           </span>
+          <span className="tower-hp-cost">coste: varía</span>
         </div>
 
         <motion.button

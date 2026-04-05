@@ -355,3 +355,8 @@
 .dungeon-hp-label--low {
   color: #dc2626;
 }
+
+.reward-item--hp-cost {
+  color: #dc2626;
+  font-weight: 600;
+}
