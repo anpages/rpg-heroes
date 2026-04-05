@@ -570,13 +570,14 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
 // HP interpolation — 10%/hr idle, 25%/hr resting
-function interpolateHpClient(hero, nowMs) {
+function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
   if (!hero) return 0
+  const maxHp      = effectiveMaxHp ?? hero.max_hp
   const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
   const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
   const regenPerMin = hero.status === 'exploring' ? 0 : (20 / 60)
   const regen      = elapsedMin * regenPerMin * hero.max_hp / 100
-  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
+  return Math.min(maxHp, Math.floor(hero.current_hp + regen))
 }
 
 function Hero({ userId, heroId }) {
@@ -592,16 +593,13 @@ function Hero({ userId, heroId }) {
   const [libraryLevel, setLibraryLevel] = useState(1)
   const [optimisticItems, setOptimisticItems] = useState(null)
   const [optimisticCards, setOptimisticCards] = useState(null)
-  const [hpNow, setHpNow] = useState(null)
+  const [tick, setTick] = useState(0)
 
-  // Recalculate interpolated HP every 30s
+  // Tick cada 30s para actualizar HP interpolado
   useEffect(() => {
-    if (!hero) return
-    const update = () => setHpNow(interpolateHpClient(hero, Date.now()))
-    update()
-    const id = setInterval(update, 30000)
+    const id = setInterval(() => setTick(t => t + 1), 30000)
     return () => clearInterval(id)
-  }, [hero])
+  }, [])
 
   useEffect(() => {
     if (!userId) return
@@ -694,6 +692,9 @@ function Hero({ userId, heroId }) {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
   const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
+
+  void tick // provoca re-render cada 30s para actualizar HP interpolado
+  const hpNow = interpolateHpClient(hero, Date.now(), effective.max_hp)
 
   const bag = displayItems?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
