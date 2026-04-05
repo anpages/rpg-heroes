@@ -537,6 +537,7 @@ function Hero({ userId, heroId }) {
   const [cardModalOpen, setCardModalOpen] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null) // { title, body, onConfirm }
   const [workshopLevel, setWorkshopLevel] = useState(1)
+  const [libraryLevel, setLibraryLevel] = useState(1)
   const [optimisticItems, setOptimisticItems] = useState(null)
   const [hpNow, setHpNow] = useState(null)
 
@@ -553,11 +554,15 @@ function Hero({ userId, heroId }) {
     if (!userId) return
     supabase
       .from('buildings')
-      .select('level')
+      .select('type, level')
       .eq('player_id', userId)
-      .eq('type', 'workshop')
-      .maybeSingle()
-      .then(({ data }) => { if (data) setWorkshopLevel(data.level) })
+      .in('type', ['workshop', 'library'])
+      .then(({ data }) => {
+        data?.forEach(b => {
+          if (b.type === 'workshop') setWorkshopLevel(b.level)
+          if (b.type === 'library')  setLibraryLevel(b.level)
+        })
+      })
   }, [userId])
 
   // Limpiar optimista cuando llegan datos reales tras el refetch
@@ -628,7 +633,7 @@ function Hero({ userId, heroId }) {
   ;(cards ?? []).filter(c => c.equipped).forEach(c => {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
-  const cardSlotCount = 3 // se sobreescribe en el modal con el nivel real de la biblioteca
+  const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
 
   const bag = displayItems?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
