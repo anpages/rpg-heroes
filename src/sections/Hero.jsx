@@ -310,6 +310,8 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
 /* ─── Card constants ──────────────────────────────────────────────────────────── */
 
 const CATEGORY_META = {
+  attack:       { label: 'Ataque',        color: '#d97706', icon: Sword    },
+  defense:      { label: 'Defensa',       color: '#475569', icon: Shield   },
   strength:     { label: 'Fuerza',        color: '#dc2626', icon: Dumbbell },
   agility:      { label: 'Agilidad',      color: '#0369a1', icon: Wind     },
   intelligence: { label: 'Inteligencia',  color: '#7c3aed', icon: Brain    },
@@ -582,7 +584,7 @@ function Hero({ userId, heroId }) {
   }
 
   // Presupuesto de cartas por categoría (usa stats BASE del héroe, no efectivas)
-  const cardBudgetUsed = { strength: 0, agility: 0, intelligence: 0 }
+  const cardBudgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
   ;(cards ?? []).filter(c => c.equipped).forEach(c => {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
@@ -754,7 +756,7 @@ function Hero({ userId, heroId }) {
           </div>
 
           <div className="card-budgets">
-            {['strength', 'agility', 'intelligence'].map(cat => (
+            {['attack', 'defense', 'strength', 'agility', 'intelligence'].map(cat => (
               <CardBudgetBar
                 key={cat}
                 category={cat}

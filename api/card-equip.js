@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   // Verificar propiedad
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, strength, agility, intelligence')
+    .select('id, player_id, attack, defense, strength, agility, intelligence')
     .eq('id', heroCard.hero_id)
     .single()
 

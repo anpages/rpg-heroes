@@ -948,8 +948,15 @@
 
 .card-budgets {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 500px) {
+  .card-budgets {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
 }
 
 .card-budget {

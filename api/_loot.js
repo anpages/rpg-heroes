@@ -46,8 +46,11 @@ function pickSlot(poolKey) {
 }
 
 const CARD_DROP_BY_TYPE = {
-  magic:   { chance: 0.35, categoryPool: ['intelligence','intelligence','intelligence','strength','agility'],   weights: [50,30,15,4,1] },
-  ancient: { chance: 0.25, categoryPool: ['intelligence','strength','agility'],                                weights: [40,30,20,8,2] },
+  magic:   { chance: 0.35, categoryPool: ['intelligence','intelligence','intelligence','strength','agility'],          weights: [50,30,15,4,1] },
+  ancient: { chance: 0.25, categoryPool: ['intelligence','strength','agility'],                                       weights: [40,30,20,8,2] },
+  combat:  { chance: 0.20, categoryPool: ['attack','attack','attack','strength','defense'],                           weights: [50,28,16,5,1] },
+  crypt:   { chance: 0.20, categoryPool: ['defense','defense','defense','intelligence','attack'],                     weights: [50,28,16,5,1] },
+  mine:    { chance: 0.15, categoryPool: ['attack','attack','defense','defense','strength'],                          weights: [45,30,18,6,1] },
 }
 
 export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey }) {
