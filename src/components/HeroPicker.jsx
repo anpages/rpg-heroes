@@ -7,7 +7,6 @@ import './HeroPicker.css'
 const STATUS_COLOR = {
   idle:      '#16a34a',
   exploring: '#d97706',
-  resting:   '#60a5fa',  // azul claro visible en ambos temas
   ready:     '#16a34a',
 }
 

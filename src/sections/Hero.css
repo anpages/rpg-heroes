@@ -189,32 +189,6 @@
   margin-top: -2px;
 }
 
-/* ─── Rest button (base en .btn --ghost --full, solo overrides de estado) ─────── */
-
-.hero-rest-btn:hover:not(:disabled) {
-  border-color: #60a5fa;
-  color: #60a5fa;
-  background: color-mix(in srgb, #60a5fa 8%, var(--surface));
-}
-
-.hero-rest-btn--active {
-  border-color: #60a5fa;
-  color: #60a5fa;
-  background: color-mix(in srgb, #60a5fa 10%, var(--surface));
-  animation: rest-pulse 2.5s ease-in-out infinite;
-}
-
-.hero-rest-btn--active:hover:not(:disabled) {
-  background: color-mix(in srgb, #60a5fa 16%, var(--surface));
-  animation: none;
-}
-
-@keyframes rest-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.7; }
-}
-
-/* ─── Stats list ─────────────────────────────────────────────────────────────── */
 
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 

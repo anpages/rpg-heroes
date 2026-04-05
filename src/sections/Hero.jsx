@@ -6,7 +6,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
-  BookOpen, Zap, FlameKindling, Wrench, Moon, Sun,
+  BookOpen, Zap, FlameKindling, Wrench,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Hero.css'
@@ -76,9 +76,9 @@ function StatBars({ effective, base }) {
 /* ─── Hero status ─────────────────────────────────────────────────────────────── */
 
 const STATUS_META = {
-  idle:      { label: 'En reposo',   color: '#16a34a' },
-  exploring: { label: 'Explorando',  color: '#d97706' },
-  resting:   { label: 'Recuperando', color: '#60a5fa' },
+  idle:      { label: 'En reposo',  color: '#16a34a' },
+  exploring: { label: 'Explorando', color: '#d97706' },
+  ready:     { label: 'Listo',      color: '#16a34a' },
 }
 
 /* ─── Inventory constants ─────────────────────────────────────────────────────── */
@@ -572,10 +572,10 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 // HP interpolation — 10%/hr idle, 25%/hr resting
 function interpolateHpClient(hero, nowMs) {
   if (!hero) return 0
-  const lastMs = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
+  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
   const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
-  const regenPctPerMin = hero.status === 'resting' ? 25 / 60 : 10 / 60
-  const regen = elapsedMin * regenPctPerMin * hero.max_hp / 100
+  const regenPerMin = hero.status === 'exploring' ? 0 : (20 / 60)
+  const regen      = elapsedMin * regenPerMin * hero.max_hp / 100
   return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
 }
 
@@ -584,7 +584,6 @@ function Hero({ userId, heroId }) {
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
   const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
   const [actionLoading, setActionLoading] = useState(false)
-  const [restLoading, setRestLoading] = useState(false)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
@@ -774,18 +773,6 @@ function Hero({ userId, heroId }) {
   function handleCardUnequip(cardId) { callCardApi('/api/card-equip', { cardId, equip: false }) }
   function handleCardFuse(id1, id2)  { callCardApi('/api/card-fuse',  { cardId1: id1, cardId2: id2 }) }
 
-  async function handleRest() {
-    setRestLoading(true)
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    await fetch('/api/hero-rest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ heroId: hero.id }),
-    })
-    setRestLoading(false)
-    refetchHero()
-  }
 
   return (
     <div className="hero-section">
@@ -817,20 +804,8 @@ function Hero({ userId, heroId }) {
           <HpBar
             current={hpNow ?? hero.current_hp}
             max={effective.max_hp}
-            recovering={hero.status === 'resting'}
+            recovering={hero.status === 'idle'}
           />
-          {hero.status !== 'exploring' && (
-            <button
-              className={`btn btn--ghost btn--full hero-rest-btn ${hero.status === 'resting' ? 'hero-rest-btn--active' : ''}`}
-              onClick={handleRest}
-              disabled={restLoading}
-            >
-              {hero.status === 'resting'
-                ? <><Sun size={14} strokeWidth={2} /> Despertar</>
-                : <><Moon size={14} strokeWidth={2} /> Descansar</>
-              }
-            </button>
-          )}
 
           <StatBars
             effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}

@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     .update({
       current_hp:          hpAfterCombat,
       hp_last_updated_at:  new Date(nowMs).toISOString(),
-      ...(heroKnockedOut && { status: 'resting' }),
+      ...(heroKnockedOut && { status: 'idle' }),
     })
     .eq('id', hero.id)
 
