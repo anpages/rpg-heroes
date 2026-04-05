@@ -20,6 +20,7 @@
 
   --blue-50:  #eff6ff;
   --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
   --blue-400: #60a5fa;
   --blue-500: #3b82f6;
   --blue-600: #2563eb;
@@ -56,12 +57,14 @@
   --text-2: #94a3b8;
   --text-3: #475569;
 
-  --blue-50:  #172554;
-  --blue-100: #1e3a5f;
-  --blue-400: #60a5fa;
-  --blue-500: #3b82f6;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
+  /* En dark mode el azul frío se sustituye por ámbar/dorado */
+  --blue-50:  #1c1005;
+  --blue-100: #2a1a07;
+  --blue-200: #92400e;
+  --blue-400: #fbbf24;
+  --blue-500: #f59e0b;
+  --blue-600: #d97706;
+  --blue-700: #fcd34d;
 
   --success-bg:     #052e16;
   --success-border: #166534;
@@ -72,9 +75,9 @@
   --warning-bg:     #451a03;
   --warning-border: #92400e;
   --warning-text:   #fbbf24;
-  --info-bg:        #172554;
-  --info-border:    #1e40af;
-  --info-text:      #93c5fd;
+  --info-bg:        #1c1005;
+  --info-border:    #92400e;
+  --info-text:      #fcd34d;
 
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3),  0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2);
