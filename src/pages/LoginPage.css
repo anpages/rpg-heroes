@@ -79,7 +79,7 @@
 }
 
 .game-title-rpg {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bebas Neue', sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5em;
@@ -89,7 +89,7 @@
 }
 
 .game-title-heroes {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bebas Neue', sans-serif;
   font-size: clamp(40px, 10vw, 54px);
   font-weight: 700;
   color: var(--blue-700);

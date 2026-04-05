@@ -26,9 +26,10 @@
 }
 
 .dash-logo {
-  font-family: 'Cinzel', serif;
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
   color: var(--blue-700);
   flex-shrink: 0;
 }
@@ -365,9 +366,10 @@
 }
 
 .section-placeholder-title {
-  font-family: 'Cinzel', serif;
-  font-size: 22px;
-  font-weight: 700;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--blue-700);
 }
 

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -226,11 +226,12 @@ h1, h2, h3 {
 }
 
 .section-title {
-  font-family: 'Cinzel', serif;
-  font-size: 26px;
-  font-weight: 700;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px;
+  font-weight: 400;
   color: var(--text);
-  line-height: 1.1;
+  line-height: 1;
+  letter-spacing: 0.04em;
 }
 
 .workshop-bonus-badge {

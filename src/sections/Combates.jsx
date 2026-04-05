@@ -1,12 +1,27 @@
 import { useState } from 'react'
-import { TowerControl, Trophy } from 'lucide-react'
+import { TowerControl, Trophy, Swords, ChevronRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import Torre from './Torre'
 import Ranking from './Ranking'
 import './Combates.css'
 
-const TABS = [
-  { id: 'torre',         label: 'Torre',          Icon: TowerControl },
-  { id: 'clasificacion', label: 'Clasificación',  Icon: Trophy       },
+const MODES = [
+  {
+    id:          'torre',
+    label:       'Torre',
+    sublabel:    'PvE',
+    description: 'Asciende planta a planta. Cada piso es más difícil. ¿Hasta dónde llegarás?',
+    Icon:        TowerControl,
+    color:       '#2563eb',
+  },
+  {
+    id:          'clasificacion',
+    label:       'Clasificación',
+    sublabel:    'Global',
+    description: 'Los héroes más poderosos del reino, ordenados por nivel y progreso.',
+    Icon:        Trophy,
+    color:       '#d97706',
+  },
 ]
 
 export default function Combates({ userId, heroId, onResourceChange }) {
@@ -14,23 +29,54 @@ export default function Combates({ userId, heroId, onResourceChange }) {
 
   return (
     <div className="combates-section">
-      <div className="combates-tabs">
-        {TABS.map(({ id, label, Icon }) => (
+
+      {/* Header */}
+      <div className="combates-header">
+        <div className="combates-header-title">
+          <Swords size={22} strokeWidth={1.6} />
+          <span>Combates</span>
+        </div>
+        <p className="combates-header-sub">Pon a prueba a tu héroe en combate o consulta la clasificación.</p>
+      </div>
+
+      {/* Mode selector */}
+      <div className="combates-modes">
+        {MODES.map(m => (
           <button
-            key={id}
-            className={`combates-tab ${tab === id ? 'combates-tab--active' : ''}`}
-            onClick={() => setTab(id)}
+            key={m.id}
+            className={`combates-mode ${tab === m.id ? 'combates-mode--active' : ''}`}
+            style={{ '--mode-color': m.color }}
+            onClick={() => setTab(m.id)}
           >
-            <Icon size={15} strokeWidth={1.8} />
-            {label}
+            <div className="combates-mode-icon">
+              <m.Icon size={26} strokeWidth={1.6} />
+            </div>
+            <div className="combates-mode-info">
+              <div className="combates-mode-name-row">
+                <span className="combates-mode-name">{m.label}</span>
+                <span className="combates-mode-sublabel">{m.sublabel}</span>
+              </div>
+              <p className="combates-mode-desc">{m.description}</p>
+            </div>
+            <ChevronRight size={16} strokeWidth={2} className="combates-mode-arrow" />
           </button>
         ))}
       </div>
 
-      <div className="combates-content">
-        {tab === 'torre'         && <Torre userId={userId} heroId={heroId} onResourceChange={onResourceChange} />}
-        {tab === 'clasificacion' && <Ranking userId={userId} />}
-      </div>
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18 }}
+        >
+          {tab === 'torre'         && <Torre userId={userId} heroId={heroId} onResourceChange={onResourceChange} />}
+          {tab === 'clasificacion' && <Ranking userId={userId} />}
+        </motion.div>
+      </AnimatePresence>
+
     </div>
   )
 }

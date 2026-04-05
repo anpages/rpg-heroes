@@ -66,8 +66,10 @@
 }
 
 .hero-name {
-  font-size: 22px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 24px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--text);
   line-height: 1;
 }
@@ -214,88 +216,14 @@
 
 /* ─── Stats list ─────────────────────────────────────────────────────────────── */
 
-.hero-stats-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
+/* ─── Stat radar ──────────────────────────────────────────────────────────────── */
 
-.stat-row-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.stat-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.stat-row--tappable {
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.12s;
-}
-
-.stat-row--tappable:active {
-  background: var(--surface-2);
-}
-
-.stat-breakdown {
-  display: flex;
-  gap: 10px;
-  padding: 3px 4px 3px 38px;
-  animation: breakdown-in 0.15s ease;
-}
-
-@keyframes breakdown-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.stat-breakdown-item {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--success-text);
-}
-
-.stat-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-label {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-2);
-}
-
-.stat-value {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  width: 30px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.stat-bonus {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--success-text);
-  width: 26px;
-  flex-shrink: 0;
-  text-align: left;
+.stat-radar {
+  width: 100%;
+  max-width: 260px;
+  margin: 4px auto 0;
+  display: block;
+  overflow: visible;
 }
 
 /* ─── Equipment panel ────────────────────────────────────────────────────────── */
@@ -1028,7 +956,7 @@
   }
 
   .hero-name {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   /* Budget bars: 3 cols comprimidas pueden quedar muy estrechas en móvil */

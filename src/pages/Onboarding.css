@@ -40,14 +40,11 @@
 }
 
 .ob-title {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(24px, 4vw, 36px);
-  font-weight: 700;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(30px, 5vw, 44px);
+  font-weight: 400;
+  letter-spacing: 0.05em;
   color: var(--blue-700);
-  background: none;
-  -webkit-background-clip: unset;
-  background-clip: unset;
-  filter: none;
 }
 
 /* Divider */
