@@ -51,11 +51,15 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Stock agotado para hoy' })
   }
 
-  // Verificar oro
+  // Verificar oro — interpolar acumulado idle para no perder el gold generado
   const { data: resources } = await supabase
-    .from('resources').select('gold').eq('player_id', user.id).single()
+    .from('resources').select('gold, gold_rate, last_collected_at').eq('player_id', user.id).single()
 
-  if ((resources?.gold ?? 0) < shopEntry.gold_price) {
+  const now = Date.now()
+  const minutesElapsed = resources ? (now - new Date(resources.last_collected_at).getTime()) / 60000 : 0
+  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * minutesElapsed) : 0
+
+  if (currentGold < shopEntry.gold_price) {
     return res.status(409).json({ error: 'Oro insuficiente' })
   }
 
@@ -74,10 +78,10 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 
-  // Descontar oro
+  // Descontar oro — guardar snapshot interpolado y actualizar last_collected_at
   await supabase
     .from('resources')
-    .update({ gold: resources.gold - shopEntry.gold_price })
+    .update({ gold: currentGold - shopEntry.gold_price, last_collected_at: new Date(now).toISOString() })
     .eq('player_id', user.id)
 
   // Crear item

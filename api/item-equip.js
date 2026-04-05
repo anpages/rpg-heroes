@@ -89,6 +89,7 @@ export default async function handler(req, res) {
 
   // ── EQUIPAR ───────────────────────────────────────────────────────────────
   if (item.equipped_slot) return res.status(409).json({ error: 'El item ya está equipado' })
+  if (item.current_durability <= 0) return res.status(409).json({ error: 'El item está roto. Repáralo antes de equiparlo.' })
 
   // Para accesorios: buscar el primer slot libre entre accessory y accessory_2
   let targetSlot = catalogSlot
