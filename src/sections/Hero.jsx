@@ -621,7 +621,11 @@ function Hero({ userId, heroId }) {
   useEffect(() => { setOptimisticItems(null) }, [items])
 
   if (heroLoading || invLoading || cardsLoading) return <div className="hero-loading">Cargando héroe...</div>
-  if (!hero) return <div className="hero-loading">No se encontró el héroe.</div>
+  if (!hero) return (
+    <div className="hero-loading">
+      {heroId ? 'No se encontró el héroe.' : 'Recluta tu primer héroe para comenzar.'}
+    </div>
+  )
 
   const cls = hero.classes
   const status = STATUS_META[hero.status] ?? STATUS_META.idle

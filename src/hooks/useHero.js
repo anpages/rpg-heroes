@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 export function useHero(heroId) {
   const [hero, setHero]       = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!!heroId)
 
   const refetch = useCallback(async () => {
     if (!heroId) return
@@ -16,7 +16,12 @@ export function useHero(heroId) {
   }, [heroId])
 
   useEffect(() => {
-    if (!heroId) return
+    if (!heroId) {
+      setHero(null)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     supabase
       .from('heroes')
       .select('*, classes(*)')
