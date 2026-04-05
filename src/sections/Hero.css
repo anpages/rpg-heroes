@@ -125,7 +125,7 @@
 
 .xp-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--blue-400), var(--blue-600));
+  background: linear-gradient(90deg, var(--btn-primary), var(--btn-primary-hover));
   border-radius: 99px;
   transition: width 0.4s ease;
 }
@@ -668,7 +668,7 @@
   padding: 0.4rem 1rem;
   border: none;
   border-radius: 8px;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -678,7 +678,7 @@
 }
 
 .confirm-ok:hover {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
 }
 
 /* ─── Bag modal ──────────────────────────────────────────────────────────────── */
@@ -867,7 +867,7 @@
   font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   border: none;
   border-radius: 6px;
   color: white;
@@ -876,7 +876,7 @@
 }
 
 .bag-equip-btn:hover:not(:disabled) {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
 }
 
 .bag-equip-btn:disabled {
@@ -1232,7 +1232,7 @@
   font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   border: none;
   border-radius: 6px;
   color: white;
@@ -1241,7 +1241,7 @@
 }
 
 .card-equip-btn:hover:not(:disabled) {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
 }
 
 .card-equip-btn:disabled {

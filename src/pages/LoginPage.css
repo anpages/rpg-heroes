@@ -142,7 +142,7 @@
   gap: 10px;
   width: 100%;
   padding: 12px 20px;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   border: none;
   color: #ffffff;
   font-family: 'Outfit', sans-serif;
@@ -159,7 +159,7 @@
 .google-btn::after { display: none; }
 
 .google-btn:hover {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
 }
 

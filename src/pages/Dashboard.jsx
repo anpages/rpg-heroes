@@ -6,6 +6,7 @@ import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Torre from '../sections/Torre'
+import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import Ranking from '../sections/Ranking'
 import ThemeToggle from '../components/ThemeToggle'
@@ -13,7 +14,7 @@ import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
-import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList, X, Plus, LogOut } from 'lucide-react'
+import { Castle, Sword, Skull, Trophy, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import './Dashboard.css'
 
@@ -212,6 +213,7 @@ const NAV_ITEMS = [
   { id: 'base',          label: 'Base',          icon: Castle },
   { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
   { id: 'torre',         label: 'Torre',         icon: TowerControl },
+  { id: 'tienda',        label: 'Tienda',        icon: ShoppingBag },
   { id: 'clasificacion', label: 'Clasificación', icon: Trophy },
 ]
 
@@ -457,6 +459,7 @@ function Dashboard({ session }) {
               {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
               {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
               {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+              {activeSection === 'tienda'        && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}
               {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
               {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}
               {import.meta.env.DEV && activeSection === 'dev-cartas'   && <CardCatalogDebug />}

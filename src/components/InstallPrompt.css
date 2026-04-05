@@ -48,7 +48,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.75rem;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -61,7 +61,7 @@
 }
 
 .install-prompt-btn:hover {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
 }
 
 .install-prompt-close {

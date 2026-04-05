@@ -226,7 +226,7 @@
 }
 
 .ob-class-card--selected .stat-fill {
-  background: var(--blue-600);
+  background: var(--btn-primary);
 }
 
 .stat-value {
@@ -259,7 +259,7 @@
 .ob-submit {
   width: 100%;
   padding: 13px 24px;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   border: none;
   border-radius: 10px;
   color: #ffffff;
@@ -272,7 +272,7 @@
 }
 
 .ob-submit:hover:not(:disabled) {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
 }
 

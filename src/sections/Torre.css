@@ -323,7 +323,7 @@
   gap: 8px;
   width: 100%;
   padding: 11px;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   color: #fff;
   border: none;
   border-radius: 9px;
@@ -334,7 +334,7 @@
   transition: background 0.15s;
 }
 
-.tower-attempt-btn:hover:not(:disabled) { background: var(--blue-700); }
+.tower-attempt-btn:hover:not(:disabled) { background: var(--btn-primary-hover); }
 .tower-attempt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── Result banner ──────────────────────────────────────────────────────────── */
@@ -425,7 +425,7 @@
   border-radius: 3px;
   transition: width 0.5s ease;
 }
-.tower-result-hpbar-fill--hero  { background: var(--blue-600); }
+.tower-result-hpbar-fill--hero  { background: var(--blue-500); }
 .tower-result-hpbar-fill--enemy { background: #dc2626; }
 .tower-result-hpbar-fill--dead  { background: var(--border-2); }
 

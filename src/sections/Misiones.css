@@ -176,7 +176,7 @@
 
 .mission-claim-btn {
   padding: 0.35rem 0.85rem;
-  background: var(--blue-600);
+  background: var(--btn-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -189,7 +189,7 @@
 }
 
 .mission-claim-btn:hover:not(:disabled) {
-  background: var(--blue-700);
+  background: var(--btn-primary-hover);
 }
 
 .mission-claim-btn:disabled {
