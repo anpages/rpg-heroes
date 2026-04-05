@@ -446,3 +446,42 @@
   border-color: color-mix(in srgb, #7c3aed 25%, var(--border));
   color: #7c3aed;
 }
+
+/* ─── HP row ─────────────────────────────────────────────────────────────────── */
+
+.tower-hp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.tower-hp-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tower-hp-bar-fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.3s;
+}
+
+.tower-hp-bar-track--low .tower-hp-bar-fill {
+  background: #dc2626;
+}
+
+.tower-hp-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.tower-hp-label--low {
+  color: #dc2626;
+}

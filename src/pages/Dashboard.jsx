@@ -257,6 +257,8 @@ function Dashboard({ session }) {
   const { heroes, loading: heroesLoading, refetch: refetchHeroes } = useHeroes(session.user.id)
   const { missions: missionsList, refetch: refetchMissions } = useMissions()
   const [selectedHeroId, setSelectedHeroId] = useState(null)
+  const [heroRefreshKey, setHeroRefreshKey] = useState(0)
+  function notifyHeroChanged() { setHeroRefreshKey(k => k + 1) }
 
   const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null
@@ -441,16 +443,16 @@ function Dashboard({ session }) {
         {/* Main content — secciones persistentes: se montan la primera vez y se ocultan con CSS */}
         <main className="dash-main">
           <div className={`dash-section ${activeSection === 'heroe' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('heroe') && <Hero userId={session.user.id} heroId={heroId} />}
+            {mountedSections.has('heroe') && <Hero userId={session.user.id} heroId={heroId} refreshKey={heroRefreshKey} />}
           </div>
           <div className={`dash-section ${activeSection === 'base' ? 'dash-section--active' : ''}`}>
             {mountedSections.has('base') && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
           </div>
           <div className={`dash-section ${activeSection === 'mazmorras' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('mazmorras') && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
+            {mountedSections.has('mazmorras') && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={notifyHeroChanged} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
           </div>
           <div className={`dash-section ${activeSection === 'combates' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('combates') && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+            {mountedSections.has('combates') && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={notifyHeroChanged} />}
           </div>
           <div className={`dash-section ${activeSection === 'tienda' ? 'dash-section--active' : ''}`}>
             {mountedSections.has('tienda') && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}

@@ -127,11 +127,13 @@ function ExpeditionProgress({ expedition, onCollect }) {
 }
 
 // DungeonCard es puro display: no hace fetch, onStart(dungeon) dispara la lógica en el padre
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect }) {
+function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp }) {
   const locked = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy = heroStatus !== 'idle' && !isActive
-  const disabled = locked || busy
+  const minHp = Math.floor((heroMaxHp ?? 100) * 0.2)
+  const lowHp = !isActive && !locked && !busy && (heroHpNow ?? minHp) < minHp
+  const disabled = locked || busy || lowHp
 
   return (
     <div className={`dungeon-card ${locked ? 'dungeon-card--locked' : ''} ${isActive ? 'dungeon-card--active' : ''}`}>
@@ -189,7 +191,9 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
               ? `Nv. ${dungeon.min_hero_level} requerido`
               : busy
                 ? 'Héroe ocupado'
-                : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>
+                : lowHp
+                  ? 'HP insuficiente'
+                  : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>
             }
           </motion.button>
         </div>
@@ -198,12 +202,26 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   )
 }
 
+function interpolateHp(hero, nowMs) {
+  if (!hero) return 0
+  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
+  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
+  const regen      = hero.status === 'exploring' ? 0 : elapsedMin * (100 / 60) * hero.max_hp / 100
+  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
+}
+
 function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpeditionStart, workshopLevel = 1 }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
   const [startError, setStartError] = useState(null)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
 
   useWakeLock(!!expedition)
 
@@ -234,6 +252,7 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
       refetch()
       onExpeditionStart?.()
+      onHeroChange?.()
     } else {
       setExpedition(null) // revertir
       setStartError(data.error ?? 'Error al iniciar expedición')
@@ -255,6 +274,7 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
   }
 
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
+  const heroHpNow  = interpolateHp(hero, Date.now())
 
   const agilityReduction = hero ? Math.min(0.25, (hero.agility ?? 0) * 0.003) : 0
   const agilityFactor = 1 - agilityReduction
@@ -271,6 +291,17 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
         </div>
         <p className="section-subtitle">Envía a tu héroe a explorar mazmorras para conseguir recursos, experiencia y equipo. El botín es aleatorio; cada tipo tiene sus especialidades.</p>
       </div>
+
+      {hero && (
+        <div className="dungeon-hp-row">
+          <div className={`dungeon-hp-bar-track ${heroHpNow < Math.floor(hero.max_hp * 0.2) ? 'dungeon-hp-bar-track--low' : ''}`}>
+            <div className="dungeon-hp-bar-fill" style={{ width: `${Math.round((heroHpNow / hero.max_hp) * 100)}%` }} />
+          </div>
+          <span className={`dungeon-hp-label ${heroHpNow < Math.floor(hero.max_hp * 0.2) ? 'dungeon-hp-label--low' : ''}`}>
+            {heroHpNow}/{hero.max_hp} HP
+          </span>
+        </div>
+      )}
 
       <AnimatePresence>
         {reward && (
@@ -333,6 +364,8 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
               onStart={handleStart}
               expedition={expedition}
               onCollect={handleCollect}
+              heroHpNow={heroHpNow}
+              heroMaxHp={hero?.max_hp ?? 100}
             />
           </motion.div>
         ))}

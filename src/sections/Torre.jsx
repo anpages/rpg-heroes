@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useTowerProgress } from '../hooks/useTowerProgress'
@@ -150,12 +150,31 @@ function ResultBanner({ result, onClose }) {
 
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
-export default function Torre({ userId, heroId, onResourceChange }) {
+function interpolateHp(hero, nowMs) {
+  if (!hero) return 0
+  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
+  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
+  const regen      = hero.status === 'exploring' ? 0 : elapsedMin * (100 / 60) * hero.max_hp / 100
+  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
+}
+
+export default function Torre({ userId, heroId, onResourceChange, onHeroChange }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { maxFloor, loading: towerLoading, refetch: refetchTower } = useTowerProgress(hero?.id)
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState(null)
   const [error, setError]     = useState(null)
+  const [tick, setTick]       = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  const nowMs      = Date.now()
+  const hpNow      = interpolateHp(hero, nowMs)
+  const minHp      = hero ? Math.floor(hero.max_hp * 0.2) : 0
+  const hasEnoughHp = hpNow >= minHp
 
   const targetFloor = (maxFloor ?? 0) + 1
   const enemy       = floorEnemyStats(targetFloor)
@@ -178,6 +197,7 @@ export default function Torre({ userId, heroId, onResourceChange }) {
       setResult(data)
       await refetchTower()
       refetchHero()
+      onHeroChange?.()
       if (data.won) onResourceChange?.()
     } else {
       setError(data.error ?? 'Error al intentar el piso')
@@ -259,16 +279,26 @@ export default function Torre({ userId, heroId, onResourceChange }) {
 
         {error && <p className="tower-error">{error}</p>}
 
+        <div className="tower-hp-row">
+          <div className={`tower-hp-bar-track ${!hasEnoughHp ? 'tower-hp-bar-track--low' : ''}`}>
+            <div className="tower-hp-bar-fill" style={{ width: `${Math.round((hpNow / (hero?.max_hp ?? 1)) * 100)}%` }} />
+          </div>
+          <span className={`tower-hp-label ${!hasEnoughHp ? 'tower-hp-label--low' : ''}`}>
+            {hpNow}/{hero?.max_hp ?? 0} HP
+            {!hasEnoughHp && ` · mín. ${minHp}`}
+          </span>
+        </div>
+
         <motion.button
           className="btn btn--primary btn--lg btn--full"
           onClick={attempt}
-          disabled={loading || isBusy}
-          whileTap={loading || isBusy ? {} : { scale: 0.96 }}
-          whileHover={loading || isBusy ? {} : { scale: 1.01 }}
+          disabled={loading || isBusy || !hasEnoughHp}
+          whileTap={loading || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
+          whileHover={loading || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >
           <Swords size={16} strokeWidth={2} />
-          {loading ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : `Intentar piso ${targetFloor}`}
+          {loading ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : !hasEnoughHp ? 'HP insuficiente' : `Intentar piso ${targetFloor}`}
         </motion.button>
       </div>
     </div>

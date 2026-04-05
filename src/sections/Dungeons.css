@@ -316,3 +316,42 @@
     justify-content: center;
   }
 }
+
+/* ─── HP row ─────────────────────────────────────────────────────────────────── */
+
+.dungeon-hp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.dungeon-hp-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dungeon-hp-bar-fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.dungeon-hp-bar-track--low .dungeon-hp-bar-fill {
+  background: #dc2626;
+}
+
+.dungeon-hp-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.dungeon-hp-label--low {
+  color: #dc2626;
+}

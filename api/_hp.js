@@ -2,13 +2,13 @@
  * HP interpolation utilities.
  *
  * HP regenerates passively over time when the hero is idle:
- *   idle      → 20% of max_hp per hour
+ *   idle      → 100% of max_hp per hour (full recovery from 0 in ~1h)
  *   exploring → no regeneration (in combat)
  *
  * Minimum HP to play: 20% of max_hp
  */
 
-export const REGEN_IDLE_PCT_PER_MIN = 20 / 60   // 20%/hr → per minute
+export const REGEN_IDLE_PCT_PER_MIN = 100 / 60  // 100%/hr → per minute
 export const MIN_HP_PCT             = 0.20       // 20% of max_hp required to play
 
 /**

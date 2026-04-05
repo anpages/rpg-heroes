@@ -24,7 +24,7 @@ const MODES = [
   },
 ]
 
-export default function Combates({ userId, heroId, onResourceChange }) {
+export default function Combates({ userId, heroId, onResourceChange, onHeroChange }) {
   const [tab, setTab] = useState('torre')
 
   return (
@@ -63,7 +63,7 @@ export default function Combates({ userId, heroId, onResourceChange }) {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'torre'         && <Torre userId={userId} heroId={heroId} onResourceChange={onResourceChange} />}
+          {tab === 'torre'         && <Torre userId={userId} heroId={heroId} onResourceChange={onResourceChange} onHeroChange={onHeroChange} />}
           {tab === 'clasificacion' && <Ranking userId={userId} />}
         </motion.div>
       </AnimatePresence>

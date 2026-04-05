@@ -569,18 +569,18 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
-// HP interpolation — 10%/hr idle, 25%/hr resting
+// HP interpolation — 100%/hr idle (full recovery from 0 in ~1h)
 function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
   if (!hero) return 0
   const maxHp      = effectiveMaxHp ?? hero.max_hp
   const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
   const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
-  const regenPerMin = hero.status === 'exploring' ? 0 : (20 / 60)
+  const regenPerMin = hero.status === 'exploring' ? 0 : (100 / 60)
   const regen      = elapsedMin * regenPerMin * hero.max_hp / 100
   return Math.min(maxHp, Math.floor(hero.current_hp + regen))
 }
 
-function Hero({ userId, heroId }) {
+function Hero({ userId, heroId, refreshKey }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
   const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
@@ -600,6 +600,11 @@ function Hero({ userId, heroId }) {
     const id = setInterval(() => setTick(t => t + 1), 30000)
     return () => clearInterval(id)
   }, [])
+
+  // Refetch cuando otra sección cambia el HP (torre, mazmorras)
+  useEffect(() => {
+    if (refreshKey) refetchHero()
+  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!userId) return
