@@ -5,7 +5,7 @@ import { useMissions } from '../hooks/useMissions'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
-import Torre from '../sections/Torre'
+import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import ThemeToggle from '../components/ThemeToggle'
@@ -13,7 +13,7 @@ import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
-import { Castle, Sword, Skull, Coins, Axe, Sparkles, FlaskConical, TowerControl, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import './Dashboard.css'
 
@@ -211,7 +211,7 @@ const NAV_ITEMS = [
   { id: 'heroe',         label: 'Héroe',         icon: Sword },
   { id: 'base',          label: 'Base',          icon: Castle },
   { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
-  { id: 'torre',         label: 'Torre',         icon: TowerControl },
+  { id: 'combates',      label: 'Combates',      icon: Swords },
   { id: 'tienda',        label: 'Tienda',        icon: ShoppingBag },
 ]
 
@@ -456,7 +456,7 @@ function Dashboard({ session }) {
               {activeSection === 'heroe'         && <Hero userId={session.user.id} heroId={heroId} />}
               {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
               {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
-              {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+              {activeSection === 'combates'      && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
               {activeSection === 'tienda'        && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}
               {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}
               {import.meta.env.DEV && activeSection === 'dev-cartas'   && <CardCatalogDebug />}
