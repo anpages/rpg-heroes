@@ -100,8 +100,8 @@ const BUILDING_META = {
 
 function upgradeCost(level) {
   return {
-    gold: Math.round(20 * Math.pow(level, 1.6)),
-    wood: Math.round(12 * Math.pow(level, 1.4)),
+    gold: Math.round(60 * Math.pow(level, 1.6)),
+    wood: Math.round(36 * Math.pow(level, 1.4)),
   }
 }
 
@@ -142,7 +142,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
   const cost = upgradeCost(level)
   const Icon = meta.icon
-  const totalSeconds = level * 2 * 60
+  const totalSeconds = level * level * 10 * 60
   const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
