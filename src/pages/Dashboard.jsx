@@ -104,9 +104,9 @@ function CatalogDebug() {
 
 /* ─── DEV ONLY: Catálogo de cartas ─────────────────────────────────────────── */
 
-const CATEGORY_COLORS = { strength: '#dc2626', agility: '#0369a1', intelligence: '#7c3aed' }
-const CATEGORY_LABELS = { strength: 'Fuerza', agility: 'Agilidad', intelligence: 'Inteligencia' }
-const CATEGORIES = ['strength', 'agility', 'intelligence']
+const CATEGORY_COLORS = { attack: '#d97706', defense: '#475569', strength: '#dc2626', agility: '#0369a1', intelligence: '#7c3aed' }
+const CATEGORY_LABELS = { attack: 'Ataque', defense: 'Defensa', strength: 'Fuerza', agility: 'Agilidad', intelligence: 'Inteligencia' }
+const CATEGORIES = ['attack', 'defense', 'strength', 'agility', 'intelligence']
 
 function CardCatalogDebug() {
   const [cards, setCards] = useState(null)

@@ -310,11 +310,11 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
 /* ─── Card constants ──────────────────────────────────────────────────────────── */
 
 const CATEGORY_META = {
-  attack:       { label: 'Ataque',        color: '#d97706', icon: Sword    },
-  defense:      { label: 'Defensa',       color: '#475569', icon: Shield   },
-  strength:     { label: 'Fuerza',        color: '#dc2626', icon: Dumbbell },
-  agility:      { label: 'Agilidad',      color: '#0369a1', icon: Wind     },
-  intelligence: { label: 'Inteligencia',  color: '#7c3aed', icon: Brain    },
+  attack:       { label: 'Ataque',  short: 'Atq', color: '#d97706', icon: Sword    },
+  defense:      { label: 'Defensa', short: 'Def', color: '#475569', icon: Shield   },
+  strength:     { label: 'Fuerza',  short: 'Fue', color: '#dc2626', icon: Dumbbell },
+  agility:      { label: 'Agilidad',short: 'Agi', color: '#0369a1', icon: Wind     },
+  intelligence: { label: 'Int.',    short: 'Int', color: '#7c3aed', icon: Brain    },
 }
 
 /* ─── Card budget bar ─────────────────────────────────────────────────────────── */
@@ -324,16 +324,16 @@ function CardBudgetBar({ category, used, total }) {
   const Icon = meta.icon
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
   const over = used > total
+  const color = over ? '#dc2626' : meta.color
   return (
-    <div className="card-budget">
-      <div className="card-budget-header">
-        <span className="card-budget-label" style={{ color: meta.color }}>
-          <Icon size={11} strokeWidth={2} /> {meta.label}
-        </span>
+    <div className="card-budget" title={`${meta.label}: ${used}/${total}`}>
+      <div className="card-budget-row">
+        <span className="card-budget-icon" style={{ color }}><Icon size={11} strokeWidth={2.2} /></span>
+        <span className="card-budget-short" style={{ color }}>{meta.short}</span>
+        <div className="card-budget-track">
+          <div className="card-budget-fill" style={{ width: `${pct}%`, background: color }} />
+        </div>
         <span className={`card-budget-nums ${over ? 'card-budget-nums--over' : ''}`}>{used}/{total}</span>
-      </div>
-      <div className="card-budget-track">
-        <div className="card-budget-fill" style={{ width: `${pct}%`, background: over ? '#dc2626' : meta.color }} />
       </div>
     </div>
   )
