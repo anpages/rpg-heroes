@@ -1325,4 +1325,9 @@
   .hero-cards-section {
     padding: 16px;
   }
+
+  .eq-slots-grid,
+  .eq-slots-grid--2 {
+    grid-template-columns: 1fr;
+  }
 }
