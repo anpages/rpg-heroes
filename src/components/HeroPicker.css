@@ -2,9 +2,7 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
 
@@ -58,12 +56,14 @@
   border-style: dashed;
   font-size: 0.75rem;
   gap: 0.3rem;
+  margin-left: 4px;
 }
 
 .hero-tab--recruit:hover {
-  color: var(--text-2);
-  border-color: var(--border-2);
-  border-style: solid;
+  color: var(--blue-600);
+  border-color: var(--blue-400);
+  border-style: dashed;
+  background: var(--blue-50);
 }
 
 /* ── Recruit modal ────────────────────────────────────────────────────────── */
@@ -83,18 +83,24 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1.5rem;
-  width: min(100%, 380px);
+  padding: 1.75rem;
+  width: min(100%, 400px);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .recruit-title {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
+}
+
+.recruit-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .recruit-field {
@@ -156,8 +162,9 @@
 
 .recruit-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.6rem;
   justify-content: flex-end;
+  padding-top: 0.25rem;
 }
 
 .recruit-cancel {

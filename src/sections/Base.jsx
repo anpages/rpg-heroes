@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
 import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen } from 'lucide-react'
+import { motion } from 'framer-motion'
 import './Base.css'
+
+const listVariants = {
+  animate: { transition: { staggerChildren: 0.07 } },
+}
+const cardVariants = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
+}
 
 const BUILDING_META = {
   energy_nexus: {
@@ -22,8 +31,8 @@ const BUILDING_META = {
     color: '#d97706',
     colorBg: '#fffbeb',
     colorBorder: '#fde68a',
-    effect: (level) => `${10 + (level - 1) * 5} oro/min`,
-    nextEffect: (level) => `${10 + level * 5} oro/min`,
+    effect: (level) => `${2 + (level - 1)} oro/min`,
+    nextEffect: (level) => `${2 + level} oro/min`,
   },
   lumber_mill: {
     name: 'Aserradero',
@@ -32,8 +41,8 @@ const BUILDING_META = {
     color: '#16a34a',
     colorBg: '#f0fdf4',
     colorBorder: '#bbf7d0',
-    effect: (level) => `${6 + (level - 1) * 3} madera/min`,
-    nextEffect: (level) => `${6 + level * 3} madera/min`,
+    effect: (level) => `${1 + (level - 1)} madera/min`,
+    nextEffect: (level) => `${1 + level} madera/min`,
   },
   mana_well: {
     name: 'Pozo de Maná',
@@ -42,8 +51,8 @@ const BUILDING_META = {
     color: '#7c3aed',
     colorBg: '#f5f3ff',
     colorBorder: '#ddd6fe',
-    effect: (level) => `${2 + (level - 1)} maná/min`,
-    nextEffect: (level) => `${2 + level} maná/min`,
+    effect: (level) => `${1 + (level - 1)} maná/min`,
+    nextEffect: (level) => `${1 + level} maná/min`,
   },
   barracks: {
     name: 'Cuartel',
@@ -57,13 +66,15 @@ const BUILDING_META = {
   },
   workshop: {
     name: 'Taller',
-    description: 'Optimiza las expediciones y amplía la capacidad de la mochila.',
+    description: 'Mejora el botín de las expediciones y amplía la capacidad de la mochila.',
     icon: Wrench,
     color: '#0369a1',
     colorBg: '#f0f9ff',
     colorBorder: '#bae6fd',
-    effect: (level) => level === 1 ? 'Sin bonificación' : `-${(level - 1) * 5}% duración`,
-    nextEffect: (level) => `-${level * 5}% duración`,
+    effect: (level) => level === 1
+      ? '20 espacios de mochila'
+      : `+${(level - 1) * 5}% botín · ${20 + (level - 1) * 5} espacios`,
+    nextEffect: (level) => `+${level * 5}% botín · ${20 + level * 5} espacios`,
   },
   forge: {
     name: 'Herrería',
@@ -89,8 +100,8 @@ const BUILDING_META = {
 
 function upgradeCost(level) {
   return {
-    gold: Math.round(100 * Math.pow(level, 1.6)),
-    wood: Math.round(60 * Math.pow(level, 1.4)),
+    gold: Math.round(20 * Math.pow(level, 1.6)),
+    wood: Math.round(12 * Math.pow(level, 1.4)),
   }
 }
 
@@ -107,11 +118,25 @@ function fmtTime(seconds) {
   return `${m}m ${s}s`
 }
 
-function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, nexusData, featured }) {
-  const meta = BUILDING_META[building.type]
-  const { level } = building
-  const hasUpgrade = !!building.upgrade_ends_at
-  const { secondsLeft, loading, error, setLoading, setError, mountedRef } = useUpgradeTimer(building, onUpgradeCollect)
+function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, featured }) {
+  const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
+
+  // Cuando llegan datos reales del servidor, limpiar el optimista
+  useEffect(() => {
+    if (building.upgrade_ends_at) setOptimisticEndsAt(null)
+  }, [building.upgrade_ends_at])
+
+  const effectiveBuilding = optimisticEndsAt
+    ? { ...building, upgrade_started_at: new Date().toISOString(), upgrade_ends_at: optimisticEndsAt }
+    : building
+
+  const meta = BUILDING_META[effectiveBuilding.type]
+  const { level } = effectiveBuilding
+  const hasUpgrade = !!effectiveBuilding.upgrade_ends_at
+  const { secondsLeft, loading, error, setLoading, setError, mountedRef } = useUpgradeTimer(effectiveBuilding, () => {
+    setOptimisticEndsAt(null)
+    onUpgradeCollect()
+  })
 
   if (!meta) return null
 
@@ -122,6 +147,30 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
   const canAfford = resources && resources.gold >= cost.gold && resources.wood >= cost.wood
+
+  async function handleUpgradeStart() {
+    // Optimistic: mostrar timer y descontar recursos inmediatamente
+    const durationMs = building.level * 2 * 60 * 1000
+    setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
+    onOptimisticDeduct(cost)
+    setError(null)
+
+    await supabase.auth.refreshSession()
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/building-upgrade-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ buildingId: building.id }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      onUpgradeStart()
+    } else {
+      setOptimisticEndsAt(null)
+      onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood }) // revertir
+      setError(data.error ?? 'Error al iniciar mejora')
+    }
+  }
 
   return (
     <div
@@ -146,16 +195,22 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
       </div>
 
       {nexusData && (
-        <div className="building-nexus-energy">
-          <div className="nexus-energy-row">
-            <span className="nexus-energy-num">{nexusData.produced}</span>
-            <span className="nexus-energy-lbl">prod.</span>
-            <span className="nexus-energy-div">·</span>
-            <span className="nexus-energy-num">{nexusData.consumed}</span>
-            <span className="nexus-energy-lbl">cons.</span>
-            <span className={`nexus-balance ${nexusData.deficit ? 'nexus-balance--deficit' : ''}`}>
-              {nexusData.deficit ? `déficit · ${nexusData.efficiency}% eficiencia` : `+${nexusData.balance} excedente`}
-            </span>
+        <div className="nexus-panel">
+          <div className="nexus-metrics">
+            <div className="nexus-metric">
+              <span className="nexus-metric-val">{nexusData.produced}</span>
+              <span className="nexus-metric-lbl">Producción</span>
+            </div>
+            <div className="nexus-metric">
+              <span className="nexus-metric-val">{nexusData.consumed}</span>
+              <span className="nexus-metric-lbl">Consumo</span>
+            </div>
+            <div className={`nexus-metric nexus-metric--balance ${nexusData.deficit ? 'nexus-metric--deficit' : ''}`}>
+              <span className="nexus-metric-val">
+                {nexusData.deficit ? `−${Math.abs(nexusData.balance)}` : `+${nexusData.balance}`}
+              </span>
+              <span className="nexus-metric-lbl">{nexusData.deficit ? `${nexusData.efficiency}% efic.` : 'Excedente'}</span>
+            </div>
           </div>
           <div className="nexus-bar-track">
             <div
@@ -168,26 +223,21 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
 
       {hasUpgrade && (
         <div className="building-upgrade-progress">
-          <div className="building-upgrade-bar-wrap">
-            <div className="building-upgrade-track">
-              <div
-                className="building-upgrade-fill"
-                style={{
-                  width: `${pct}%`,
-                  transition: mountedRef.current ? 'width 1s linear' : 'none',
-                }}
-              />
-            </div>
-            <span className="building-upgrade-pct">{pct}%</span>
-          </div>
           <div className="building-upgrade-meta">
-            <span className="building-upgrade-label">
-              Mejorando a Nv. {level + 1} · {meta.nextEffect(level)}
-            </span>
+            <span className="building-upgrade-label">→ Nv. {level + 1}</span>
             <span className="building-upgrade-timer">
               <Clock size={12} strokeWidth={2} />
               {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
             </span>
+          </div>
+          <div className="building-upgrade-track">
+            <div
+              className="building-upgrade-fill"
+              style={{
+                width: `${pct}%`,
+                transition: mountedRef.current ? 'width 1s linear' : 'none',
+              }}
+            />
           </div>
         </div>
       )}
@@ -195,22 +245,25 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
       {!hasUpgrade && (
         <div className="building-card-bottom">
           <div className="building-costs">
-            <span className={`cost-badge ${resources?.gold >= cost.gold ? 'cost-badge--ok' : 'cost-badge--short'}`}>
-              <Coins size={11} strokeWidth={2} />
+            <span className={`building-cost ${resources?.gold >= cost.gold ? 'building-cost--ok' : 'building-cost--short'}`}>
+              <Coins size={12} strokeWidth={2} />
               {fmt(cost.gold)}
             </span>
-            <span className={`cost-badge ${resources?.wood >= cost.wood ? 'cost-badge--ok' : 'cost-badge--short'}`}>
-              <Axe size={11} strokeWidth={2} />
+            <span className={`building-cost ${resources?.wood >= cost.wood ? 'building-cost--ok' : 'building-cost--short'}`}>
+              <Axe size={12} strokeWidth={2} />
               {fmt(cost.wood)}
             </span>
           </div>
-          <button
+          <motion.button
             className="building-upgrade-btn"
-            onClick={() => startUpgrade(building.id, setLoading, setError, onUpgradeStart)}
-            disabled={loading || !canAfford}
+            onClick={handleUpgradeStart}
+            disabled={!canAfford}
+            whileTap={!canAfford ? {} : { scale: 0.96 }}
+            whileHover={!canAfford ? {} : { scale: 1.02 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
-            {loading ? 'Iniciando...' : <><span>Mejorar</span><ChevronRight size={13} strokeWidth={2} /></>}
-          </button>
+            <span>Mejorar</span><ChevronRight size={13} strokeWidth={2} />
+          </motion.button>
         </div>
       )}
 
@@ -220,8 +273,28 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, n
 }
 
 
-const ORDER = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge', 'library']
 const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
+
+const BUILDING_GROUPS = [
+  {
+    id:    'energy',
+    label: 'Energía',
+    types: ['energy_nexus'],
+    grid:  'single',
+  },
+  {
+    id:    'production',
+    label: 'Producción',
+    types: ['gold_mine', 'lumber_mill', 'mana_well'],
+    grid:  'three',
+  },
+  {
+    id:    'upgrades',
+    label: 'Mejoras',
+    types: ['barracks', 'workshop', 'forge', 'library'],
+    grid:  'four',
+  },
+]
 
 function useUpgradeTimer(building, onUpgradeCollect) {
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -234,6 +307,8 @@ function useUpgradeTimer(building, onUpgradeCollect) {
     const hasUpgrade = !!building.upgrade_ends_at
     if (!hasUpgrade) {
       setSecondsLeft(null)
+      setLoading(false)
+      setError(null)
       mountedRef.current = false
       collectingRef.current = false
       return
@@ -252,8 +327,10 @@ function useUpgradeTimer(building, onUpgradeCollect) {
         body: JSON.stringify({ buildingId: building.id }),
       })
       const data = await res.json()
-      if (res.ok) onUpgradeCollect()
-      else {
+      if (res.ok) {
+        onUpgradeCollect()
+        setLoading(false)
+      } else {
         setError(data.error ?? 'Error al aplicar mejora')
         setLoading(false)
         collectingRef.current = false
@@ -297,18 +374,31 @@ async function startUpgrade(buildingId, setLoading, setError, onUpgradeStart) {
 
 function Base({ userId, resources, onResourceChange }) {
   const { buildings, loading, refetch } = useBuildings(userId)
+  const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
+
+  // Cuando llegan recursos reales del servidor, resetear el delta
+  useEffect(() => { setResourceDelta({ gold: 0, wood: 0 }) }, [resources])
+
+  const effectiveResources = resources
+    ? { ...resources, gold: resources.gold - resourceDelta.gold, wood: resources.wood - resourceDelta.wood }
+    : null
+
+  function handleOptimisticDeduct({ gold = 0, wood = 0 }) {
+    setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood }))
+  }
 
   function handleUpgradeStart() { refetch(); onResourceChange?.() }
   function handleUpgradeCollect() { refetch(); onResourceChange?.() }
 
   if (loading) return <div className="base-loading">Cargando base...</div>
 
-  const sorted = ORDER.map(type => buildings?.find(b => b.type === type)).filter(Boolean)
-  const nexus = sorted.find(b => b.type === 'energy_nexus')
+  const byType = Object.fromEntries((buildings ?? []).map(b => [b.type, b]))
+  const nexus = byType['energy_nexus']
 
   const nexusData = nexus ? (() => {
+    const allBuildings = Object.values(byType)
     const produced = nexus.level * 30
-    const consumed = sorted.filter(b => PRODUCTION_TYPES.includes(b.type)).reduce((s, b) => s + b.level * 10, 0)
+    const consumed = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type)).reduce((s, b) => s + b.level * 10, 0)
     const balance = produced - consumed
     const deficit = balance < 0
     const barPct = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
@@ -322,19 +412,37 @@ function Base({ userId, resources, onResourceChange }) {
         <h2 className="section-title">Base</h2>
         <p className="section-subtitle">Mejora tus edificios para aumentar la producción de recursos y las capacidades de tu héroe.</p>
       </div>
-      <div className="buildings-grid">
-        {sorted.map(b => (
-          <BuildingCard
-            key={b.id}
-            building={b}
-            resources={resources}
-            featured={b.type === 'energy_nexus'}
-            nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
-            onUpgradeStart={handleUpgradeStart}
-            onUpgradeCollect={handleUpgradeCollect}
-          />
-        ))}
-      </div>
+
+      <motion.div
+        className="base-groups"
+        variants={listVariants}
+        initial="initial"
+        animate="animate"
+      >
+        {BUILDING_GROUPS.map(group => {
+          const groupBuildings = group.types.map(t => byType[t]).filter(Boolean)
+          if (!groupBuildings.length) return null
+          return (
+            <motion.div key={group.id} className="base-group" variants={cardVariants}>
+              <p className="base-group-label">{group.label}</p>
+              <div className={`base-group-grid base-group-grid--${group.grid}`}>
+                {groupBuildings.map(b => (
+                  <BuildingCard
+                    key={b.id}
+                    building={b}
+                    resources={effectiveResources}
+                    featured={b.type === 'energy_nexus'}
+                    nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
+                    onUpgradeStart={handleUpgradeStart}
+                    onUpgradeCollect={handleUpgradeCollect}
+                    onOptimisticDeduct={handleOptimisticDeduct}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )
+        })}
+      </motion.div>
     </div>
   )
 }

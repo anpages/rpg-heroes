@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
@@ -6,7 +6,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
-  BookOpen, Zap, FlameKindling,
+  BookOpen, Zap, FlameKindling, Wrench,
 } from 'lucide-react'
 import './Hero.css'
 
@@ -41,6 +41,37 @@ const RARITY_META = {
 
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 const INVENTORY_BASE_LIMIT = 20
+
+const REPAIR_COST_TABLE = {
+  common:    { gold: 2,  mana: 0  },
+  uncommon:  { gold: 3,  mana: 1  },
+  rare:      { gold: 5,  mana: 3  },
+  epic:      { gold: 8,  mana: 6  },
+  legendary: { gold: 12, mana: 10 },
+}
+
+const DISMANTLE_MANA_TABLE = {
+  common:    3,
+  uncommon:  8,
+  rare:      20,
+  epic:      50,
+  legendary: 120,
+}
+
+function estimateDismantleMana(item) {
+  const base = DISMANTLE_MANA_TABLE[item.item_catalog.rarity] ?? DISMANTLE_MANA_TABLE.common
+  return base * (item.item_catalog.tier ?? 1)
+}
+
+function estimateRepairCost(item) {
+  const catalog = item.item_catalog
+  const missing = catalog.max_durability - item.current_durability
+  const costs = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
+  return {
+    gold: Math.ceil(missing * costs.gold),
+    mana: Math.ceil(missing * costs.mana),
+  }
+}
 
 /* ─── Shared sub-components ───────────────────────────────────────────────────── */
 
@@ -107,11 +138,25 @@ function DurabilityBar({ current, max }) {
   const pct = max > 0 ? Math.round((current / max) * 100) : 0
   const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
   return (
-    <div className="inv-dur-wrap">
-      <div className="inv-dur-track">
-        <div className="inv-dur-fill" style={{ width: `${pct}%`, background: color }} />
+    <div className="inv-dur-track">
+      <div className="inv-dur-fill" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  )
+}
+
+/* ─── Confirm modal ───────────────────────────────────────────────────────────── */
+
+function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
+  return (
+    <div className="confirm-overlay" onClick={onCancel}>
+      <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+        <p className="confirm-title">{title}</p>
+        {body && <p className="confirm-body">{body}</p>}
+        <div className="confirm-actions">
+          <button className="confirm-cancel" onClick={onCancel}>Cancelar</button>
+          <button className="confirm-ok" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
       </div>
-      <span className="inv-dur-label" style={{ color }}>{current}/{max}</span>
     </div>
   )
 }
@@ -140,11 +185,12 @@ function EquipmentSlot({ slot, item, onUnequip, onRepair, loading }) {
       {item ? (
         <>
           <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
+          <StatsList catalog={catalog} />
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
           <div className="eq-slot-actions">
             {needsRepair && (
-              <button className="eq-repair-btn" onClick={() => onRepair(item.id)} disabled={loading}>
-                Reparar
+              <button className="eq-repair-btn" onClick={() => onRepair(item)} disabled={loading} title="Reparar">
+                <Wrench size={13} strokeWidth={2} />
               </button>
             )}
             <button className="eq-unequip-btn" onClick={() => onUnequip(item.id)} disabled={loading}>
@@ -210,7 +256,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
           <ArrowUpDown size={13} strokeWidth={2} />
           Equipar
         </button>
-        <button className="bag-discard-btn" onClick={() => onDiscard(item.id)} disabled={loading}>
+        <button className="bag-discard-btn" onClick={() => onDiscard(item)} disabled={loading}>
           <Trash2 size={13} strokeWidth={2} />
         </button>
       </div>
@@ -432,6 +478,23 @@ function Hero({ userId, heroId }) {
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
+  const [confirmModal, setConfirmModal] = useState(null) // { title, body, onConfirm }
+  const [workshopLevel, setWorkshopLevel] = useState(1)
+  const [optimisticItems, setOptimisticItems] = useState(null)
+
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('buildings')
+      .select('level')
+      .eq('player_id', userId)
+      .eq('type', 'workshop')
+      .maybeSingle()
+      .then(({ data }) => { if (data) setWorkshopLevel(data.level) })
+  }, [userId])
+
+  // Limpiar optimista cuando llegan datos reales tras el refetch
+  useEffect(() => { setOptimisticItems(null) }, [items])
 
   if (heroLoading || invLoading || cardsLoading) return <div className="hero-loading">Cargando héroe...</div>
   if (!hero) return <div className="hero-loading">No se encontró el héroe.</div>
@@ -439,13 +502,15 @@ function Hero({ userId, heroId }) {
   const cls = hero.classes
   const status = STATUS_META[hero.status] ?? STATUS_META.idle
 
+  const displayItems = optimisticItems ?? items
+
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
-    acc[slot] = items?.find(i => i.equipped_slot === slot) ?? null
+    acc[slot] = displayItems?.find(i => i.equipped_slot === slot) ?? null
     return acc
   }, {})
 
   // Bonos del equipo equipado (durabilidad > 0)
-  const equipBonuses = (items ?? [])
+  const equipBonuses = (displayItems ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
     .reduce((acc, i) => {
       const c = i.item_catalog
@@ -498,8 +563,8 @@ function Hero({ userId, heroId }) {
   })
   const cardSlotCount = 3 // se sobreescribe en el modal con el nivel real de la biblioteca
 
-  const bag = items?.filter(i => !i.equipped_slot) ?? []
-  const bagLimit = INVENTORY_BASE_LIMIT
+  const bag = displayItems?.filter(i => !i.equipped_slot) ?? []
+  const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
 
   async function callApi(endpoint, body) {
     setActionLoading(true)
@@ -513,16 +578,54 @@ function Hero({ userId, heroId }) {
     })
     const data = await res.json()
     setActionLoading(false)
-    if (!res.ok) setError(data.error ?? 'Error')
+    if (!res.ok) { setError(data.error ?? 'Error'); setOptimisticItems(null) }
     else refetchInv()
   }
 
-  function handleEquip(itemId)      { callApi('/api/item-equip',  { itemId, equip: true  }) }
-  function handleUnequip(itemId)    { callApi('/api/item-equip',  { itemId, equip: false }) }
-  function handleRepair(itemId)     { callApi('/api/item-repair', { itemId }) }
-  function handleDiscard(itemId) {
-    if (!confirm('¿Descartar este item? Esta acción no se puede deshacer.')) return
-    callApi('/api/item-discard', { itemId })
+  function handleEquip(itemId) {
+    const current = optimisticItems ?? items
+    const item = current?.find(i => i.id === itemId)
+    if (item) {
+      const targetSlot = item.item_catalog.slot
+      setOptimisticItems(current.map(i => {
+        if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
+        if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
+        if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
+        return i
+      }))
+    }
+    callApi('/api/item-equip', { itemId, equip: true })
+  }
+
+  function handleUnequip(itemId) {
+    const current = optimisticItems ?? items
+    setOptimisticItems((current ?? []).map(i => i.id === itemId ? { ...i, equipped_slot: null } : i))
+    callApi('/api/item-equip', { itemId, equip: false })
+  }
+  function handleRepair(item) {
+    const cost = estimateRepairCost(item)
+    const costText = cost.mana > 0 ? `${cost.gold} oro · ${cost.mana} maná` : `${cost.gold} oro`
+    setConfirmModal({
+      title: `Reparar ${item.item_catalog.name}`,
+      body: `Coste estimado: ${costText}`,
+      confirmLabel: 'Reparar',
+      onConfirm: () => { setConfirmModal(null); callApi('/api/item-repair', { itemId: item.id }) },
+    })
+  }
+  function handleDiscard(item) {
+    const mana = estimateDismantleMana(item)
+    setConfirmModal({
+      title: `Desmantelar ${item.item_catalog.name}`,
+      body: `El item se destruirá y recuperarás ${mana} maná.`,
+      confirmLabel: 'Desmantelar',
+      onConfirm: () => {
+        setConfirmModal(null)
+        // Optimistic: quitar de la mochila al instante
+        const current = optimisticItems ?? items
+        setOptimisticItems((current ?? []).filter(i => i.id !== item.id))
+        callApi('/api/item-dismantle', { itemId: item.id })
+      },
+    })
   }
 
   async function callCardApi(endpoint, body) {
@@ -547,11 +650,6 @@ function Hero({ userId, heroId }) {
 
   return (
     <div className="hero-section">
-      <div className="section-header">
-        <h2 className="section-title">Héroe</h2>
-        <p className="section-subtitle">Estadísticas y equipo de tu héroe.</p>
-      </div>
-
       <div className="hero-layout">
 
         {/* Columna izquierda: ficha + cartas */}
@@ -565,7 +663,7 @@ function Hero({ userId, heroId }) {
             <div className="hero-identity">
               <h3 className="hero-name">{hero.name}</h3>
               <div className="hero-badges">
-                <span className="hero-class-badge" style={{ color: cls?.color, background: cls?.bg_color, borderColor: cls?.border_color }}>
+                <span className="hero-class-badge" style={{ '--cls-color': cls?.color }}>
                   {cls?.name}
                 </span>
                 <span className="hero-status-badge" style={{ color: status.color }}>
@@ -579,18 +677,12 @@ function Hero({ userId, heroId }) {
           <XpBar level={hero.level} experience={hero.experience} />
           <HpBar current={hero.current_hp} max={effective.max_hp} />
 
-          <div className="hero-stats-grid">
-            <div className="hero-stats-group">
-              <p className="stats-group-title">Atributos</p>
-              <StatRow icon={Dumbbell} label="Fuerza"       value={effective.strength}     color="#dc2626" bonus={bonuses.strength}     equipBonus={equipBonuses.strength}     cardBonus={cardBonuses.strength} />
-              <StatRow icon={Wind}     label="Agilidad"     value={effective.agility}      color="#0369a1" bonus={bonuses.agility}      equipBonus={equipBonuses.agility}      cardBonus={cardBonuses.agility} />
-              <StatRow icon={Brain}    label="Inteligencia" value={effective.intelligence}  color="#7c3aed" bonus={bonuses.intelligence} equipBonus={equipBonuses.intelligence} cardBonus={cardBonuses.intelligence} />
-            </div>
-            <div className="hero-stats-group">
-              <p className="stats-group-title">Combate</p>
-              <StatRow icon={Sword}  label="Ataque"  value={effective.attack}  color="#d97706" bonus={bonuses.attack}  equipBonus={equipBonuses.attack}  cardBonus={cardBonuses.attack} />
-              <StatRow icon={Shield} label="Defensa" value={effective.defense} color="#475569" bonus={bonuses.defense} equipBonus={equipBonuses.defense} cardBonus={cardBonuses.defense} />
-            </div>
+          <div className="hero-stats-list">
+            <StatRow icon={Sword}    label="Ataque"       value={effective.attack}       color="#d97706" bonus={bonuses.attack}       equipBonus={equipBonuses.attack}       cardBonus={cardBonuses.attack} />
+            <StatRow icon={Shield}   label="Defensa"      value={effective.defense}      color="#475569" bonus={bonuses.defense}      equipBonus={equipBonuses.defense}      cardBonus={cardBonuses.defense} />
+            <StatRow icon={Dumbbell} label="Fuerza"       value={effective.strength}     color="#dc2626" bonus={bonuses.strength}     equipBonus={equipBonuses.strength}     cardBonus={cardBonuses.strength} />
+            <StatRow icon={Wind}     label="Agilidad"     value={effective.agility}      color="#0369a1" bonus={bonuses.agility}      equipBonus={equipBonuses.agility}      cardBonus={cardBonuses.agility} />
+            <StatRow icon={Brain}    label="Inteligencia" value={effective.intelligence}  color="#7c3aed" bonus={bonuses.intelligence} equipBonus={equipBonuses.intelligence} cardBonus={cardBonuses.intelligence} />
           </div>
         </div>
 
@@ -708,6 +800,16 @@ function Hero({ userId, heroId }) {
           loading={actionLoading}
           error={error}
           onClose={() => { setCardModalOpen(false); setError(null) }}
+        />
+      )}
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          body={confirmModal.body}
+          confirmLabel={confirmModal.confirmLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
         />
       )}
     </div>

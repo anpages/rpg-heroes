@@ -51,11 +51,17 @@ export default async function handler(req, res) {
 
   const { data: resources } = await supabase
     .from('resources')
-    .select('mana')
+    .select('mana, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
-  if (!resources || resources.mana < manaCost) {
+  if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
+
+  const now = Date.now()
+  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+
+  if (currentMana < manaCost) {
     return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
   }
 
@@ -70,7 +76,7 @@ export default async function handler(req, res) {
 
   await supabase
     .from('resources')
-    .update({ mana: resources.mana - manaCost })
+    .update({ mana: currentMana - manaCost, last_collected_at: new Date(now).toISOString() })
     .eq('player_id', user.id)
 
   return res.status(200).json({ ok: true, newCard, manaCost })

@@ -30,29 +30,37 @@ export default async function handler(req, res) {
   if (!mission.completed) return res.status(409).json({ error: 'Misión no completada' })
   if (mission.claimed) return res.status(409).json({ error: 'Recompensa ya reclamada' })
 
-  // Obtener héroe para XP
-  const { data: hero } = await supabase
+  // Obtener héroe para XP (el de menor slot si hay varios)
+  const { data: heroes } = await supabase
     .from('heroes')
     .select('id, experience, level')
     .eq('player_id', user.id)
-    .single()
+    .order('slot')
+  const hero = heroes?.[0]
 
-  // Obtener recursos
+  // Obtener recursos (con rates para interpolar el idle acumulado)
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, mana')
+    .select('gold, mana, gold_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (!hero || !resources) return res.status(500).json({ error: 'Error al obtener datos' })
+
+  // Interpolar idle antes de sumar recompensa
+  const nowMs = Date.now()
+  const minutesElapsed = (nowMs - new Date(resources.last_collected_at).getTime()) / 60000
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
 
   // Aplicar recompensas
   await Promise.all([
     supabase
       .from('resources')
       .update({
-        gold: resources.gold + mission.reward_gold,
-        mana: resources.mana + mission.reward_mana,
+        gold: currentGold + mission.reward_gold,
+        mana: currentMana + mission.reward_mana,
+        last_collected_at: new Date(nowMs).toISOString(),
       })
       .eq('player_id', user.id),
 

@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 
 function upgradeCost(level) {
   return {
-    gold: Math.round(100 * Math.pow(level, 1.6)),
-    wood: Math.round(60 * Math.pow(level, 1.4)),
+    gold: Math.round(20 * Math.pow(level, 1.6)),
+    wood: Math.round(12 * Math.pow(level, 1.4)),
   }
 }
 

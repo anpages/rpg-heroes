@@ -3,7 +3,16 @@ import { supabase } from '../lib/supabase'
 import { useMissions } from '../hooks/useMissions'
 import { MISSION_POOL } from '../lib/missionPool.js'
 import { Coins, Sparkles, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
+import { motion } from 'framer-motion'
 import './Misiones.css'
+
+const listVariants = {
+  animate: { transition: { staggerChildren: 0.06 } },
+}
+const cardVariants = {
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+}
 
 const TIER_LABELS = ['Fácil', 'Medio', 'Difícil']
 const TIER_COLORS = ['#16a34a', '#d97706', '#dc2626']
@@ -16,15 +25,18 @@ function fmtTime(seconds) {
 }
 
 function MissionCard({ mission, onClaim }) {
-  const [claiming, setClaiming] = useState(false)
+  const [claiming, setClaiming]               = useState(false)
+  const [optimisticClaimed, setOptimisticClaimed] = useState(false)
   const def = MISSION_POOL.find(p => p.type === mission.type)
   if (!def) return null
 
+  const isClaimed = mission.claimed || optimisticClaimed
   const pct = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
   const label = def.description(mission.target_value)
 
   async function handleClaim() {
     setClaiming(true)
+    setOptimisticClaimed(true)
     await supabase.auth.refreshSession()
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/missions-claim', {
@@ -32,15 +44,19 @@ function MissionCard({ mission, onClaim }) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ missionId: mission.id }),
     })
-    if (res.ok) onClaim()
+    if (res.ok) {
+      onClaim()
+    } else {
+      setOptimisticClaimed(false)
+    }
     setClaiming(false)
   }
 
   return (
-    <div className={`mission-card ${mission.claimed ? 'mission-card--claimed' : mission.completed ? 'mission-card--completed' : ''}`}>
+    <div className={`mission-card ${isClaimed ? 'mission-card--claimed' : mission.completed ? 'mission-card--completed' : ''}`}>
       <div className="mission-card-top">
         <div className="mission-icon-wrap">
-          {mission.claimed
+          {isClaimed
             ? <CheckCircle2 size={18} color="#16a34a" strokeWidth={2} />
             : mission.completed
               ? <CheckCircle2 size={18} color="#2563eb" strokeWidth={2} />
@@ -58,7 +74,7 @@ function MissionCard({ mission, onClaim }) {
         </div>
       </div>
 
-      {!mission.claimed && (
+      {!isClaimed && (
         <div className="mission-progress-wrap">
           <div className="mission-progress-track">
             <div className="mission-progress-fill" style={{ width: `${pct}%` }} />
@@ -89,12 +105,19 @@ function MissionCard({ mission, onClaim }) {
           )}
         </div>
 
-        {mission.completed && !mission.claimed && (
-          <button className="mission-claim-btn" onClick={handleClaim} disabled={claiming}>
+        {mission.completed && !isClaimed && (
+          <motion.button
+            className="mission-claim-btn"
+            onClick={handleClaim}
+            disabled={claiming}
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          >
             {claiming ? 'Reclamando...' : 'Reclamar'}
-          </button>
+          </motion.button>
         )}
-        {mission.claimed && (
+        {isClaimed && (
           <span className="mission-claimed-label">Reclamada</span>
         )}
       </div>
@@ -145,11 +168,18 @@ export default function Misiones({ onResourceChange }) {
         </div>
       )}
 
-      <div className="missions-list">
+      <motion.div
+        className="missions-list"
+        variants={listVariants}
+        initial="initial"
+        animate="animate"
+      >
         {missions?.map(m => (
-          <MissionCard key={m.id} mission={m} onClaim={() => { refetch(); onResourceChange?.() }} />
+          <motion.div key={m.id} variants={cardVariants}>
+            <MissionCard mission={m} onClaim={() => { refetch(); onResourceChange?.() }} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }

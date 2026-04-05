@@ -32,3 +32,32 @@
   color: var(--text);
   box-shadow: var(--shadow-sm);
 }
+
+/* Botón ciclo (móvil) */
+.theme-toggle-cycle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-toggle-cycle:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Visibilidad según pantalla */
+.theme-toggle--desktop { display: flex; }
+.theme-toggle--mobile  { display: none; }
+
+@media (max-width: 768px) {
+  .theme-toggle--desktop { display: none; }
+  .theme-toggle--mobile  { display: flex; }
+}

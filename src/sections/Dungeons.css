@@ -5,83 +5,70 @@
   text-align: center;
 }
 
-/* ─── Active expedition ───────────────────────────────────────────────────────── */
+/* ─── Expedition progress (embebido en la card) ───────────────────────────────── */
 
-.active-expedition {
-  background: var(--blue-50);
-  border: 1px solid var(--blue-100);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
+.exp-progress {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.active-exp-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.active-exp-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--blue-500);
-  margin-bottom: 4px;
-}
-
-.active-exp-name {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.active-exp-timer {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--blue-600);
-  white-space: nowrap;
-  background: var(--surface);
-  border: 1px solid var(--blue-100);
-  border-radius: 8px;
-  padding: 6px 10px;
-  flex-shrink: 0;
-}
-
-.active-exp-bar-wrap {
-  display: flex;
-  align-items: center;
   gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--blue-100);
 }
 
-.active-exp-track {
+.exp-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exp-progress-track {
   flex: 1;
-  height: 8px;
+  height: 6px;
   background: var(--blue-100);
   border-radius: 99px;
   overflow: hidden;
 }
 
-.active-exp-fill {
+.exp-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--blue-400), var(--blue-600));
   border-radius: 99px;
-  transition: width 1s linear;
 }
 
-.active-exp-pct {
+.exp-progress-pct {
   font-size: 12px;
   font-weight: 600;
   color: var(--blue-600);
-  width: 34px;
+  width: 30px;
   text-align: right;
+  flex-shrink: 0;
+}
+
+.exp-progress-timer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.exp-progress-timer--done {
+  color: #16a34a;
+}
+
+/* ─── Active dungeon card ─────────────────────────────────────────────────────── */
+
+.dungeon-card--active {
+  border-color: var(--blue-300);
+  background: color-mix(in srgb, var(--blue-50) 60%, var(--surface));
+}
+
+[data-theme="dark"] .dungeon-card--active {
+  border-color: var(--blue-600);
+  background: color-mix(in srgb, var(--blue-600) 8%, var(--surface));
 }
 
 .collect-btn {
@@ -126,12 +113,31 @@
   margin-bottom: 24px;
 }
 
+.reward-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
 .reward-toast-title {
   font-size: 13px;
   font-weight: 700;
   color: #16a34a;
-  margin-bottom: 8px;
+  margin: 0;
 }
+
+.reward-toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 0 2px;
+  opacity: 0.6;
+}
+.reward-toast-close:hover { opacity: 1; }
 
 .reward-toast-items {
   display: flex;
@@ -148,12 +154,31 @@
   color: var(--text-2);
 }
 
+.reward-toast-drops {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.reward-drop-item {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--drop-color, var(--text));
+}
+
 /* ─── Dungeon grid ───────────────────────────────────────────────────────────── */
 
 .dungeons-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .dungeons-grid { grid-template-columns: 1fr; }
 }
 
 /* ─── Dungeon card ───────────────────────────────────────────────────────────── */
@@ -187,11 +212,32 @@
   min-width: 0;
 }
 
+.dungeon-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
 .dungeon-name {
   font-size: 17px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 4px;
+}
+
+.dungeon-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.85;
+}
+
+.dungeon-loot-hint {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .dungeon-desc {
@@ -214,7 +260,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -228,7 +274,7 @@
 }
 
 .dungeon-difficulty-label {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -248,7 +294,7 @@
 }
 
 .dot--filled {
-  background: var(--blue-500);
+  background: #dc2626;
 }
 
 .dungeon-card-bottom {
@@ -271,7 +317,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
 }

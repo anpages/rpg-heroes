@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
-  // Aplicar bonus del taller (−5% duración por nivel, mín 50%)
+  // Taller: +5% de botín por nivel (no afecta duración)
   const { data: workshop } = await supabase
     .from('buildings')
     .select('level')
@@ -52,20 +52,18 @@ export default async function handler(req, res) {
     .maybeSingle()
 
   const workshopLevel = workshop?.level ?? 1
-  const workshopReduction = Math.min(0.5, (workshopLevel - 1) * 0.05)
+  const workshopBonus = 1 + (workshopLevel - 1) * 0.05
 
   // Agilidad reduce duración (hasta −25%)
   const stats = await getEffectiveStats(supabase, hero.id)
   const agilityReduction = stats ? Math.min(0.25, stats.agility * 0.003) : 0
+  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - agilityReduction))
 
-  const totalReduction = Math.min(0.70, workshopReduction + agilityReduction)
-  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - totalReduction))
-
-  // Calcular duración y recompensas
+  // Calcular duración y recompensas (taller amplifica el botín)
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
-  const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
-  const woodEarned = Math.floor(dungeon.wood_min + Math.random() * (dungeon.wood_max - dungeon.wood_min))
-  const manaEarned = Math.floor(dungeon.mana_min + Math.random() * (dungeon.mana_max - dungeon.mana_min))
+  const goldEarned = Math.floor((dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min)) * workshopBonus)
+  const woodEarned = Math.floor((dungeon.wood_min + Math.random() * (dungeon.wood_max - dungeon.wood_min)) * workshopBonus)
+  const manaEarned = Math.floor((dungeon.mana_min + Math.random() * (dungeon.mana_max - dungeon.mana_min)) * workshopBonus)
 
   // Crear expedición
   const { error: expError } = await supabase

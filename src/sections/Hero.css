@@ -7,8 +7,8 @@
 
 /* ─── Layout ──────────────────────────────────────────────────────────────────── */
 
-.hero-section .section-header {
-  margin-bottom: 24px;
+.hero-section {
+  padding-top: 4px;
 }
 
 .hero-layout {
@@ -80,19 +80,22 @@
 }
 
 .hero-class-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
   border-radius: 6px;
-  border: 1px solid;
-  text-transform: capitalize;
+  color: var(--cls-color, var(--text-2));
+  background: color-mix(in srgb, var(--cls-color, transparent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--cls-color, transparent) 28%, var(--border));
 }
 
 .hero-status-badge {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-3);
 }
@@ -108,7 +111,7 @@
 .xp-bar-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -139,7 +142,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -168,29 +171,14 @@
   transition: width 0.4s ease, background 0.4s ease;
 }
 
-/* ─── Stats grid ─────────────────────────────────────────────────────────────── */
+/* ─── Stats list ─────────────────────────────────────────────────────────────── */
 
-.hero-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
-}
-
-.hero-stats-group {
+.hero-stats-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.stats-group-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 2px;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .stat-row-wrap {
@@ -227,7 +215,7 @@
 }
 
 .stat-breakdown-item {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--success-text);
 }
@@ -260,7 +248,7 @@
 }
 
 .stat-bonus {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--success-text);
   width: 26px;
@@ -284,7 +272,7 @@
 }
 
 .hero-eq-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -296,7 +284,7 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: transparent;
@@ -341,7 +329,7 @@
 }
 
 .eq-group-name {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -405,7 +393,7 @@
 }
 
 .eq-slot-label {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -413,20 +401,30 @@
 }
 
 .eq-slot-empty {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-3);
   font-style: italic;
 }
 
 .eq-item-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+/* Stats de item en slot equipado */
+.eq-slot .inv-stats {
+  margin-bottom: 6px;
+}
+
+.eq-slot .inv-no-stats {
+  display: none; /* en slots no hace falta decir "sin bonificaciones" */
 }
 
 .eq-slot-status {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -449,37 +447,39 @@
 
 .eq-slot-actions {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 2px;
 }
 
 .eq-repair-btn {
-  padding: 3px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: var(--warning-bg);
-  border: 1px solid var(--warning-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: 5px;
   color: var(--warning-text);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
 .eq-repair-btn:hover:not(:disabled) {
-  background: var(--warning-bg);
-  border-color: var(--warning-border);
+  border-color: var(--warning-text);
+  background: color-mix(in srgb, var(--warning-text) 8%, transparent);
 }
 
 .eq-repair-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .eq-unequip-btn {
-  margin-top: 2px;
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: transparent;
@@ -488,7 +488,7 @@
   color: var(--text-3);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
-  align-self: flex-start;
+  margin-left: auto;
 }
 
 .eq-unequip-btn:hover:not(:disabled) {
@@ -510,7 +510,7 @@
 }
 
 .inv-dur-track {
-  flex: 1;
+  width: 100%;
   height: 3px;
   background: var(--border);
   border-radius: 99px;
@@ -524,7 +524,7 @@
 }
 
 .inv-dur-label {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -538,6 +538,83 @@
   border: 1px solid var(--error-border);
   border-radius: 8px;
   padding: 10px 14px;
+}
+
+/* ─── Confirm modal ──────────────────────────────────────────────────────────── */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.confirm-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: min(100%, 340px);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.confirm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.confirm-body {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.confirm-cancel {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.confirm-cancel:hover {
+  background: var(--bg);
+}
+
+.confirm-ok {
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--blue-600);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.confirm-ok:hover {
+  background: var(--blue-700);
 }
 
 /* ─── Bag modal ──────────────────────────────────────────────────────────────── */
@@ -678,7 +755,7 @@
 .bag-item-rarity,
 .bag-item-slot,
 .bag-item-2h {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -706,7 +783,7 @@
 }
 
 .inv-no-stats {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-3);
 }
 
@@ -723,7 +800,7 @@
   justify-content: center;
   gap: 5px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: var(--blue-600);
@@ -790,7 +867,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -828,14 +905,14 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .card-budget-nums {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-3);
 }
@@ -883,7 +960,7 @@
 }
 
 .card-chip-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
@@ -891,7 +968,7 @@
 }
 
 .card-chip-rank {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--card-color);
   background: color-mix(in srgb, var(--card-color) 10%, transparent);
@@ -909,19 +986,19 @@
 }
 
 .card-chip-category {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .card-chip-cost {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--text-3);
 }
 
 .card-chip-unequip {
   margin-top: 2px;
   padding: 2px 6px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: transparent;
@@ -984,7 +1061,7 @@
 }
 
 .card-item-rank {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--card-color);
   background: color-mix(in srgb, var(--card-color) 10%, transparent);
@@ -1010,20 +1087,20 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .card-item-cost {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--text-3);
   font-weight: 600;
 }
 
 .card-item-desc {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-3);
   line-height: 1.4;
   font-style: italic;
@@ -1036,7 +1113,7 @@
 }
 
 .card-item-effect {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: #16a34a;
   background: var(--success-bg);
@@ -1058,7 +1135,7 @@
   justify-content: center;
   gap: 5px;
   padding: 5px 10px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: var(--warning-bg);
@@ -1081,7 +1158,7 @@
 
 .card-equip-btn {
   padding: 5px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: var(--blue-600);
@@ -1104,7 +1181,7 @@
 
 .card-unequip-btn {
   padding: 5px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   background: transparent;

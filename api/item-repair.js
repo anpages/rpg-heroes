@@ -70,16 +70,22 @@ export default async function handler(req, res) {
   const goldCost = Math.ceil(missing * costs.gold * (1 - discount))
   const manaCost = Math.ceil(missing * costs.mana * (1 - discount))
 
-  // Verificar recursos
+  // Verificar recursos (con interpolación idle)
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, mana')
+    .select('gold, mana, gold_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
-  if (resources.gold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
-  if (resources.mana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
+
+  const now = Date.now()
+  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+
+  if (currentGold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
+  if (currentMana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
 
   // Reparar
   await supabase
@@ -89,7 +95,11 @@ export default async function handler(req, res) {
 
   await supabase
     .from('resources')
-    .update({ gold: resources.gold - goldCost, mana: resources.mana - manaCost })
+    .update({
+      gold: currentGold - goldCost,
+      mana: currentMana - manaCost,
+      last_collected_at: new Date(now).toISOString(),
+    })
     .eq('player_id', user.id)
 
   return res.status(200).json({ ok: true, goldCost, manaCost })

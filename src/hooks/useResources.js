@@ -61,6 +61,23 @@ export function useResources(userId) {
     return () => clearInterval(interval)
   }, [])
 
+  // Polling de respaldo cada 30s por si Realtime no está habilitado
+  useEffect(() => {
+    if (!userId) return
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('player_id', userId)
+        .single()
+      if (data) {
+        baseRef.current = data
+        setResources(interpolate(data))
+      }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [userId])
+
   async function refetch() {
     if (!userId) return
     const { data } = await supabase

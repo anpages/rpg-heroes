@@ -9,7 +9,7 @@ export function useHeroes(userId) {
     if (!userId) return
     const { data } = await supabase
       .from('heroes')
-      .select('*, classes(*)')
+      .select('*, classes(*), expeditions(ends_at, status)')
       .eq('player_id', userId)
       .order('slot')
     setHeroes(data ?? [])

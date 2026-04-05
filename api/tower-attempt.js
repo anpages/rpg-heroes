@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
 import { progressMissions } from './_missions.js'
+import { rollItemDrop, floorToDifficulty } from './_loot.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -78,17 +79,20 @@ export default async function handler(req, res) {
 
     rewards = floorRewards(targetFloor)
 
-    // Dar recompensas: oro
+    // Dar recompensas: oro — interpolar idle antes de sumar
     const { data: resources } = await supabase
       .from('resources')
-      .select('gold')
+      .select('gold, gold_rate, last_collected_at')
       .eq('player_id', user.id)
       .single()
 
     if (resources) {
+      const nowMs = Date.now()
+      const minutesElapsed = (nowMs - new Date(resources.last_collected_at).getTime()) / 60000
+      const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
       await supabase
         .from('resources')
-        .update({ gold: resources.gold + rewards.gold })
+        .update({ gold: currentGold + rewards.gold, last_collected_at: new Date(nowMs).toISOString() })
         .eq('player_id', user.id)
     }
 
@@ -106,6 +110,12 @@ export default async function handler(req, res) {
       .eq('id', hero.id)
 
     rewards.levelUp = levelUp
+
+    // Drop de item — probabilidad escala con el floor
+    const difficulty = floorToDifficulty(targetFloor)
+    const poolKey = targetFloor % 2 === 0 ? 'tower_even' : 'tower_odd'
+    const drop = await rollItemDrop(supabase, hero.id, user.id, { difficulty, poolKey })
+    rewards.drop = drop ?? null
   }
 
   // Progreso de misiones (siempre, gane o no)

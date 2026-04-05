@@ -110,3 +110,42 @@ h1, h2, h3 {
   font-weight: 700;
   line-height: 1.2;
 }
+
+/* ── Cabeceras de sección (globales) ─────────────────────────────────────── */
+
+.section-header {
+  margin-bottom: 24px;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.workshop-bonus-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #b45309;
+  background: color-mix(in srgb, #b45309 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #b45309 28%, var(--border));
+  align-self: center;
+}
+
+.section-subtitle {
+  font-size: 15px;
+  color: var(--text-2);
+  line-height: 1.5;
+}

@@ -11,7 +11,7 @@ const STATUS_COLOR = {
 
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
 
-function RecruitModal({ classes, onRecruit, onClose }) {
+export function RecruitModal({ classes, onRecruit, onClose }) {
   const [name, setName]       = useState('')
   const [classId, setClassId] = useState(classes?.[0]?.id ?? '')
   const [loading, setLoading] = useState(false)
@@ -78,7 +78,7 @@ function RecruitModal({ classes, onRecruit, onClose }) {
   )
 }
 
-export default function HeroPicker({ heroes, selectedHeroId, onSelect, onRefetch }) {
+export default function HeroPicker({ heroes, selectedHeroId, onSelect, onRefetch, showRecruit = false }) {
   const [barrackLevel, setBarrackLevel] = useState(1)
   const [showModal, setShowModal]       = useState(false)
   const [classes, setClasses]           = useState(null)
@@ -95,7 +95,7 @@ export default function HeroPicker({ heroes, selectedHeroId, onSelect, onRefetch
   // Siguiente slot disponible para reclutar
   const usedSlots = heroes.map(h => h.slot)
   const nextSlot  = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit = nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot])
+  const canRecruit = showRecruit && nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot])
 
   // Con un solo héroe y sin posibilidad de reclutar → no renderizar
   if (heroes.length <= 1 && !canRecruit) return null

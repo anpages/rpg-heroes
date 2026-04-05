@@ -13,9 +13,9 @@ function computeRates(buildings) {
   const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
 
   return {
-    gold_rate: Math.floor((10 + (goldMine - 1) * 5) * ratio),
-    wood_rate: Math.floor((6  + (lumber   - 1) * 3) * ratio),
-    mana_rate: Math.floor((2  + (mana     - 1))     * ratio),
+    gold_rate: Math.floor((2 + (goldMine - 1)) * ratio),
+    wood_rate: Math.floor((1 + (lumber   - 1)) * ratio),
+    mana_rate: Math.floor((1 + (mana     - 1)) * ratio),
   }
 }
 
@@ -85,10 +85,29 @@ export default async function handler(req, res) {
 
   const rates = computeRates(allBuildings ?? [])
 
-  await supabase
+  // Hacer snapshot de recursos acumulados antes de cambiar las tasas
+  const { data: resources } = await supabase
     .from('resources')
-    .update(rates)
+    .select('gold, wood, mana, gold_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
+    .single()
+
+  const now = Date.now()
+  if (resources) {
+    const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
+    const snapshotGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
+    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * minutesElapsed)
+    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+    await supabase
+      .from('resources')
+      .update({ ...rates, gold: snapshotGold, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
+      .eq('player_id', user.id)
+  } else {
+    await supabase
+      .from('resources')
+      .update(rates)
+      .eq('player_id', user.id)
+  }
 
   return res.status(200).json({ ok: true, newLevel, type: building.type })
 }

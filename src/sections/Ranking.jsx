@@ -54,7 +54,7 @@ function Ranking({ userId }) {
               <span className="col-class">
                 <span
                   className="class-tag"
-                  style={cls ? { color: cls.color, background: cls.bg_color, borderColor: cls.border_color } : {}}
+                  style={cls ? { '--cls-color': cls.color } : {}}
                 >
                   {cls?.name ?? entry.class}
                 </span>

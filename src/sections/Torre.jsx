@@ -2,8 +2,23 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useTowerProgress } from '../hooks/useTowerProgress'
-import { Swords, Shield, Zap, Brain, Wind, Heart, Star, ChevronUp, Coins, Sparkles, Trophy } from 'lucide-react'
+import { Swords, Star, Coins, Sparkles, Trophy, ChevronUp, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import './Torre.css'
+
+const MILESTONES = [5, 10, 25, 50, 100]
+
+const ENEMY_NAMES = [
+  [1,  5,  'Guardián'],
+  [6,  10, 'Centinela'],
+  [11, 20, 'Campeón'],
+  [21, 50, 'Élite'],
+  [51, 999,'Legendario'],
+]
+
+function enemyName(floor) {
+  return ENEMY_NAMES.find(([lo, hi]) => floor >= lo && floor <= hi)?.[2] ?? 'Guardián'
+}
 
 function floorEnemyStats(floor) {
   return {
@@ -12,7 +27,6 @@ function floorEnemyStats(floor) {
     defense:       2  + floor * 1,
     strength:      2  + Math.floor(floor * 0.5),
     agility:       2  + Math.floor(floor * 0.3),
-    intelligence:  1  + Math.floor(floor * 0.3),
   }
 }
 
@@ -25,92 +39,112 @@ function floorRewards(floor) {
   }
 }
 
-function StatRow({ icon: Icon, label, value, color }) {
-  return (
-    <div className="tower-stat-row">
-      <Icon size={13} color={color} strokeWidth={2} />
-      <span className="tower-stat-label">{label}</span>
-      <span className="tower-stat-value">{value}</span>
-    </div>
-  )
-}
+/* ─── Progress strip ─────────────────────────────────────────────────────────── */
 
-function FloorProgress({ maxFloor }) {
-  const milestones = [5, 10, 25, 50, 100]
-  const nextMilestone = milestones.find(m => m > maxFloor) ?? milestones[milestones.length - 1]
-  const prevMilestone = milestones.slice().reverse().find(m => m <= maxFloor) ?? 0
-  const pct = Math.min(100, Math.round(((maxFloor - prevMilestone) / (nextMilestone - prevMilestone)) * 100))
+function ProgressStrip({ maxFloor }) {
+  const reached = maxFloor ?? 0
+  const nextMs  = MILESTONES.find(m => m > reached) ?? MILESTONES[MILESTONES.length - 1]
+  const prevMs  = [...MILESTONES].reverse().find(m => m <= reached) ?? 0
+  const pct     = nextMs === prevMs ? 100 : Math.min(100, Math.round(((reached - prevMs) / (nextMs - prevMs)) * 100))
 
   return (
-    <div className="tower-floor-progress">
-      <div className="tower-floor-track">
-        <div className="tower-floor-fill" style={{ width: `${pct}%` }} />
-        {milestones.map(m => (
-          <div
-            key={m}
-            className={`tower-milestone-dot ${maxFloor >= m ? 'tower-milestone-dot--reached' : ''}`}
-            style={{ left: `${Math.min(100, Math.round((m / milestones[milestones.length - 1]) * 100))}%` }}
-            title={`Piso ${m}`}
-          />
-        ))}
+    <div className="tower-progress-strip">
+      <div className="tower-progress-top">
+        <div className="tower-max-block">
+          <Trophy size={15} color="#d97706" strokeWidth={2} />
+          <span className="tower-max-num">{reached}</span>
+          <span className="tower-max-label">piso máximo</span>
+        </div>
+        <span className="tower-next-ms">Hito: piso {nextMs}</span>
       </div>
-      <div className="tower-floor-labels">
-        <span>Piso {prevMilestone}</span>
-        <span>Siguiente hito: piso {nextMilestone}</span>
+      <div className="tower-ms-bar-wrap">
+        <div className="tower-ms-track">
+          <div className="tower-ms-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="tower-ms-dots">
+          {MILESTONES.map(m => (
+            <div key={m} className={`tower-ms-dot ${reached >= m ? 'tower-ms-dot--done' : ''}`} title={`Piso ${m}`}>
+              <span className="tower-ms-dot-label">{m}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
+
+/* ─── Stat comparison row ────────────────────────────────────────────────────── */
+
+function StatCompareRow({ label, heroVal, enemyVal }) {
+  const heroWins  = heroVal > enemyVal
+  const enemyWins = enemyVal > heroVal
+  return (
+    <div className="tower-cmp-row">
+      <span className={`tower-cmp-val tower-cmp-val--hero ${heroWins ? 'tower-cmp-val--advantage' : enemyWins ? 'tower-cmp-val--disadvantage' : ''}`}>
+        {heroVal}
+      </span>
+      <span className="tower-cmp-label">{label}</span>
+      <span className={`tower-cmp-val tower-cmp-val--enemy ${enemyWins ? 'tower-cmp-val--advantage' : heroWins ? 'tower-cmp-val--disadvantage' : ''}`}>
+        {enemyVal}
+      </span>
+    </div>
+  )
+}
+
+/* ─── Result banner ──────────────────────────────────────────────────────────── */
 
 function ResultBanner({ result, onClose }) {
-  if (!result) return null
   const { won, floor, rounds, heroHpLeft, heroMaxHp, enemyHpLeft, enemyMaxHp, rewards } = result
+  const heroPct  = Math.max(0, Math.round((heroHpLeft  / heroMaxHp)  * 100))
+  const enemyPct = Math.max(0, Math.round((enemyHpLeft / enemyMaxHp) * 100))
 
   return (
     <div className={`tower-result ${won ? 'tower-result--win' : 'tower-result--lose'}`}>
-      <div className="tower-result-header">
-        <span className="tower-result-icon">{won ? '⚔️' : '💀'}</span>
+      <button className="tower-result-close" onClick={onClose} aria-label="Cerrar">
+        <X size={15} strokeWidth={2} />
+      </button>
+
+      <div className="tower-result-headline">
+        <span className="tower-result-icon">{won ? '⚔' : '💀'}</span>
         <div>
           <p className="tower-result-title">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
           <p className="tower-result-sub">{rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}</p>
         </div>
-        <button className="tower-result-close" onClick={onClose}>×</button>
       </div>
 
-      <div className="tower-result-bars">
-        <div className="tower-result-bar-wrap">
-          <span className="tower-result-bar-label">Tu héroe</span>
-          <div className="tower-result-bar-track">
-            <div
-              className={`tower-result-bar-fill ${won ? 'tower-result-bar-fill--hero' : 'tower-result-bar-fill--dead'}`}
-              style={{ width: `${Math.round((heroHpLeft / heroMaxHp) * 100)}%` }}
-            />
+      <div className="tower-result-hpbars">
+        <div className="tower-result-hpbar-row">
+          <span className="tower-result-hpbar-label">Tú</span>
+          <div className="tower-result-hpbar-track">
+            <div className="tower-result-hpbar-fill tower-result-hpbar-fill--hero" style={{ width: `${heroPct}%` }} />
           </div>
-          <span className="tower-result-bar-val">{heroHpLeft}/{heroMaxHp}</span>
+          <span className="tower-result-hpbar-val">{heroHpLeft}/{heroMaxHp}</span>
         </div>
-        <div className="tower-result-bar-wrap">
-          <span className="tower-result-bar-label">Enemigo</span>
-          <div className="tower-result-bar-track">
-            <div
-              className={`tower-result-bar-fill ${!won ? 'tower-result-bar-fill--enemy' : 'tower-result-bar-fill--dead'}`}
-              style={{ width: `${Math.round((enemyHpLeft / enemyMaxHp) * 100)}%` }}
-            />
+        <div className="tower-result-hpbar-row">
+          <span className="tower-result-hpbar-label">Enemigo</span>
+          <div className="tower-result-hpbar-track">
+            <div className={`tower-result-hpbar-fill ${won ? 'tower-result-hpbar-fill--dead' : 'tower-result-hpbar-fill--enemy'}`} style={{ width: `${enemyPct}%` }} />
           </div>
-          <span className="tower-result-bar-val">{enemyHpLeft}/{enemyMaxHp}</span>
+          <span className="tower-result-hpbar-val">{enemyHpLeft}/{enemyMaxHp}</span>
         </div>
       </div>
 
       {won && rewards && (
-        <div className="tower-result-rewards">
-          {rewards.milestone && <span className="tower-result-milestone"><Star size={12} /> Hito · recompensas ×2</span>}
-          <span className="tower-reward-chip"><Coins size={12} color="#d97706" /> +{rewards.gold}</span>
-          <span className="tower-reward-chip"><Sparkles size={12} color="#7c3aed" /> +{rewards.experience} XP</span>
-          {rewards.levelUp && <span className="tower-reward-chip tower-reward-chip--levelup">¡Nivel!</span>}
+        <div className="tower-result-loot">
+          {rewards.milestone && <span className="tower-result-milestone">★ Hito · ×2</span>}
+          <span className="tower-result-chip"><Coins size={12} color="#d97706" /> +{rewards.gold}</span>
+          <span className="tower-result-chip"><Sparkles size={12} color="#7c3aed" /> +{rewards.experience} XP</span>
+          {rewards.levelUp && <span className="tower-result-chip tower-result-chip--level">¡Nivel!</span>}
+          {rewards.drop?.item_catalog && (
+            <span className="tower-result-chip tower-result-chip--item">⚔ {rewards.drop.item_catalog.name}</span>
+          )}
         </div>
       )}
     </div>
   )
 }
+
+/* ─── Main component ─────────────────────────────────────────────────────────── */
 
 export default function Torre({ userId, heroId, onResourceChange }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
@@ -120,25 +154,22 @@ export default function Torre({ userId, heroId, onResourceChange }) {
   const [error, setError]     = useState(null)
 
   const targetFloor = (maxFloor ?? 0) + 1
-  const enemy = floorEnemyStats(targetFloor)
-  const rewards = floorRewards(targetFloor)
-  const isBusy = hero?.status !== 'idle'
+  const enemy       = floorEnemyStats(targetFloor)
+  const rewards     = floorRewards(targetFloor)
+  const isBusy      = hero?.status !== 'idle'
 
   async function attempt() {
     setLoading(true)
     setError(null)
     setResult(null)
-
     await supabase.auth.refreshSession()
     const { data: { session } } = await supabase.auth.getSession()
-
-    const res = await fetch('/api/tower-attempt', {
+    const res  = await fetch('/api/tower-attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ heroId: hero?.id }),
     })
     const data = await res.json()
-
     if (res.ok) {
       setResult(data)
       await refetchTower()
@@ -151,79 +182,89 @@ export default function Torre({ userId, heroId, onResourceChange }) {
 
   if (heroLoading || towerLoading) return <div className="tower-loading">Cargando torre...</div>
 
+  const HERO_STATS = [
+    { label: 'HP',  heroVal: hero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
+    { label: 'Atq', heroVal: hero?.attack   ?? 0, enemyVal: enemy.attack   },
+    { label: 'Def', heroVal: hero?.defense  ?? 0, enemyVal: enemy.defense  },
+    { label: 'Fue', heroVal: hero?.strength ?? 0, enemyVal: enemy.strength },
+    { label: 'Agi', heroVal: hero?.agility  ?? 0, enemyVal: enemy.agility  },
+  ]
+
+  const heroAdvantages = HERO_STATS.filter(s => s.heroVal > s.enemyVal).length
+
   return (
     <div className="torre-section">
       <div className="section-header">
         <h2 className="section-title">Torre de Desafíos</h2>
-        <p className="section-subtitle">Escala la torre para medir el poder real de tu héroe. Cada piso es más difícil que el anterior.</p>
+        <p className="section-subtitle">Escala la torre para medir el poder de tu héroe. Cada piso es más difícil que el anterior.</p>
       </div>
 
-      {/* Progreso */}
-      <div className="tower-header-card">
-        <div className="tower-floor-badge">
-          <Trophy size={18} color="#d97706" strokeWidth={1.8} />
-          <div>
-            <p className="tower-floor-max">Piso {maxFloor ?? 0}</p>
-            <p className="tower-floor-max-label">máximo alcanzado</p>
-          </div>
-        </div>
-        <FloorProgress maxFloor={maxFloor ?? 0} />
-      </div>
+      <ProgressStrip maxFloor={maxFloor} />
 
-      <ResultBanner result={result} onClose={() => setResult(null)} />
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
+            <ResultBanner result={result} onClose={() => setResult(null)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Intento */}
-      <div className="tower-attempt-card">
-        <div className="tower-attempt-header">
-          <div className="tower-floor-number">
-            <ChevronUp size={14} strokeWidth={2.5} />
+      {/* Battle panel */}
+      <div className="tower-battle-panel">
+        <div className="tower-battle-header">
+          <div className="tower-floor-chip">
+            <ChevronUp size={13} strokeWidth={2.5} />
             Piso {targetFloor}
           </div>
-          {rewards.milestone && (
-            <span className="tower-milestone-badge">
-              <Star size={11} /> Hito
+          <div className="tower-battle-header-right">
+            {rewards.milestone && <span className="tower-milestone-badge"><Star size={10} strokeWidth={2} /> Hito</span>}
+            <span className={`tower-prediction ${heroAdvantages >= 3 ? 'tower-prediction--good' : heroAdvantages >= 2 ? 'tower-prediction--neutral' : 'tower-prediction--hard'}`}>
+              {heroAdvantages >= 3 ? 'Favorable' : heroAdvantages >= 2 ? 'Ajustado' : 'Difícil'}
             </span>
-          )}
+          </div>
         </div>
 
-        <div className="tower-enemy-grid">
-          <div className="tower-enemy-block">
-            <p className="tower-block-title">Enemigo</p>
-            <StatRow icon={Heart}  label="HP"  value={enemy.max_hp}       color="#dc2626" />
-            <StatRow icon={Swords} label="Atq" value={enemy.attack}       color="#d97706" />
-            <StatRow icon={Shield} label="Def" value={enemy.defense}      color="#0369a1" />
-            <StatRow icon={Zap}    label="Fue" value={enemy.strength}     color="#dc2626" />
-            <StatRow icon={Wind}   label="Agi" value={enemy.agility}      color="#0369a1" />
-            <StatRow icon={Brain}  label="Int" value={enemy.intelligence} color="#7c3aed" />
-          </div>
+        {/* Combatants header */}
+        <div className="tower-combatants-header">
+          <span className="tower-combatant-name tower-combatant-name--hero">{hero?.name ?? '—'}</span>
+          <span className="tower-vs">VS</span>
+          <span className="tower-combatant-name tower-combatant-name--enemy">{enemyName(targetFloor)}</span>
+        </div>
 
-          <div className="tower-reward-block">
-            <p className="tower-block-title">Recompensas</p>
-            <div className="tower-reward-list">
-              <div className="tower-reward-item">
-                <Coins size={14} color="#d97706" strokeWidth={2} />
-                <span>{rewards.gold} oro</span>
-              </div>
-              <div className="tower-reward-item">
-                <Sparkles size={14} color="#7c3aed" strokeWidth={2} />
-                <span>{rewards.experience} XP</span>
-              </div>
-              {rewards.milestone && (
-                <p className="tower-reward-milestone-note">Recompensas dobles por ser piso hito</p>
-              )}
-            </div>
-          </div>
+        {/* Stats comparison */}
+        <div className="tower-stats-compare">
+          {HERO_STATS.map(s => (
+            <StatCompareRow key={s.label} {...s} />
+          ))}
+        </div>
+
+        <p className="tower-stats-note">Stats base · el equipo añade bonificaciones en combate</p>
+
+        {/* Rewards preview */}
+        <div className="tower-rewards-preview">
+          <span className="tower-reward-preview-item"><Coins size={13} color="#d97706" strokeWidth={2} />{rewards.gold} oro</span>
+          <span className="tower-reward-preview-item"><Star size={13} color="#0369a1" strokeWidth={2} />{rewards.experience} XP</span>
+          {rewards.milestone && <span className="tower-reward-preview-item tower-reward-preview-item--ms">×2 recompensas</span>}
         </div>
 
         {error && <p className="tower-error">{error}</p>}
 
-        <button
+        <motion.button
           className="tower-attempt-btn"
           onClick={attempt}
           disabled={loading || isBusy}
+          whileTap={loading || isBusy ? {} : { scale: 0.96 }}
+          whileHover={loading || isBusy ? {} : { scale: 1.01 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >
+          <Swords size={16} strokeWidth={2} />
           {loading ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : `Intentar piso ${targetFloor}`}
-        </button>
+        </motion.button>
       </div>
     </div>
   )

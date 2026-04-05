@@ -5,26 +5,6 @@
   text-align: center;
 }
 
-/* ─── Section header ─────────────────────────────────────────────────────────── */
-
-.section-header {
-  margin-bottom: 24px;
-}
-
-.section-title {
-  font-family: 'Cinzel', serif;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-3);
-  line-height: 1.5;
-}
-
 /* ─── Featured card (Nexo Arcano) ────────────────────────────────────────────── */
 
 @keyframes nexo-pulse {
@@ -46,48 +26,59 @@
   animation: nexo-pulse 2.5s ease-in-out infinite;
 }
 
-/* ─── Nexus energy bar ───────────────────────────────────────────────────────── */
+/* ─── Nexus panel ────────────────────────────────────────────────────────────── */
 
-.building-nexus-energy {
+.nexus-panel {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 8px 10px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 8px;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
-.nexus-energy-row {
+.nexus-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+
+.nexus-metric {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 2px;
 }
 
-.nexus-energy-num {
+.nexus-metric:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.nexus-metric-val {
+  font-size: 20px;
   font-weight: 700;
   color: var(--accent);
+  line-height: 1;
 }
 
-.nexus-energy-lbl {
-  color: var(--text-3);
+.nexus-metric-lbl {
+  font-size: 11px;
   font-weight: 500;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.nexus-energy-div {
-  color: var(--border-2);
-  margin: 0 2px;
-}
-
-.nexus-balance {
-  margin-left: auto;
-  font-weight: 600;
+.nexus-metric--balance .nexus-metric-val {
   color: var(--success-text);
 }
 
-.nexus-balance--deficit {
+.nexus-metric--deficit .nexus-metric-val {
   color: var(--error-text);
+}
+
+.nexus-metric--deficit .nexus-metric-lbl {
+  color: var(--error-text);
+  opacity: 0.7;
 }
 
 .nexus-bar-track {
@@ -108,12 +99,57 @@
   background: var(--error-text);
 }
 
-/* ─── Grid ───────────────────────────────────────────────────────────────────── */
+/* ─── Groups ─────────────────────────────────────────────────────────────────── */
 
-.buildings-grid {
+.base-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.base-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.base-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+
+/* Nexo: siempre full-width */
+.base-group-grid--single {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+/* Producción: 3 columnas iguales */
+.base-group-grid--three {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* Mejoras: 2 columnas (2×2) */
+.base-group-grid--four {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .base-group-grid--three { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .base-group-grid--three,
+  .base-group-grid--four  { grid-template-columns: 1fr; }
 }
 
 /* ─── Building card ──────────────────────────────────────────────────────────── */
@@ -130,6 +166,7 @@
   gap: 14px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s, border-color 0.2s;
+  height: 100%; /* ocupa toda la altura de la celda del grid */
 }
 
 .building-card:hover {
@@ -177,7 +214,7 @@
 }
 
 .building-level {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-bg);
@@ -194,19 +231,19 @@
   line-height: 1.5;
   margin-bottom: 6px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .building-effect {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--accent);
 }
 
 .building-effect-next {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-3);
 }
@@ -216,22 +253,14 @@
 .building-upgrade-progress {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 8px;
-}
-
-.building-upgrade-bar-wrap {
-  display: flex;
-  align-items: center;
   gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
 }
 
 .building-upgrade-track {
-  flex: 1;
-  height: 6px;
+  height: 4px;
   background: var(--border);
   border-radius: 99px;
   overflow: hidden;
@@ -244,15 +273,6 @@
   transition: width 1s linear;
 }
 
-.building-upgrade-pct {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  width: 30px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
 .building-upgrade-meta {
   display: flex;
   align-items: center;
@@ -261,18 +281,18 @@
 }
 
 .building-upgrade-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--accent);
 }
 
 .building-upgrade-timer {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -286,6 +306,7 @@
   gap: 10px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+  margin-top: auto; /* empuja el footer al fondo de la card */
 }
 
 .building-costs {
@@ -294,27 +315,20 @@
   flex-wrap: wrap;
 }
 
-.cost-badge {
+.building-cost {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.cost-badge--ok {
+.building-cost--ok {
   color: var(--success-text);
-  background: var(--success-bg);
-  border-color: var(--success-border);
 }
 
-.cost-badge--short {
+.building-cost--short {
   color: var(--error-text);
-  background: var(--error-bg);
-  border-color: var(--error-border);
 }
 
 /* Upgrade button */
@@ -348,7 +362,7 @@
 
 
 .building-error {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--error-text);
   text-align: center;
   margin-top: -6px;
