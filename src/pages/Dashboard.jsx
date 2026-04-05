@@ -276,8 +276,10 @@ function Dashboard({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  const heroExploring = heroes.some(h => h.status === 'exploring')
-  const buildingUpgrading = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
+  const heroExploringReady    = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
+  const heroExploringInProgress = !heroExploringReady && heroes.some(h => h.status === 'exploring')
+  const buildingUpgradingReady    = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
+  const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
   const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
   const barrackLevel  = buildings?.find(b => b.type === 'barracks')?.level  ?? 1
 
@@ -392,7 +394,10 @@ function Dashboard({ session }) {
         <aside className="dash-sidebar">
           <nav className="dash-nav">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-              const badge = (id === 'mazmorras' && heroExploring) || (id === 'base' && buildingUpgrading)
+              const badgeState =
+                id === 'mazmorras' ? (heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null)
+                : id === 'base'    ? (buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null)
+                : null
               return (
                 <button
                   key={id}
@@ -408,7 +413,7 @@ function Dashboard({ session }) {
                   )}
                   <span className="dash-nav-icon">
                     <Icon size={18} strokeWidth={1.8} />
-                    {badge && <span className="nav-badge" />}
+                    {badgeState && <span className={`nav-badge nav-badge--${badgeState}`} />}
                   </span>
                   <span className="dash-nav-label">{label}</span>
                 </button>
@@ -464,7 +469,10 @@ function Dashboard({ session }) {
       {/* Bottom bar (mobile) */}
       <nav className="dash-bottombar">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-          const badge = (id === 'mazmorras' && heroExploring) || (id === 'base' && buildingUpgrading)
+          const badgeState =
+            id === 'mazmorras' ? (heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null)
+            : id === 'base'    ? (buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null)
+            : null
           return (
             <button
               key={id}
@@ -473,7 +481,7 @@ function Dashboard({ session }) {
             >
               <span className="dash-bottombar-icon">
                 <Icon size={20} strokeWidth={1.8} />
-                {badge && <span className="nav-badge" />}
+                {badgeState && <span className={`nav-badge nav-badge--${badgeState}`} />}
               </span>
               <span className="dash-bottombar-label">{label}</span>
             </button>

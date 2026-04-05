@@ -349,9 +349,18 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #d97706;
   border: 2px solid var(--surface);
+}
+
+/* En curso: amber pulsante */
+.nav-badge--active {
+  background: #d97706;
   animation: nav-badge-pulse 2s ease-in-out infinite;
+}
+
+/* Listo para recoger: verde estático */
+.nav-badge--ready {
+  background: #16a34a;
 }
 
 @keyframes nav-badge-pulse {

@@ -1342,4 +1342,8 @@
   .eq-group {
     gap: 10px;
   }
+
+  .equipped-cards-grid {
+    grid-template-columns: 1fr;
+  }
 }
