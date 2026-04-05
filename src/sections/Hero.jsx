@@ -622,15 +622,11 @@ function Hero({ userId, heroId }) {
   useEffect(() => { setOptimisticItems(null) }, [items])
   useEffect(() => { setOptimisticCards(null) }, [cards])
 
-  if (heroLoading || invLoading || cardsLoading) return (
-    <motion.div key="hero-loading" className="hero-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-      Cargando héroe...
-    </motion.div>
-  )
+  if (heroLoading || invLoading || cardsLoading) return null
   if (!hero) return (
-    <motion.div key="hero-empty" className="hero-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+    <div className="hero-loading">
       {heroId ? 'No se encontró el héroe.' : 'Recluta tu primer héroe para comenzar.'}
-    </motion.div>
+    </div>
   )
 
   const cls = hero.classes
