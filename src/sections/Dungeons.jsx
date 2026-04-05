@@ -258,6 +258,7 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
       // Corregir ends_at optimista con el valor real del servidor
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
       refetch()
+      refetchHero()
       onExpeditionStart?.()
       onHeroChange?.()
     } else {

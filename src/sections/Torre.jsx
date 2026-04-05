@@ -150,6 +150,22 @@ function ResultBanner({ result, onClose }) {
 
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
+// Estimación de daño recibido usando stats base (sin equipo) — orientativa
+function estimateDamageTaken(hero, enemy) {
+  if (!hero || !enemy) return null
+  const physDmg = (atk, str, def) => Math.max(1, Math.round((atk + Math.floor(str * 0.3)) * (1 - def / (def + 60))))
+  const dmgA = physDmg(hero.attack ?? 0, hero.strength ?? 0, enemy.defense) + Math.floor((hero.intelligence ?? 0) * 0.04)
+  const dmgB = physDmg(enemy.attack, enemy.strength, hero.defense ?? 0) + Math.floor(enemy.intelligence * 0.04)
+  let hpA = hero.max_hp, hpB = enemy.max_hp
+  const aFirst = (hero.agility ?? 0) >= enemy.agility
+  for (let r = 1; r <= 30 && hpA > 0 && hpB > 0; r++) {
+    if (aFirst) { hpB = Math.max(0, hpB - dmgA); if (hpB > 0) hpA = Math.max(0, hpA - dmgB) }
+    else        { hpA = Math.max(0, hpA - dmgB); if (hpA > 0) hpB = Math.max(0, hpB - dmgA) }
+    if (hpA <= 0 || hpB <= 0) break
+  }
+  return hero.max_hp - Math.max(0, hpA)
+}
+
 function interpolateHp(hero, nowMs) {
   if (!hero) return 0
   const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
@@ -171,10 +187,11 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
     return () => clearInterval(id)
   }, [])
 
-  const nowMs      = Date.now()
-  const hpNow      = interpolateHp(hero, nowMs)
-  const minHp      = hero ? Math.floor(hero.max_hp * 0.2) : 0
+  const nowMs       = Date.now()
+  const hpNow       = interpolateHp(hero, nowMs)
+  const minHp       = hero ? Math.floor(hero.max_hp * 0.2) : 0
   const hasEnoughHp = hpNow >= minHp
+  const estDamage   = estimateDamageTaken(hero, enemy)
 
   const targetFloor = (maxFloor ?? 0) + 1
   const enemy       = floorEnemyStats(targetFloor)
@@ -287,7 +304,9 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
             {hpNow}/{hero?.max_hp ?? 0} HP
             {!hasEnoughHp && ` · mín. ${minHp}`}
           </span>
-          <span className="tower-hp-cost">coste: varía</span>
+          {estDamage !== null && (
+            <span className="tower-hp-cost">−{estDamage} HP est.</span>
+          )}
         </div>
 
         <motion.button
