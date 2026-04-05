@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Coins, Clock, CheckCircle2, PackageX, Lock, Sword, Shield, Gem } from 'lucide-react'
+import {
+  Coins, Clock, CheckCircle2, PackageX, Lock,
+  Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Shop.css'
 
@@ -13,22 +16,25 @@ const RARITY_META = {
 }
 
 const SLOT_LABEL = {
-  helmet: 'Casco', chest: 'Pecho', arms: 'Brazos', legs: 'Piernas',
-  feet: 'Pies', main_hand: 'Mano Ppal.', off_hand: 'Mano Sec.', accessory: 'Accesorio',
+  helmet:    'Casco',
+  chest:     'Pecho',
+  arms:      'Brazos',
+  legs:      'Piernas',
+  main_hand: 'Arma Principal',
+  off_hand:  'Mano Secundaria',
+  accessory: 'Complemento',
 }
 
 const MERCHANT_ICON = { weapons: Sword, armor: Shield, relics: Gem }
 
-function statLines(item) {
-  return [
-    item.attack_bonus       > 0 && `+${item.attack_bonus} Atq`,
-    item.defense_bonus      > 0 && `+${item.defense_bonus} Def`,
-    item.hp_bonus           > 0 && `+${item.hp_bonus} HP`,
-    item.strength_bonus     > 0 && `+${item.strength_bonus} Fue`,
-    item.agility_bonus      > 0 && `+${item.agility_bonus} Agi`,
-    item.intelligence_bonus > 0 && `+${item.intelligence_bonus} Int`,
-  ].filter(Boolean)
-}
+const STAT_META = [
+  { key: 'attack_bonus',       label: 'Ataque',       Icon: Sword    },
+  { key: 'defense_bonus',      label: 'Defensa',      Icon: Shield   },
+  { key: 'hp_bonus',           label: 'HP',           Icon: Heart    },
+  { key: 'strength_bonus',     label: 'Fuerza',       Icon: Dumbbell },
+  { key: 'agility_bonus',      label: 'Agilidad',     Icon: Wind     },
+  { key: 'intelligence_bonus', label: 'Inteligencia', Icon: Brain    },
+]
 
 function timeUntilMidnight() {
   const now = new Date()
@@ -42,7 +48,7 @@ function timeUntilMidnight() {
 
 function ShopItem({ item, gold, onBuy, buying }) {
   const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
-  const stats = statLines(item)
+  const stats = STAT_META.filter(s => item[s.key] > 0)
   const sold = item.purchased >= item.maxStock
   const canAfford = gold >= item.goldPrice
 
@@ -51,44 +57,73 @@ function ShopItem({ item, gold, onBuy, buying }) {
       className={`shop-item ${sold ? 'shop-item--sold' : ''} ${item.locked ? 'shop-item--locked' : ''}`}
       style={{ '--rarity-color': rarity.color }}
     >
-      <div className="shop-item-header">
-        <span className="shop-item-name" style={{ color: item.locked ? undefined : rarity.color }}>
-          {item.name}
+      {/* Accent bar */}
+      <div className="shop-item-accent" />
+
+      <div className="shop-item-body">
+        {/* Header */}
+        <div className="shop-item-header">
+          <span className="shop-item-name" style={{ color: rarity.color }}>
+            {item.name}
+          </span>
+          <div className="shop-item-badges">
+            <span className="shop-item-tier">T{item.tier}</span>
+            <span className="shop-item-rarity" style={{ color: rarity.color }}>
+              {rarity.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Slot */}
+        <span className="shop-item-slot">
+          {SLOT_LABEL[item.slot] ?? item.slot}
+          {item.is_two_handed && <span className="shop-item-2h"> · 2 manos</span>}
         </span>
-        <span className="shop-item-rarity">{rarity.label}</span>
-      </div>
 
-      <div className="shop-item-meta">
-        <span className="shop-item-slot">{SLOT_LABEL[item.slot] ?? item.slot}</span>
-        <span className="shop-item-tier">T{item.tier}</span>
-      </div>
-
-      {stats.length > 0 && (
-        <ul className="shop-item-stats">
-          {stats.map(s => <li key={s}>{s}</li>)}
-        </ul>
-      )}
-
-      <div className="shop-item-footer">
-        {item.locked ? (
-          <span className="shop-item-locked-label">
-            <Lock size={12} strokeWidth={2} /> Nv. {item.minLevel}
-          </span>
-        ) : sold ? (
-          <span className="shop-item-sold-label">
-            <CheckCircle2 size={13} strokeWidth={2} /> Comprado
-          </span>
+        {/* Stats */}
+        {stats.length > 0 ? (
+          <ul className="shop-item-stats">
+            {stats.map(({ key, label, Icon }) => (
+              <li key={key} className="shop-item-stat">
+                <Icon size={12} strokeWidth={2} className="shop-stat-icon" />
+                <span className="shop-stat-label">{label}</span>
+                <span className="shop-stat-value">+{item[key]}</span>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <button
-            className="btn btn--primary btn--sm"
-            disabled={!canAfford || buying}
-            onClick={() => onBuy(item)}
-            title={!canAfford ? 'Oro insuficiente' : undefined}
-          >
-            <Coins size={13} strokeWidth={2} />
-            {item.goldPrice.toLocaleString('es-ES')}
-          </button>
+          <p className="shop-item-no-stats">Sin bonificaciones</p>
         )}
+
+        {/* Footer */}
+        <div className="shop-item-footer">
+          {item.locked ? (
+            <div className="shop-item-lock-row">
+              <Lock size={14} strokeWidth={2} />
+              <span>Requiere nivel {item.minLevel}</span>
+            </div>
+          ) : sold ? (
+            <div className="shop-item-sold-row">
+              <CheckCircle2 size={14} strokeWidth={2} />
+              <span>Comprado</span>
+            </div>
+          ) : (
+            <>
+              <span className={`shop-item-price ${!canAfford ? 'shop-item-price--short' : ''}`}>
+                <Coins size={14} strokeWidth={2} />
+                {item.goldPrice.toLocaleString('es-ES')}
+              </span>
+              <button
+                className="btn btn--primary btn--sm"
+                disabled={!canAfford || buying}
+                onClick={() => onBuy(item)}
+                title={!canAfford ? 'Oro insuficiente' : undefined}
+              >
+                Comprar
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -171,9 +206,14 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
   return (
     <div className="shop-section">
       <div className="shop-header">
-        <div className="shop-header-title">
-          <MerchantIcon size={18} strokeWidth={1.8} />
-          <span>{merchant ? `${merchant.label} de ${heroName ?? 'Héroe'}` : 'Tienda'}</span>
+        <div className="shop-header-left">
+          <div className="shop-header-title">
+            <MerchantIcon size={20} strokeWidth={1.8} />
+            <span>{merchant ? `${merchant.label}` : 'Tienda'}</span>
+          </div>
+          {heroName && (
+            <span className="shop-header-sub">Inventario de {heroName}</span>
+          )}
         </div>
         <div className="shop-renews">
           <Clock size={13} strokeWidth={2} />
@@ -181,15 +221,15 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
         </div>
       </div>
 
-      {loading && (
-        <div className="shop-loading">
-          {[...Array(8)].map((_, i) => <div key={i} className="shop-item-skeleton" />)}
-        </div>
-      )}
-
       {error && <p className="shop-error">{error}</p>}
 
-      {!loading && !error && items && (
+      {loading ? (
+        <div className="shop-grid">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="shop-item-skeleton" />
+          ))}
+        </div>
+      ) : items && (
         <div className="shop-grid">
           {items.map(item => (
             <ShopItem
@@ -207,9 +247,9 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
         {toast && (
           <motion.div
             className={`shop-toast shop-toast--${toast.type}`}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            exit={{ opacity: 0, y: 16 }}
           >
             {toast.msg}
           </motion.div>
