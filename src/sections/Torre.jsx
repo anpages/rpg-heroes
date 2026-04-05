@@ -191,12 +191,12 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
   const hpNow       = interpolateHp(hero, nowMs)
   const minHp       = hero ? Math.floor(hero.max_hp * 0.2) : 0
   const hasEnoughHp = hpNow >= minHp
-  const estDamage   = estimateDamageTaken(hero, enemy)
 
   const targetFloor = (maxFloor ?? 0) + 1
   const enemy       = floorEnemyStats(targetFloor)
   const rewards     = floorRewards(targetFloor)
   const isBusy      = hero?.status !== 'idle'
+  const estDamage   = estimateDamageTaken(hero, enemy)
 
   async function attempt() {
     setLoading(true)
