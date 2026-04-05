@@ -228,11 +228,13 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
       body: JSON.stringify({ dungeonId: dungeon.id, heroId: hero?.id }),
     })
 
+    const data = await res.json()
     if (res.ok) {
+      // Corregir ends_at optimista con el valor real del servidor
+      setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
       refetch()
       onExpeditionStart?.()
     } else {
-      const data = await res.json()
       setExpedition(null) // revertir
       setStartError(data.error ?? 'Error al iniciar expedición')
       setTimeout(() => setStartError(null), 4000)
