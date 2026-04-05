@@ -104,17 +104,6 @@
   margin: 0;
 }
 
-.reward-toast-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-muted);
-  padding: 0 2px;
-  opacity: 0.6;
-}
-.reward-toast-close:hover { opacity: 1; }
 
 .reward-toast-items {
   display: flex;

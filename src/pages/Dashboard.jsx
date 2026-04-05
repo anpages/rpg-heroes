@@ -340,7 +340,7 @@ function Dashboard({ session }) {
               : <span className="dash-avatar-initials">{(session.user.user_metadata?.name ?? session.user.email ?? '?')[0].toUpperCase()}</span>
             }
           </div>
-          <button className="dash-logout" onClick={handleLogout} title="Cerrar sesión">
+          <button className="btn btn--ghost btn--sm dash-logout" onClick={handleLogout} title="Cerrar sesión">
             <LogOut size={14} strokeWidth={2} />
             <span className="dash-logout-label">Salir</span>
           </button>
@@ -382,7 +382,7 @@ function Dashboard({ session }) {
             )
           })}
           {canRecruit && (
-            <button className="hero-rail-recruit" onClick={openRecruit}>
+            <button className="btn btn--ghost btn--sm hero-rail-recruit" onClick={openRecruit}>
               <Plus size={12} strokeWidth={2.5} />
               Reclutar
             </button>
@@ -511,7 +511,7 @@ function Dashboard({ session }) {
               exit={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             >
-              <button className="missions-drawer-close" onClick={() => setMissionsOpen(false)}>
+              <button className="btn btn--ghost btn--icon" onClick={() => setMissionsOpen(false)}>
                 <X size={18} strokeWidth={2} />
               </button>
               <div className="missions-drawer-body">

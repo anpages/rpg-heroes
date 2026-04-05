@@ -4,7 +4,7 @@ import { useHero } from '../hooks/useHero'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
-import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen } from 'lucide-react'
+import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Dungeons.css'
 
@@ -281,7 +281,7 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
           >
             <div className="reward-toast-header">
               <p className="reward-toast-title">Recompensas recogidas</p>
-              <button className="reward-toast-close" onClick={() => setReward(null)} aria-label="Cerrar">×</button>
+              <button className="btn btn--ghost btn--icon" onClick={() => setReward(null)} aria-label="Cerrar"><X size={14} strokeWidth={2} /></button>
             </div>
             <div className="reward-toast-items">
               <span><Coins size={13} color="#d97706" />{reward.gold} oro</span>

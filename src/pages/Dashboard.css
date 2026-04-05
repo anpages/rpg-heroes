@@ -95,25 +95,11 @@
   justify-content: center;
 }
 
-.dash-logout {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
-  background: none;
-  border: 1.5px solid var(--border);
-  border-radius: 7px;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-
+/* dash-logout — base .btn --ghost --sm, solo override de hover rojo */
 .dash-logout:hover {
-  color: #dc2626;
-  border-color: color-mix(in srgb, #dc2626 40%, var(--border));
-  background: color-mix(in srgb, #dc2626 6%, transparent);
+  color: var(--error-text);
+  border-color: color-mix(in srgb, var(--error-text) 40%, var(--border));
+  background: color-mix(in srgb, var(--error-text) 6%, transparent);
 }
 
 .dash-avatar-img {
@@ -248,29 +234,10 @@
   50%       { opacity: 0.75; }
 }
 
+/* hero-rail-recruit — base .btn --ghost --sm, solo borde punteado */
 .hero-rail-recruit {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 1px dashed var(--border);
-  background: none;
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
+  border-style: dashed;
   margin-left: 4px;
-  flex-shrink: 0;
-}
-
-.hero-rail-recruit:hover {
-  color: var(--blue-600);
-  border-color: var(--blue-400);
-  background: var(--blue-50);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────── */
@@ -493,27 +460,12 @@
   overflow: hidden;
 }
 
+/* missions-drawer-close — base .btn --ghost --icon, solo posicionamiento */
 .missions-drawer-close {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
   z-index: 1;
-  transition: background 0.15s, color 0.15s;
-}
-
-.missions-drawer-close:hover {
-  background: var(--bg);
-  color: var(--text);
 }
 
 .missions-drawer-body {

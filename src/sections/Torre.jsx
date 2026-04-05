@@ -100,7 +100,7 @@ function ResultBanner({ result, onClose }) {
 
   return (
     <div className={`tower-result ${won ? 'tower-result--win' : 'tower-result--lose'}`}>
-      <button className="tower-result-close" onClick={onClose} aria-label="Cerrar">
+      <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar">
         <X size={15} strokeWidth={2} />
       </button>
 

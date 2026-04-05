@@ -219,11 +219,11 @@ function EquipmentSlot({ slot, item, onUnequip, onRepair, loading }) {
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
           <div className="eq-slot-actions">
             {needsRepair && (
-              <button className="eq-repair-btn" onClick={() => onRepair(item)} disabled={loading} title="Reparar">
+              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(item)} disabled={loading} title="Reparar">
                 <Wrench size={13} strokeWidth={2} />
               </button>
             )}
-            <button className="eq-unequip-btn" onClick={() => onUnequip(item.id)} disabled={loading}>
+            <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(item.id)} disabled={loading}>
               Desequipar
             </button>
           </div>
@@ -313,7 +313,7 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose }
             <span className="bag-modal-title">Mochila</span>
             <span className="bag-modal-count">{bag.length} / {bagLimit}</span>
           </div>
-          <button className="bag-modal-close" onClick={onClose}>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}>
             <X size={18} strokeWidth={2} />
           </button>
         </div>
@@ -387,7 +387,7 @@ function CardChip({ card, onUnequip, loading }) {
         <span className="card-chip-category" style={{ color: meta.color }}>{meta.label}</span>
         <span className="card-chip-cost">{sc.base_cost * card.rank} pts</span>
       </div>
-      <button className="card-chip-unequip" onClick={() => onUnequip(card.id)} disabled={loading}>
+      <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading}>
         Desequipar
       </button>
     </div>
@@ -430,7 +430,7 @@ function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loa
       </div>
       <div className="card-item-actions">
         {canFuseWith && !card.equipped && (
-          <button className="card-fuse-btn" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading}>
+          <button className="btn btn--warning btn--sm" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading}>
             <FlameKindling size={12} strokeWidth={2} /> Fusionar · {sc.base_mana_fuse * Math.pow(2, card.rank - 1)} maná
           </button>
         )}
@@ -479,7 +479,7 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
             <span className="bag-modal-title">Colección de Cartas</span>
             <span className="bag-modal-count">{cards.length} cartas · {equippedCount}/{cardSlots} equipadas</span>
           </div>
-          <button className="bag-modal-close" onClick={onClose}><X size={18} strokeWidth={2} /></button>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={18} strokeWidth={2} /></button>
         </div>
 
         {error && <p className="inv-error">{error}</p>}
@@ -767,7 +767,7 @@ function Hero({ userId, heroId }) {
           />
           {hero.status !== 'exploring' && (
             <button
-              className={`hero-rest-btn ${hero.status === 'resting' ? 'hero-rest-btn--active' : ''}`}
+              className={`btn btn--ghost btn--full hero-rest-btn ${hero.status === 'resting' ? 'hero-rest-btn--active' : ''}`}
               onClick={handleRest}
               disabled={restLoading}
             >

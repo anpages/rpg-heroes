@@ -329,22 +329,12 @@
 .tower-result--win  { background: var(--success-bg);  border-color: var(--success-border); }
 .tower-result--lose { background: var(--error-bg);    border-color: var(--error-border);   }
 
+/* tower-result-close — .btn --ghost --icon, solo posicionamiento */
 .tower-result-close {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: none;
-  border: none;
-  color: var(--text-3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border-radius: 4px;
-  transition: color 0.15s;
 }
-.tower-result-close:hover { color: var(--text); }
 
 .tower-result-headline {
   display: flex;
