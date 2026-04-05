@@ -351,6 +351,23 @@
   overflow-y: auto;
   padding: 32px;
   min-height: 0;
+  position: relative;
+}
+
+/* ─── Secciones persistentes ─────────────────────────────────────────────────── */
+
+.dash-section {
+  display: none;
+}
+
+@keyframes section-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dash-section--active {
+  display: block;
+  animation: section-in 0.2s ease-out both;
 }
 
 /* ─── Section placeholder ────────────────────────────────────────────────────── */

@@ -17,11 +17,6 @@ import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, Clipb
 import { AnimatePresence, motion } from 'framer-motion'
 import './Dashboard.css'
 
-const sectionVariants = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15, ease: 'easeIn' } },
-}
 
 /* ─── DEV ONLY: Catálogo de items ───────────────────────────────────────────── */
 
@@ -255,6 +250,7 @@ function SectionPlaceholder({ title }) {
 
 function Dashboard({ session }) {
   const [activeSection, setActiveSection] = useState('heroe')
+  const [mountedSections, setMountedSections] = useState(() => new Set(['heroe']))
   const [missionsOpen, setMissionsOpen] = useState(false)
   const { resources, loading: resourcesLoading, refetch: refetchResources } = useResources(session.user.id)
   const { theme, setTheme } = useTheme()
@@ -402,7 +398,7 @@ function Dashboard({ session }) {
                 <button
                   key={id}
                   className={`dash-nav-item ${activeSection === id ? 'dash-nav-item--active' : ''}`}
-                  onClick={() => setActiveSection(id)}
+                  onClick={() => { setActiveSection(id); setMountedSections(s => new Set([...s, id])) }}
                 >
                   {activeSection === id && (
                     <motion.span
@@ -442,26 +438,33 @@ function Dashboard({ session }) {
           </nav>
         </aside>
 
-        {/* Main content */}
+        {/* Main content — secciones persistentes: se montan la primera vez y se ocultan con CSS */}
         <main className="dash-main">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeSection}
-              variants={sectionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              style={{ flex: 1 }}
-            >
-              {activeSection === 'heroe'         && <Hero userId={session.user.id} heroId={heroId} />}
-              {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
-              {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
-              {activeSection === 'combates'      && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
-              {activeSection === 'tienda'        && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}
-              {import.meta.env.DEV && activeSection === 'dev-catalogo' && <CatalogDebug />}
-              {import.meta.env.DEV && activeSection === 'dev-cartas'   && <CardCatalogDebug />}
-            </motion.div>
-          </AnimatePresence>
+          <div className={`dash-section ${activeSection === 'heroe' ? 'dash-section--active' : ''}`}>
+            {mountedSections.has('heroe') && <Hero userId={session.user.id} heroId={heroId} />}
+          </div>
+          <div className={`dash-section ${activeSection === 'base' ? 'dash-section--active' : ''}`}>
+            {mountedSections.has('base') && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
+          </div>
+          <div className={`dash-section ${activeSection === 'mazmorras' ? 'dash-section--active' : ''}`}>
+            {mountedSections.has('mazmorras') && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
+          </div>
+          <div className={`dash-section ${activeSection === 'combates' ? 'dash-section--active' : ''}`}>
+            {mountedSections.has('combates') && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
+          </div>
+          <div className={`dash-section ${activeSection === 'tienda' ? 'dash-section--active' : ''}`}>
+            {mountedSections.has('tienda') && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}
+          </div>
+          {import.meta.env.DEV && (
+            <>
+              <div className={`dash-section ${activeSection === 'dev-catalogo' ? 'dash-section--active' : ''}`}>
+                {mountedSections.has('dev-catalogo') && <CatalogDebug />}
+              </div>
+              <div className={`dash-section ${activeSection === 'dev-cartas' ? 'dash-section--active' : ''}`}>
+                {mountedSections.has('dev-cartas') && <CardCatalogDebug />}
+              </div>
+            </>
+          )}
         </main>
 
       </div>
@@ -477,7 +480,7 @@ function Dashboard({ session }) {
             <button
               key={id}
               className={`dash-bottombar-item ${activeSection === id ? 'dash-bottombar-item--active' : ''}`}
-              onClick={() => setActiveSection(id)}
+              onClick={() => { setActiveSection(id); setMountedSections(s => new Set([...s, id])) }}
             >
               <span className="dash-bottombar-icon">
                 <Icon size={20} strokeWidth={1.8} />
