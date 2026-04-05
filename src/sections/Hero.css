@@ -1011,17 +1011,20 @@
 
   .bag-modal-panel {
     border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 100%;
     max-height: 88vh;
-    padding: 20px 16px 32px;
+    padding: 20px 16px max(32px, env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
-  /* Ocultar scrollbars internos en modales */
-  .bag-modal-panel::-webkit-scrollbar {
-    display: none;
-  }
+  .bag-modal-panel::-webkit-scrollbar { display: none; }
+  .bag-modal-panel { scrollbar-width: none; }
 
-  .bag-modal-panel {
-    scrollbar-width: none;
+  /* Grid de cartas: 1 columna en móvil */
+  .bag-grid {
+    grid-template-columns: 1fr;
   }
 
   .hero-cards-section {

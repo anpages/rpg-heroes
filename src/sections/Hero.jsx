@@ -21,7 +21,7 @@ const overlayVariants = {
 
 function sheetVariants() {
   return isMobile()
-    ? { initial: { y: '100%' }, animate: { y: 0 }, exit: { y: '100%' } }
+    ? { initial: { y: '100vh' }, animate: { y: 0 }, exit: { y: '100vh' } }
     : { initial: { opacity: 0, scale: 0.96, y: 8 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.97, y: 4 } }
 }
 
