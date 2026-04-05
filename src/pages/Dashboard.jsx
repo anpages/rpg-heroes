@@ -308,16 +308,13 @@ function Dashboard({ session }) {
     await supabase.auth.signOut()
   }
 
-  if (heroesLoading || resourcesLoading) {
-    return (
-      <div className="dash-initial-loading">
-        <div className="dash-initial-spinner" />
-      </div>
-    )
-  }
-
   return (
-    <div className="dash-root">
+    <motion.div
+      className="dash-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: heroesLoading || resourcesLoading ? 0 : 1 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
 
       {/* Header */}
       <header className="dash-header">
@@ -535,7 +532,7 @@ function Dashboard({ session }) {
         />
       )}
 
-    </div>
+    </motion.div>
   )
 }
 
