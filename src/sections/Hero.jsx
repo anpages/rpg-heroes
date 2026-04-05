@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
@@ -214,7 +215,7 @@ function DurabilityBar({ current, max }) {
 /* ─── Confirm modal ───────────────────────────────────────────────────────────── */
 
 function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
-  return (
+  return createPortal(
     <motion.div className="confirm-overlay" onClick={onCancel}
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
@@ -232,7 +233,8 @@ function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCa
           <button className="btn btn--primary btn--sm" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
@@ -333,7 +335,7 @@ function BagItem({ item, onDiscard, loading, isOccupied }) {
 
 function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupied }) {
   const sv = sheetVariants()
-  return (
+  return createPortal(
     <motion.div className="bag-modal-overlay" onClick={onClose}
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
@@ -374,7 +376,8 @@ function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupie
           </div>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
@@ -490,6 +493,7 @@ function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loa
 function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose, isOccupied }) {
   const equippedCount = cards.filter(c => c.equipped).length
 
+
   // Detectar cartas fusionables: misma card_id y mismo rango, sin equipar
   const fuseMap = {}
   cards.filter(c => !c.equipped).forEach(c => {
@@ -505,7 +509,7 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
   })
 
   const sv = sheetVariants()
-  return (
+  return createPortal(
     <motion.div className="bag-modal-overlay" onClick={onClose}
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
@@ -555,7 +559,8 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
           </div>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
@@ -568,7 +573,7 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
 
   const compatible = bagItems.filter(i => i.item_catalog.slot === slot)
 
-  return (
+  return createPortal(
     <motion.div className="bag-modal-overlay" onClick={onClose}
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
@@ -654,7 +659,8 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
           </div>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
@@ -678,7 +684,7 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
   const sv = sheetVariants()
   const unequipped = cards.filter(c => !c.equipped)
 
-  return (
+  return createPortal(
     <motion.div className="bag-modal-overlay" onClick={onClose}
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
@@ -752,7 +758,8 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
           </div>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   )
 }
 
