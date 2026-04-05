@@ -1051,4 +1051,125 @@
   .equipped-cards-grid {
     grid-template-columns: 1fr;
   }
+
+  .bag-modal-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ─── Equipment slot interactive ─────────────────────────────────────────────── */
+
+.eq-slot--interactive {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.eq-slot--interactive:hover {
+  border-color: var(--border-2);
+}
+
+/* ─── Slot picker sheet ───────────────────────────────────────────────────────── */
+
+.slot-picker-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.slot-picker-current {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 4px;
+}
+
+.slot-picker-current-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.slot-picker-current-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.slot-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-picker-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.slot-picker-item:hover:not(:disabled) {
+  border-color: var(--blue-500, #3b82f6);
+  background: color-mix(in srgb, var(--blue-500, #3b82f6) 5%, var(--surface));
+}
+
+.slot-picker-item:disabled,
+.slot-picker-item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slot-picker-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+/* ─── Card slot add button ────────────────────────────────────────────────────── */
+
+.card-slot-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px dashed var(--border-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.card-slot-add-btn:hover {
+  border-color: var(--text-2);
+  color: var(--text);
+}
+
+/* ─── Card chip interactive ───────────────────────────────────────────────────── */
+
+.card-chip--interactive {
+  cursor: pointer;
+  transition: border-color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.card-chip--interactive:hover {
+  border-color: var(--text-2);
 }

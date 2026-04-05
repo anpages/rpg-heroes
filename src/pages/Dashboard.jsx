@@ -258,7 +258,7 @@ function Dashboard({ session }) {
   const { missions: missionsList, refetch: refetchMissions } = useMissions()
   const [selectedHeroId, setSelectedHeroId] = useState(null)
   const [heroRefreshKey, setHeroRefreshKey] = useState(0)
-  function notifyHeroChanged() { setHeroRefreshKey(k => k + 1) }
+  function notifyHeroChanged() { setHeroRefreshKey(k => k + 1); refetchHeroes() }
 
   const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null

@@ -6,7 +6,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
-  BookOpen, Zap, FlameKindling, Wrench,
+  BookOpen, Zap, FlameKindling, Wrench, Plus,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Hero.css'
@@ -238,7 +238,7 @@ function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCa
 
 /* ─── Equipment slot (panel lateral) ─────────────────────────────────────────── */
 
-function EquipmentSlot({ slot, item, onUnequip, onRepair, loading, isOccupied }) {
+function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied }) {
   const meta = SLOT_META[slot]
   const Icon = meta.icon
   const catalog = item?.item_catalog
@@ -250,7 +250,10 @@ function EquipmentSlot({ slot, item, onUnequip, onRepair, loading, isOccupied })
   const needsRepair = item && durPct < 100
 
   return (
-    <div className={`eq-slot ${item ? 'eq-slot--filled' : ''} ${isCritical ? 'eq-slot--critical' : ''} ${isBroken ? 'eq-slot--broken' : ''}`}>
+    <button
+      className={`eq-slot eq-slot--interactive ${item ? 'eq-slot--filled' : ''} ${isCritical ? 'eq-slot--critical' : ''} ${isBroken ? 'eq-slot--broken' : ''}`}
+      onClick={() => onSlotClick(slot)}
+    >
       <div className="eq-slot-header">
         <Icon size={13} strokeWidth={1.8} className="eq-slot-icon" />
         <span className="eq-slot-label">{meta.label}</span>
@@ -262,21 +265,18 @@ function EquipmentSlot({ slot, item, onUnequip, onRepair, loading, isOccupied })
           <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
           <StatsList catalog={catalog} />
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-          <div className="eq-slot-actions">
-            {needsRepair && (
-              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
+          {needsRepair && (
+            <div className="eq-slot-actions">
+              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={e => { e.stopPropagation(); onRepair(item) }} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
                 <Wrench size={13} strokeWidth={2} />
               </button>
-            )}
-            <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(item.id)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
-              Desequipar
-            </button>
-          </div>
+            </div>
+          )}
         </>
       ) : (
         <p className="eq-slot-empty">Vacío</p>
       )}
-    </div>
+    </button>
   )
 }
 
@@ -302,11 +302,10 @@ function StatsList({ catalog }) {
   )
 }
 
-function BagItem({ item, onEquip, onDiscard, loading, isOccupied }) {
+function BagItem({ item, onDiscard, loading, isOccupied }) {
   const catalog = item.item_catalog
   const rarity = RARITY_META[catalog.rarity]
   const slotMeta = SLOT_META[catalog.slot]
-  const durPct = Math.round((item.current_durability / catalog.max_durability) * 100)
 
   return (
     <div className="bag-item">
@@ -322,15 +321,6 @@ function BagItem({ item, onEquip, onDiscard, loading, isOccupied }) {
       <StatsList catalog={catalog} />
       <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
       <div className="bag-item-actions">
-        <button
-          className="btn btn--primary btn--sm"
-          onClick={() => onEquip(item.id)}
-          disabled={loading || durPct === 0 || isOccupied}
-          title={isOccupied ? 'El héroe está en expedición' : durPct === 0 ? 'Repara el item antes de equiparlo' : ''}
-        >
-          <ArrowUpDown size={13} strokeWidth={2} />
-          Equipar
-        </button>
         <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
           <Trash2 size={13} strokeWidth={2} />
         </button>
@@ -341,7 +331,7 @@ function BagItem({ item, onEquip, onDiscard, loading, isOccupied }) {
 
 /* ─── Bag modal ───────────────────────────────────────────────────────────────── */
 
-function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose, isOccupied }) {
+function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupied }) {
   const sv = sheetVariants()
   return (
     <motion.div className="bag-modal-overlay" onClick={onClose}
@@ -376,7 +366,6 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose, 
               <BagItem
                 key={item.id}
                 item={item}
-                onEquip={onEquip}
                 onDiscard={onDiscard}
                 loading={loading}
                 isOccupied={isOccupied}
@@ -423,11 +412,17 @@ function CardBudgetBar({ category, used, total }) {
 
 /* ─── Equipped card chip ──────────────────────────────────────────────────────── */
 
-function CardChip({ card, onUnequip, loading, isOccupied }) {
+function CardChip({ card, onClick, loading, isOccupied }) {
   const sc = card.skill_cards
   const meta = CATEGORY_META[sc.category]
   return (
-    <div className="card-chip" style={{ '--card-color': meta.color }}>
+    <button
+      className="card-chip card-chip--interactive"
+      style={{ '--card-color': meta.color }}
+      onClick={onClick}
+      disabled={loading}
+      title={isOccupied ? 'El héroe está en expedición' : 'Gestionar carta'}
+    >
       <div className="card-chip-top">
         <span className="card-chip-name">{sc.name}</span>
         <span className="card-chip-rank">R{card.rank}</span>
@@ -436,10 +431,7 @@ function CardChip({ card, onUnequip, loading, isOccupied }) {
         <span className="card-chip-category" style={{ color: meta.color }}>{meta.label}</span>
         <span className="card-chip-cost">{sc.base_cost * card.rank} pts</span>
       </div>
-      <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
-        Desequipar
-      </button>
-    </div>
+    </button>
   )
 }
 
@@ -567,6 +559,203 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
   )
 }
 
+/* ─── Slot picker sheet ───────────────────────────────────────────────────────── */
+
+function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onRepair, loading, isOccupied, onClose }) {
+  const meta = SLOT_META[slot]
+  const Icon = meta.icon
+  const sv = sheetVariants()
+
+  const compatible = bagItems.filter(i => i.item_catalog.slot === slot)
+
+  return (
+    <motion.div className="bag-modal-overlay" onClick={onClose}
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+    >
+      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
+        variants={sv} initial="initial" animate="animate" exit="exit"
+        transition={sheetTransition}
+      >
+        <div className="bag-modal-header">
+          <div className="bag-modal-title-wrap">
+            <Icon size={18} strokeWidth={1.8} />
+            <span className="bag-modal-title">{meta.label}</span>
+          </div>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        {isOccupied && (
+          <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
+        )}
+
+        {equippedItem && (() => {
+          const catalog = equippedItem.item_catalog
+          const rarity = RARITY_META[catalog.rarity]
+          const durPct = Math.round((equippedItem.current_durability / catalog.max_durability) * 100)
+          const needsRepair = durPct < 100
+          return (
+            <div className="slot-picker-current">
+              <div className="slot-picker-current-header">
+                <div className="slot-picker-current-info">
+                  <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
+                  <StatsList catalog={catalog} />
+                  <DurabilityBar current={equippedItem.current_durability} max={catalog.max_durability} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                  {needsRepair && (
+                    <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(equippedItem)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
+                      <Wrench size={13} strokeWidth={2} />
+                    </button>
+                  )}
+                  <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(equippedItem.id)} disabled={loading || isOccupied}>
+                    Desequipar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        <p className="slot-picker-section-label">Disponible en mochila</p>
+
+        {compatible.length === 0 ? (
+          <p className="inv-bag-empty">No hay ítems compatibles en la mochila.</p>
+        ) : (
+          <div className="slot-picker-list">
+            {compatible.map(item => {
+              const catalog = item.item_catalog
+              const rarity = RARITY_META[catalog.rarity]
+              const durPct = Math.round((item.current_durability / catalog.max_durability) * 100)
+              const disabled = loading || durPct === 0 || isOccupied
+              return (
+                <button
+                  key={item.id}
+                  className={`slot-picker-item${disabled ? ' slot-picker-item--disabled' : ''}`}
+                  onClick={() => onEquip(item.id)}
+                  disabled={disabled}
+                  title={isOccupied ? 'El héroe está en expedición' : durPct === 0 ? 'Repara el ítem antes de equiparlo' : ''}
+                >
+                  <div className="slot-picker-item-header">
+                    <span className="bag-item-name" style={{ color: rarity.color }}>{catalog.name}</span>
+                    <span className="bag-item-tier">T{catalog.tier}</span>
+                  </div>
+                  <div className="bag-item-meta">
+                    <span className="bag-item-rarity" style={{ color: rarity.color }}>{rarity.label}</span>
+                    {catalog.is_two_handed && <span className="bag-item-2h">2 manos</span>}
+                  </div>
+                  <StatsList catalog={catalog} />
+                  <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ─── Card picker sheet ───────────────────────────────────────────────────────── */
+
+function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, isOccupied, onClose }) {
+  const equippedCount = cards.filter(c => c.equipped).length
+
+  const fuseMap = {}
+  cards.filter(c => !c.equipped).forEach(c => {
+    const key = `${c.card_id}-${c.rank}`
+    if (!fuseMap[key]) fuseMap[key] = []
+    fuseMap[key].push(c)
+  })
+
+  const budgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
+  cards.filter(c => c.equipped).forEach(c => {
+    budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
+  })
+
+  const sv = sheetVariants()
+  const unequipped = cards.filter(c => !c.equipped)
+
+  return (
+    <motion.div className="bag-modal-overlay" onClick={onClose}
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+    >
+      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
+        variants={sv} initial="initial" animate="animate" exit="exit"
+        transition={sheetTransition}
+      >
+        <div className="bag-modal-header">
+          <div className="bag-modal-title-wrap">
+            <BookOpen size={18} strokeWidth={1.8} />
+            <span className="bag-modal-title">Cartas de habilidad</span>
+          </div>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        {error && <p className="inv-error">{error}</p>}
+        {isOccupied && (
+          <p className="inv-locked-notice">El héroe está en expedición — las cartas no se pueden modificar.</p>
+        )}
+
+        {currentCard && (() => {
+          const sc = currentCard.skill_cards
+          const meta = CATEGORY_META[sc.category]
+          return (
+            <div className="slot-picker-current">
+              <div className="slot-picker-current-header">
+                <div className="slot-picker-current-info">
+                  <p className="card-item-name" style={{ color: meta.color }}>{sc.name}</p>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    <span className="card-item-rank" style={{ '--card-color': meta.color }}>R{currentCard.rank}</span>
+                    <span className="card-item-cost">{sc.base_cost * currentCard.rank} pts</span>
+                  </div>
+                </div>
+                <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(currentCard.id)} disabled={loading || isOccupied}>
+                  Desequipar
+                </button>
+              </div>
+            </div>
+          )
+        })()}
+
+        <p className="slot-picker-section-label">Disponible</p>
+
+        {unequipped.length === 0 ? (
+          <p className="inv-bag-empty">No hay cartas disponibles para equipar.</p>
+        ) : (
+          <div className="bag-grid">
+            {unequipped.map(card => {
+              const key = `${card.card_id}-${card.rank}`
+              const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
+              const cat = card.skill_cards.category
+              const cost = card.skill_cards.base_cost * card.rank
+              const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
+              return (
+                <CardItem
+                  key={card.id}
+                  card={card}
+                  canEquip={wouldFit}
+                  canFuseWith={fusePair ?? null}
+                  onEquip={onEquip}
+                  onUnequip={onUnequip}
+                  onFuse={onFuse}
+                  loading={loading}
+                  isOccupied={isOccupied}
+                />
+              )
+            })}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
 // HP interpolation — 100%/hr idle (full recovery from 0 in ~1h)
@@ -587,6 +776,8 @@ function Hero({ userId, heroId, refreshKey }) {
   const [actionLoading] = useState(false)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
+  const [slotPicker, setSlotPicker] = useState(null)   // null | slot string e.g. 'helmet'
+  const [cardPickerOpen, setCardPickerOpen] = useState(false) // false | { currentCard: card | null }
   const [cardModalOpen, setCardModalOpen] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null) // { title, body, onConfirm }
   const [workshopLevel, setWorkshopLevel] = useState(1)
@@ -860,15 +1051,29 @@ function Hero({ userId, heroId, refreshKey }) {
             ))}
           </div>
 
-          {(displayCards ?? []).filter(c => c.equipped).length === 0 ? (
-            <p className="hero-cards-empty">Sin cartas equipadas. Abre la colección para equipar.</p>
-          ) : (
-            <div className="equipped-cards-grid">
-              {(displayCards ?? []).filter(c => c.equipped).map(card => (
-                <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} isOccupied={isOccupied} />
-              ))}
-            </div>
-          )}
+          <div className="equipped-cards-grid">
+            {Array.from({ length: cardSlotCount }).map((_, idx) => {
+              const card = (displayCards ?? []).filter(c => c.equipped)[idx] ?? null
+              return card ? (
+                <CardChip
+                  key={card.id}
+                  card={card}
+                  onClick={() => setCardPickerOpen({ currentCard: card })}
+                  loading={actionLoading}
+                  isOccupied={isOccupied}
+                />
+              ) : (
+                <button
+                  key={`empty-card-${idx}`}
+                  className="card-slot-add-btn"
+                  onClick={() => setCardPickerOpen({ currentCard: null })}
+                >
+                  <Plus size={13} strokeWidth={2} />
+                  Equipar carta
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         </div>{/* /hero-left-col */}
@@ -893,7 +1098,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid">
               {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -906,7 +1111,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -919,7 +1124,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onUnequip={handleUnequip} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -928,11 +1133,44 @@ function Hero({ userId, heroId, refreshKey }) {
       </div>
 
       <AnimatePresence>
+        {slotPicker && (
+          <SlotPickerSheet
+            slot={slotPicker}
+            equippedItem={equipped[slotPicker]}
+            bagItems={bag}
+            onEquip={(id) => { handleEquip(id); setSlotPicker(null) }}
+            onUnequip={(id) => { handleUnequip(id); setSlotPicker(null) }}
+            onRepair={handleRepair}
+            loading={actionLoading}
+            isOccupied={isOccupied}
+            onClose={() => setSlotPicker(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {cardPickerOpen && (
+          <CardPickerSheet
+            currentCard={cardPickerOpen.currentCard ?? null}
+            cards={displayCards ?? []}
+            hero={hero}
+            cardSlots={cardSlotCount}
+            onEquip={(id) => { handleCardEquip(id); setCardPickerOpen(false) }}
+            onUnequip={(id) => { handleCardUnequip(id); setCardPickerOpen(false) }}
+            onFuse={handleCardFuse}
+            loading={actionLoading}
+            error={error}
+            isOccupied={isOccupied}
+            onClose={() => setCardPickerOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {bagOpen && (
           <BagModal
             bag={bag}
             bagLimit={bagLimit}
-            onEquip={handleEquip}
             onDiscard={handleDiscard}
             loading={actionLoading}
             error={error}
