@@ -6,7 +6,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
-  BookOpen, Zap, FlameKindling, Wrench,
+  BookOpen, Zap, FlameKindling, Wrench, Moon, Sun,
 } from 'lucide-react'
 import './Hero.css'
 
@@ -118,18 +118,22 @@ function StatRow({ icon: Icon, label, value, color, bonus, equipBonus = 0, cardB
   )
 }
 
-function HpBar({ current, max }) {
+function HpBar({ current, max, recovering = false }) {
   const pct = Math.min(100, Math.round((current / max) * 100))
-  const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+  const color = recovering ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+  const lowHp = pct < 20
   return (
     <div className="hp-bar-wrap">
       <div className="hp-bar-labels">
         <span className="hp-label"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
-        <span className="hp-value">{current} / {max}</span>
+        <span className="hp-value" style={{ color }}>{current} / {max}</span>
       </div>
-      <div className="hp-track">
+      <div className={`hp-track ${recovering ? 'hp-track--recovering' : ''}`}>
         <div className="hp-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
+      {lowHp && !recovering && (
+        <p className="hp-low-warning">HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!</p>
+      )}
     </div>
   )
 }
@@ -470,17 +474,38 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
+// HP interpolation — 10%/hr idle, 25%/hr resting
+function interpolateHpClient(hero, nowMs) {
+  if (!hero) return 0
+  const lastMs = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
+  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
+  const regenPctPerMin = hero.status === 'resting' ? 25 / 60 : 10 / 60
+  const regen = elapsedMin * regenPctPerMin * hero.max_hp / 100
+  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
+}
+
 function Hero({ userId, heroId }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
   const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
   const [actionLoading, setActionLoading] = useState(false)
+  const [restLoading, setRestLoading] = useState(false)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null) // { title, body, onConfirm }
   const [workshopLevel, setWorkshopLevel] = useState(1)
   const [optimisticItems, setOptimisticItems] = useState(null)
+  const [hpNow, setHpNow] = useState(null)
+
+  // Recalculate interpolated HP every 30s
+  useEffect(() => {
+    if (!hero) return
+    const update = () => setHpNow(interpolateHpClient(hero, Date.now()))
+    update()
+    const id = setInterval(update, 30000)
+    return () => clearInterval(id)
+  }, [hero])
 
   useEffect(() => {
     if (!userId) return
@@ -648,6 +673,19 @@ function Hero({ userId, heroId }) {
   function handleCardUnequip(cardId) { callCardApi('/api/card-equip', { cardId, equip: false }) }
   function handleCardFuse(id1, id2)  { callCardApi('/api/card-fuse',  { cardId1: id1, cardId2: id2 }) }
 
+  async function handleRest() {
+    setRestLoading(true)
+    await supabase.auth.refreshSession()
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch('/api/hero-rest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ heroId: hero.id }),
+    })
+    setRestLoading(false)
+    refetchHero()
+  }
+
   return (
     <div className="hero-section">
       <div className="hero-layout">
@@ -675,7 +713,23 @@ function Hero({ userId, heroId }) {
           </div>
 
           <XpBar level={hero.level} experience={hero.experience} />
-          <HpBar current={hero.current_hp} max={effective.max_hp} />
+          <HpBar
+            current={hpNow ?? hero.current_hp}
+            max={effective.max_hp}
+            recovering={hero.status === 'resting'}
+          />
+          {hero.status !== 'exploring' && (
+            <button
+              className={`hero-rest-btn ${hero.status === 'resting' ? 'hero-rest-btn--active' : ''}`}
+              onClick={handleRest}
+              disabled={restLoading}
+            >
+              {hero.status === 'resting'
+                ? <><Sun size={14} strokeWidth={2} /> Despertar</>
+                : <><Moon size={14} strokeWidth={2} /> Descansar</>
+              }
+            </button>
+          )}
 
           <div className="hero-stats-list">
             <StatRow icon={Sword}    label="Ataque"       value={effective.attack}       color="#d97706" bonus={bonuses.attack}       equipBonus={equipBonuses.attack}       cardBonus={cardBonuses.attack} />

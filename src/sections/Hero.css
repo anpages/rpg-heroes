@@ -171,6 +171,70 @@
   transition: width 0.4s ease, background 0.4s ease;
 }
 
+.hp-track--recovering .hp-fill {
+  animation: hp-regen-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hp-regen-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+.hp-low-warning {
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: -2px;
+}
+
+/* ─── Rest button ────────────────────────────────────────────────────────────── */
+
+.hero-rest-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.hero-rest-btn:hover:not(:disabled) {
+  border-color: #0369a1;
+  color: #0369a1;
+  background: color-mix(in srgb, #0369a1 8%, var(--surface));
+}
+
+.hero-rest-btn--active {
+  border-color: #0369a1;
+  color: #0369a1;
+  background: color-mix(in srgb, #0369a1 10%, var(--surface));
+  animation: rest-pulse 2.5s ease-in-out infinite;
+}
+
+.hero-rest-btn--active:hover:not(:disabled) {
+  background: color-mix(in srgb, #0369a1 16%, var(--surface));
+  animation: none;
+}
+
+@keyframes rest-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+.hero-rest-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ─── Stats list ─────────────────────────────────────────────────────────────── */
 
 .hero-stats-list {
@@ -1203,24 +1267,62 @@
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 
+@media (max-width: 768px) {
+  .hero-section {
+    overflow-x: hidden;
+  }
 
-@media (max-width: 700px) {
   .hero-layout {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 500px) {
-  .hero-stats-grid {
-    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .hero-card {
-    padding: 18px;
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .hero-name {
+    font-size: 18px;
+  }
+
+  /* Budget bars: 3 cols comprimidas pueden quedar muy estrechas en móvil */
+  .card-budgets {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .card-budget-label {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .card-budget-nums {
+    font-size: 11px;
+  }
+
+  /* Bag modal: ocupa más pantalla en móvil */
+  .bag-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
   }
 
   .bag-modal-panel {
+    border-radius: 20px 20px 0 0;
+    max-height: 88vh;
+    padding: 20px 16px 32px;
+  }
+
+  /* Ocultar scrollbars internos en modales */
+  .bag-modal-panel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bag-modal-panel {
+    scrollbar-width: none;
+  }
+
+  .hero-cards-section {
     padding: 16px;
-    max-height: 90vh;
   }
 }

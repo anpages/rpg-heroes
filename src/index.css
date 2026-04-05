@@ -83,6 +83,7 @@
 
 html, body {
   height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -93,6 +94,12 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   transition: background 0.2s, color 0.2s;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow: hidden;
+  }
 }
 
 #root {

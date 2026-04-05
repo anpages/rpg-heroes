@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
+import { interpolateHP, canPlay, expeditionHpDamage } from './_hp.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -23,13 +24,23 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe ya está en una expedición' })
+
+  // Verificar HP mínimo (20%)
+  const nowMs = Date.now()
+  const currentHp = interpolateHP(hero, nowMs)
+  if (!canPlay(currentHp, hero.max_hp)) {
+    return res.status(409).json({
+      error: `HP insuficiente. Necesitas al menos ${Math.floor(hero.max_hp * 0.2)} HP para explorar.`,
+      code: 'LOW_HP',
+    })
+  }
 
   // Obtener mazmorra
   const { data: dungeon } = await supabase
@@ -81,11 +92,19 @@ export default async function handler(req, res) {
 
   if (expError) return res.status(500).json({ error: expError.message })
 
-  // Poner héroe en estado exploring
+  // Deducir HP por peligro de la expedición al iniciar
+  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.difficulty)
+  const hpAfterExpedition = Math.max(1, currentHp - hpDamage) // mínimo 1 (no knock out en expedición)
+
+  // Poner héroe en estado exploring y descontar HP
   await supabase
     .from('heroes')
-    .update({ status: 'exploring' })
+    .update({
+      status:             'exploring',
+      current_hp:         hpAfterExpedition,
+      hp_last_updated_at: new Date(nowMs).toISOString(),
+    })
     .eq('id', hero.id)
 
-  return res.status(200).json({ ok: true, endsAt })
+  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition })
 }

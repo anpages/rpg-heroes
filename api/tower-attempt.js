@@ -3,6 +3,7 @@ import { getEffectiveStats } from './_stats.js'
 import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
+import { interpolateHP, canPlay } from './_hp.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -25,13 +26,23 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status, experience, level')
+    .select('id, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
+
+  // Verificar HP mínimo (20%)
+  const nowMs = Date.now()
+  const currentHp = interpolateHP(hero, nowMs)
+  if (!canPlay(currentHp, hero.max_hp)) {
+    return res.status(409).json({
+      error: `HP insuficiente. Necesitas al menos ${Math.floor(hero.max_hp * 0.2)} HP para combatir.`,
+      code: 'LOW_HP',
+    })
+  }
 
   // Obtener o inicializar progreso en la torre
   let { data: progress } = await supabase
@@ -67,6 +78,19 @@ export default async function handler(req, res) {
     hero_hp_left:  result.hpLeftA,
     enemy_hp_left: result.hpLeftB,
   })
+
+  // Deducir HP del combate — daño proporcional al simulado vs max_hp del héroe
+  const damageTaken = heroStats.max_hp - result.hpLeftA
+  const hpAfterCombat = Math.max(0, currentHp - damageTaken)
+  const heroKnockedOut = hpAfterCombat === 0
+  await supabase
+    .from('heroes')
+    .update({
+      current_hp:          hpAfterCombat,
+      hp_last_updated_at:  new Date(nowMs).toISOString(),
+      ...(heroKnockedOut && { status: 'resting' }),
+    })
+    .eq('id', hero.id)
 
   let rewards = null
 
@@ -132,5 +156,8 @@ export default async function handler(req, res) {
     enemyMaxHp: enemyStats.max_hp,
     maxFloor: won ? targetFloor : progress.max_floor,
     rewards,
+    heroCurrentHp: hpAfterCombat,
+    heroRealMaxHp: hero.max_hp,
+    knockedOut: heroKnockedOut,
   })
 }

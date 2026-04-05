@@ -265,17 +265,7 @@ function Dashboard({ session }) {
   const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null
 
-  const { buildings } = useBuildings(session.user.id)
-
-  const heroExploring = heroes.some(h => h.status === 'exploring')
-  const buildingUpgrading = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date())
-  const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
-  const barrackLevel  = buildings?.find(b => b.type === 'barracks')?.level  ?? 1
-
-  // Siguiente slot disponible para reclutar (extensible: añadir más al array)
-  const usedSlots = heroes.map(h => h.slot ?? 1)
-  const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
+  const { buildings, refetch: refetchBuildings } = useBuildings(session.user.id)
 
   const [recruitClasses, setRecruitClasses] = useState(null)
   const [recruitOpen, setRecruitOpen]       = useState(false)
@@ -285,6 +275,16 @@ function Dashboard({ session }) {
     const interval = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(interval)
   }, [])
+
+  const heroExploring = heroes.some(h => h.status === 'exploring')
+  const buildingUpgrading = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
+  const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
+  const barrackLevel  = buildings?.find(b => b.type === 'barracks')?.level  ?? 1
+
+  // Siguiente slot disponible para reclutar (extensible: añadir más al array)
+  const usedSlots = heroes.map(h => h.slot ?? 1)
+  const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
+  const canRecruit = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
 
   async function openRecruit() {
     if (!recruitClasses) {
@@ -449,7 +449,7 @@ function Dashboard({ session }) {
               style={{ flex: 1 }}
             >
               {activeSection === 'heroe'         && <Hero userId={session.user.id} heroId={heroId} />}
-              {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} />}
+              {activeSection === 'base'          && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
               {activeSection === 'mazmorras'     && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={refetchHeroes} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
               {activeSection === 'torre'         && <Torre userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} />}
               {activeSection === 'clasificacion' && <Ranking userId={session.user.id} />}
@@ -464,7 +464,7 @@ function Dashboard({ session }) {
       {/* Bottom bar (mobile) */}
       <nav className="dash-bottombar">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-          const badge = id === 'mazmorras' && heroExploring
+          const badge = (id === 'mazmorras' && heroExploring) || (id === 'base' && buildingUpgrading)
           return (
             <button
               key={id}

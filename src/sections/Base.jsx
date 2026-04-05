@@ -372,7 +372,7 @@ async function startUpgrade(buildingId, setLoading, setError, onUpgradeStart) {
 }
 
 
-function Base({ userId, resources, onResourceChange }) {
+function Base({ userId, resources, onResourceChange, onBuildingChange }) {
   const { buildings, loading, refetch } = useBuildings(userId)
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
 
@@ -387,8 +387,8 @@ function Base({ userId, resources, onResourceChange }) {
     setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood }))
   }
 
-  function handleUpgradeStart() { refetch(); onResourceChange?.() }
-  function handleUpgradeCollect() { refetch(); onResourceChange?.() }
+  function handleUpgradeStart() { refetch(); onResourceChange?.(); onBuildingChange?.() }
+  function handleUpgradeCollect() { refetch(); onResourceChange?.(); onBuildingChange?.() }
 
   if (loading) return <div className="base-loading">Cargando base...</div>
 

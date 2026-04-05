@@ -94,7 +94,7 @@ function StatCompareRow({ label, heroVal, enemyVal }) {
 /* ─── Result banner ──────────────────────────────────────────────────────────── */
 
 function ResultBanner({ result, onClose }) {
-  const { won, floor, rounds, heroHpLeft, heroMaxHp, enemyHpLeft, enemyMaxHp, rewards } = result
+  const { won, floor, rounds, heroHpLeft, heroMaxHp, enemyHpLeft, enemyMaxHp, rewards, knockedOut } = result
   const heroPct  = Math.max(0, Math.round((heroHpLeft  / heroMaxHp)  * 100))
   const enemyPct = Math.max(0, Math.round((enemyHpLeft / enemyMaxHp) * 100))
 
@@ -108,7 +108,10 @@ function ResultBanner({ result, onClose }) {
         <span className="tower-result-icon">{won ? '⚔' : '💀'}</span>
         <div>
           <p className="tower-result-title">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
-          <p className="tower-result-sub">{rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}</p>
+          <p className="tower-result-sub">
+            {rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}
+            {knockedOut && ' · ¡Héroe derribado! Entrando en descanso.'}
+          </p>
         </div>
       </div>
 
@@ -173,7 +176,8 @@ export default function Torre({ userId, heroId, onResourceChange }) {
     if (res.ok) {
       setResult(data)
       await refetchTower()
-      if (data.won) { refetchHero(); onResourceChange?.() }
+      refetchHero()
+      if (data.won) onResourceChange?.()
     } else {
       setError(data.error ?? 'Error al intentar el piso')
     }

@@ -592,6 +592,12 @@
   .dash-main {
     padding: 20px 16px;
     padding-bottom: 80px; /* space for bottom bar */
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+
+  .dash-main::-webkit-scrollbar {
+    display: none;
   }
 
   .dash-bottombar {
