@@ -320,12 +320,12 @@ function BagModal({ bag, bagLimit, onEquip, onDiscard, loading, error, onClose, 
 
         {error && <p className="inv-error">{error}</p>}
 
+        {isOccupied && (
+          <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
+        )}
         {bag.length === 0 ? (
           <p className="inv-bag-empty">La mochila está vacía. Explora mazmorras para conseguir equipo.</p>
         ) : (
-          {isOccupied && (
-            <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
-          )}
           <div className="bag-grid">
             {bag.map(item => (
               <BagItem
