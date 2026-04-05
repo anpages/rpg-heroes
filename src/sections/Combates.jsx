@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TowerControl, Trophy, Swords, ChevronRight } from 'lucide-react'
+import { TowerControl, Trophy, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Torre from './Torre'
 import Ranking from './Ranking'
@@ -29,15 +29,6 @@ export default function Combates({ userId, heroId, onResourceChange }) {
 
   return (
     <div className="combates-section">
-
-      {/* Header */}
-      <div className="combates-header">
-        <div className="combates-header-title">
-          <Swords size={22} strokeWidth={1.6} />
-          <span>Combates</span>
-        </div>
-        <p className="combates-header-sub">Pon a prueba a tu héroe en combate o consulta la clasificación.</p>
-      </div>
 
       {/* Mode selector */}
       <div className="combates-modes">
