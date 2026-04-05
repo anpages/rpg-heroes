@@ -87,7 +87,7 @@ function EquipmentSlot({ slot, equippedItem, onToggle, loading }) {
           <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
           <DurabilityBar current={equippedItem.current_durability} max={catalog.max_durability} />
           <button
-            className="eq-unequip-btn"
+            className="btn btn--ghost btn--sm"
             onClick={() => onToggle(equippedItem.id, false)}
             disabled={loading}
           >
@@ -122,7 +122,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
       <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
       <div className="bag-item-actions">
         <button
-          className="bag-equip-btn"
+          className="btn btn--primary btn--sm"
           onClick={() => onEquip(item.id)}
           disabled={loading || durPct === 0}
           title={durPct === 0 ? 'Repara el item antes de equiparlo' : ''}
@@ -131,7 +131,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
           Equipar
         </button>
         <button
-          className="bag-discard-btn"
+          className="btn btn--danger btn--icon"
           onClick={() => onDiscard(item.id)}
           disabled={loading}
         >

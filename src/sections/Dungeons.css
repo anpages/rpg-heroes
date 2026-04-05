@@ -71,31 +71,8 @@
   background: color-mix(in srgb, var(--blue-600) 8%, var(--surface));
 }
 
-.collect-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 11px 20px;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 9px;
-  color: white;
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  transition: background 0.2s;
-}
 
-.collect-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
 
-.collect-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .collect-error {
   font-size: 13px;
@@ -324,32 +301,7 @@
 
 /* ─── Explore button ─────────────────────────────────────────────────────────── */
 
-.explore-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-family: 'Outfit', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
 
-.explore-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.explore-btn:disabled {
-  background: var(--border);
-  color: var(--text-3);
-  cursor: not-allowed;
-}
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 
@@ -370,7 +322,7 @@
     align-items: flex-start;
   }
 
-  .explore-btn {
+  .btn--primary {
     width: 100%;
     justify-content: center;
   }

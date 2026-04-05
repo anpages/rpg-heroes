@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-
-const SHOP_SIZE = 8
-const MAX_STOCK = 1
+import { SHOP_SIZE, SHOP_MAX_STOCK, MERCHANT_TYPES, getItemMinLevel } from './_constants.js'
 
 function seededRand(heroId, dateStr) {
   let seed = 0
@@ -45,19 +43,26 @@ export default async function handler(req, res) {
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
   const { data: hero } = await supabase
-    .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).single()
+    .from('heroes').select('id, level').eq('id', heroId).eq('player_id', user.id).single()
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
 
   const { data: catalog } = await supabase
     .from('shop_catalog')
     .select('id, catalog_id, gold_price, daily_weight, item_catalog(name, slot, tier, rarity, attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)')
 
-  if (!catalog?.length) return res.status(200).json({ items: [], date: '', maxStock: MAX_STOCK })
+  if (!catalog?.length) return res.status(200).json({ items: [], date: '', merchant: MERCHANT_TYPES[0] })
 
   const dateStr = new Date().toISOString().slice(0, 10)
   const rand = seededRand(heroId, dateStr)
-  const rotation = pickWeighted(catalog, rand, Math.min(SHOP_SIZE, catalog.length))
 
+  // Tipo de mercader del día para este héroe
+  const merchantType = MERCHANT_TYPES[Math.floor(rand() * MERCHANT_TYPES.length)]
+
+  // Filtrar por slots del mercader
+  const filtered = catalog.filter(entry => merchantType.slots.includes(entry.item_catalog.slot))
+  const rotation = pickWeighted(filtered, rand, Math.min(SHOP_SIZE, filtered.length))
+
+  // Compras de hoy
   const { data: purchases } = await supabase
     .from('shop_purchases')
     .select('catalog_id, quantity')
@@ -67,14 +72,20 @@ export default async function handler(req, res) {
   const purchaseMap = {}
   for (const p of purchases ?? []) purchaseMap[p.catalog_id] = p.quantity
 
-  const items = rotation.map(entry => ({
-    shopId:    entry.id,
-    catalogId: entry.catalog_id,
-    goldPrice: entry.gold_price,
-    maxStock:  MAX_STOCK,
-    purchased: purchaseMap[entry.catalog_id] ?? 0,
-    ...entry.item_catalog,
-  }))
+  const items = rotation.map(entry => {
+    const ic = entry.item_catalog
+    const minLevel = getItemMinLevel(ic.tier, ic.rarity)
+    return {
+      shopId:    entry.id,
+      catalogId: entry.catalog_id,
+      goldPrice: entry.gold_price,
+      maxStock:  SHOP_MAX_STOCK,
+      purchased: purchaseMap[entry.catalog_id] ?? 0,
+      minLevel,
+      locked:    hero.level < minLevel,
+      ...ic,
+    }
+  })
 
-  return res.status(200).json({ items, date: dateStr, maxStock: MAX_STOCK })
+  return res.status(200).json({ items, date: dateStr, merchant: merchantType })
 }

@@ -174,28 +174,6 @@
   border-radius: 20px;
 }
 
-.mission-claim-btn {
-  padding: 0.35rem 0.85rem;
-  background: var(--btn-primary);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-
-.mission-claim-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.mission-claim-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .mission-claimed-label {
   font-size: 0.72rem;

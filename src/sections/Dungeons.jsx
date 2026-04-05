@@ -109,7 +109,7 @@ function ExpeditionProgress({ expedition, onCollect }) {
       {canCollect && (
         <>
           <motion.button
-            className="collect-btn"
+            className="btn btn--primary btn--lg btn--full"
             onClick={handleCollect}
             disabled={collecting}
             whileTap={{ scale: 0.96 }}
@@ -178,7 +178,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
             <span className="reward-item"><Star size={13} strokeWidth={2} color="#0369a1" />{dungeon.experience_reward} XP</span>
           </div>
           <motion.button
-            className="explore-btn"
+            className="btn btn--primary"
             onClick={() => onStart(dungeon)}
             disabled={disabled}
             whileTap={disabled ? {} : { scale: 0.96 }}

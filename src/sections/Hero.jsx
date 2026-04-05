@@ -183,8 +183,8 @@ function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCa
         <p className="confirm-title">{title}</p>
         {body && <p className="confirm-body">{body}</p>}
         <div className="confirm-actions">
-          <button className="confirm-cancel" onClick={onCancel}>Cancelar</button>
-          <button className="confirm-ok" onClick={onConfirm}>{confirmLabel}</button>
+          <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
+          <button className="btn btn--primary btn--sm" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </motion.div>
     </motion.div>
@@ -278,7 +278,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
       <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
       <div className="bag-item-actions">
         <button
-          className="bag-equip-btn"
+          className="btn btn--primary btn--sm"
           onClick={() => onEquip(item.id)}
           disabled={loading || durPct === 0}
           title={durPct === 0 ? 'Repara el item antes de equiparlo' : ''}
@@ -286,7 +286,7 @@ function BagItem({ item, onEquip, onDiscard, loading }) {
           <ArrowUpDown size={13} strokeWidth={2} />
           Equipar
         </button>
-        <button className="bag-discard-btn" onClick={() => onDiscard(item)} disabled={loading}>
+        <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading}>
           <Trash2 size={13} strokeWidth={2} />
         </button>
       </div>
@@ -435,9 +435,9 @@ function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loa
           </button>
         )}
         {card.equipped ? (
-          <button className="card-unequip-btn" onClick={() => onUnequip(card.id)} disabled={loading}>Desequipar</button>
+          <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading}>Desequipar</button>
         ) : (
-          <button className="card-equip-btn" onClick={() => onEquip(card.id)} disabled={loading || !canEquip}>
+          <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip}>
             Equipar
           </button>
         )}
@@ -794,7 +794,7 @@ function Hero({ userId, heroId }) {
               <BookOpen size={14} strokeWidth={2} />
               Cartas de Habilidad
             </p>
-            <button className="hero-bag-btn" onClick={() => setCardModalOpen(true)}>
+            <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
               <Zap size={13} strokeWidth={2} />
               Colección {(cards ?? []).length}
             </button>
@@ -828,7 +828,7 @@ function Hero({ userId, heroId }) {
         <div className="hero-equipment-panel">
           <div className="hero-eq-header">
             <p className="hero-eq-title">Equipo</p>
-            <button className="hero-bag-btn" onClick={() => setBagOpen(true)}>
+            <button className="btn btn--ghost btn--sm" onClick={() => setBagOpen(true)}>
               <Backpack size={13} strokeWidth={2} />
               Mochila {bag.length}/{bagLimit}
             </button>

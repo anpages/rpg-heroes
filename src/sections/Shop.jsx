@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Coins, ShoppingBag, Clock, CheckCircle2, PackageX } from 'lucide-react'
+import { Coins, Clock, CheckCircle2, PackageX, Lock, Sword, Shield, Gem } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Shop.css'
 
@@ -17,13 +17,15 @@ const SLOT_LABEL = {
   feet: 'Pies', main_hand: 'Mano Ppal.', off_hand: 'Mano Sec.', accessory: 'Accesorio',
 }
 
+const MERCHANT_ICON = { weapons: Sword, armor: Shield, relics: Gem }
+
 function statLines(item) {
   return [
-    item.attack_bonus      > 0 && `+${item.attack_bonus} Atq`,
-    item.defense_bonus     > 0 && `+${item.defense_bonus} Def`,
-    item.hp_bonus          > 0 && `+${item.hp_bonus} HP`,
-    item.strength_bonus    > 0 && `+${item.strength_bonus} Fue`,
-    item.agility_bonus     > 0 && `+${item.agility_bonus} Agi`,
+    item.attack_bonus       > 0 && `+${item.attack_bonus} Atq`,
+    item.defense_bonus      > 0 && `+${item.defense_bonus} Def`,
+    item.hp_bonus           > 0 && `+${item.hp_bonus} HP`,
+    item.strength_bonus     > 0 && `+${item.strength_bonus} Fue`,
+    item.agility_bonus      > 0 && `+${item.agility_bonus} Agi`,
     item.intelligence_bonus > 0 && `+${item.intelligence_bonus} Int`,
   ].filter(Boolean)
 }
@@ -41,17 +43,18 @@ function timeUntilMidnight() {
 function ShopItem({ item, gold, onBuy, buying }) {
   const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
   const stats = statLines(item)
-  const canAfford = gold >= item.goldPrice
   const sold = item.purchased >= item.maxStock
+  const canAfford = gold >= item.goldPrice
 
   return (
-    <motion.div
-      className={`shop-item ${sold ? 'shop-item--sold' : ''}`}
+    <div
+      className={`shop-item ${sold ? 'shop-item--sold' : ''} ${item.locked ? 'shop-item--locked' : ''}`}
       style={{ '--rarity-color': rarity.color }}
-      layout
     >
       <div className="shop-item-header">
-        <span className="shop-item-name" style={{ color: rarity.color }}>{item.name}</span>
+        <span className="shop-item-name" style={{ color: item.locked ? undefined : rarity.color }}>
+          {item.name}
+        </span>
         <span className="shop-item-rarity">{rarity.label}</span>
       </div>
 
@@ -67,13 +70,17 @@ function ShopItem({ item, gold, onBuy, buying }) {
       )}
 
       <div className="shop-item-footer">
-        {sold ? (
+        {item.locked ? (
+          <span className="shop-item-locked-label">
+            <Lock size={12} strokeWidth={2} /> Nv. {item.minLevel}
+          </span>
+        ) : sold ? (
           <span className="shop-item-sold-label">
             <CheckCircle2 size={13} strokeWidth={2} /> Comprado
           </span>
         ) : (
           <button
-            className="shop-buy-btn"
+            className="btn btn--primary btn--sm"
             disabled={!canAfford || buying}
             onClick={() => onBuy(item)}
             title={!canAfford ? 'Oro insuficiente' : undefined}
@@ -83,16 +90,17 @@ function ShopItem({ item, gold, onBuy, buying }) {
           </button>
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
 export default function Shop({ userId, heroId, heroName, gold, onResourceChange }) {
-  const [items, setItems]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState(null)
-  const [buying, setBuying] = useState(false)
-  const [toast, setToast]   = useState(null)
+  const [items, setItems]       = useState(null)
+  const [merchant, setMerchant] = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
+  const [buying, setBuying]     = useState(false)
+  const [toast, setToast]       = useState(null)
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
 
   useEffect(() => {
@@ -116,6 +124,7 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
       if (!res.ok) throw new Error('Error al cargar la tienda')
       const data = await res.json()
       setItems(data.items)
+      setMerchant(data.merchant)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -157,12 +166,14 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
     </div>
   )
 
+  const MerchantIcon = merchant ? (MERCHANT_ICON[merchant.key] ?? Sword) : Sword
+
   return (
     <div className="shop-section">
       <div className="shop-header">
         <div className="shop-header-title">
-          <ShoppingBag size={18} strokeWidth={1.8} />
-          <span>Tienda de {heroName ?? 'Héroe'}</span>
+          <MerchantIcon size={18} strokeWidth={1.8} />
+          <span>{merchant ? `${merchant.label} de ${heroName ?? 'Héroe'}` : 'Tienda'}</span>
         </div>
         <div className="shop-renews">
           <Clock size={13} strokeWidth={2} />

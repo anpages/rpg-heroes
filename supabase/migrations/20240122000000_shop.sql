@@ -7,17 +7,18 @@ CREATE TABLE IF NOT EXISTS shop_catalog (
 );
 
 -- Poblar con items tier 1-2 de rareza common/uncommon/rare
+-- Precios altos para que la tienda compita con expediciones (no las sustituya)
 INSERT INTO shop_catalog (catalog_id, gold_price, daily_weight)
 SELECT
   id,
   CASE
-    WHEN rarity = 'common'   AND tier = 1 THEN 80
-    WHEN rarity = 'uncommon' AND tier = 1 THEN 250
-    WHEN rarity = 'rare'     AND tier = 1 THEN 550
-    WHEN rarity = 'common'   AND tier = 2 THEN 380
-    WHEN rarity = 'uncommon' AND tier = 2 THEN 800
-    WHEN rarity = 'rare'     AND tier = 2 THEN 1600
-    ELSE 300
+    WHEN rarity = 'common'   AND tier = 1 THEN 500
+    WHEN rarity = 'uncommon' AND tier = 1 THEN 1400
+    WHEN rarity = 'rare'     AND tier = 1 THEN 3000
+    WHEN rarity = 'common'   AND tier = 2 THEN 2000
+    WHEN rarity = 'uncommon' AND tier = 2 THEN 5000
+    WHEN rarity = 'rare'     AND tier = 2 THEN 10000
+    ELSE 800
   END,
   CASE
     WHEN rarity = 'common'   THEN 40

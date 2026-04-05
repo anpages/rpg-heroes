@@ -2,6 +2,8 @@
  * Lógica de drop de items y cartas compartida entre expediciones y torre.
  */
 
+import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL } from './_constants.js'
+
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
 
 // Probabilidad de drop y calidad según dificultad (1-10)
@@ -69,8 +71,6 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
     .from('item_catalog').select('id, max_durability').eq('slot', slot).eq('tier', tier).eq('rarity', rarity)
   if (!candidates?.length) return null
 
-  const INVENTORY_BASE_LIMIT = 20
-  const INVENTORY_PER_WORKSHOP_LEVEL = 5
 
   const { count: bagCount } = await supabase
     .from('inventory_items').select('id', { count: 'exact', head: true })

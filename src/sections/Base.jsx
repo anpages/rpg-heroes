@@ -260,7 +260,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
             </span>
           </div>
           <motion.button
-            className="building-upgrade-btn"
+            className="btn btn--ghost building-upgrade-btn"
             onClick={handleUpgradeStart}
             disabled={!canAfford}
             whileTap={!canAfford ? {} : { scale: 0.96 }}

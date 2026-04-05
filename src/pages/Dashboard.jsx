@@ -193,7 +193,7 @@ function CardCatalogDebug() {
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-const HERO_STATUS_COLOR = { idle: '#16a34a', exploring: '#d97706', resting: '#0369a1', ready: '#16a34a' }
+const HERO_STATUS_COLOR = { idle: '#16a34a', exploring: '#d97706', resting: '#60a5fa', ready: '#16a34a' }
 const HERO_STATUS_LABEL = { idle: 'Reposo', exploring: 'Explorando', resting: 'Recuperando', ready: 'Lista ✓' }
 
 function getHeroDerivedStatus(hero, now) {

@@ -3,10 +3,12 @@ import { supabase } from '../lib/supabase'
 import { Plus } from 'lucide-react'
 import './HeroPicker.css'
 
+// Los colores de estado son CSS vars para adaptarse al tema
 const STATUS_COLOR = {
   idle:      '#16a34a',
   exploring: '#d97706',
-  resting:   '#0369a1',
+  resting:   '#60a5fa',  // azul claro visible en ambos temas
+  ready:     '#16a34a',
 }
 
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
@@ -67,8 +69,8 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
           </div>
           {error && <p className="recruit-error">{error}</p>}
           <div className="recruit-actions">
-            <button type="button" className="recruit-cancel" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="recruit-submit" disabled={loading}>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn btn--primary" disabled={loading}>
               {loading ? 'Reclutando...' : 'Reclutar'}
             </button>
           </div>

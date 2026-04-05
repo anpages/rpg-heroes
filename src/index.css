@@ -122,6 +122,82 @@ button {
   font-family: inherit;
 }
 
+/* ── Sistema de botones compartido ───────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Variantes */
+.btn--primary {
+  background: var(--btn-primary);
+  color: #fff;
+  border-color: transparent;
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-2);
+  border-color: var(--border);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+.btn--danger {
+  background: transparent;
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--error-bg);
+}
+
+/* Tamaños */
+.btn--sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  gap: 4px;
+}
+.btn--lg {
+  padding: 11px 20px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+.btn--icon {
+  padding: 6px;
+  border-radius: 6px;
+  gap: 0;
+}
+
+/* Modificadores de layout */
+.btn--full { width: 100%; }
+
 h1, h2, h3 {
   font-weight: 700;
   line-height: 1.2;

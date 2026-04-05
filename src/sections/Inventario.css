@@ -104,27 +104,7 @@
 
 .eq-unequip-btn {
   margin-top: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
   align-self: flex-start;
-}
-
-.eq-unequip-btn:hover:not(:disabled) {
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.eq-unequip-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ─── Durability bar ─────────────────────────────────────────────────────────── */
@@ -264,56 +244,7 @@
   margin-top: 2px;
 }
 
-.bag-equip-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.bag-equip-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.bag-equip-btn:disabled {
-  background: var(--border);
-  color: var(--text-3);
-  cursor: not-allowed;
-}
-
-.bag-discard-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.bag-discard-btn:hover:not(:disabled) {
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.bag-discard-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.bag-equip-btn { flex: 1; }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 

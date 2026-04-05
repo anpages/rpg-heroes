@@ -316,26 +316,6 @@
   color: #dc2626;
 }
 
-.tower-attempt-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 11px;
-  background: var(--btn-primary);
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.tower-attempt-btn:hover:not(:disabled) { background: var(--btn-primary-hover); }
-.tower-attempt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── Result banner ──────────────────────────────────────────────────────────── */
 

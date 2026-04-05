@@ -259,7 +259,7 @@ export default function Torre({ userId, heroId, onResourceChange }) {
         {error && <p className="tower-error">{error}</p>}
 
         <motion.button
-          className="tower-attempt-btn"
+          className="btn btn--primary btn--lg btn--full"
           onClick={attempt}
           disabled={loading || isBusy}
           whileTap={loading || isBusy ? {} : { scale: 0.96 }}

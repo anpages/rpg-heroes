@@ -248,6 +248,7 @@
 .stat-row-wrap {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .stat-row {
@@ -343,26 +344,6 @@
   color: var(--text-3);
 }
 
-.hero-bag-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-2);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.hero-bag-btn:hover {
-  border-color: var(--border-2);
-  color: var(--text);
-}
 
 /* ─── Equipment groups ───────────────────────────────────────────────────────── */
 
@@ -647,39 +628,6 @@
   margin-top: 0.25rem;
 }
 
-.confirm-cancel {
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.confirm-cancel:hover {
-  background: var(--bg);
-}
-
-.confirm-ok {
-  padding: 0.4rem 1rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--btn-primary);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.confirm-ok:hover {
-  background: var(--btn-primary-hover);
-}
 
 /* ─── Bag modal ──────────────────────────────────────────────────────────────── */
 
@@ -857,56 +805,8 @@
   margin-top: 2px;
 }
 
-.bag-equip-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.bag-equip-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.bag-equip-btn:disabled {
-  background: var(--border);
-  color: var(--text-3);
-  cursor: not-allowed;
-}
-
-.bag-discard-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.bag-discard-btn:hover:not(:disabled) {
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.bag-discard-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* .btn--primary btn--sm handles bag-equip-btn styles */
+.bag-equip-btn { flex: 1; }
 
 /* ─── Cards section ──────────────────────────────────────────────────────────── */
 
@@ -1227,50 +1127,6 @@
   cursor: not-allowed;
 }
 
-.card-equip-btn {
-  padding: 5px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.card-equip-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.card-equip-btn:disabled {
-  background: var(--border);
-  color: var(--text-3);
-  cursor: not-allowed;
-}
-
-.card-unequip-btn {
-  padding: 5px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  background: transparent;
-  border: 1px solid #dc2626;
-  border-radius: 6px;
-  color: #dc2626;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.card-unequip-btn:hover:not(:disabled) {
-  background: var(--error-bg);
-}
-
-.card-unequip-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 

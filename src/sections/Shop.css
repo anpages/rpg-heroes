@@ -86,6 +86,11 @@
   opacity: 0.55;
 }
 
+.shop-item--locked {
+  opacity: 0.5;
+  filter: grayscale(0.4);
+}
+
 .shop-item-header {
   display: flex;
   align-items: flex-start;
@@ -154,31 +159,6 @@
   justify-content: flex-end;
 }
 
-.shop-buy-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: var(--btn-primary);
-  border: none;
-  border-radius: 7px;
-  color: #fff;
-  font-family: 'Outfit', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
-}
-
-.shop-buy-btn:hover:not(:disabled) {
-  background: var(--btn-primary-hover);
-}
-
-.shop-buy-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .shop-item-sold-label {
   display: flex;
   align-items: center;
@@ -186,6 +166,15 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--success-text);
+}
+
+.shop-item-locked-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────────────────── */

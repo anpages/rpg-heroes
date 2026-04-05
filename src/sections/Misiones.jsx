@@ -107,7 +107,7 @@ function MissionCard({ mission, onClaim }) {
 
         {mission.completed && !isClaimed && (
           <motion.button
-            className="mission-claim-btn"
+            className="btn btn--primary btn--sm"
             onClick={handleClaim}
             disabled={claiming}
             whileTap={{ scale: 0.96 }}
