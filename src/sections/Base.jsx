@@ -151,7 +151,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
   async function handleUpgradeStart() {
     // Optimistic: mostrar timer y descontar recursos inmediatamente
-    const durationMs = building.level * 2 * 60 * 1000
+    const durationMs = building.level * building.level * 10 * 60 * 1000
     setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
     onOptimisticDeduct(cost)
     setError(null)
