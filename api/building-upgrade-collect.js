@@ -65,22 +65,21 @@ export default async function handler(req, res) {
       .in('type', trigger.unlocks)
   }
 
-  // Aplicar efecto especial: cuartel → atributos base del héroe (presupuesto de cartas)
+  // Aplicar efecto especial: cuartel → +2 atributos a CADA héroe del jugador
   if (building.type === 'barracks') {
-    const { data: hero } = await supabase
+    const { data: allHeroes } = await supabase
       .from('heroes')
-      .select('strength, agility, intelligence')
+      .select('id, strength, agility, intelligence')
       .eq('player_id', user.id)
-      .single()
-    if (hero) {
+    for (const h of allHeroes ?? []) {
       await supabase
         .from('heroes')
         .update({
-          strength:     hero.strength     + 2,
-          agility:      hero.agility      + 2,
-          intelligence: hero.intelligence + 2,
+          strength:     h.strength     + 2,
+          agility:      h.agility      + 2,
+          intelligence: h.intelligence + 2,
         })
-        .eq('player_id', user.id)
+        .eq('id', h.id)
     }
   }
 

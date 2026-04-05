@@ -22,11 +22,12 @@ function enemyName(floor) {
 
 function floorEnemyStats(floor) {
   return {
-    max_hp:       80  + floor * 15,
-    attack:        5  + floor * 2,
-    defense:       2  + floor * 1,
-    strength:      2  + Math.floor(floor * 0.5),
-    agility:       2  + Math.floor(floor * 0.3),
+    max_hp:        80  + floor * 15,
+    attack:         5  + floor * 2,
+    defense:        2  + floor * 1,
+    strength:       2  + Math.floor(floor * 0.5),
+    agility:        2  + Math.floor(floor * 0.3),
+    intelligence:   1  + Math.floor(floor * 0.3),
   }
 }
 

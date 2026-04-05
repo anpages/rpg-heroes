@@ -258,7 +258,7 @@ function Dashboard({ session }) {
   const [missionsOpen, setMissionsOpen] = useState(false)
   const { resources, refetch: refetchResources } = useResources(session.user.id)
   const { theme, setTheme } = useTheme()
-  const { heroes, refetch: refetchHeroes } = useHeroes(session.user.id)
+  const { heroes, loading: heroesLoading, refetch: refetchHeroes } = useHeroes(session.user.id)
   const { missions: missionsList, refetch: refetchMissions } = useMissions()
   const [selectedHeroId, setSelectedHeroId] = useState(null)
 
@@ -361,8 +361,8 @@ function Dashboard({ session }) {
         </button>
       </div>
 
-      {/* Hero rail — visible cuando hay 2+ héroes o se puede reclutar */}
-      {(heroes.length > 1 || canRecruit) && (
+      {/* Hero rail — visible cuando hay 2+ héroes o se puede reclutar (esperar carga) */}
+      {!heroesLoading && (heroes.length > 1 || canRecruit) && (
         <div className="hero-rail">
           {heroes.map(hero => {
             const derivedStatus = getHeroDerivedStatus(hero, now)
