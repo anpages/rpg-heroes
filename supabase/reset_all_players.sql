@@ -15,16 +15,17 @@ DELETE FROM public.heroes;
 
 UPDATE public.buildings SET
   level              = 1,
+  unlocked           = type IN ('barracks', 'gold_mine', 'energy_nexus'),
   upgrade_started_at = NULL,
   upgrade_ends_at    = NULL;
 
 UPDATE public.resources SET
-  gold              = 100,
-  wood              = 60,
-  mana              = 20,
+  gold              = 200,
+  wood              = 120,
+  mana              = 0,
   gold_rate         = 2,
-  wood_rate         = 1,
-  mana_rate         = 1,
+  wood_rate         = 0,
+  mana_rate         = 0,
   last_collected_at = NOW();
 
 -- Verificación: todas deben devolver 0

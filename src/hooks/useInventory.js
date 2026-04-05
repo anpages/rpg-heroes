@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 export function useInventory(heroId) {
   const [items, setItems] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!!heroId)
 
   const refetch = useCallback(() => {
     if (!heroId) return
@@ -15,7 +15,8 @@ export function useInventory(heroId) {
   }, [heroId])
 
   useEffect(() => {
-    if (!heroId) return
+    if (!heroId) { setItems([]); setLoading(false); return }
+    setLoading(true)
     supabase
       .from('inventory_items')
       .select('*, item_catalog(*)')

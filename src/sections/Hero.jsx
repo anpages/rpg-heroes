@@ -33,6 +33,7 @@ const overlayTransition = { duration: 0.18 }
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
 const STAT_BARS = [
+  { key: 'max_hp',       label: 'Vida',     Icon: Heart,    color: '#e11d48' },
   { key: 'attack',       label: 'Ataque',   Icon: Sword,    color: '#d97706' },
   { key: 'defense',      label: 'Defensa',  Icon: Shield,   color: '#475569' },
   { key: 'strength',     label: 'Fuerza',   Icon: Dumbbell, color: '#dc2626' },

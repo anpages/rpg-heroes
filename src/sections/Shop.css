@@ -327,17 +327,11 @@
 
 @media (max-width: 600px) {
   .shop-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
   .shop-item-skeleton {
     height: 180px;
-  }
-}
-
-@media (max-width: 380px) {
-  .shop-grid {
-    grid-template-columns: 1fr;
   }
 }

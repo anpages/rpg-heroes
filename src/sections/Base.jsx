@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBuildings } from '../hooks/useBuildings'
-import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen } from 'lucide-react'
+import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import './Base.css'
 
@@ -280,6 +280,42 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 }
 
 
+// Requisitos de desbloqueo para mostrar en la UI
+const UNLOCK_REQUIREMENTS = {
+  workshop:    { name: 'Cuartel',     level: 2 },
+  lumber_mill: { name: 'Nexo Arcano', level: 2 },
+  forge:       { name: 'Taller',      level: 2 },
+  mana_well:   { name: 'Taller',      level: 2 },
+  library:     { name: 'Mina de Oro', level: 3 },
+}
+
+function LockedBuildingCard({ type }) {
+  const meta = BUILDING_META[type]
+  const req  = UNLOCK_REQUIREMENTS[type]
+  if (!meta || !req) return null
+  const Icon = meta.icon
+  return (
+    <div className="building-card building-card--locked" style={{ '--accent': meta.color }}>
+      <div className="building-card-top">
+        <div className="building-icon-wrap">
+          <Icon size={24} strokeWidth={1.8} color={meta.color} />
+        </div>
+        <div className="building-info">
+          <div className="building-name-row">
+            <h3 className="building-name">{meta.name}</h3>
+            <Lock size={14} strokeWidth={2.5} className="building-lock-icon" />
+          </div>
+          <p className="building-desc">{meta.description}</p>
+        </div>
+      </div>
+      <div className="building-lock-req">
+        <Lock size={11} strokeWidth={2.5} />
+        Requiere {req.name} Nv.{req.level}
+      </div>
+    </div>
+  )
+}
+
 const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
 
 const BUILDING_GROUPS = [
@@ -405,7 +441,8 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
   const nexusData = nexus ? (() => {
     const allBuildings = Object.values(byType)
     const produced = nexus.level * 30
-    const consumed = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type)).reduce((s, b) => s + b.level * 10, 0)
+    // Solo edificios desbloqueados consumen energía
+    const consumed = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type) && b.unlocked !== false).reduce((s, b) => s + b.level * 10, 0)
     const balance = produced - consumed
     const deficit = balance < 0
     const barPct = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100
@@ -439,20 +476,24 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
             <motion.div key={group.id} className="base-group" variants={cardVariants}>
               <p className="base-group-label">{group.label}</p>
               <div className={`base-group-grid base-group-grid--${group.grid}`}>
-                {groupBuildings.map(b => (
-                  <BuildingCard
-                    key={b.id}
-                    building={b}
-                    resources={effectiveResources}
-                    featured={b.type === 'energy_nexus'}
-                    nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
-                    nexusRatio={PRODUCTION_TYPES.includes(b.type) ? nexusRatio : undefined}
-                    onUpgradeStart={handleUpgradeStart}
-                    onUpgradeCollect={handleUpgradeCollect}
-                    onOptimisticDeduct={handleOptimisticDeduct}
-                    anyUpgrading={anyUpgrading}
-                  />
-                ))}
+                {groupBuildings.map(b =>
+                  b.unlocked === false ? (
+                    <LockedBuildingCard key={b.id} type={b.type} />
+                  ) : (
+                    <BuildingCard
+                      key={b.id}
+                      building={b}
+                      resources={effectiveResources}
+                      featured={b.type === 'energy_nexus'}
+                      nexusData={b.type === 'energy_nexus' ? nexusData : undefined}
+                      nexusRatio={PRODUCTION_TYPES.includes(b.type) ? nexusRatio : undefined}
+                      onUpgradeStart={handleUpgradeStart}
+                      onUpgradeCollect={handleUpgradeCollect}
+                      onOptimisticDeduct={handleOptimisticDeduct}
+                      anyUpgrading={anyUpgrading}
+                    />
+                  )
+                )}
               </div>
             </motion.div>
           )

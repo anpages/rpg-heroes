@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 export function useHeroCards(heroId) {
   const [cards, setCards] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!!heroId)
 
   const refetch = useCallback(() => {
     if (!heroId) return Promise.resolve()
@@ -15,7 +15,8 @@ export function useHeroCards(heroId) {
   }, [heroId])
 
   useEffect(() => {
-    if (!heroId) return
+    if (!heroId) { setCards([]); setLoading(false); return }
+    setLoading(true)
     supabase
       .from('hero_cards')
       .select('*, skill_cards(*)')

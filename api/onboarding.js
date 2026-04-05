@@ -51,20 +51,32 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: playerError.message })
   }
 
-  // Create resources
+  // Create resources — valores explícitos (no depender de defaults de la BD)
+  // wood_rate y mana_rate = 0 porque Aserradero y Pozo de Maná empiezan bloqueados
   const { error: resourcesError } = await supabase
     .from('resources')
-    .insert({ player_id: user.id })
+    .insert({
+      player_id: user.id,
+      gold:      200,
+      wood:      120,
+      mana:      0,
+      gold_rate: 2,
+      wood_rate: 0,
+      mana_rate: 0,
+    })
 
   if (resourcesError) return res.status(500).json({ error: resourcesError.message })
 
-  // Create buildings (level 1)
+  // Create buildings — barracks, gold_mine y energy_nexus desbloqueados desde el inicio
+  const INITIALLY_UNLOCKED = ['barracks', 'gold_mine', 'energy_nexus']
+  const ALL_BUILDING_TYPES = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge', 'library']
   const { error: buildingsError } = await supabase
     .from('buildings')
     .insert(
-      ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop'].map(type => ({
+      ALL_BUILDING_TYPES.map(type => ({
         player_id: user.id,
         type,
+        unlocked: INITIALLY_UNLOCKED.includes(type),
       }))
     )
 
@@ -95,25 +107,6 @@ export default async function handler(req, res) {
     hero_id: hero.id,
     type: classData.starting_ability,
   })
-
-  // Equip starter gear (common tier 1: helmet, chest, legs)
-  const { data: starterCatalog } = await supabase
-    .from('item_catalog')
-    .select('id, slot, max_durability')
-    .in('slot', ['helmet', 'chest', 'legs'])
-    .eq('tier', 1)
-    .eq('rarity', 'common')
-
-  if (starterCatalog?.length) {
-    await supabase.from('inventory_items').insert(
-      starterCatalog.map(item => ({
-        hero_id: hero.id,
-        catalog_id: item.id,
-        current_durability: item.max_durability,
-        equipped_slot: item.slot,
-      }))
-    )
-  }
 
   return res.status(200).json({ ok: true })
 }

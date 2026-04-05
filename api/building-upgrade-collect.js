@@ -1,21 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
+import { UNLOCK_TRIGGERS } from './_constants.js'
 
 function computeRates(buildings) {
-  const level = (type) => buildings.find(b => b.type === type)?.level ?? 1
+  // Solo edificios desbloqueados contribuyen a producción y consumo energético
+  const unlockedLevel = (type) => {
+    const b = buildings.find(b => b.type === type)
+    return (b && b.unlocked !== false) ? b.level : 0
+  }
 
-  const goldMine = level('gold_mine')
-  const lumber   = level('lumber_mill')
-  const mana     = level('mana_well')
-  const nexus    = level('energy_nexus')
+  const goldMine = unlockedLevel('gold_mine')
+  const lumber   = unlockedLevel('lumber_mill')
+  const mana     = unlockedLevel('mana_well')
+  const nexus    = unlockedLevel('energy_nexus')
 
   const energyProduced = nexus * 30
   const energyConsumed = (goldMine + lumber + mana) * 10
   const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
 
   return {
-    gold_rate: Math.max(1, Math.floor((2 + (goldMine - 1)) * ratio)),
-    wood_rate: Math.max(1, Math.floor((1 + (lumber   - 1)) * ratio)),
-    mana_rate: Math.max(1, Math.floor((1 + (mana     - 1)) * ratio)),
+    gold_rate: goldMine > 0 ? Math.max(1, Math.floor((2 + (goldMine - 1)) * ratio)) : 0,
+    wood_rate: lumber   > 0 ? Math.max(1, Math.floor((1 + (lumber   - 1)) * ratio)) : 0,
+    mana_rate: mana     > 0 ? Math.max(1, Math.floor((1 + (mana     - 1)) * ratio)) : 0,
   }
 }
 
@@ -50,6 +55,16 @@ export default async function handler(req, res) {
 
   const newLevel = building.level + 1
 
+  // Desbloquear edificios según árbol de progresión
+  const triggers = UNLOCK_TRIGGERS.filter(t => t.type === building.type && t.level === newLevel)
+  for (const trigger of triggers) {
+    await supabase
+      .from('buildings')
+      .update({ unlocked: true })
+      .eq('player_id', user.id)
+      .in('type', trigger.unlocks)
+  }
+
   // Aplicar efecto especial: cuartel → atributos base del héroe (presupuesto de cartas)
   if (building.type === 'barracks') {
     const { data: hero } = await supabase
@@ -80,7 +95,7 @@ export default async function handler(req, res) {
   // Recalcular tasas con factor de energía (para todos los edificios relevantes)
   const { data: allBuildings } = await supabase
     .from('buildings')
-    .select('type, level')
+    .select('type, level, unlocked')
     .eq('player_id', user.id)
 
   const rates = computeRates(allBuildings ?? [])

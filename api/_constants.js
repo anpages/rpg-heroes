@@ -1,5 +1,13 @@
 /** Constantes compartidas entre endpoints de la API */
 
+/** Árbol de desbloqueo de edificios: al alcanzar `level`, se desbloquean `unlocks` */
+export const UNLOCK_TRIGGERS = [
+  { type: 'barracks',     level: 2, unlocks: ['workshop'] },
+  { type: 'energy_nexus', level: 2, unlocks: ['lumber_mill'] },
+  { type: 'workshop',     level: 2, unlocks: ['forge', 'mana_well'] },
+  { type: 'gold_mine',    level: 3, unlocks: ['library'] },
+]
+
 export const INVENTORY_BASE_LIMIT        = 20
 export const INVENTORY_PER_WORKSHOP_LEVEL = 5
 
