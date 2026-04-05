@@ -584,7 +584,7 @@ function Hero({ userId, heroId }) {
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
   const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
   const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
-  const [actionLoading, setActionLoading] = useState(false)
+  const [actionLoading] = useState(false)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
@@ -592,6 +592,7 @@ function Hero({ userId, heroId }) {
   const [workshopLevel, setWorkshopLevel] = useState(1)
   const [libraryLevel, setLibraryLevel] = useState(1)
   const [optimisticItems, setOptimisticItems] = useState(null)
+  const [optimisticCards, setOptimisticCards] = useState(null)
   const [hpNow, setHpNow] = useState(null)
 
   // Recalculate interpolated HP every 30s
@@ -618,8 +619,9 @@ function Hero({ userId, heroId }) {
       })
   }, [userId])
 
-  // Limpiar optimista cuando llegan datos reales tras el refetch
+  // Limpiar optimistas cuando llegan datos reales tras el refetch
   useEffect(() => { setOptimisticItems(null) }, [items])
+  useEffect(() => { setOptimisticCards(null) }, [cards])
 
   if (heroLoading || invLoading || cardsLoading) return <div className="hero-loading">Cargando héroe...</div>
   if (!hero) return (
@@ -633,6 +635,7 @@ function Hero({ userId, heroId }) {
   const isOccupied = hero.status === 'exploring'
 
   const displayItems = optimisticItems ?? items
+  const displayCards = optimisticCards ?? cards
 
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
     acc[slot] = displayItems?.find(i => i.equipped_slot === slot) ?? null
@@ -654,7 +657,7 @@ function Hero({ userId, heroId }) {
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
   // Bonos de cartas equipadas (efectos × rango)
-  const cardBonuses = (cards ?? [])
+  const cardBonuses = (displayCards ?? [])
     .filter(c => c.equipped)
     .reduce((acc, c) => {
       const sc = c.skill_cards
@@ -688,7 +691,7 @@ function Hero({ userId, heroId }) {
 
   // Presupuesto de cartas por categoría (usa stats BASE del héroe, no efectivas)
   const cardBudgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
-  ;(cards ?? []).filter(c => c.equipped).forEach(c => {
+  ;(displayCards ?? []).filter(c => c.equipped).forEach(c => {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
   const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
@@ -697,9 +700,7 @@ function Hero({ userId, heroId }) {
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
 
   async function callApi(endpoint, body) {
-    setActionLoading(true)
     setError(null)
-    await supabase.auth.refreshSession()
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -707,7 +708,6 @@ function Hero({ userId, heroId }) {
       body: JSON.stringify(body),
     })
     const data = await res.json()
-    setActionLoading(false)
     if (!res.ok) { setError(data.error ?? 'Error'); setOptimisticItems(null) }
     else refetchInv()
   }
@@ -758,10 +758,9 @@ function Hero({ userId, heroId }) {
     })
   }
 
-  async function callCardApi(endpoint, body) {
-    setActionLoading(true)
+  async function callCardApi(endpoint, body, optimisticFn) {
     setError(null)
-    await supabase.auth.refreshSession()
+    if (optimisticFn) setOptimisticCards(optimisticFn(optimisticCards ?? cards))
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -769,14 +768,28 @@ function Hero({ userId, heroId }) {
       body: JSON.stringify(body),
     })
     const data = await res.json()
-    setActionLoading(false)
-    if (!res.ok) setError(data.error ?? 'Error')
+    if (!res.ok) { setError(data.error ?? 'Error'); setOptimisticCards(null) }
     else refetchCards()
   }
 
-  function handleCardEquip(cardId)   { callCardApi('/api/card-equip', { cardId, equip: true  }) }
-  function handleCardUnequip(cardId) { callCardApi('/api/card-equip', { cardId, equip: false }) }
-  function handleCardFuse(id1, id2)  { callCardApi('/api/card-fuse',  { cardId1: id1, cardId2: id2 }) }
+  function handleCardEquip(cardId) {
+    callCardApi(
+      '/api/card-equip', { cardId, equip: true },
+      cs => cs.map(c => c.id === cardId ? { ...c, equipped: true } : c)
+    )
+  }
+  function handleCardUnequip(cardId) {
+    callCardApi(
+      '/api/card-equip', { cardId, equip: false },
+      cs => cs.map(c => c.id === cardId ? { ...c, equipped: false } : c)
+    )
+  }
+  function handleCardFuse(id1, id2) {
+    callCardApi(
+      '/api/card-fuse', { cardId1: id1, cardId2: id2 },
+      cs => cs.filter(c => c.id !== id1 && c.id !== id2) // las dos se consumen, el resultado llega con refetch
+    )
+  }
 
 
   return (
@@ -827,7 +840,7 @@ function Hero({ userId, heroId }) {
             </p>
             <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
               <Zap size={13} strokeWidth={2} />
-              Colección {(cards ?? []).length}
+              Colección {(displayCards ?? []).length}
             </button>
           </div>
 
@@ -842,11 +855,11 @@ function Hero({ userId, heroId }) {
             ))}
           </div>
 
-          {(cards ?? []).filter(c => c.equipped).length === 0 ? (
+          {(displayCards ?? []).filter(c => c.equipped).length === 0 ? (
             <p className="hero-cards-empty">Sin cartas equipadas. Abre la colección para equipar.</p>
           ) : (
             <div className="equipped-cards-grid">
-              {(cards ?? []).filter(c => c.equipped).map(card => (
+              {(displayCards ?? []).filter(c => c.equipped).map(card => (
                 <CardChip key={card.id} card={card} onUnequip={handleCardUnequip} loading={actionLoading} isOccupied={isOccupied} />
               ))}
             </div>
@@ -927,7 +940,7 @@ function Hero({ userId, heroId }) {
       <AnimatePresence>
         {cardModalOpen && (
           <CardModal
-            cards={cards ?? []}
+            cards={displayCards ?? []}
             hero={hero}
             cardSlots={cardSlotCount}
             onEquip={handleCardEquip}
