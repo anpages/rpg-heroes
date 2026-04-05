@@ -256,7 +256,7 @@ function SectionPlaceholder({ title }) {
 function Dashboard({ session }) {
   const [activeSection, setActiveSection] = useState('heroe')
   const [missionsOpen, setMissionsOpen] = useState(false)
-  const { resources, refetch: refetchResources } = useResources(session.user.id)
+  const { resources, loading: resourcesLoading, refetch: refetchResources } = useResources(session.user.id)
   const { theme, setTheme } = useTheme()
   const { heroes, loading: heroesLoading, refetch: refetchHeroes } = useHeroes(session.user.id)
   const { missions: missionsList, refetch: refetchMissions } = useMissions()
@@ -306,6 +306,14 @@ function Dashboard({ session }) {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+  }
+
+  if (heroesLoading || resourcesLoading) {
+    return (
+      <div className="dash-initial-loading">
+        <div className="dash-initial-spinner" />
+      </div>
+    )
   }
 
   return (
