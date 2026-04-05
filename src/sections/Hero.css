@@ -1028,6 +1028,16 @@
     padding: 16px;
   }
 
+  /* Stat bars: label más corto, bonus integrado en el valor */
+  .stat-bar-row {
+    grid-template-columns: 14px 68px 1fr 26px 28px;
+    gap: 6px;
+  }
+
+  .stat-bar-label {
+    font-size: 11px;
+  }
+
   .eq-slots-grid,
   .eq-slots-grid--2 {
     grid-template-columns: 1fr;

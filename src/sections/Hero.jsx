@@ -33,11 +33,11 @@ const overlayTransition = { duration: 0.18 }
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
 const STAT_BARS = [
-  { key: 'attack',       label: 'Ataque',      Icon: Sword,    color: '#d97706' },
-  { key: 'defense',      label: 'Defensa',     Icon: Shield,   color: '#475569' },
-  { key: 'strength',     label: 'Fuerza',      Icon: Dumbbell, color: '#dc2626' },
-  { key: 'agility',      label: 'Agilidad',    Icon: Wind,     color: '#2563eb' },
-  { key: 'intelligence', label: 'Inteligencia',Icon: Brain,    color: '#7c3aed' },
+  { key: 'attack',       label: 'Ataque',   Icon: Sword,    color: '#d97706' },
+  { key: 'defense',      label: 'Defensa',  Icon: Shield,   color: '#475569' },
+  { key: 'strength',     label: 'Fuerza',   Icon: Dumbbell, color: '#dc2626' },
+  { key: 'agility',      label: 'Agilidad', Icon: Wind,     color: '#2563eb' },
+  { key: 'intelligence', label: 'Intelig.', Icon: Brain,    color: '#7c3aed' },
 ]
 
 function StatBars({ effective, base }) {
