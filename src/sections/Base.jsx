@@ -123,7 +123,7 @@ function fmtTime(seconds) {
   return `${m}m ${s}s`
 }
 
-function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, nexusData, nexusRatio, featured, anyUpgrading }) {
+function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, nexusData, nexusRatio, featured, anyUpgrading }) {
   const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
 
   // Cuando llegan datos reales del servidor, limpiar el optimista
@@ -155,17 +155,19 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
   const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
-    // Optimistic: mostrar timer y descontar recursos inmediatamente
     const durationMs = building.level * building.level * 10 * 60 * 1000
     setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
     onOptimisticDeduct(cost)
+    onUpgradePending(true)  // bloquea todos los demás botones al instante
 
     try {
       await apiPost('/api/building-upgrade-start', { buildingId: building.id })
+      onUpgradePending(false)
       onUpgradeStart()
     } catch (err) {
       setOptimisticEndsAt(null)
-      onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood }) // revertir
+      onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood })
+      onUpgradePending(false)
       toast.error(err.message)
     }
   }
@@ -388,6 +390,7 @@ function Base() {
   const { buildings, loading } = useBuildings(userId)
   const { resources } = useResources(userId)
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
+  const [upgradePending, setUpgradePending] = useState(false)
 
   // Cuando llegan recursos reales del servidor, resetear el delta
   useEffect(() => { setResourceDelta({ gold: 0, wood: 0 }) }, [resources])
@@ -428,7 +431,7 @@ function Base() {
   })() : null
 
   const nexusRatio = nexusData?.ratio ?? 1
-  const anyUpgrading = (buildings ?? []).some(
+  const anyUpgrading = upgradePending || (buildings ?? []).some(
     b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
   )
 
@@ -466,6 +469,7 @@ function Base() {
                       onUpgradeStart={handleUpgradeStart}
                       onUpgradeCollect={handleUpgradeCollect}
                       onOptimisticDeduct={handleOptimisticDeduct}
+                      onUpgradePending={setUpgradePending}
                       anyUpgrading={anyUpgrading}
                     />
                   )
