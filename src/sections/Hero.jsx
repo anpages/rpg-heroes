@@ -202,7 +202,7 @@ function DurabilityBar({ current, max }) {
 function ModalOverlay({ onClick, children }) {
   return (
     <motion.div
-      className="fixed inset-0 bg-black/55 z-[200] flex overflow-hidden items-end p-0 sm:items-center sm:p-5"
+      className="fixed inset-0 bg-black/55 z-[200] flex overflow-hidden items-end justify-center p-0 sm:items-center sm:p-5"
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
       onClick={onClick}
