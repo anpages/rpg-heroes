@@ -102,13 +102,13 @@ function ProgressStrip({ maxFloor }) {
 
 /* ─── Stat comparison row ────────────────────────────────────────────────────── */
 
-function StatCompareRow({ label, heroVal, enemyVal }) {
+function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
   const heroWins  = heroVal > enemyVal
   const enemyWins = enemyVal > heroVal
   return (
     <div className="grid grid-cols-[1fr_40px_1fr] items-center py-1 rounded-md">
       <span className={`text-[14px] font-bold text-left ${heroWins ? 'text-[var(--blue-600)]' : enemyWins ? 'text-text-3' : 'text-text-2'}`}>
-        {heroVal}
+        {heroDisplay ?? heroVal}
       </span>
       <span className="text-[11px] font-semibold text-text-3 text-center uppercase tracking-[0.05em]">{label}</span>
       <span className={`text-[14px] font-bold text-right ${enemyWins ? 'text-[#dc2626]' : heroWins ? 'text-text-3' : 'text-text-2'}`}>
@@ -221,8 +221,11 @@ export default function Torre() {
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
 
+  const guaranteedKo = estDamage !== null && hpNow <= estDamage
+
+  // HP row usa hpNow (no max) para que la predicción refleje el estado real
   const HERO_STATS = [
-    { label: 'HP',  heroVal: effectiveHero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
+    { label: 'HP',  heroVal: hpNow,                        enemyVal: enemy.max_hp,   heroDisplay: `${hpNow}/${effectiveMaxHp}` },
     { label: 'Atq', heroVal: effectiveHero?.attack   ?? 0, enemyVal: enemy.attack   },
     { label: 'Def', heroVal: effectiveHero?.defense  ?? 0, enemyVal: enemy.defense  },
     { label: 'Fue', heroVal: effectiveHero?.strength ?? 0, enemyVal: enemy.strength },
@@ -291,7 +294,17 @@ export default function Torre() {
         <div className="flex flex-col gap-1">
           {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
         </div>
-        <p className="text-[11px] text-text-3 -mt-1.5">Stats base · el equipo añade bonificaciones en combate</p>
+        <p className="text-[11px] text-text-3 -mt-1.5">HP actual · resto de stats con equipo y cartas</p>
+
+        {/* Advertencia KO asegurado */}
+        {guaranteedKo && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,#dc2626_10%,var(--surface))] border border-[color-mix(in_srgb,#dc2626_30%,var(--border))]">
+            <span className="text-[15px] leading-none">⚠️</span>
+            <p className="text-[12px] font-semibold text-[#dc2626]">
+              Tu HP no aguantará este combate. Espera a regenerar o asume la derrota.
+            </p>
+          </div>
+        )}
 
         {/* Rewards preview */}
         <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
