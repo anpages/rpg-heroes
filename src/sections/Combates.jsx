@@ -24,7 +24,7 @@ export default function Combates() {
       <HeroSelector />
 
       {/* Mode selector */}
-      <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-6 pb-0">
+      <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {MODES.map(m => {
           const active = tab === m.id
           return (
