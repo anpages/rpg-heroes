@@ -10,8 +10,9 @@ import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { Swords, Star, Coins, Sparkles, Trophy, ChevronUp, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CombatReplay } from '../components/CombatReplay'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -113,71 +114,6 @@ function StatCompareRow({ label, heroVal, enemyVal }) {
       <span className={`text-[14px] font-bold text-right ${enemyWins ? 'text-[#dc2626]' : heroWins ? 'text-text-3' : 'text-text-2'}`}>
         {enemyVal}
       </span>
-    </div>
-  )
-}
-
-/* ─── Result banner ──────────────────────────────────────────────────────────── */
-
-function ResultBanner({ result, onClose }) {
-  const { won, floor, rounds, heroHpLeft, heroMaxHp, enemyHpLeft, enemyMaxHp, rewards, knockedOut } = result
-  const heroPct  = Math.max(0, Math.round((heroHpLeft  / heroMaxHp)  * 100))
-  const enemyPct = Math.max(0, Math.round((enemyHpLeft / enemyMaxHp) * 100))
-
-  return (
-    <div className={`relative rounded-xl p-4 border ${won ? 'bg-success-bg border-success-border' : 'bg-error-bg border-error-border'}`}>
-      <button className="btn btn--ghost btn--icon absolute top-3 right-3" onClick={onClose} aria-label="Cerrar">
-        <X size={15} strokeWidth={2} />
-      </button>
-
-      <div className="flex items-center gap-2.5 mb-3 pr-6">
-        <span className="text-[22px] leading-none flex-shrink-0">{won ? '⚔' : '💀'}</span>
-        <div>
-          <p className="text-[14px] font-bold text-text">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
-          <p className="text-[12px] text-text-2 mt-0.5">
-            {rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}
-            {knockedOut && ' · ¡Héroe derribado! Recuperándose.'}
-          </p>
-        </div>
-      </div>
-
-      {/* HP bars */}
-      <div className="flex flex-col gap-1.5 mb-2.5">
-        {[
-          { label: 'Tú', pct: heroPct, val: `${heroHpLeft}/${heroMaxHp}`, fill: 'bg-[var(--blue-500)]' },
-          { label: 'Enemigo', pct: enemyPct, val: `${enemyHpLeft}/${enemyMaxHp}`, fill: won ? 'bg-border-2' : 'bg-[#dc2626]' },
-        ].map(({ label, pct, val, fill }) => (
-          <div key={label} className="flex items-center gap-2">
-            <span className="text-[11px] text-text-3 w-[52px] flex-shrink-0">{label}</span>
-            <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-[width] duration-500 ${fill}`} style={{ width: `${pct}%` }} />
-            </div>
-            <span className="text-[11px] text-text-3 w-[60px] text-right flex-shrink-0">{val}</span>
-          </div>
-        ))}
-      </div>
-
-      {won && rewards && (
-        <div className="flex items-center flex-wrap gap-1.5 pt-2.5 border-t border-success-border">
-          {rewards.milestone && <span className="text-[11px] font-bold text-[#d97706]">★ Hito · ×2</span>}
-          <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
-            <Coins size={12} color="#d97706" /> +{rewards.gold}
-          </span>
-          <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
-            <Sparkles size={12} color="#7c3aed" /> +{rewards.experience} XP
-          </span>
-          {rewards.levelUp && (
-            <span className="flex items-center gap-1 text-[12px] font-semibold text-[#b45309] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
-              ¡Nivel!
-            </span>
-          )}
-          {rewards.drop?.item_catalog && (
-            <span className="flex items-center gap-1 text-[12px] font-semibold text-[#7c3aed] bg-[color-mix(in_srgb,#7c3aed_10%,var(--surface))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] px-2 py-0.5 rounded-full">
-              ⚔ {rewards.drop.item_catalog.name}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -307,18 +243,19 @@ export default function Torre() {
 
       <ProgressStrip maxFloor={maxFloor} />
 
-      <AnimatePresence>
-        {result && (
-          <motion.div
-            initial={{ opacity: 0, y: -12, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-          >
-            <ResultBanner result={result} onClose={() => setResult(null)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {result && (
+        <CombatReplay
+          heroName={hero?.name ?? 'Héroe'}
+          enemyName={enemyName(result.floor)}
+          heroMaxHp={result.heroMaxHp}
+          enemyMaxHp={result.enemyMaxHp}
+          log={result.log ?? []}
+          won={result.won}
+          rewards={result.rewards}
+          knockedOut={result.knockedOut}
+          onClose={() => setResult(null)}
+        />
+      )}
 
       {/* Battle panel */}
       <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">

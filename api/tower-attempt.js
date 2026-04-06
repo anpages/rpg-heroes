@@ -151,6 +151,7 @@ export default async function handler(req, res) {
     won,
     floor: targetFloor,
     rounds: result.rounds,
+    log: result.log,
     heroHpLeft: result.hpLeftA,
     enemyHpLeft: result.hpLeftB,
     heroMaxHp: heroStats.max_hp,
