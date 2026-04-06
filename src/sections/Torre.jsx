@@ -108,7 +108,7 @@ function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
 
   return (
     <div
-      className="grid items-center gap-x-3 px-4 py-2.5 rounded-lg"
+      className="grid items-center gap-x-3 px-3 py-1.5 rounded-lg"
       style={{
         gridTemplateColumns: '1fr 48px 1fr',
         background: heroWins
