@@ -8,7 +8,6 @@ import { apiPost } from '../lib/api'
 import { MISSION_POOL } from '../lib/missionPool.js'
 import { Coins, Sparkles, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
 import { motion } from 'framer-motion'
-import './Misiones.css'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.06 } },
@@ -59,14 +58,17 @@ function MissionCard({ mission }) {
   const def = MISSION_POOL.find(p => p.type === mission.type)
   if (!def) return null
 
-  const pct   = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
-  const label = def.description(mission.target_value)
+  const pct      = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
+  const label    = def.description(mission.target_value)
   const isClaimed = mission.claimed || claimMutation.isSuccess
 
   return (
-    <div className={`mission-card ${isClaimed ? 'mission-card--claimed' : mission.completed ? 'mission-card--completed' : ''}`}>
-      <div className="mission-card-top">
-        <div className="mission-icon-wrap">
+    <div className={`bg-surface border border-border rounded-xl p-4 flex flex-col gap-[0.65rem] shadow-[var(--shadow-sm)] transition-[border-color,background] duration-200
+      ${isClaimed ? 'bg-surface-2 opacity-70' : mission.completed ? 'border-info-border bg-info-bg' : ''}`}>
+
+      {/* Top row */}
+      <div className="flex items-start gap-[0.65rem]">
+        <div className="mt-px flex-shrink-0">
           {isClaimed
             ? <CheckCircle2 size={18} color="#16a34a" strokeWidth={2} />
             : mission.completed
@@ -74,42 +76,47 @@ function MissionCard({ mission }) {
               : <Circle size={18} color="var(--text-3)" strokeWidth={1.5} />
           }
         </div>
-        <div className="mission-info">
-          <div className="mission-name-row">
-            <span className="mission-name">{def.label}</span>
-            <span className="mission-tier" style={{ color: TIER_COLORS[mission.tier] }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[0.85rem] font-bold text-text">{def.label}</span>
+            <span className="text-[0.68rem] font-bold uppercase tracking-[0.04em]" style={{ color: TIER_COLORS[mission.tier] }}>
               {TIER_LABELS[mission.tier]}
             </span>
           </div>
-          <p className="mission-desc">{label}</p>
+          <p className="text-[0.78rem] text-text-2">{label}</p>
         </div>
       </div>
 
+      {/* Progress bar */}
       {!isClaimed && (
-        <div className="mission-progress-wrap">
-          <div className="mission-progress-track">
-            <div className="mission-progress-fill" style={{ width: `${pct}%` }} />
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-[400ms] ease-out ${mission.completed ? 'bg-[#16a34a]' : 'bg-[var(--blue-500)]'}`}
+              style={{ width: `${pct}%` }}
+            />
           </div>
-          <span className="mission-progress-text">{mission.current_value}/{mission.target_value}</span>
+          <span className="text-[0.7rem] text-text-3 whitespace-nowrap">{mission.current_value}/{mission.target_value}</span>
         </div>
       )}
 
-      <div className="mission-card-bottom">
-        <div className="mission-rewards">
+      {/* Bottom row */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-[0.35rem] flex-wrap">
           {mission.reward_gold > 0 && (
-            <span className="mission-reward-chip">
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
               <Coins size={11} color="#d97706" strokeWidth={2} />
               {mission.reward_gold}
             </span>
           )}
           {mission.reward_mana > 0 && (
-            <span className="mission-reward-chip">
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
               <Sparkles size={11} color="#7c3aed" strokeWidth={2} />
               {mission.reward_mana}
             </span>
           )}
           {mission.reward_xp > 0 && (
-            <span className="mission-reward-chip">
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
               <Star size={11} color="#0369a1" strokeWidth={2} />
               {mission.reward_xp} XP
             </span>
@@ -129,7 +136,7 @@ function MissionCard({ mission }) {
           </motion.button>
         )}
         {isClaimed && (
-          <span className="mission-claimed-label">Reclamada</span>
+          <span className="text-[0.72rem] text-text-3 font-medium">Reclamada</span>
         )}
       </div>
     </div>
@@ -146,7 +153,7 @@ function ResetTimer({ seconds }) {
   }, [seconds])
 
   return (
-    <span className="missions-reset-timer">
+    <span className="flex items-center gap-1.5 text-[0.72rem] text-text-3 whitespace-nowrap mt-1">
       <Clock size={12} strokeWidth={2} />
       Resetea en {fmtTime(remaining)}
     </span>
@@ -156,14 +163,14 @@ function ResetTimer({ seconds }) {
 export default function Misiones() {
   const { missions, secondsToReset, loading } = useMissions()
 
-  if (loading) return <div className="missions-loading">Cargando misiones...</div>
+  if (loading) return <div className="p-8 text-text-3 text-center text-[0.9rem]">Cargando misiones...</div>
 
   const allClaimed = missions?.every(m => m.claimed)
 
   return (
-    <div className="misiones-section">
+    <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
-        <div className="missions-header-row">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h2 className="section-title">Misiones del día</h2>
             <p className="section-subtitle">Completa los objetivos diarios para obtener recompensas extra.</p>
@@ -173,14 +180,14 @@ export default function Misiones() {
       </div>
 
       {allClaimed && (
-        <div className="missions-all-done">
+        <div className="flex items-center gap-2.5 px-4 py-[0.9rem] bg-success-bg border border-success-border rounded-xl text-[0.85rem] text-success-text font-medium">
           <CheckCircle2 size={20} color="#16a34a" strokeWidth={2} />
           <p>¡Todas las misiones completadas! Vuelve mañana para nuevos objetivos.</p>
         </div>
       )}
 
       <motion.div
-        className="missions-list"
+        className="flex flex-col gap-3"
         variants={listVariants}
         initial="initial"
         animate="animate"
