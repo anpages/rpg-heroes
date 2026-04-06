@@ -8,7 +8,6 @@ import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
-import './Base.css'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.07 } },
@@ -24,8 +23,6 @@ const BUILDING_META = {
     description: 'Canaliza la energía del mundo para alimentar las estructuras de la base.',
     icon: Zap,
     color: '#0891b2',
-    colorBg: '#ecfeff',
-    colorBorder: '#a5f3fc',
     effect: (level) => `${level * 30} energía`,
     nextEffect: (level) => `${(level + 1) * 30} energía`,
   },
@@ -34,8 +31,6 @@ const BUILDING_META = {
     description: 'Extrae oro de las profundidades de la tierra.',
     icon: Coins,
     color: '#d97706',
-    colorBg: '#fffbeb',
-    colorBorder: '#fde68a',
     effect: (level) => `${2 + (level - 1)} oro/min`,
     nextEffect: (level) => `${2 + level} oro/min`,
   },
@@ -44,8 +39,6 @@ const BUILDING_META = {
     description: 'Procesa la madera del bosque cercano.',
     icon: Axe,
     color: '#16a34a',
-    colorBg: '#f0fdf4',
-    colorBorder: '#bbf7d0',
     effect: (level) => `${1 + (level - 1)} madera/min`,
     nextEffect: (level) => `${1 + level} madera/min`,
   },
@@ -54,8 +47,6 @@ const BUILDING_META = {
     description: 'Canaliza energía arcana desde las líneas ley.',
     icon: Sparkles,
     color: '#7c3aed',
-    colorBg: '#f5f3ff',
-    colorBorder: '#ddd6fe',
     effect: (level) => `${1 + (level - 1)} maná/min`,
     nextEffect: (level) => `${1 + level} maná/min`,
   },
@@ -64,8 +55,6 @@ const BUILDING_META = {
     description: 'Forja los atributos fundamentales de tu héroe, ampliando su potencial para equipar cartas de habilidad.',
     icon: Swords,
     color: '#dc2626',
-    colorBg: '#fef2f2',
-    colorBorder: '#fecaca',
     effect: (level) => level === 1 ? 'Sin bonificación' : `+${(level - 1) * 2} fue · +${(level - 1) * 2} agi · +${(level - 1) * 2} int`,
     nextEffect: (level) => `+${level * 2} fue · +${level * 2} agi · +${level * 2} int`,
   },
@@ -74,8 +63,6 @@ const BUILDING_META = {
     description: 'Mejora el botín de las expediciones y amplía la capacidad de la mochila.',
     icon: Wrench,
     color: '#0369a1',
-    colorBg: '#f0f9ff',
-    colorBorder: '#bae6fd',
     effect: (level) => level === 1
       ? '20 espacios de mochila'
       : `+${(level - 1) * 5}% botín · ${20 + (level - 1) * 5} espacios`,
@@ -86,8 +73,6 @@ const BUILDING_META = {
     description: 'Repara el equipo dañado. Mayor nivel reduce el coste de reparación.',
     icon: Hammer,
     color: '#b45309',
-    colorBg: '#fffbeb',
-    colorBorder: '#fde68a',
     effect: (level) => level === 1 ? 'Sin descuento' : `-${(level - 1) * 5}% coste de reparación`,
     nextEffect: (level) => `-${level * 5}% coste de reparación`,
   },
@@ -96,8 +81,6 @@ const BUILDING_META = {
     description: 'Custodia las cartas de habilidad. Cada nivel amplía el mazo que puedes equipar.',
     icon: BookOpen,
     color: '#0f766e',
-    colorBg: '#f0fdfa',
-    colorBorder: '#99f6e4',
     effect: (level) => `${1 + level * 2} cartas equipables`,
     nextEffect: (level) => `${1 + (level + 1) * 2} cartas equipables`,
   },
@@ -126,7 +109,6 @@ function fmtTime(seconds) {
 function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, nexusData, nexusRatio, featured, anyUpgrading }) {
   const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
 
-  // Cuando llegan datos reales del servidor, limpiar el optimista
   useEffect(() => {
     if (building.upgrade_ends_at) setOptimisticEndsAt(null)
   }, [building.upgrade_ends_at])
@@ -158,7 +140,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
     const durationMs = building.level * building.level * 10 * 60 * 1000
     setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
     onOptimisticDeduct(cost)
-    onUpgradePending(true)  // bloquea todos los demás botones al instante
+    onUpgradePending(true)
 
     try {
       await apiPost('/api/building-upgrade-start', { buildingId: building.id })
@@ -174,70 +156,81 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
   return (
     <div
-      className={`building-card ${featured ? 'building-card--featured' : ''}`}
+      className={`bc-accent flex flex-col gap-3.5 rounded-xl p-5 h-full transition-[box-shadow,border-color] duration-200
+        ${featured
+          ? 'border border-[var(--accent-border)] bg-[linear-gradient(180deg,var(--accent-bg)_0%,var(--surface)_55%)] shadow-[0_0_0_1px_var(--accent-border),var(--shadow-sm)] hover:shadow-[0_0_0_1px_var(--accent-border),var(--shadow-md)]'
+          : 'bg-surface border border-border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--accent-border)]'
+        }`}
       style={{ '--accent': meta.color }}
     >
-      <div className="building-card-top">
-        <div className="building-icon-wrap">
+      {/* Top */}
+      <div className="flex gap-3.5 items-start flex-1">
+        <div className={`w-12 h-12 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0${featured ? ' animate-nexo-pulse' : ''}`}>
           <Icon size={24} strokeWidth={1.8} color={meta.color} />
         </div>
-        <div className="building-info">
-          <div className="building-name-row">
-            <h3 className="building-name">{meta.name}</h3>
-            <span className="building-level">Nv. {level}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <h3 className="text-[15px] font-bold text-text leading-[1.2]">{meta.name}</h3>
+            <span className="text-[13px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[6px] px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+              Nv. {level}
+            </span>
           </div>
-          <p className="building-desc">{meta.description}</p>
-          <p className="building-effect">
+          <p className="text-[13px] text-text-3 leading-[1.5] mb-1.5 line-clamp-3">{meta.description}</p>
+          <p className="text-[13px] font-semibold text-[var(--accent)]">
             {meta.effect(level)}
-            {!hasUpgrade && <span className="building-effect-next"> → {meta.nextEffect(level)}</span>}
+            {!hasUpgrade && <span className="font-medium text-text-3"> → {meta.nextEffect(level)}</span>}
           </p>
           {nexusRatio !== undefined && nexusRatio < 1 && (
-            <p className="building-nexus-penalty">
+            <p className="text-[12px] font-semibold text-[#d97706] -mt-1">
               ⚡ Energía insuficiente · tasa real reducida al {Math.round(nexusRatio * 100)}%
             </p>
           )}
         </div>
       </div>
 
+      {/* Nexus panel */}
       {nexusData && (
-        <div className="nexus-panel">
-          <div className="nexus-metrics">
-            <div className="nexus-metric">
-              <span className="nexus-metric-val">{nexusData.produced}</span>
-              <span className="nexus-metric-lbl">Producción</span>
+        <div className="flex flex-col gap-2.5 pt-3.5 border-t border-border">
+          <div className="grid grid-cols-3">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[20px] font-bold leading-none text-[var(--accent)]">{nexusData.produced}</span>
+              <span className="text-[11px] font-medium text-text-3 uppercase tracking-[0.06em]">Producción</span>
             </div>
-            <div className="nexus-metric">
-              <span className="nexus-metric-val">{nexusData.consumed}</span>
-              <span className="nexus-metric-lbl">Consumo</span>
+            <div className="flex flex-col items-center gap-0.5 border-x border-border">
+              <span className="text-[20px] font-bold leading-none text-[var(--accent)]">{nexusData.consumed}</span>
+              <span className="text-[11px] font-medium text-text-3 uppercase tracking-[0.06em]">Consumo</span>
             </div>
-            <div className={`nexus-metric nexus-metric--balance ${nexusData.deficit ? 'nexus-metric--deficit' : ''}`}>
-              <span className="nexus-metric-val">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className={`text-[20px] font-bold leading-none ${nexusData.deficit ? 'text-error-text' : 'text-success-text'}`}>
                 {nexusData.deficit ? `−${Math.abs(nexusData.balance)}` : `+${nexusData.balance}`}
               </span>
-              <span className="nexus-metric-lbl">{nexusData.deficit ? `${nexusData.efficiency}% efic.` : 'Excedente'}</span>
+              <span className={`text-[11px] font-medium uppercase tracking-[0.06em] ${nexusData.deficit ? 'text-error-text opacity-70' : 'text-text-3'}`}>
+                {nexusData.deficit ? `${nexusData.efficiency}% efic.` : 'Excedente'}
+              </span>
             </div>
           </div>
-          <div className="nexus-bar-track">
+          <div className="h-1 bg-border rounded-full overflow-hidden">
             <div
-              className={`nexus-bar-fill ${nexusData.deficit ? 'nexus-bar-fill--deficit' : ''}`}
+              className={`h-full rounded-full transition-[width] duration-[400ms] ${nexusData.deficit ? 'bg-error-text' : 'bg-[var(--accent)]'}`}
               style={{ width: `${nexusData.barPct}%` }}
             />
           </div>
         </div>
       )}
 
+      {/* Upgrade progress */}
       {hasUpgrade && (
-        <div className="building-upgrade-progress">
-          <div className="building-upgrade-meta">
-            <span className="building-upgrade-label">→ Nv. {level + 1}</span>
-            <span className="building-upgrade-timer">
+        <div className="flex flex-col gap-2 pt-3 border-t border-border mt-auto">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold text-[var(--accent)]">→ Nv. {level + 1}</span>
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3 whitespace-nowrap flex-shrink-0">
               <Clock size={12} strokeWidth={2} />
               {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
             </span>
           </div>
-          <div className="building-upgrade-track">
+          <div className="h-1 bg-border rounded-full overflow-hidden">
             <div
-              className="building-upgrade-fill"
+              className="h-full bg-[var(--accent)] rounded-full"
               style={{
                 width: `${pct}%`,
                 transition: mountedRef.current ? 'width 1s linear' : 'none',
@@ -247,20 +240,21 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         </div>
       )}
 
+      {/* Bottom — costs + button */}
       {!hasUpgrade && (
-        <div className="building-card-bottom">
-          <div className="building-costs">
-            <span className={`building-cost ${resources?.gold >= cost.gold ? 'building-cost--ok' : 'building-cost--short'}`}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-3 border-t border-border mt-auto">
+          <div className="flex gap-1.5 flex-wrap">
+            <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.gold >= cost.gold ? 'text-success-text' : 'text-error-text'}`}>
               <Coins size={12} strokeWidth={2} />
               {fmt(cost.gold)}
             </span>
-            <span className={`building-cost ${resources?.wood >= cost.wood ? 'building-cost--ok' : 'building-cost--short'}`}>
+            <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
               <Axe size={12} strokeWidth={2} />
               {fmt(cost.wood)}
             </span>
           </div>
           <motion.button
-            className="btn btn--primary btn--sm"
+            className="btn btn--primary btn--sm sm:w-auto w-full justify-center"
             onClick={handleUpgradeStart}
             disabled={!canAfford || blockedByOther}
             title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
@@ -272,13 +266,11 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
           </motion.button>
         </div>
       )}
-
     </div>
   )
 }
 
 
-// Requisitos de desbloqueo para mostrar en la UI
 const UNLOCK_REQUIREMENTS = {
   workshop:    { name: 'Cuartel',     level: 2 },
   lumber_mill: { name: 'Nexo Arcano', level: 2 },
@@ -293,20 +285,23 @@ function LockedBuildingCard({ type }) {
   if (!meta || !req) return null
   const Icon = meta.icon
   return (
-    <div className="building-card building-card--locked" style={{ '--accent': meta.color }}>
-      <div className="building-card-top">
-        <div className="building-icon-wrap">
+    <div
+      className="bc-accent flex flex-col gap-3.5 rounded-xl p-5 bg-surface border border-border shadow-[var(--shadow-sm)] h-full opacity-50 pointer-events-none"
+      style={{ '--accent': meta.color }}
+    >
+      <div className="flex gap-3.5 items-start flex-1">
+        <div className="w-12 h-12 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
           <Icon size={24} strokeWidth={1.8} color={meta.color} />
         </div>
-        <div className="building-info">
-          <div className="building-name-row">
-            <h3 className="building-name">{meta.name}</h3>
-            <Lock size={14} strokeWidth={2.5} className="building-lock-icon" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <h3 className="text-[15px] font-bold text-text leading-[1.2]">{meta.name}</h3>
+            <Lock size={14} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
           </div>
-          <p className="building-desc">{meta.description}</p>
+          <p className="text-[13px] text-text-3 leading-[1.5] line-clamp-3">{meta.description}</p>
         </div>
       </div>
-      <div className="building-lock-req">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 pt-3 border-t border-border mt-auto">
         <Lock size={11} strokeWidth={2.5} />
         Requiere {req.name} Nv.{req.level}
       </div>
@@ -336,6 +331,12 @@ const BUILDING_GROUPS = [
     grid:  'four',
   },
 ]
+
+const GRID_CLASS = {
+  single: 'grid grid-cols-1',
+  three:  'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch',
+  four:   'grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-stretch',
+}
 
 function useUpgradeTimer(building, onUpgradeCollect) {
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -392,7 +393,6 @@ function Base() {
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
 
-  // Cuando llegan recursos reales del servidor, resetear el delta
   useEffect(() => { setResourceDelta({ gold: 0, wood: 0 }) }, [resources])
 
   const effectiveResources = resources
@@ -412,7 +412,9 @@ function Base() {
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
   }
 
-  if (loading) return <div className="base-loading">Cargando base...</div>
+  if (loading) return (
+    <div className="text-text-3 text-[15px] p-10 text-center">Cargando base...</div>
+  )
 
   const byType = Object.fromEntries((buildings ?? []).map(b => [b.type, b]))
   const nexus = byType['energy_nexus']
@@ -420,7 +422,6 @@ function Base() {
   const nexusData = nexus ? (() => {
     const allBuildings = Object.values(byType)
     const produced = nexus.level * 30
-    // Solo edificios desbloqueados consumen energía
     const consumed = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type) && b.unlocked !== false).reduce((s, b) => s + b.level * 10, 0)
     const balance = produced - consumed
     const deficit = balance < 0
@@ -436,14 +437,14 @@ function Base() {
   )
 
   return (
-    <div className="base-section">
+    <div className="flex flex-col gap-6 max-w-[960px] mx-auto">
       <div className="section-header">
         <h2 className="section-title">Base</h2>
         <p className="section-subtitle">Mejora tus edificios para aumentar la producción de recursos y las capacidades de tu héroe.</p>
       </div>
 
       <motion.div
-        className="base-groups"
+        className="flex flex-col gap-8"
         variants={listVariants}
         initial="initial"
         animate="animate"
@@ -452,9 +453,9 @@ function Base() {
           const groupBuildings = group.types.map(t => byType[t]).filter(Boolean)
           if (!groupBuildings.length) return null
           return (
-            <motion.div key={group.id} className="base-group" variants={cardVariants}>
-              <p className="base-group-label">{group.label}</p>
-              <div className={`base-group-grid base-group-grid--${group.grid}`}>
+            <motion.div key={group.id} className="flex flex-col gap-3" variants={cardVariants}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">{group.label}</p>
+              <div className={GRID_CLASS[group.grid]}>
                 {groupBuildings.map(b =>
                   b.unlocked === false ? (
                     <LockedBuildingCard key={b.id} type={b.type} />

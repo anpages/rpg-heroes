@@ -50,10 +50,15 @@
   0%, 100% { opacity: 1;    }
   50%       { opacity: 0.45; }
 }
+@keyframes nexo-pulse {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.6; }
+}
 @theme {
   --animate-pulse-dot:        pulse-dot 1.6s ease-in-out infinite;
   --animate-install-slide-up: install-slide-up 0.3s ease;
   --animate-skeleton-pulse:   skeleton-pulse 1.6s ease-in-out infinite;
+  --animate-nexo-pulse:       nexo-pulse 2.5s ease-in-out infinite;
 }
 
 @layer base {
@@ -290,6 +295,16 @@ h1, h2, h3 {
   color: var(--text);
   line-height: 1;
   letter-spacing: 0.04em;
+}
+
+/* ── Building card accent variables (light / dark) ───────────────────────── */
+.bc-accent {
+  --accent-bg:     color-mix(in srgb, var(--accent) 9%, white);
+  --accent-border: color-mix(in srgb, var(--accent) 22%, #e2e8f0);
+}
+[data-theme="dark"] .bc-accent {
+  --accent-bg:     color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
 .workshop-bonus-badge {
