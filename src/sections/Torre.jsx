@@ -245,14 +245,6 @@ export default function Torre() {
     { label: 'Agi', heroVal: effectiveHero?.agility  ?? 0, enemyVal: enemy.agility  },
   ]
 
-  const heroAdvantages = HERO_STATS.filter(s => s.heroVal > s.enemyVal).length
-  const predictionClass = heroAdvantages >= 3
-    ? 'text-[#15803d] bg-[color-mix(in_srgb,#16a34a_12%,var(--surface))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))]'
-    : heroAdvantages >= 2
-      ? 'text-[#b45309] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))]'
-      : 'text-[#dc2626] bg-[color-mix(in_srgb,#dc2626_10%,var(--surface))] border border-[color-mix(in_srgb,#dc2626_22%,var(--border))]'
-  const predictionLabel = heroAdvantages >= 3 ? 'Favorable' : heroAdvantages >= 2 ? 'Ajustado' : 'Difícil'
-
   return (
     <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
@@ -284,16 +276,11 @@ export default function Torre() {
             <ChevronUp size={13} strokeWidth={2.5} />
             Piso {targetFloor}
           </div>
-          <div className="flex items-center gap-1.5">
-            {rewards.milestone && (
-              <span className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
-                <Star size={10} strokeWidth={2} /> Hito
-              </span>
-            )}
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full tracking-[0.03em] ${predictionClass}`}>
-              {predictionLabel}
+          {rewards.milestone && (
+            <span className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
+              <Star size={10} strokeWidth={2} /> Hito
             </span>
-          </div>
+          )}
         </div>
 
         {/* Combatants + stat headers fusionados */}
