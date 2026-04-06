@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -72,7 +72,6 @@ export default async function handler(req, res) {
   const won = result.winner === 'a'
 
   // Registrar intento con log completo para replay
-  const { data: heroRow } = await supabase.from('heroes').select('name').eq('id', hero.id).single()
   await supabase.from('tower_attempts').insert({
     hero_id:       hero.id,
     floor:         targetFloor,
@@ -81,7 +80,7 @@ export default async function handler(req, res) {
     hero_hp_left:  result.hpLeftA,
     enemy_hp_left: result.hpLeftB,
     log:           result.log,
-    hero_name:     heroRow?.name ?? null,
+    hero_name:     hero.name,
     enemy_name:    `Piso ${targetFloor}`,
     hero_max_hp:   heroStats.max_hp,
     enemy_max_hp:  enemyStats.max_hp,
