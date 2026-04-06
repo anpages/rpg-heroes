@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { useAppStore } from '../store/appStore'
+import { useHeroId } from '../hooks/useHeroId'
+import { useResources } from '../hooks/useResources'
+import { useHero } from '../hooks/useHero'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
 import {
@@ -131,11 +136,17 @@ function ShopItem({ item, gold, onBuy, buying }) {
   )
 }
 
-export default function Shop({ userId, heroId, heroName, gold, onResourceChange }) {
+export default function Shop() {
+  const userId      = useAppStore(s => s.userId)
+  const heroId      = useHeroId()
   const queryClient = useQueryClient()
-  const shopKey = ['shop', heroId]
-  const [toast, setToast]       = useState(null)
+  const shopKey     = ['shop', heroId]
+  const { hero }    = useHero(heroId)
+  const { resources } = useResources(userId)
+  const heroName    = hero?.name
+  const gold        = resources?.gold
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
+  const [localToast, setLocalToast] = useState(null)
 
   useEffect(() => {
     const t = setInterval(() => setRenewsIn(timeUntilMidnight()), 60000)
@@ -169,19 +180,18 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
     },
     onError: (err, item, context) => {
       queryClient.setQueryData(shopKey, context.previous)
-      showToast(err.message, 'err')
+      toast.error(err.message)
     },
     onSuccess: (data, item) => {
-      showToast(`${item.name} añadido al inventario`, 'ok')
+      toast.success(`${item.name} añadido al inventario`)
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      onResourceChange?.()
     },
   })
 
   function showToast(msg, type) {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3500)
+    setLocalToast({ msg, type })
+    setTimeout(() => setLocalToast(null), 3500)
   }
 
   if (!heroId) return (
@@ -234,14 +244,14 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
       )}
 
       <AnimatePresence>
-        {toast && (
+        {localToast && (
           <motion.div
-            className={`shop-toast shop-toast--${toast.type}`}
+            className={`shop-toast shop-toast--${localToast.type}`}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
           >
-            {toast.msg}
+            {localToast.msg}
           </motion.div>
         )}
       </AnimatePresence>

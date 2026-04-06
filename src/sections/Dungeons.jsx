@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useAppStore } from '../store/appStore'
+import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
+import { useBuildings } from '../hooks/useBuildings'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -217,11 +220,15 @@ function interpolateHp(hero, nowMs) {
   return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
 }
 
-function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpeditionStart, workshopLevel = 1 }) {
+function Dungeons() {
+  const userId      = useAppStore(s => s.userId)
+  const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
+  const { buildings } = useBuildings(userId)
+  const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
   const [reward, setReward] = useState(null)
   const [startError, setStartError] = useState(null)
   const [tick, setTick] = useState(0)
@@ -252,8 +259,7 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
       queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      onExpeditionStart?.()
-      onHeroChange?.()
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     } catch (err) {
       setExpedition(null) // revertir
       setStartError(err.message)
@@ -266,8 +272,6 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-    onResourceChange?.()
-    onHeroChange?.()
     setTimeout(() => setReward(null), 6000)
   }
 

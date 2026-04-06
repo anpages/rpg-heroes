@@ -2,17 +2,19 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useResources } from '../hooks/useResources'
 import { useMissions } from '../hooks/useMissions'
+import { useHeroes } from '../hooks/useHeroes'
+import { useBuildings } from '../hooks/useBuildings'
+import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
+import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { useHeroes } from '../hooks/useHeroes'
-import { useBuildings } from '../hooks/useBuildings'
 import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import './Dashboard.css'
@@ -249,24 +251,28 @@ function SectionPlaceholder({ title }) {
 }
 
 function Dashboard({ session }) {
-  const [activeSection, setActiveSection] = useState('heroe')
-  const [mountedSections, setMountedSections] = useState(() => new Set(['heroe']))
-  const [missionsOpen, setMissionsOpen] = useState(false)
-  const { resources, loading: resourcesLoading, refetch: refetchResources } = useResources(session.user.id)
-  const { theme, setTheme } = useTheme()
-  const { heroes, loading: heroesLoading, refetch: refetchHeroes } = useHeroes(session.user.id)
-  const { missions: missionsList, refetch: refetchMissions } = useMissions()
-  const [selectedHeroId, setSelectedHeroId] = useState(null)
-  const [heroRefreshKey, setHeroRefreshKey] = useState(0)
-  function notifyHeroChanged() { setHeroRefreshKey(k => k + 1); refetchHeroes() }
+  // ── Store ──────────────────────────────────────────────────────────────────
+  const activeSection    = useAppStore(s => s.activeSection)
+  const mountedSections  = useAppStore(s => s.mountedSections)
+  const navigateTo       = useAppStore(s => s.navigateTo)
+  const missionsOpen     = useAppStore(s => s.missionsOpen)
+  const setMissionsOpen  = useAppStore(s => s.setMissionsOpen)
+  const recruitOpen      = useAppStore(s => s.recruitOpen)
+  const setRecruitOpen   = useAppStore(s => s.setRecruitOpen)
+  const selectedHeroId   = useAppStore(s => s.selectedHeroId)
+  const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
 
-  const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
+  // ── Datos del servidor (para header + hero rail + badges) ──────────────────
+  const { resources }              = useResources(session.user.id)
+  const { heroes, loading: heroesLoading } = useHeroes(session.user.id)
+  const { missions: missionsList } = useMissions()
+  const { buildings }              = useBuildings(session.user.id)
+  const { theme, setTheme }        = useTheme()
+
+  const heroId      = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null
 
-  const { buildings, refetch: refetchBuildings } = useBuildings(session.user.id)
-
   const [recruitClasses, setRecruitClasses] = useState(null)
-  const [recruitOpen, setRecruitOpen]       = useState(false)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -274,17 +280,15 @@ function Dashboard({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  const heroExploringReady      = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
-  const heroExploringInProgress = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
+  const heroExploringReady        = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
+  const heroExploringInProgress   = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
   const buildingUpgradingReady    = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
-  const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
-  const barrackLevel  = buildings?.find(b => b.type === 'barracks')?.level  ?? 1
+  const barrackLevel = buildings?.find(b => b.type === 'barracks')?.level ?? 1
 
-  // Siguiente slot disponible para reclutar (extensible: añadir más al array)
-  const usedSlots = heroes.map(h => h.slot ?? 1)
+  const usedSlots       = heroes.map(h => h.slot ?? 1)
   const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
+  const canRecruit      = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
 
   async function openRecruit() {
     if (!recruitClasses) {
@@ -294,13 +298,11 @@ function Dashboard({ session }) {
     setRecruitOpen(true)
   }
 
-  const missionsDone  = missionsList?.filter(m => m.claimed).length ?? 0
-  const missionsTotal = missionsList?.length ?? 0
+  const missionsDone      = missionsList?.filter(m => m.claimed).length ?? 0
+  const missionsTotal     = missionsList?.length ?? 0
   const missionsClaimable = missionsList?.filter(m => m.completed && !m.claimed).length ?? 0
-  const allMissionsDone = missionsTotal > 0 && missionsDone === missionsTotal
-  const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
-
-  function handleMissionsClaim() { refetchMissions(); refetchResources() }
+  const allMissionsDone   = missionsTotal > 0 && missionsDone === missionsTotal
+  const isMobileDrawer    = typeof window !== 'undefined' && window.innerWidth <= 600
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -400,7 +402,7 @@ function Dashboard({ session }) {
                 <button
                   key={id}
                   className={`dash-nav-item ${activeSection === id ? 'dash-nav-item--active' : ''}`}
-                  onClick={() => { setActiveSection(id); setMountedSections(s => new Set([...s, id])) }}
+                  onClick={() => navigateTo(id)}
                 >
                   {activeSection === id && (
                     <motion.span
@@ -443,19 +445,19 @@ function Dashboard({ session }) {
         {/* Main content — secciones persistentes: se montan la primera vez y se ocultan con CSS */}
         <main className="dash-main">
           <div className={`dash-section ${activeSection === 'heroe' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('heroe') && <Hero userId={session.user.id} heroId={heroId} refreshKey={heroRefreshKey} />}
+            {mountedSections.has('heroe') && <ErrorBoundary><Hero /></ErrorBoundary>}
           </div>
           <div className={`dash-section ${activeSection === 'base' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('base') && <Base userId={session.user.id} resources={resources} onResourceChange={refetchResources} onBuildingChange={refetchBuildings} />}
+            {mountedSections.has('base') && <ErrorBoundary><Base /></ErrorBoundary>}
           </div>
           <div className={`dash-section ${activeSection === 'mazmorras' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('mazmorras') && <Dungeons userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={notifyHeroChanged} workshopLevel={workshopLevel} onExpeditionStart={refetchHeroes} />}
+            {mountedSections.has('mazmorras') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
           </div>
           <div className={`dash-section ${activeSection === 'combates' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('combates') && <Combates userId={session.user.id} heroId={heroId} onResourceChange={refetchResources} onHeroChange={notifyHeroChanged} />}
+            {mountedSections.has('combates') && <ErrorBoundary><Combates /></ErrorBoundary>}
           </div>
           <div className={`dash-section ${activeSection === 'tienda' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('tienda') && <Shop userId={session.user.id} heroId={heroId} heroName={selectedHero?.name} gold={resources?.gold} onResourceChange={refetchResources} />}
+            {mountedSections.has('tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
           </div>
           {import.meta.env.DEV && (
             <>
@@ -517,7 +519,7 @@ function Dashboard({ session }) {
                 <X size={18} strokeWidth={2} />
               </button>
               <div className="missions-drawer-body">
-                <Misiones onResourceChange={handleMissionsClaim} />
+                <Misiones />
               </div>
             </motion.div>
           </>
@@ -527,7 +529,7 @@ function Dashboard({ session }) {
       {recruitOpen && recruitClasses && (
         <RecruitModal
           classes={recruitClasses}
-          onRecruit={() => { refetchHeroes(); setRecruitOpen(false) }}
+          onRecruit={() => setRecruitOpen(false)}
           onClose={() => setRecruitOpen(false)}
         />
       )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { useAppStore } from './store/appStore'
 import LoginPage from './pages/LoginPage'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
@@ -25,15 +26,18 @@ function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [playerExists, setPlayerExists] = useState(null)
+  const setUserId = useAppStore(s => s.setUserId)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      setUserId(session?.user?.id ?? null)
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      setUserId(session?.user?.id ?? null)
       if (!session) setPlayerExists(null)
     })
 

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { useAppStore } from '../store/appStore'
+import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
@@ -176,12 +179,13 @@ function interpolateHp(hero, nowMs) {
   return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
 }
 
-export default function Torre({ userId, heroId, onResourceChange, onHeroChange }) {
+export default function Torre() {
+  const userId      = useAppStore(s => s.userId)
+  const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
   const [result, setResult] = useState(null)
-  const [error, setError]   = useState(null)
   const [tick, setTick]     = useState(0)
 
   useEffect(() => {
@@ -204,16 +208,12 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
       setResult(data)
-      if (data.won) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-        onResourceChange?.()
-      }
+      if (data.won) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => toast.error(err.message),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
-      onHeroChange?.()
     },
   })
 
@@ -289,8 +289,6 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
           {rewards.milestone && <span className="tower-reward-preview-item tower-reward-preview-item--ms">×2 recompensas</span>}
         </div>
 
-        {error && <p className="tower-error">{error}</p>}
-
         <div className="tower-hp-row">
           <div className={`tower-hp-bar-track ${!hasEnoughHp ? 'tower-hp-bar-track--low' : ''}`}>
             <div className="tower-hp-bar-fill" style={{ width: `${Math.round((hpNow / (hero?.max_hp ?? 1)) * 100)}%` }} />
@@ -306,7 +304,7 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"
-          onClick={() => { setError(null); setResult(null); attemptMutation.mutate() }}
+          onClick={() => { setResult(null); attemptMutation.mutate() }}
           disabled={attemptMutation.isPending || isBusy || !hasEnoughHp}
           whileTap={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
           whileHover={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}

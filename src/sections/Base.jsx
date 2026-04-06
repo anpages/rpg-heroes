@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useAppStore } from '../store/appStore'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useBuildings } from '../hooks/useBuildings'
+import { useResources } from '../hooks/useResources'
 import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import './Base.css'
@@ -384,9 +386,11 @@ function useUpgradeTimer(building, onUpgradeCollect) {
 }
 
 
-function Base({ userId, resources, onResourceChange, onBuildingChange }) {
+function Base() {
+  const userId      = useAppStore(s => s.userId)
   const queryClient = useQueryClient()
   const { buildings, loading } = useBuildings(userId)
+  const { resources } = useResources(userId)
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
 
   // Cuando llegan recursos reales del servidor, resetear el delta
@@ -403,12 +407,10 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
   function handleUpgradeStart() {
     queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-    onResourceChange?.(); onBuildingChange?.()
   }
   function handleUpgradeCollect() {
     queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-    onResourceChange?.(); onBuildingChange?.()
   }
 
   if (loading) return <div className="base-loading">Cargando base...</div>

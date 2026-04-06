@@ -1,4 +1,5 @@
 import { useRanking } from '../hooks/useRanking'
+import { useAppStore } from '../store/appStore'
 import { Trophy, Medal } from 'lucide-react'
 import './Ranking.css'
 
@@ -10,7 +11,8 @@ function PositionBadge({ position }) {
   return <span className="position-number">{position}</span>
 }
 
-function Ranking({ userId }) {
+function Ranking() {
+  const userId = useAppStore(s => s.userId)
   const { ranking, loading } = useRanking()
 
   if (loading) return <div className="ranking-loading">Cargando clasificación...</div>

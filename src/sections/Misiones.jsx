@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { useAppStore } from '../store/appStore'
 import { useMissions } from '../hooks/useMissions'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import { MISSION_POOL } from '../lib/missionPool.js'
 import { Coins, Sparkles, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -24,33 +28,39 @@ function fmtTime(seconds) {
   return `${m}m`
 }
 
-function MissionCard({ mission, onClaim }) {
-  const [claiming, setClaiming]               = useState(false)
-  const [optimisticClaimed, setOptimisticClaimed] = useState(false)
+function MissionCard({ mission }) {
+  const userId      = useAppStore(s => s.userId)
+  const queryClient = useQueryClient()
   const def = MISSION_POOL.find(p => p.type === mission.type)
   if (!def) return null
 
-  const isClaimed = mission.claimed || optimisticClaimed
-  const pct = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
+  const pct   = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
   const label = def.description(mission.target_value)
 
-  async function handleClaim() {
-    setClaiming(true)
-    setOptimisticClaimed(true)
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/missions-claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ missionId: mission.id }),
-    })
-    if (res.ok) {
-      onClaim()
-    } else {
-      setOptimisticClaimed(false)
-    }
-    setClaiming(false)
-  }
+  const claimMutation = useMutation({
+    mutationFn: () => apiPost('/api/missions-claim', { missionId: mission.id }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['missions', 'me'] })
+      const previous = queryClient.getQueryData(['missions', 'me'])
+      queryClient.setQueryData(['missions', 'me'], (old) => old
+        ? { ...old, missions: old.missions.map(m => m.id === mission.id ? { ...m, claimed: true } : m) }
+        : old
+      )
+      return { previous }
+    },
+    onError: (err, _, context) => {
+      queryClient.setQueryData(['missions', 'me'], context.previous)
+      toast.error(err.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['missions', 'me'] })
+    },
+  })
+
+  const isClaimed = mission.claimed || claimMutation.isSuccess
 
   return (
     <div className={`mission-card ${isClaimed ? 'mission-card--claimed' : mission.completed ? 'mission-card--completed' : ''}`}>
@@ -108,13 +118,13 @@ function MissionCard({ mission, onClaim }) {
         {mission.completed && !isClaimed && (
           <motion.button
             className="btn btn--primary btn--sm"
-            onClick={handleClaim}
-            disabled={claiming}
+            onClick={() => claimMutation.mutate()}
+            disabled={claimMutation.isPending}
             whileTap={{ scale: 0.96 }}
             whileHover={{ scale: 1.02 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
-            {claiming ? 'Reclamando...' : 'Reclamar'}
+            {claimMutation.isPending ? 'Reclamando...' : 'Reclamar'}
           </motion.button>
         )}
         {isClaimed && (
@@ -142,8 +152,8 @@ function ResetTimer({ seconds }) {
   )
 }
 
-export default function Misiones({ onResourceChange }) {
-  const { missions, secondsToReset, loading, refetch } = useMissions()
+export default function Misiones() {
+  const { missions, secondsToReset, loading } = useMissions()
 
   if (loading) return <div className="missions-loading">Cargando misiones...</div>
 
@@ -176,7 +186,7 @@ export default function Misiones({ onResourceChange }) {
       >
         {missions?.map(m => (
           <motion.div key={m.id} variants={cardVariants}>
-            <MissionCard mission={m} onClaim={() => { refetch(); onResourceChange?.() }} />
+            <MissionCard mission={m} />
           </motion.div>
         ))}
       </motion.div>

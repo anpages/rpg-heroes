@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
+import { useAppStore } from '../store/appStore'
+import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
+import { useBuildings } from '../hooks/useBuildings'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
@@ -779,12 +783,14 @@ function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
   return Math.min(maxHp, Math.floor(hero.current_hp + regen))
 }
 
-function Hero({ userId, heroId, refreshKey }) {
+function Hero() {
+  const userId      = useAppStore(s => s.userId)
+  const heroId      = useHeroId()
   const queryClient = useQueryClient()
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
+  const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
-  const [error, setError] = useState(null)
+  const { buildings } = useBuildings(userId)
   const [bagOpen, setBagOpen] = useState(false)
   const [slotPicker, setSlotPicker] = useState(null)
   const [cardPickerOpen, setCardPickerOpen] = useState(false)
@@ -809,7 +815,7 @@ function Hero({ userId, heroId, refreshKey }) {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKeys.inventory(hero?.id), context.previous)
       }
-      setError(err.message)
+      toast.error(err.message)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(hero?.id) })
@@ -832,7 +838,7 @@ function Hero({ userId, heroId, refreshKey }) {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKeys.heroCards(hero?.id), context.previous)
       }
-      setError(err.message)
+      toast.error(err.message)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(hero?.id) })
@@ -847,25 +853,14 @@ function Hero({ userId, heroId, refreshKey }) {
     return () => clearInterval(id)
   }, [])
 
-  // Refetch cuando otra sección cambia el HP (torre, mazmorras)
+  // Derivar workshop/library level de la caché de buildings
   useEffect(() => {
-    if (refreshKey) refetchHero()
-  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!userId) return
-    supabase
-      .from('buildings')
-      .select('type, level')
-      .eq('player_id', userId)
-      .in('type', ['workshop', 'library'])
-      .then(({ data }) => {
-        data?.forEach(b => {
-          if (b.type === 'workshop') setWorkshopLevel(b.level)
-          if (b.type === 'library')  setLibraryLevel(b.level)
-        })
-      })
-  }, [userId])
+    if (!buildings) return
+    buildings.forEach(b => {
+      if (b.type === 'workshop') setWorkshopLevel(b.level)
+      if (b.type === 'library')  setLibraryLevel(b.level)
+    })
+  }, [buildings])
 
   if (heroLoading || invLoading || cardsLoading) return null
   if (!hero) return (
@@ -947,7 +942,7 @@ function Hero({ userId, heroId, refreshKey }) {
     const item = items?.find(i => i.id === itemId)
     if (!item) return
     const targetSlot = item.item_catalog.slot
-    setError(null)
+    
     itemMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: true },
@@ -961,7 +956,7 @@ function Hero({ userId, heroId, refreshKey }) {
   }
 
   function handleUnequip(itemId) {
-    setError(null)
+    
     itemMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: false },
@@ -978,7 +973,7 @@ function Hero({ userId, heroId, refreshKey }) {
       confirmLabel: 'Reparar',
       onConfirm: () => {
         setConfirmModal(null)
-        setError(null)
+        
         itemMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
       },
     })
@@ -992,7 +987,7 @@ function Hero({ userId, heroId, refreshKey }) {
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirmModal(null)
-        setError(null)
+        
         itemMutation.mutate({
           endpoint: '/api/item-dismantle',
           body: { itemId: item.id },
@@ -1003,7 +998,7 @@ function Hero({ userId, heroId, refreshKey }) {
   }
 
   function handleCardEquip(cardId) {
-    setError(null)
+    
     cardMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: true },
@@ -1012,7 +1007,7 @@ function Hero({ userId, heroId, refreshKey }) {
   }
 
   function handleCardUnequip(cardId) {
-    setError(null)
+    
     cardMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: false },
@@ -1021,7 +1016,7 @@ function Hero({ userId, heroId, refreshKey }) {
   }
 
   function handleCardFuse(id1, id2) {
-    setError(null)
+    
     cardMutation.mutate({
       endpoint: '/api/card-fuse',
       body: { cardId1: id1, cardId2: id2 },
@@ -1131,7 +1126,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </button>
           </div>
 
-          {error && !bagOpen && <p className="inv-error">{error}</p>}
+
 
           {/* Armadura */}
           <div className="eq-group eq-group--armor">
@@ -1202,7 +1197,7 @@ function Hero({ userId, heroId, refreshKey }) {
             onUnequip={(id) => { handleCardUnequip(id); setCardPickerOpen(false) }}
             onFuse={handleCardFuse}
             loading={mutationPending}
-            error={error}
+
             isOccupied={isOccupied}
             onClose={() => setCardPickerOpen(false)}
           />
@@ -1216,7 +1211,7 @@ function Hero({ userId, heroId, refreshKey }) {
             bagLimit={bagLimit}
             onDiscard={handleDiscard}
             loading={mutationPending}
-            error={error}
+
             onClose={() => setBagOpen(false)}
             isOccupied={isOccupied}
           />
@@ -1233,8 +1228,8 @@ function Hero({ userId, heroId, refreshKey }) {
             onUnequip={handleCardUnequip}
             onFuse={handleCardFuse}
             loading={mutationPending}
-            error={error}
-            onClose={() => { setCardModalOpen(false); setError(null) }}
+
+            onClose={() => setCardModalOpen(false)}
             isOccupied={isOccupied}
           />
         )}
