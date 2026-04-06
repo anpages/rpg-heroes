@@ -20,4 +20,5 @@ export const queryKeys = {
   ranking:         ()       => ['ranking'],
   classes:         ()       => ['classes'],
   combatHistory:   (heroId) => ['combat-history', heroId],
+  tournament:      (heroId) => ['tournament', heroId],
 }

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { TowerControl, Trophy, Scroll, ChevronRight } from 'lucide-react'
+import { TowerControl, Trophy, Scroll, Swords, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Torre from './Torre'
 import Ranking from './Ranking'
 import CombatHistorial from './CombatHistorial'
+import Torneos from './Torneos'
 
 const MODES = [
   {
@@ -23,6 +24,14 @@ const MODES = [
     color:       '#d97706',
   },
   {
+    id:          'torneos',
+    label:       'Torneo',
+    sublabel:    'Semanal',
+    description: 'Bracket de 3 rondas. Gana la final y obtén una carta de habilidad garantizada.',
+    Icon:        Swords,
+    color:       '#dc2626',
+  },
+  {
     id:          'historial',
     label:       'Historial',
     sublabel:    'Combates',
@@ -39,7 +48,7 @@ export default function Combates() {
     <div className="flex flex-col gap-6">
 
       {/* Mode selector */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         {MODES.map(m => {
           const active = tab === m.id
           return (
@@ -102,6 +111,7 @@ export default function Combates() {
         >
           {tab === 'torre'         && <Torre />}
           {tab === 'clasificacion' && <Ranking />}
+          {tab === 'torneos'       && <Torneos />}
           {tab === 'historial'     && <CombatHistorial />}
         </motion.div>
       </AnimatePresence>
