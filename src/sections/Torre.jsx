@@ -227,6 +227,41 @@ export default function Torre() {
   const minHp       = hero ? Math.floor(hero.max_hp * 0.2) : 0
   const hasEnoughHp = hpNow >= minHp
 
+  // Bonos de equipo (durabilidad > 0) + cartas equipadas — necesario antes del render
+  const equipBonuses = (items ?? [])
+    .filter(i => i.equipped_slot && i.current_durability > 0)
+    .reduce((acc, i) => {
+      const c = i.item_catalog
+      acc.attack   += c.attack_bonus   ?? 0
+      acc.defense  += c.defense_bonus  ?? 0
+      acc.max_hp   += c.hp_bonus       ?? 0
+      acc.strength += c.strength_bonus ?? 0
+      acc.agility  += c.agility_bonus  ?? 0
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
+
+  const cardBonuses = (cards ?? [])
+    .filter(c => c.equipped)
+    .reduce((acc, c) => {
+      const sc = c.skill_cards
+      const r  = c.rank
+      acc.attack   += (sc.attack_bonus   ?? 0) * r
+      acc.defense  += (sc.defense_bonus  ?? 0) * r
+      acc.max_hp   += (sc.hp_bonus       ?? 0) * r
+      acc.strength += (sc.strength_bonus ?? 0) * r
+      acc.agility  += (sc.agility_bonus  ?? 0) * r
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
+
+  const effectiveHero = hero ? {
+    max_hp:       hero.max_hp       + equipBonuses.max_hp    + cardBonuses.max_hp,
+    attack:       hero.attack       + equipBonuses.attack    + cardBonuses.attack,
+    defense:      hero.defense      + equipBonuses.defense   + cardBonuses.defense,
+    strength:     hero.strength     + equipBonuses.strength  + cardBonuses.strength,
+    agility:      hero.agility      + equipBonuses.agility   + cardBonuses.agility,
+    intelligence: hero.intelligence,
+  } : null
+
   const targetFloor = (maxFloor ?? 0) + 1
   const enemy       = floorEnemyStats(targetFloor)
   const rewards     = floorRewards(targetFloor)
@@ -251,41 +286,6 @@ export default function Torre() {
   })
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
-
-  // Bonos de equipo (durabilidad > 0) + cartas equipadas
-  const equipBonuses = (items ?? [])
-    .filter(i => i.equipped_slot && i.current_durability > 0)
-    .reduce((acc, i) => {
-      const c = i.item_catalog
-      acc.attack       += c.attack_bonus       ?? 0
-      acc.defense      += c.defense_bonus      ?? 0
-      acc.max_hp       += c.hp_bonus           ?? 0
-      acc.strength     += c.strength_bonus     ?? 0
-      acc.agility      += c.agility_bonus      ?? 0
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
-
-  const cardBonuses = (cards ?? [])
-    .filter(c => c.equipped)
-    .reduce((acc, c) => {
-      const sc = c.skill_cards
-      const r  = c.rank
-      acc.attack   += (sc.attack_bonus   ?? 0) * r
-      acc.defense  += (sc.defense_bonus  ?? 0) * r
-      acc.max_hp   += (sc.hp_bonus       ?? 0) * r
-      acc.strength += (sc.strength_bonus ?? 0) * r
-      acc.agility  += (sc.agility_bonus  ?? 0) * r
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
-
-  const effectiveHero = hero ? {
-    max_hp:    hero.max_hp    + equipBonuses.max_hp    + cardBonuses.max_hp,
-    attack:    hero.attack    + equipBonuses.attack    + cardBonuses.attack,
-    defense:   hero.defense   + equipBonuses.defense   + cardBonuses.defense,
-    strength:  hero.strength  + equipBonuses.strength  + cardBonuses.strength,
-    agility:   hero.agility   + equipBonuses.agility   + cardBonuses.agility,
-    intelligence: hero.intelligence,
-  } : null
 
   const HERO_STATS = [
     { label: 'HP',  heroVal: effectiveHero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
