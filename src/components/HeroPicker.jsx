@@ -2,8 +2,103 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
+import { useHeroes } from '../hooks/useHeroes'
+import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { Lock, Plus } from 'lucide-react'
+
+const SLOT_UNLOCK      = { 2: 5, 3: 10 }
+const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
+const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: 'Lista ✓' }
+
+function getDerivedStatus(hero) {
+  if (hero.status === 'exploring') {
+    const active = hero.expeditions?.find(e => e.status === 'traveling')
+    if (active && new Date(active.ends_at) <= new Date()) return 'ready'
+  }
+  return hero.status
+}
+
+/**
+ * Selector de héroe inline — se monta dentro de secciones que lo necesiten.
+ * Se oculta automáticamente si el jugador solo tiene 1 héroe sin slots futuros.
+ */
+export function HeroSelector() {
+  const userId          = useAppStore(s => s.userId)
+  const selectedHeroId  = useAppStore(s => s.selectedHeroId)
+  const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
+  const setRecruitOpen  = useAppStore(s => s.setRecruitOpen)
+
+  const { heroes }    = useHeroes(userId)
+  const { buildings } = useBuildings(userId)
+
+  const barrackLevel  = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
+  const usedSlots     = heroes.map(h => h.slot ?? 1)
+  const nextSlot      = [1, 2, 3].find(s => !usedSlots.includes(s))
+  const canRecruit    = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
+  const lockedSlots   = [2, 3].filter(slot => {
+    const filled   = heroes.some(h => h.slot === slot)
+    const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
+    return !filled && !unlocked
+  })
+
+  // Ocultar si solo hay 1 héroe sin posibilidad de más
+  if (heroes.length <= 1 && !canRecruit && lockedSlots.length === 0) return null
+
+  const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {heroes.map(hero => {
+        const status   = getDerivedStatus(hero)
+        const isActive = hero.id === heroId
+        const isReady  = status === 'ready'
+        return (
+          <button
+            key={hero.id}
+            className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
+              ${isReady
+                ? 'bg-[color-mix(in_srgb,#16a34a_10%,var(--surface-2))] border-[color-mix(in_srgb,#16a34a_35%,var(--border))] text-[#15803d]'
+                : isActive
+                  ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
+                  : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
+              }`}
+            onClick={() => setSelectedHeroId(hero.id)}
+          >
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
+            />
+            {hero.name}
+            <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
+            <span className="hidden sm:inline text-[11px] font-normal opacity-60 border-l border-current/20 pl-1.5 ml-0.5">
+              {STATUS_LABEL[status] ?? 'Reposo'}
+            </span>
+          </button>
+        )
+      })}
+
+      {canRecruit && (
+        <button className="btn btn--ghost btn--sm border-dashed" onClick={() => setRecruitOpen(true)}>
+          <Plus size={12} strokeWidth={2.5} /> Reclutar
+        </button>
+      )}
+
+      {lockedSlots.map(slot => (
+        <div
+          key={`locked-${slot}`}
+          className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px]"
+          title={`Desbloquea con Cuartel Nv.${SLOT_UNLOCK[slot]}`}
+        >
+          <Lock size={11} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
+          <span className="text-[12px] font-semibold text-text-3">Héroe {slot}</span>
+          <span className="hidden sm:inline text-[11px] text-text-3">· Cuartel Nv.{SLOT_UNLOCK[slot]}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function RecruitModal({ classes, onRecruit, onClose }) {
   const userId      = useAppStore(s => s.userId)

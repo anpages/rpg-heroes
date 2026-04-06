@@ -15,9 +15,9 @@ import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
-import { RecruitModal } from '../components/HeroPicker'
+import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag, Lock } from 'lucide-react'
+import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -190,9 +190,6 @@ function CardCatalogDebug() {
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-const HERO_STATUS_COLOR = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
-const HERO_STATUS_LABEL = { idle: 'Reposo', exploring: 'Explorando', ready: 'Lista ✓' }
-
 function getHeroDerivedStatus(hero, now) {
   if (hero.status === 'exploring') {
     const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
@@ -200,8 +197,6 @@ function getHeroDerivedStatus(hero, now) {
   }
   return hero.status
 }
-
-const SLOT_UNLOCK = { 2: 5, 3: 10 }
 
 const NAV_ITEMS = [
   { id: 'inicio',  label: 'Inicio',  icon: LayoutDashboard },
@@ -256,16 +251,12 @@ function Dashboard({ session }) {
   const setShopOpen       = useAppStore(s => s.setShopOpen)
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
-  const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
-
-  const { resources }               = useResources(session.user.id)
-  const { heroes, loading: heroesLoading } = useHeroes(session.user.id)
-  const { missions: missionsList }  = useMissions()
-  const { buildings }               = useBuildings(session.user.id)
+  const { resources }              = useResources(session.user.id)
+  const { heroes }                 = useHeroes(session.user.id)
+  const { missions: missionsList } = useMissions()
+  const { buildings }              = useBuildings(session.user.id)
   const { classes: recruitClasses } = useClasses()
-  const { theme, setTheme }         = useTheme()
-
-  const heroId = useAppStore(s => s.selectedHeroId) ?? heroes?.[0]?.id ?? null
+  const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
   const [now, setNow] = useState(() => new Date())
@@ -284,11 +275,6 @@ function Dashboard({ session }) {
   const anyHeroExploring = !anyHeroReady && heroes.some(h => h.status === 'exploring')
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
-  const barrackLevel = buildings?.find(b => b.type === 'barracks')?.level ?? 1
-
-  const usedSlots       = heroes.map(h => h.slot ?? 1)
-  const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit      = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
 
   const missionsDone      = missionsList?.filter(m => m.claimed).length ?? 0
   const missionsTotal     = missionsList?.length ?? 0
@@ -309,9 +295,6 @@ function Dashboard({ session }) {
     if (id === 'base')   return buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null
     return null
   }
-
-  // Hero rail: solo en tabs donde tiene sentido
-  const showHeroRail = activeTab === 'heroes' || activeTab === 'mundo'
 
   return (
     <div className="h-screen flex flex-col bg-bg overflow-hidden">
@@ -378,56 +361,6 @@ function Dashboard({ session }) {
           {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
         </button>
       </div>
-
-      {/* Hero rail — solo en tabs de Heroes y Mundo */}
-      {showHeroRail && !heroesLoading && (
-        <div className="flex items-center gap-1 px-3 md:px-5 h-11 bg-surface border-b border-border flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {heroes.map(hero => {
-            const derivedStatus = getHeroDerivedStatus(hero, now)
-            const isActive  = hero.id === heroId
-            const isReady   = derivedStatus === 'ready'
-            const nameColor = isReady ? 'text-[#16a34a]' : isActive ? 'text-[var(--blue-700)]' : 'text-text'
-            return (
-              <button
-                key={hero.id}
-                className={`flex items-center gap-1.5 px-[10px] py-[5px] rounded-lg border transition-[background,border-color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
-                  ${isReady
-                    ? 'bg-[color-mix(in_srgb,#16a34a_10%,var(--surface))] border-[color-mix(in_srgb,#16a34a_30%,var(--border))] animate-rail-pulse'
-                    : isActive
-                      ? 'bg-info-bg border-[var(--blue-200)]'
-                      : 'border-transparent bg-transparent hover:bg-surface-2'
-                  }`}
-                onClick={() => setSelectedHeroId(hero.id)}
-              >
-                <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: HERO_STATUS_COLOR[derivedStatus] ?? HERO_STATUS_COLOR.idle }} />
-                <span className={`text-[13px] font-bold ${nameColor}`}>{hero.name}</span>
-                <span className="text-[11px] font-medium text-text-3">Nv.{hero.level}</span>
-                <span className="hidden md:inline text-[11px] font-medium text-text-3 border-l border-border pl-1.5 ml-0.5">{HERO_STATUS_LABEL[derivedStatus] ?? 'Reposo'}</span>
-              </button>
-            )
-          })}
-          {canRecruit && (
-            <button className="btn btn--ghost btn--sm border-dashed ml-1" onClick={() => setRecruitOpen(true)}>
-              <Plus size={12} strokeWidth={2.5} /> Reclutar
-            </button>
-          )}
-          {[2, 3].filter(slot => {
-            const filled   = heroes.some(h => h.slot === slot)
-            const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
-            return !filled && !unlocked
-          }).map(slot => (
-            <div
-              key={`locked-${slot}`}
-              className="flex items-center gap-1.5 px-[10px] py-[5px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap ml-1 select-none"
-              title={`Desbloquea el slot ${slot} con Cuartel Nv.${SLOT_UNLOCK[slot]}`}
-            >
-              <Lock size={10} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
-              <span className="text-[12px] font-semibold text-text-3">Héroe {slot}</span>
-              <span className="hidden sm:inline text-[11px] text-text-3">· Cuartel Nv.{SLOT_UNLOCK[slot]}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
@@ -497,6 +430,8 @@ function Dashboard({ session }) {
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
             {mountedTabs.has('heroes') && (
               <div className="flex flex-col gap-6">
+                {/* Selector de héroe */}
+                <HeroSelector />
                 {/* Sub-nav */}
                 <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
