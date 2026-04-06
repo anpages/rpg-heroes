@@ -9,9 +9,10 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { Swords, Star, Coins, Sparkles, Trophy, ChevronUp, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import './Torre.css'
 
 const MILESTONES = [5, 10, 25, 50, 100]
+// Posición % de cada milestone en la barra (relativa al máximo = 100)
+const MILESTONE_PCT = [5, 10, 25, 50, 100]
 
 const ENEMY_NAMES = [
   [1,  5,  'Guardián'],
@@ -54,23 +55,39 @@ function ProgressStrip({ maxFloor }) {
   const pct     = nextMs === prevMs ? 100 : Math.min(100, Math.round(((reached - prevMs) / (nextMs - prevMs)) * 100))
 
   return (
-    <div className="tower-progress-strip">
-      <div className="tower-progress-top">
-        <div className="tower-max-block">
+    <div className="bg-surface border border-border rounded-xl px-5 pt-4 pb-5 flex flex-col gap-2.5 shadow-[var(--shadow-sm)]">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
           <Trophy size={15} color="#d97706" strokeWidth={2} />
-          <span className="tower-max-num">{reached}</span>
-          <span className="tower-max-label">piso máximo</span>
+          <span className="text-[22px] font-extrabold text-text leading-none">{reached}</span>
+          <span className="text-[11px] text-text-3 font-medium">piso máximo</span>
         </div>
-        <span className="tower-next-ms">Hito: piso {nextMs}</span>
+        <span className="text-[12px] text-text-3 font-medium">Hito: piso {nextMs}</span>
       </div>
-      <div className="tower-ms-bar-wrap">
-        <div className="tower-ms-track">
-          <div className="tower-ms-fill" style={{ width: `${pct}%` }} />
+
+      {/* Bar + dots */}
+      <div className="relative">
+        <div className="h-1.5 bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-[linear-gradient(90deg,#d97706,#f59e0b)] rounded-full transition-[width] duration-[400ms] ease-out"
+            style={{ width: `${pct}%` }}
+          />
         </div>
-        <div className="tower-ms-dots">
-          {MILESTONES.map(m => (
-            <div key={m} className={`tower-ms-dot ${reached >= m ? 'tower-ms-dot--done' : ''}`} title={`Piso ${m}`}>
-              <span className="tower-ms-dot-label">{m}</span>
+        {/* Milestone dots — posición calculada en JS */}
+        <div className="absolute inset-0 h-1.5 pointer-events-none">
+          {MILESTONES.map((m, i) => (
+            <div
+              key={m}
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-surface transition-[background] duration-300"
+              style={{
+                left: `${MILESTONE_PCT[i]}%`,
+                background: reached >= m ? '#d97706' : 'var(--border-2)',
+              }}
+              title={`Piso ${m}`}
+            >
+              <span className="absolute top-2.5 left-1/2 -translate-x-1/2 text-[9px] text-text-3 whitespace-nowrap font-medium">
+                {m}
+              </span>
             </div>
           ))}
         </div>
@@ -85,12 +102,12 @@ function StatCompareRow({ label, heroVal, enemyVal }) {
   const heroWins  = heroVal > enemyVal
   const enemyWins = enemyVal > heroVal
   return (
-    <div className="tower-cmp-row">
-      <span className={`tower-cmp-val tower-cmp-val--hero ${heroWins ? 'tower-cmp-val--advantage' : enemyWins ? 'tower-cmp-val--disadvantage' : ''}`}>
+    <div className="grid grid-cols-[1fr_40px_1fr] items-center py-1 rounded-md">
+      <span className={`text-[14px] font-bold text-left ${heroWins ? 'text-[var(--blue-600)]' : enemyWins ? 'text-text-3' : 'text-text-2'}`}>
         {heroVal}
       </span>
-      <span className="tower-cmp-label">{label}</span>
-      <span className={`tower-cmp-val tower-cmp-val--enemy ${enemyWins ? 'tower-cmp-val--advantage' : heroWins ? 'tower-cmp-val--disadvantage' : ''}`}>
+      <span className="text-[11px] font-semibold text-text-3 text-center uppercase tracking-[0.05em]">{label}</span>
+      <span className={`text-[14px] font-bold text-right ${enemyWins ? 'text-[#dc2626]' : heroWins ? 'text-text-3' : 'text-text-2'}`}>
         {enemyVal}
       </span>
     </div>
@@ -105,47 +122,56 @@ function ResultBanner({ result, onClose }) {
   const enemyPct = Math.max(0, Math.round((enemyHpLeft / enemyMaxHp) * 100))
 
   return (
-    <div className={`tower-result ${won ? 'tower-result--win' : 'tower-result--lose'}`}>
-      <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar">
+    <div className={`relative rounded-xl p-4 border ${won ? 'bg-success-bg border-success-border' : 'bg-error-bg border-error-border'}`}>
+      <button className="btn btn--ghost btn--icon absolute top-3 right-3" onClick={onClose} aria-label="Cerrar">
         <X size={15} strokeWidth={2} />
       </button>
 
-      <div className="tower-result-headline">
-        <span className="tower-result-icon">{won ? '⚔' : '💀'}</span>
+      <div className="flex items-center gap-2.5 mb-3 pr-6">
+        <span className="text-[22px] leading-none flex-shrink-0">{won ? '⚔' : '💀'}</span>
         <div>
-          <p className="tower-result-title">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
-          <p className="tower-result-sub">
+          <p className="text-[14px] font-bold text-text">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
+          <p className="text-[12px] text-text-2 mt-0.5">
             {rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}
             {knockedOut && ' · ¡Héroe derribado! Entrando en descanso.'}
           </p>
         </div>
       </div>
 
-      <div className="tower-result-hpbars">
-        <div className="tower-result-hpbar-row">
-          <span className="tower-result-hpbar-label">Tú</span>
-          <div className="tower-result-hpbar-track">
-            <div className="tower-result-hpbar-fill tower-result-hpbar-fill--hero" style={{ width: `${heroPct}%` }} />
+      {/* HP bars */}
+      <div className="flex flex-col gap-1.5 mb-2.5">
+        {[
+          { label: 'Tú', pct: heroPct, val: `${heroHpLeft}/${heroMaxHp}`, fill: 'bg-[var(--blue-500)]' },
+          { label: 'Enemigo', pct: enemyPct, val: `${enemyHpLeft}/${enemyMaxHp}`, fill: won ? 'bg-border-2' : 'bg-[#dc2626]' },
+        ].map(({ label, pct, val, fill }) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="text-[11px] text-text-3 w-[52px] flex-shrink-0">{label}</span>
+            <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-[width] duration-500 ${fill}`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-[11px] text-text-3 w-[60px] text-right flex-shrink-0">{val}</span>
           </div>
-          <span className="tower-result-hpbar-val">{heroHpLeft}/{heroMaxHp}</span>
-        </div>
-        <div className="tower-result-hpbar-row">
-          <span className="tower-result-hpbar-label">Enemigo</span>
-          <div className="tower-result-hpbar-track">
-            <div className={`tower-result-hpbar-fill ${won ? 'tower-result-hpbar-fill--dead' : 'tower-result-hpbar-fill--enemy'}`} style={{ width: `${enemyPct}%` }} />
-          </div>
-          <span className="tower-result-hpbar-val">{enemyHpLeft}/{enemyMaxHp}</span>
-        </div>
+        ))}
       </div>
 
       {won && rewards && (
-        <div className="tower-result-loot">
-          {rewards.milestone && <span className="tower-result-milestone">★ Hito · ×2</span>}
-          <span className="tower-result-chip"><Coins size={12} color="#d97706" /> +{rewards.gold}</span>
-          <span className="tower-result-chip"><Sparkles size={12} color="#7c3aed" /> +{rewards.experience} XP</span>
-          {rewards.levelUp && <span className="tower-result-chip tower-result-chip--level">¡Nivel!</span>}
+        <div className="flex items-center flex-wrap gap-1.5 pt-2.5 border-t border-success-border">
+          {rewards.milestone && <span className="text-[11px] font-bold text-[#d97706]">★ Hito · ×2</span>}
+          <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
+            <Coins size={12} color="#d97706" /> +{rewards.gold}
+          </span>
+          <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
+            <Sparkles size={12} color="#7c3aed" /> +{rewards.experience} XP
+          </span>
+          {rewards.levelUp && (
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-[#b45309] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
+              ¡Nivel!
+            </span>
+          )}
           {rewards.drop?.item_catalog && (
-            <span className="tower-result-chip tower-result-chip--item">⚔ {rewards.drop.item_catalog.name}</span>
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-[#7c3aed] bg-[color-mix(in_srgb,#7c3aed_10%,var(--surface))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] px-2 py-0.5 rounded-full">
+              ⚔ {rewards.drop.item_catalog.name}
+            </span>
           )}
         </div>
       )}
@@ -155,7 +181,6 @@ function ResultBanner({ result, onClose }) {
 
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
-// Estimación de daño recibido usando stats base (sin equipo) — orientativa
 function estimateDamageTaken(hero, enemy) {
   if (!hero || !enemy) return null
   const physDmg = (atk, str, def) => Math.max(1, Math.round((atk + Math.floor(str * 0.3)) * (1 - def / (def + 60))))
@@ -203,6 +228,7 @@ export default function Torre() {
   const rewards     = floorRewards(targetFloor)
   const isBusy      = hero?.status !== 'idle'
   const estDamage   = estimateDamageTaken(hero, enemy)
+  const isLowHp     = !hasEnoughHp
 
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
@@ -217,7 +243,7 @@ export default function Torre() {
     },
   })
 
-  if (heroLoading || towerLoading) return <div className="tower-loading">Cargando torre...</div>
+  if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
 
   const HERO_STATS = [
     { label: 'HP',  heroVal: hero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
@@ -228,9 +254,15 @@ export default function Torre() {
   ]
 
   const heroAdvantages = HERO_STATS.filter(s => s.heroVal > s.enemyVal).length
+  const predictionClass = heroAdvantages >= 3
+    ? 'text-[#15803d] bg-[color-mix(in_srgb,#16a34a_12%,var(--surface))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))]'
+    : heroAdvantages >= 2
+      ? 'text-[#b45309] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))]'
+      : 'text-[#dc2626] bg-[color-mix(in_srgb,#dc2626_10%,var(--surface))] border border-[color-mix(in_srgb,#dc2626_22%,var(--border))]'
+  const predictionLabel = heroAdvantages >= 3 ? 'Favorable' : heroAdvantages >= 2 ? 'Ajustado' : 'Difícil'
 
   return (
-    <div className="torre-section">
+    <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
         <h2 className="section-title">Torre de Desafíos</h2>
         <p className="section-subtitle">Escala la torre para medir el poder de tu héroe. Cada piso es más difícil que el anterior.</p>
@@ -252,53 +284,65 @@ export default function Torre() {
       </AnimatePresence>
 
       {/* Battle panel */}
-      <div className="tower-battle-panel">
-        <div className="tower-battle-header">
-          <div className="tower-floor-chip">
+      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 text-[13px] font-bold text-text bg-surface-2 border border-border rounded-full px-2.5 py-1">
             <ChevronUp size={13} strokeWidth={2.5} />
             Piso {targetFloor}
           </div>
-          <div className="tower-battle-header-right">
-            {rewards.milestone && <span className="tower-milestone-badge"><Star size={10} strokeWidth={2} /> Hito</span>}
-            <span className={`tower-prediction ${heroAdvantages >= 3 ? 'tower-prediction--good' : heroAdvantages >= 2 ? 'tower-prediction--neutral' : 'tower-prediction--hard'}`}>
-              {heroAdvantages >= 3 ? 'Favorable' : heroAdvantages >= 2 ? 'Ajustado' : 'Difícil'}
+          <div className="flex items-center gap-1.5">
+            {rewards.milestone && (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
+                <Star size={10} strokeWidth={2} /> Hito
+              </span>
+            )}
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full tracking-[0.03em] ${predictionClass}`}>
+              {predictionLabel}
             </span>
           </div>
         </div>
 
-        {/* Combatants header */}
-        <div className="tower-combatants-header">
-          <span className="tower-combatant-name tower-combatant-name--hero">{hero?.name ?? '—'}</span>
-          <span className="tower-vs">VS</span>
-          <span className="tower-combatant-name tower-combatant-name--enemy">{enemyName(targetFloor)}</span>
+        {/* Combatants */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-2.5 border-b border-border">
+          <span className="text-[14px] font-bold text-[var(--blue-600)] text-left">{hero?.name ?? '—'}</span>
+          <span className="text-[11px] font-extrabold text-text-3 tracking-[0.08em] text-center">VS</span>
+          <span className="text-[14px] font-bold text-[#dc2626] text-right">{enemyName(targetFloor)}</span>
         </div>
 
-        {/* Stats comparison */}
-        <div className="tower-stats-compare">
-          {HERO_STATS.map(s => (
-            <StatCompareRow key={s.label} {...s} />
-          ))}
+        {/* Stats */}
+        <div className="flex flex-col gap-1">
+          {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
         </div>
-
-        <p className="tower-stats-note">Stats base · el equipo añade bonificaciones en combate</p>
+        <p className="text-[11px] text-text-3 -mt-1.5">Stats base · el equipo añade bonificaciones en combate</p>
 
         {/* Rewards preview */}
-        <div className="tower-rewards-preview">
-          <span className="tower-reward-preview-item"><Coins size={13} color="#d97706" strokeWidth={2} />{rewards.gold} oro</span>
-          <span className="tower-reward-preview-item"><Star size={13} color="#0369a1" strokeWidth={2} />{rewards.experience} XP</span>
-          {rewards.milestone && <span className="tower-reward-preview-item tower-reward-preview-item--ms">×2 recompensas</span>}
+        <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
+            <Coins size={13} color="#d97706" strokeWidth={2} />{rewards.gold} oro
+          </span>
+          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
+            <Star size={13} color="#0369a1" strokeWidth={2} />{rewards.experience} XP
+          </span>
+          {rewards.milestone && (
+            <span className="ml-auto text-[11px] font-bold text-[#d97706]">×2 recompensas</span>
+          )}
         </div>
 
-        <div className="tower-hp-row">
-          <div className={`tower-hp-bar-track ${!hasEnoughHp ? 'tower-hp-bar-track--low' : ''}`}>
-            <div className="tower-hp-bar-fill" style={{ width: `${Math.round((hpNow / (hero?.max_hp ?? 1)) * 100)}%` }} />
+        {/* HP row */}
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width,background] duration-[400ms] ease-out ${isLowHp ? 'bg-[#dc2626]' : 'bg-[#16a34a]'}`}
+              style={{ width: `${Math.round((hpNow / (hero?.max_hp ?? 1)) * 100)}%` }}
+            />
           </div>
-          <span className={`tower-hp-label ${!hasEnoughHp ? 'tower-hp-label--low' : ''}`}>
+          <span className={`text-[12px] font-semibold whitespace-nowrap ${isLowHp ? 'text-[#dc2626]' : 'text-text-2'}`}>
             {hpNow}/{hero?.max_hp ?? 0} HP
-            {!hasEnoughHp && ` · mín. ${minHp}`}
+            {isLowHp && ` · mín. ${minHp}`}
           </span>
           {estDamage !== null && (
-            <span className="tower-hp-cost">−{estDamage} HP est.</span>
+            <span className="text-[12px] font-semibold text-[#dc2626] whitespace-nowrap">−{estDamage} HP est.</span>
           )}
         </div>
 

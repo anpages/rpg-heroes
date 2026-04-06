@@ -11,7 +11,6 @@ import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
 } from 'lucide-react'
-import './Shop.css'
 
 const RARITY_META = {
   common:    { label: 'Común',      color: '#6b7280' },
@@ -53,69 +52,72 @@ function timeUntilMidnight() {
 }
 
 function ShopItem({ item, gold, onBuy, buying }) {
-  const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
-  const stats = STAT_META.filter(s => item[s.key] > 0)
-  const sold = item.purchased >= item.maxStock
+  const rarity    = RARITY_META[item.rarity] ?? RARITY_META.common
+  const stats     = STAT_META.filter(s => item[s.key] > 0)
+  const sold      = item.purchased >= item.maxStock
   const canAfford = gold >= item.goldPrice
 
   return (
     <div
-      className={`shop-item ${sold ? 'shop-item--sold' : ''} ${item.locked ? 'shop-item--locked' : ''}`}
+      className={`flex overflow-hidden bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-[180ms]
+        ${sold ? 'opacity-60' : item.locked ? 'opacity-50 grayscale-[0.3]' : 'hover:shadow-[var(--shadow-md)] hover:border-[color-mix(in_srgb,var(--rarity-color)_40%,var(--border))]'}`}
       style={{ '--rarity-color': rarity.color }}
     >
       {/* Accent bar */}
-      <div className="shop-item-accent" />
+      <div className="w-1 flex-shrink-0 opacity-75" style={{ background: rarity.color }} />
 
-      <div className="shop-item-body">
+      <div className="flex-1 px-4 py-3.5 flex flex-col gap-2.5 min-w-0">
         {/* Header */}
-        <div className="shop-item-header">
-          <span className="shop-item-name" style={{ color: rarity.color }}>
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[14px] font-bold leading-[1.3] flex-1 min-w-0" style={{ color: rarity.color }}>
             {item.name}
           </span>
-          <div className="shop-item-badges">
-            <span className="shop-item-tier">T{item.tier}</span>
-            <span className="shop-item-rarity" style={{ color: rarity.color }}>
+          <div className="flex flex-col items-end gap-[3px] flex-shrink-0">
+            <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded-[4px] px-[5px] py-px">
+              T{item.tier}
+            </span>
+            <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: rarity.color }}>
               {rarity.label}
             </span>
           </div>
         </div>
 
         {/* Slot */}
-        <span className="shop-item-slot">
+        <span className="self-start text-[11px] font-semibold text-text-2 bg-surface-2 border border-border rounded-full px-[9px] py-0.5">
           {SLOT_LABEL[item.slot] ?? item.slot}
-          {item.is_two_handed && <span className="shop-item-2h"> · 2 manos</span>}
+          {item.is_two_handed && <span className="font-normal text-text-3"> · 2 manos</span>}
         </span>
 
         {/* Stats */}
         {stats.length > 0 ? (
-          <ul className="shop-item-stats">
+          <ul className="flex flex-col gap-[5px] flex-1">
             {stats.map(({ key, label, Icon }) => (
-              <li key={key} className="shop-item-stat">
-                <Icon size={12} strokeWidth={2} className="shop-stat-icon" />
-                <span className="shop-stat-label">{label}</span>
-                <span className="shop-stat-value">+{item[key]}</span>
+              <li key={key} className="flex items-center gap-1.5 text-[12px]">
+                <Icon size={12} strokeWidth={2} className="text-text-3 flex-shrink-0" />
+                <span className="text-text-2 flex-1">{label}</span>
+                <span className="font-bold text-text">+{item[key]}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="shop-item-no-stats">Sin bonificaciones</p>
+          <p className="text-[11px] text-text-3 flex-1">Sin bonificaciones</p>
         )}
 
         {/* Footer */}
-        <div className="shop-item-footer">
+        <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border mt-auto">
           {item.locked ? (
-            <div className="shop-item-lock-row">
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 w-full justify-center">
               <Lock size={14} strokeWidth={2} />
               <span>Requiere nivel {item.minLevel}</span>
             </div>
           ) : sold ? (
-            <div className="shop-item-sold-row">
+            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#16a34a] dark:text-[#4ade80] w-full justify-center">
               <CheckCircle2 size={14} strokeWidth={2} />
               <span>Comprado</span>
             </div>
           ) : (
             <>
-              <span className={`shop-item-price ${!canAfford ? 'shop-item-price--short' : ''}`}>
+              <span className={`flex items-center gap-[5px] text-[15px] font-extrabold ${!canAfford ? 'text-error-text opacity-80' : 'text-text'}`}>
                 <Coins size={14} strokeWidth={2} />
                 {item.goldPrice.toLocaleString('es-ES')}
               </span>
@@ -151,18 +153,16 @@ export default function Shop() {
     return () => clearInterval(t)
   }, [])
 
-  // Tienda — cacheada, se refresca automáticamente al volver al tab
   const { data: shopData, isLoading: loading, error: shopError } = useQuery({
     queryKey: shopKey,
     queryFn: () => apiGet(`/api/shop-daily?heroId=${heroId}`),
     enabled: !!heroId,
-    staleTime: 30 * 60_000, // 30 min — la tienda rota a medianoche
+    staleTime: 30 * 60_000,
   })
   const items    = shopData?.items ?? null
   const merchant = shopData?.merchant ?? null
   const error    = shopError?.message ?? null
 
-  // Compra con optimistic update
   const buyMutation = useMutation({
     mutationFn: (item) => apiPost('/api/shop-buy', { heroId, catalogId: item.catalogId }),
     onMutate: async (item) => {
@@ -176,11 +176,11 @@ export default function Shop() {
       }))
       return { previous, item }
     },
-    onError: (err, item, context) => {
+    onError: (err, _item, context) => {
       queryClient.setQueryData(shopKey, context.previous)
       toast.error(err.message)
     },
-    onSuccess: (data, item) => {
+    onSuccess: (_data, item) => {
       toast.success(`${item.name} añadido al inventario`)
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
@@ -188,7 +188,7 @@ export default function Shop() {
   })
 
   if (!heroId) return (
-    <div className="shop-empty">
+    <div className="flex flex-col items-center gap-3 py-16 px-6 text-text-3 text-[14px]">
       <PackageX size={36} strokeWidth={1.5} />
       <p>Selecciona un héroe para ver su tienda</p>
     </div>
@@ -197,45 +197,49 @@ export default function Shop() {
   const MerchantIcon = merchant ? (MERCHANT_ICON[merchant.key] ?? Sword) : Sword
 
   return (
-    <div className="shop-section">
-      <div className="shop-header">
-        <div className="shop-header-left">
-          <div className="shop-header-title">
+    <div className="flex flex-col gap-6 max-w-[960px] mx-auto relative">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2 font-display tracking-[0.05em] text-[20px] font-bold text-text">
             <MerchantIcon size={20} strokeWidth={1.8} />
-            <span>{merchant ? `${merchant.label}` : 'Tienda'}</span>
+            <span>{merchant ? merchant.label : 'Tienda'}</span>
           </div>
           {heroName && (
-            <span className="shop-header-sub">Inventario de {heroName}</span>
+            <span className="text-[12px] text-text-3 font-medium pl-0.5">Inventario de {heroName}</span>
           )}
         </div>
-        <div className="shop-renews">
+        <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
           <Clock size={13} strokeWidth={2} />
           Renueva en {renewsIn}
         </div>
       </div>
 
-      {error && <p className="shop-error">{error}</p>}
+      {error && (
+        <p className="text-[13px] text-error-text bg-error-bg border border-error-border rounded-lg px-4 py-3">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <div className="shop-grid">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="shop-item-skeleton" />
+            <div key={i} className="h-[200px] sm:h-[180px] rounded-xl bg-surface-2 animate-skeleton-pulse" />
           ))}
         </div>
       ) : items && (
-        <div className="shop-grid">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {items.map(item => (
             <ShopItem
               key={item.catalogId}
               item={item}
               gold={gold ?? 0}
-              onBuy={(item) => buyMutation.mutate(item)}
+              onBuy={(i) => buyMutation.mutate(i)}
               buying={buyMutation.isPending}
             />
           ))}
         </div>
       )}
-
     </div>
   )
 }
