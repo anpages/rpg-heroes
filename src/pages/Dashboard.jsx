@@ -198,8 +198,8 @@ function getHeroDerivedStatus(hero, now) {
 
 const NAV_ITEMS = [
   { id: 'heroes',  label: 'Héroes',  icon: Sword   },
-  { id: 'base',    label: 'Base',    icon: Castle  },
   { id: 'mundo',   label: 'Mundo',   icon: Globe   },
+  { id: 'base',    label: 'Base',    icon: Castle  },
 ]
 
 const HERO_SUB_TABS = [
