@@ -16,7 +16,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -205,8 +205,9 @@ const NAV_ITEMS = [
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword },
-  { id: 'expediciones', label: 'Expediciones', icon: Map   },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword       },
+  { id: 'expediciones', label: 'Expediciones', icon: Map         },
+  { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
 ]
 
 function fmt(n) {
@@ -246,8 +247,6 @@ function Dashboard({ session }) {
   const navigateToHeroTab = useAppStore(s => s.navigateToHeroTab)
   const missionsOpen      = useAppStore(s => s.missionsOpen)
   const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
-  const shopOpen          = useAppStore(s => s.shopOpen)
-  const setShopOpen       = useAppStore(s => s.setShopOpen)
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
   const { resources }              = useResources(session.user.id)
@@ -299,14 +298,6 @@ function Dashboard({ session }) {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Shop icon */}
-          <button
-            className="btn btn--ghost btn--icon"
-            onClick={() => setShopOpen(true)}
-            title="Tienda"
-          >
-            <ShoppingBag size={17} strokeWidth={1.8} />
-          </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
           <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-2 overflow-hidden flex-shrink-0 flex items-center justify-center" title={session.user.email}>
             {session.user.user_metadata?.avatar_url
@@ -429,6 +420,9 @@ function Dashboard({ session }) {
                 <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
                 </div>
+                <div className={activeHeroTab === 'tienda' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
+                </div>
               </div>
             )}
           </div>
@@ -512,43 +506,6 @@ function Dashboard({ session }) {
               </button>
               <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 sm:pb-12">
                 <Misiones />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Shop drawer */}
-      <AnimatePresence>
-        {shopOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 bg-black/35 z-[200] backdrop-blur-sm"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              onClick={() => setShopOpen(false)}
-            />
-            <motion.div
-              className={`fixed bg-bg border-border z-[201] flex flex-col overflow-hidden
-                ${isMobileDrawer
-                  ? 'bottom-0 left-0 right-0 w-full max-h-[92vh] border-t rounded-t-[20px] shadow-[0_-4px_32px_rgba(0,0,0,0.15)]'
-                  : 'top-0 right-0 bottom-0 w-[560px] max-w-[100vw] border-l shadow-[-4px_0_24px_rgba(0,0,0,0.12)]'
-                }`}
-              initial={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
-              animate={isMobileDrawer
-                ? { y: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.38 } }
-                : { x: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.32 } }
-              }
-              exit={isMobileDrawer
-                ? { y: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.26 } }
-                : { x: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.24 } }
-              }
-            >
-              <button className="btn btn--ghost btn--icon absolute top-4 right-4 z-[1]" onClick={() => setShopOpen(false)}>
-                <X size={18} strokeWidth={2} />
-              </button>
-              <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 sm:pb-12">
-                <Shop />
               </div>
             </motion.div>
           </>
