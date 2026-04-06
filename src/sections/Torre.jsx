@@ -235,10 +235,7 @@ export default function Torre() {
 
   const guaranteedKo = estDamage !== null && hpNow <= estDamage
 
-  const hpDisplay = `${hpNow}/${effectiveMaxHp}`
-
   const HERO_STATS = [
-    { label: 'HP',  heroVal: hpNow,                        enemyVal: enemy.max_hp,   heroDisplay: hpDisplay },
     { label: 'Atq', heroVal: effectiveHero?.attack   ?? 0, enemyVal: enemy.attack   },
     { label: 'Def', heroVal: effectiveHero?.defense  ?? 0, enemyVal: enemy.defense  },
     { label: 'Fue', heroVal: effectiveHero?.strength ?? 0, enemyVal: enemy.strength },
