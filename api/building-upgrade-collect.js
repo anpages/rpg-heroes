@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { UNLOCK_TRIGGERS } from './_constants.js'
+import { safeMinutes } from './_validate.js'
 
 function computeRates(buildings) {
   // Solo edificios desbloqueados contribuyen a producción y consumo energético
@@ -112,10 +113,10 @@ export default async function handler(req, res) {
 
   const now = Date.now()
   if (resources) {
-    const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
-    const snapshotGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
-    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * minutesElapsed)
-    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+    const mins = safeMinutes(resources.last_collected_at, now)
+    const snapshotGold = Math.floor(resources.gold + resources.gold_rate * mins)
+    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * mins)
+    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * mins)
     await supabase
       .from('resources')
       .update({ ...rates, gold: snapshotGold, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
