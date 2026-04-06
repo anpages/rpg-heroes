@@ -21,7 +21,7 @@ export function interpolateHP(hero, nowMs) {
   const lastMs = hero.hp_last_updated_at
     ? new Date(hero.hp_last_updated_at).getTime()
     : nowMs
-  const elapsedMin   = Math.max(0, (nowMs - lastMs) / 60000)
+  const elapsedMin   = Math.max(0, (nowMs - lastMs) / 30000)
   const regenPerMin  = hero.status === 'exploring' ? 0 : REGEN_IDLE_PCT_PER_MIN
   const regen        = elapsedMin * regenPerMin * hero.max_hp / 100
   return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
@@ -40,5 +40,5 @@ export function canPlay(currentHp, maxHp) {
  * Minimum 1 HP.
  */
 export function expeditionHpDamage(maxHp, durationMinutes) {
-  return Math.max(1, Math.floor(maxHp * durationMinutes / 600))
+  return Math.max(1, Math.floor(maxHp * durationMinutes / 300))
 }

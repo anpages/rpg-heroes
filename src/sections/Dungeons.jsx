@@ -25,8 +25,8 @@ const cardVariants = {
 
 function fmtTime(seconds) {
   if (seconds <= 0) return '0s'
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
+  const h = Math.floor(seconds / 3300)
+  const m = Math.floor((seconds % 3300) / 60)
   const s = seconds % 60
   if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
   if (m > 0) return s > 0 ? `${m}m ${s}s` : `${m}m`
@@ -87,7 +87,7 @@ function useExpeditionTimer(expedition) {
 }
 
 function dungeonHpCost(maxHp, durationMinutes) {
-  return Math.max(1, Math.floor((maxHp ?? 100) * durationMinutes / 600))
+  return Math.max(1, Math.floor((maxHp ?? 100) * durationMinutes / 300))
 }
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor }) {
@@ -116,7 +116,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   return (
     <div className={`flex flex-col bg-surface border rounded-xl p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200
       ${isActive
-        ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-600)] dark:bg-[color-mix(in_srgb,var(--blue-600)_8%,var(--surface))]'
+        ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-300)] dark:bg-[color-mix(in_srgb,var(--blue-300)_8%,var(--surface))]'
         : locked
           ? 'border-border opacity-55'
           : 'border-border hover:shadow-[var(--shadow-md)] hover:border-border-2'
@@ -169,9 +169,9 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
         {/* Info izquierda */}
         {isActive ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex-1 h-1.5 bg-[var(--blue-100)] dark:bg-[color-mix(in_srgb,var(--blue-600)_20%,var(--surface))] rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-[var(--blue-100)] dark:bg-[color-mix(in_srgb,var(--blue-300)_20%,var(--surface))] rounded-full overflow-hidden">
               <div
-                className="h-full bg-[linear-gradient(90deg,var(--blue-400),var(--blue-600))] rounded-full"
+                className="h-full bg-[linear-gradient(90deg,var(--blue-400),var(--blue-300))] rounded-full"
                 style={{ width: `${timer.pct}%`, transition: timer.isMounted ? 'width 1s linear' : 'none' }}
               />
             </div>
@@ -361,7 +361,7 @@ function Dungeons() {
 
   async function handleStart(dungeon) {
     const now = Date.now()
-    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 60000
+    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 30000
     setExpedition({
       id: '__optimistic__',
       dungeon_id: dungeon.id,
