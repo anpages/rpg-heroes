@@ -286,7 +286,7 @@ export default function Torre() {
       )}
 
       {/* Battle panel */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">
+      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)] max-w-md mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-[13px] font-bold text-text bg-surface-2 border border-border rounded-full px-2.5 py-1">
