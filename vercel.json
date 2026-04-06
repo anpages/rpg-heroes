@@ -8,5 +8,10 @@
       "path": "/api/cron/process-buildings",
       "schedule": "*/1 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 60
+    }
+  }
 }
