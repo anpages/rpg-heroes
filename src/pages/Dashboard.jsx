@@ -7,7 +7,6 @@ import { useClasses } from '../hooks/useClasses'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
-import Inicio from '../sections/Inicio'
 import Dungeons from '../sections/Dungeons'
 import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
@@ -16,7 +15,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Globe, Map, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -198,10 +197,9 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'inicio',  label: 'Inicio',  icon: LayoutDashboard },
-  { id: 'base',    label: 'Base',    icon: Castle          },
-  { id: 'heroes',  label: 'Héroes',  icon: Sword           },
-  { id: 'mundo',   label: 'Mundo',   icon: Globe           },
+  { id: 'heroes',  label: 'Héroes',  icon: Sword   },
+  { id: 'base',    label: 'Base',    icon: Castle  },
+  { id: 'mundo',   label: 'Mundo',   icon: Globe   },
 ]
 
 const HERO_SUB_TABS = [
@@ -381,11 +379,6 @@ function Dashboard({ session }) {
 
         {/* Main content */}
         <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
-
-          {/* Inicio */}
-          <div className={activeTab === 'inicio' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('inicio') && <ErrorBoundary><Inicio /></ErrorBoundary>}
-          </div>
 
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>

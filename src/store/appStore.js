@@ -17,8 +17,8 @@ export const useAppStore = create((set) => ({
 
   // ── Navegación principal ──────────────────────────────────────
   // Tabs: inicio | heroes | base | mundo
-  activeTab: 'inicio',
-  mountedTabs: new Set(['inicio']),
+  activeTab: 'heroes',
+  mountedTabs: new Set(['heroes', 'heroes:ficha']),
 
   // Sub-tab de Héroes: ficha | expediciones
   activeHeroTab: 'ficha',
