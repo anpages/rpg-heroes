@@ -12,7 +12,7 @@ import { CombatReplay } from '../components/CombatReplay'
 
 const ROUND_LABELS  = ['Cuartos', 'Semifinal', 'Final']
 const ROUND_COLORS  = ['#2563eb', '#d97706', '#dc2626']
-const ROUND_WINDOWS = ['Lun – Mar', 'Mié – Jue', 'Vie – Sáb']
+const ROUND_WINDOWS = ['Martes', 'Jueves', 'Sábado']
 
 /* ── Helpers de calendario ─────────────────────────────────────────────────── */
 
@@ -20,9 +20,9 @@ function getRoundWindows(weekStart) {
   const base = new Date(weekStart + 'T00:00:00Z').getTime()
   const day  = (n) => new Date(base + n * 86_400_000)
   return {
-    1: { opens: day(0), closes: day(2) },
-    2: { opens: day(2), closes: day(4) },
-    3: { opens: day(4), closes: day(6) },
+    1: { opens: day(1), closes: day(2) },
+    2: { opens: day(3), closes: day(4) },
+    3: { opens: day(5), closes: day(6) },
   }
 }
 

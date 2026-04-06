@@ -34,17 +34,21 @@ export function getWeekStart() {
 
 /**
  * Ventanas de tiempo para cada ronda (UTC).
- * Ronda 1: lunes-martes  (días 0-1)
- * Ronda 2: miércoles-jueves (días 2-3)
- * Ronda 3: viernes-sábado (días 4-5)
+ * Lun (día 0): descanso / inscripciones
+ * Ronda 1: martes   (día 1)
+ * Mié (día 2): descanso
+ * Ronda 2: jueves   (día 3)
+ * Vie (día 4): descanso
+ * Ronda 3: sábado   (día 5)
+ * Dom (día 6): descanso
  */
 export function getRoundWindows(weekStart) {
   const base = new Date(weekStart + 'T00:00:00Z').getTime()
   const day  = (n) => new Date(base + n * 86_400_000)
   return {
-    1: { opens: day(0), closes: day(2), label: 'Lun – Mar' },
-    2: { opens: day(2), closes: day(4), label: 'Mié – Jue' },
-    3: { opens: day(4), closes: day(6), label: 'Vie – Sáb' },
+    1: { opens: day(1), closes: day(2), label: 'Martes'  },
+    2: { opens: day(3), closes: day(4), label: 'Jueves'  },
+    3: { opens: day(5), closes: day(6), label: 'Sábado'  },
   }
 }
 
