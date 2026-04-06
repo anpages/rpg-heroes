@@ -272,7 +272,7 @@ function Dashboard({ session }) {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 30000)
+    const interval = setInterval(() => setNow(new Date()), 10000)
     return () => clearInterval(interval)
   }, [])
 

@@ -234,7 +234,7 @@ function Dungeons() {
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
-    const id = setInterval(forceUpdate, 30000)
+    const id = setInterval(forceUpdate, 10000)
     return () => clearInterval(id)
   }, [])
 
@@ -266,6 +266,7 @@ function Dungeons() {
     setReward({ ...data.rewards, drop: data.drop ?? null, cardDrop: data.cardDrop ?? null })
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
