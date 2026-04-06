@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SHOP_SIZE, SHOP_MAX_STOCK, MERCHANT_TYPES, getItemMinLevel } from './_constants.js'
+import { isUUID } from './_validate.js'
 
 function seededRand(heroId, dateStr) {
   let seed = 0
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
 
   const heroId = req.query.heroId
   if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
+  if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
   const supabase = createClient(
     process.env.VITE_SUPABASE_URL,

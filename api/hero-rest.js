@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { interpolateHP } from './_hp.js'
+import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -18,6 +19,7 @@ export default async function handler(req, res) {
 
   const { heroId } = req.body
   if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
+  if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
   const { data: hero } = await supabase
     .from('heroes')

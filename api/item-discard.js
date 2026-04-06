@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
 
   const { itemId } = req.body
   if (!itemId) return res.status(400).json({ error: 'itemId requerido' })
+  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
 
   const { data: item } = await supabase
     .from('inventory_items')

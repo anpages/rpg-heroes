@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID } from './_validate.js'
 
 const INVENTORY_BASE_LIMIT = 20
 const INVENTORY_PER_WORKSHOP_LEVEL = 5
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
 
   const { itemId, equip } = req.body
   if (!itemId || equip === undefined) return res.status(400).json({ error: 'itemId y equip requeridos' })
+  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
 
   // Obtener item con datos del catálogo
   const { data: item } = await supabase

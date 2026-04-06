@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID } from './_validate.js'
 
 // Slots de cartas equipadas según nivel de biblioteca
 function cardSlots(libraryLevel) {
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
 
   const { cardId, equip } = req.body
   if (!cardId || equip === undefined) return res.status(400).json({ error: 'cardId y equip requeridos' })
+  if (!isUUID(cardId)) return res.status(400).json({ error: 'cardId inválido' })
 
   // Obtener carta con datos del catálogo
   const { data: heroCard } = await supabase

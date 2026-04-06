@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { UNLOCK_TRIGGERS } from './_constants.js'
-import { safeMinutes } from './_validate.js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 function computeRates(buildings) {
   // Solo edificios desbloqueados contribuyen a producción y consumo energético
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
 
   const { buildingId } = req.body
   if (!buildingId) return res.status(400).json({ error: 'buildingId requerido' })
+  if (!isUUID(buildingId)) return res.status(400).json({ error: 'buildingId inválido' })
 
   const { data: building } = await supabase
     .from('buildings')
