@@ -89,7 +89,7 @@ function RivalCard({ rival, round, state }) {
   )
 }
 
-function RoundPip({ round, won, isCurrent, isPast }) {
+function RoundPip({ round, won, isCurrent }) {
   const color = ROUND_COLORS[round - 1]
   const label = ROUND_LABELS[round - 1]
   if (won === true)  return <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border border-[color-mix(in_srgb,#16a34a_30%,var(--border))] text-[#15803d]">✓ {label}</span>

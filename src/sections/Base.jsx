@@ -474,15 +474,6 @@ function Base() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setResourceDelta({ gold: 0, wood: 0, mana: 0 }) }, [resources])
 
-  // Limpia upgradePending cuando buildings confirma la mejora activa (evita el flicker de botones)
-  useEffect(() => {
-    if (!upgradePending) return
-    const hasActive = (buildings ?? []).some(
-      b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
-    )
-    if (hasActive) setUpgradePending(false)
-  }, [buildings, upgradePending])
-
   const effectiveResources = resources
     ? { ...resources, gold: resources.gold - resourceDelta.gold, wood: resources.wood - resourceDelta.wood, mana: resources.mana - resourceDelta.mana }
     : null
@@ -491,9 +482,12 @@ function Base() {
     setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood, mana: d.mana + mana }))
   }
 
-  function handleUpgradeStart() {
-    queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+  async function handleUpgradeStart() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) }),
+    ])
+    setUpgradePending(false)
   }
   function handleUpgradeCollect() {
     queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
