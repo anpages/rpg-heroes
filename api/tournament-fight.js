@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import { interpolateHP, canPlay } from './_hp.js'
-import { getWeekStart, tournamentRoundRewards } from './_tournament.js'
+import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
 import { isUUID, safeMinutes } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -26,25 +25,15 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at')
+    .select('id, name, player_id, experience, level')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
 
-  const nowMs     = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
-  if (!canPlay(currentHp, hero.max_hp)) {
-    return res.status(409).json({
-      error: `HP insuficiente. Necesitas al menos ${Math.floor(hero.max_hp * 0.2)} HP para combatir.`,
-      code: 'LOW_HP',
-    })
-  }
-
-  // Obtener bracket activo de la semana
   const weekStart = getWeekStart()
+
   const { data: bracket } = await supabase
     .from('tournament_brackets')
     .select('id, rivals, current_round, eliminated, champion')
@@ -52,33 +41,40 @@ export default async function handler(req, res) {
     .eq('week_start', weekStart)
     .maybeSingle()
 
-  if (!bracket)          return res.status(404).json({ error: 'No estás inscrito en el torneo de esta semana' })
-  if (bracket.eliminated) return res.status(409).json({ error: 'Has sido eliminado del torneo' })
+  if (!bracket)           return res.status(404).json({ error: 'No estás inscrito en el torneo de esta semana' })
   if (bracket.champion)   return res.status(409).json({ error: 'Ya eres campeón de esta semana' })
+
+  // Auto-eliminación por no presentarse a tiempo
+  if (isAutoEliminated(bracket, weekStart)) {
+    await supabase.from('tournament_brackets').update({ eliminated: true }).eq('id', bracket.id)
+    return res.status(409).json({ error: 'Eliminado por no presentarse a la ronda a tiempo', code: 'AUTO_ELIMINATED' })
+  }
+
+  if (bracket.eliminated) return res.status(409).json({ error: 'Has sido eliminado del torneo' })
 
   const nextRound = bracket.current_round + 1
   if (nextRound > 3) return res.status(409).json({ error: 'Torneo completado' })
 
+  // Verificar que hoy es el día correcto para esta ronda
+  const availableRound = getAvailableRound(weekStart)
+  if (availableRound !== nextRound) {
+    const msg = availableRound === null
+      ? 'Hoy no hay ronda de torneo disponible'
+      : availableRound < nextRound
+        ? 'Aún no es el momento de esta ronda'
+        : 'Ya pasó la ventana de esta ronda'
+    return res.status(409).json({ error: msg, code: 'WRONG_DAY' })
+  }
+
   const rival = bracket.rivals[nextRound - 1]
 
-  // Stats efectivas del héroe
+  // Stats efectivas actuales del héroe (sin coste de HP — torneo es competición pura)
   const heroStats = await getEffectiveStats(supabase, hero.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
 
-  // Simular combate
-  const result  = simulateCombat(heroStats, rival.stats)
-  const won     = result.winner === 'a'
+  const result   = simulateCombat(heroStats, rival.stats)
+  const won      = result.winner === 'a'
   const champion = won && nextRound === 3
-
-  // Deducir HP (igual que la Torre)
-  const damageTaken    = heroStats.max_hp - result.hpLeftA
-  const hpAfterCombat  = Math.max(0, currentHp - damageTaken)
-  const knockedOut     = hpAfterCombat === 0
-
-  await supabase
-    .from('heroes')
-    .update({ current_hp: hpAfterCombat, hp_last_updated_at: new Date(nowMs).toISOString() })
-    .eq('id', hero.id)
 
   // Actualizar bracket
   await supabase
@@ -94,6 +90,7 @@ export default async function handler(req, res) {
   let rewards = null
   if (won) {
     rewards = tournamentRoundRewards(nextRound, champion)
+    const nowMs = Date.now()
 
     const { data: resources } = await supabase
       .from('resources')
@@ -127,20 +124,12 @@ export default async function handler(req, res) {
     rewards.levelUp = levelUp
 
     // Carta garantizada al ganar el torneo
-    if (champion && rewards.cardGuaranteed) {
-      const { data: cards } = await supabase
-        .from('skill_cards')
-        .select('id')
-        .order('id')
-        .limit(20)
+    if (champion) {
+      const { data: cards } = await supabase.from('skill_cards').select('id').limit(20)
       if (cards?.length) {
         const card = cards[Math.floor(Math.random() * cards.length)]
         const { data: existing } = await supabase
-          .from('hero_cards')
-          .select('id, rank')
-          .eq('hero_id', heroId)
-          .eq('card_id', card.id)
-          .maybeSingle()
+          .from('hero_cards').select('id, rank').eq('hero_id', heroId).eq('card_id', card.id).maybeSingle()
         if (existing) {
           await supabase.from('hero_cards').update({ rank: Math.min(20, existing.rank + 1) }).eq('id', existing.id)
         } else {
@@ -163,17 +152,11 @@ export default async function handler(req, res) {
   })
 
   return res.status(200).json({
-    ok: true,
-    won,
-    round:        nextRound,
-    champion,
-    eliminated:   !won,
+    ok: true, won, round: nextRound, champion,
+    eliminated: !won,
     log:          result.log,
     heroMaxHp:    heroStats.max_hp,
     rivalMaxHp:   rival.stats.max_hp,
-    rival,
-    rewards,
-    knockedOut,
-    heroCurrentHp: hpAfterCombat,
+    rival, rewards,
   })
 }

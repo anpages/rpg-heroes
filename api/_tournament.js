@@ -32,6 +32,45 @@ export function getWeekStart() {
   return monday.toISOString().split('T')[0]
 }
 
+/**
+ * Ventanas de tiempo para cada ronda (UTC).
+ * Ronda 1: lunes-martes  (días 0-1)
+ * Ronda 2: miércoles-jueves (días 2-3)
+ * Ronda 3: viernes-sábado (días 4-5)
+ */
+export function getRoundWindows(weekStart) {
+  const base = new Date(weekStart + 'T00:00:00Z').getTime()
+  const day  = (n) => new Date(base + n * 86_400_000)
+  return {
+    1: { opens: day(0), closes: day(2), label: 'Lun – Mar' },
+    2: { opens: day(2), closes: day(4), label: 'Mié – Jue' },
+    3: { opens: day(4), closes: day(6), label: 'Vie – Sáb' },
+  }
+}
+
+/** Ronda cuya ventana está abierta ahora (1, 2, 3 o null). */
+export function getAvailableRound(weekStart) {
+  const windows = getRoundWindows(weekStart)
+  const now = Date.now()
+  for (const [round, w] of Object.entries(windows)) {
+    if (now >= w.opens.getTime() && now < w.closes.getTime()) return Number(round)
+  }
+  return null
+}
+
+/**
+ * Comprueba si el bracket debe marcarse como eliminado por no haberse
+ * presentado a una ronda cuya ventana ya cerró.
+ */
+export function isAutoEliminated(bracket, weekStart) {
+  if (bracket.eliminated || bracket.champion) return false
+  const nextRound = bracket.current_round + 1
+  if (nextRound > 3) return false
+  const windows = getRoundWindows(weekStart)
+  const w = windows[nextRound]
+  return w ? Date.now() >= w.closes.getTime() : false
+}
+
 /** PRNG determinista a partir de una semilla numérica */
 function seededRand(seed) {
   let s = (seed >>> 0) || 1

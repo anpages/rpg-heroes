@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { getWeekStart } from './_tournament.js'
+import { getWeekStart, isAutoEliminated } from './_tournament.js'
 import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -39,7 +39,13 @@ export default async function handler(req, res) {
     .eq('week_start', weekStart)
     .maybeSingle()
 
-  if (!bracket) return res.status(200).json({ bracket: null, matches: [] })
+  if (!bracket) return res.status(200).json({ bracket: null, matches: [], weekStart })
+
+  // Auto-eliminación lazy si se perdió la ventana de una ronda
+  if (isAutoEliminated(bracket, weekStart)) {
+    await supabase.from('tournament_brackets').update({ eliminated: true }).eq('id', bracket.id)
+    bracket.eliminated = true
+  }
 
   const { data: matches } = await supabase
     .from('tournament_matches')
@@ -47,5 +53,5 @@ export default async function handler(req, res) {
     .eq('bracket_id', bracket.id)
     .order('round')
 
-  return res.status(200).json({ bracket, matches: matches ?? [] })
+  return res.status(200).json({ bracket, matches: matches ?? [], weekStart })
 }
