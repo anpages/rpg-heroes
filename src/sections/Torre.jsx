@@ -255,13 +255,12 @@ export default function Torre() {
   // HP row usa hpNow para que la predicción refleje el estado real
   // heroDisplay muestra la proyección de HP tras el combate estimado
   const hpAfterCombat = estDamage !== null ? Math.max(0, hpNow - estDamage) : null
-  const hpDisplay = estDamage !== null
+  // Proyección solo si el héroe sobrevive — si no, el aviso de KO lo explica
+  const hpDisplay = estDamage !== null && !guaranteedKo
     ? <span className="text-[14px] font-bold tabular-nums">
         {hpNow}
         <span className="text-text-3 font-normal"> → </span>
-        <span className={guaranteedKo ? 'text-[#dc2626]' : 'text-[#16a34a]'}>
-          {hpAfterCombat}
-        </span>
+        <span className="text-[#16a34a]">{hpAfterCombat}</span>
       </span>
     : `${hpNow}/${effectiveMaxHp}`
 
