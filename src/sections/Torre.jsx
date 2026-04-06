@@ -296,29 +296,15 @@ export default function Torre() {
           </div>
         </div>
 
-        {/* Combatants */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-1">
-          <div className="flex justify-start">
-            <span className="text-[15px] font-extrabold text-[var(--blue-600)] bg-[rgba(59,130,246,0.1)] px-3 py-1.5 rounded-lg leading-none truncate max-w-full">
-              {hero?.name ?? '—'}
-            </span>
-          </div>
-          <span className="text-[12px] font-extrabold text-text-3 tracking-[0.1em] px-1">VS</span>
-          <div className="flex justify-end">
-            <span className="text-[15px] font-extrabold text-[#dc2626] bg-[rgba(239,68,68,0.1)] px-3 py-1.5 rounded-lg leading-none truncate max-w-full text-right">
-              {enemyName(targetFloor)}
-            </span>
-          </div>
+        {/* Combatants + stat headers fusionados */}
+        <div className="grid items-center gap-x-3 px-3" style={{ gridTemplateColumns: '1fr 48px 1fr' }}>
+          <span className="text-[13px] font-extrabold text-[var(--blue-500)] truncate">{hero?.name ?? '—'}</span>
+          <span className="text-[10px] font-extrabold text-text-3 tracking-[0.1em] text-center">VS</span>
+          <span className="text-[13px] font-extrabold text-[#ef4444] truncate text-right">{enemyName(targetFloor)}</span>
         </div>
 
-        {/* Stat headers */}
         {/* Stats */}
         <div className="flex flex-col gap-0.5">
-          <div className="grid items-center gap-x-3 px-4 pb-1" style={{ gridTemplateColumns: '1fr 48px 1fr' }}>
-            <span className="text-[10px] font-bold text-[var(--blue-500)] text-right uppercase tracking-[0.08em]">Héroe</span>
-            <span />
-            <span className="text-[10px] font-bold text-[#ef4444] uppercase tracking-[0.08em]">Rival</span>
-          </div>
           {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
         </div>
         <p className="text-[11px] text-text-3 px-1 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
