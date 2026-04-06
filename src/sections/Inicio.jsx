@@ -25,6 +25,8 @@ const URGENCY = {
   info:      { border: 'var(--border)', icon: 'var(--text-3)', bg: 'var(--surface)' },
 }
 
+const STATUS_DOT  = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
+
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 
 function fmtDuration(ms) {
@@ -45,6 +47,71 @@ function getDerivedStatus(hero, now) {
   return hero.status
 }
 
+/* ── HeroCard ─────────────────────────────────────────────────────────────── */
+
+function HeroCard({ hero, now, onClick, index }) {
+  const status  = getDerivedStatus(hero, now)
+  const hpNow   = interpolateHp(hero, now.getTime())
+  const hpPct   = Math.min(100, Math.round((hpNow / hero.max_hp) * 100))
+  const hpColor = hpPct >= 60 ? '#16a34a' : hpPct >= 30 ? '#d97706' : '#dc2626'
+
+  const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
+  const msLeft    = activeExp ? Math.max(0, new Date(activeExp.ends_at) - now) : 0
+  const isFullHp  = hpNow >= hero.max_hp
+
+  const StatusIcon = status === 'ready' || status === 'exploring' ? Map
+    : isFullHp ? Sword : Moon
+
+  const statusColor = status === 'ready' ? '#16a34a'
+    : status === 'exploring' ? '#d97706'
+    : isFullHp ? '#2563eb' : '#94a3b8'
+
+  const statusText = status === 'ready'     ? 'Misión completada — recoge la recompensa'
+    : status === 'exploring' ? `Explorando · ${fmtDuration(msLeft)} restante`
+    : isFullHp               ? 'Disponible — listo para explorar'
+    : `Recuperando HP · ${hpPct}% · ${fmtDuration(Math.ceil((hero.max_hp - hpNow) / (hero.max_hp / 60)) * 60000)}`
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.2 }}
+      onClick={onClick}
+      className="group flex flex-col gap-4 p-4 bg-surface border border-border rounded-[14px] shadow-[var(--shadow-sm)] text-left transition-[border-color,box-shadow] duration-150 hover:border-[var(--blue-200)] hover:shadow-[var(--shadow-md)] w-full font-[inherit] cursor-pointer"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_DOT[status] ?? '#16a34a' }} />
+            <span className="font-['Rajdhani',sans-serif] text-[18px] font-bold tracking-[0.02em] text-text truncate">
+              {hero.name}
+            </span>
+          </div>
+          <p className="text-[12px] text-text-3 mt-0.5 pl-4">
+            {hero.classes?.name ?? 'Héroe'} · Nv.{hero.level}
+          </p>
+        </div>
+        <ChevronRight size={15} strokeWidth={2} className="text-text-3 flex-shrink-0 mt-1 transition-transform duration-150 group-hover:translate-x-0.5" />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-[11px] font-semibold">
+          <span className="text-text-3">HP</span>
+          <span style={{ color: hpColor }}>{hpNow} / {hero.max_hp}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-[color-mix(in_srgb,var(--border)_70%,transparent)] overflow-hidden">
+          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${hpPct}%`, background: hpColor }} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: statusColor }}>
+        <StatusIcon size={13} strokeWidth={2} />
+        <span>{statusText}</span>
+      </div>
+    </motion.button>
+  )
+}
+
 /* ── ActivityItem ─────────────────────────────────────────────────────────── */
 
 function ActivityItem({ urgency = 'info', icon: Icon, title, subtitle, extra, timer, badge, onClick, index = 0 }) {
@@ -53,7 +120,7 @@ function ActivityItem({ urgency = 'info', icon: Icon, title, subtitle, extra, ti
     <motion.button
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.035, duration: 0.18 }}
+      transition={{ delay: index * 0.04, duration: 0.18 }}
       onClick={onClick}
       className="group flex items-center gap-3 w-full text-left px-4 py-3.5 rounded-[12px] border border-border transition-[box-shadow,border-color] duration-150 hover:shadow-[var(--shadow-md)] font-[inherit] cursor-pointer border-l-[3px]"
       style={{ background: u.bg, borderLeftColor: u.border }}
@@ -78,10 +145,8 @@ function ActivityItem({ urgency = 'info', icon: Icon, title, subtitle, extra, ti
       <div className="flex items-center gap-2 flex-shrink-0">
         {timer && <span className="text-[13px] font-bold tabular-nums" style={{ color: u.icon }}>{timer}</span>}
         {badge && (
-          <span
-            className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-            style={{ background: `color-mix(in srgb,${u.icon} 12%,var(--surface-2))`, color: u.icon }}
-          >
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+            style={{ background: `color-mix(in srgb,${u.icon} 12%,var(--surface-2))`, color: u.icon }}>
             {badge}
           </span>
         )}
@@ -89,103 +154,6 @@ function ActivityItem({ urgency = 'info', icon: Icon, title, subtitle, extra, ti
       </div>
     </motion.button>
   )
-}
-
-/* ── buildActivities ──────────────────────────────────────────────────────── */
-
-function buildActivities({ heroes, buildings, missions, now, actions }) {
-  const items = []
-
-  for (const hero of heroes) {
-    const status    = getDerivedStatus(hero, now)
-    const hpNow     = interpolateHp(hero, now.getTime())
-    const hpPct     = Math.min(100, Math.round((hpNow / hero.max_hp) * 100))
-    const className = hero.classes?.name ?? null
-    const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
-    const sub       = className ? `${className} · Nv.${hero.level}` : `Nv.${hero.level}`
-
-    if (status === 'ready') {
-      items.push({
-        key: `exp-ready-${hero.id}`, urgency: 'ready',
-        icon: Map, title: `${hero.name} — misión completada`,
-        subtitle: sub, extra: 'Recoge la recompensa de expedición', badge: '¡Listo!',
-        onClick: () => actions.goToExpediciones(hero.id),
-      })
-    } else if (status === 'exploring' && activeExp) {
-      const msLeft = Math.max(0, new Date(activeExp.ends_at) - now)
-      items.push({
-        key: `exp-active-${hero.id}`, urgency: 'active',
-        icon: Map, title: `${hero.name} — explorando`,
-        subtitle: sub, extra: `HP ${hpNow}/${hero.max_hp}`, timer: fmtDuration(msLeft),
-        onClick: () => actions.goToExpediciones(hero.id),
-      })
-    } else {
-      const isFullHp = hpNow >= hero.max_hp
-      if (isFullHp) {
-        items.push({
-          key: `avail-${hero.id}`, urgency: 'available',
-          icon: Sword, title: `${hero.name} — disponible`,
-          subtitle: sub, extra: `HP ${hpNow}/${hero.max_hp} — listo para explorar`, badge: 'Libre',
-          onClick: () => actions.goToExpediciones(hero.id),
-        })
-      } else {
-        const minsToFull = Math.ceil((hero.max_hp - hpNow) / (hero.max_hp / 60))
-        items.push({
-          key: `hp-${hero.id}`, urgency: 'info',
-          icon: Moon, title: `${hero.name} — recuperando HP`,
-          subtitle: sub, extra: `HP ${hpNow}/${hero.max_hp}  (${hpPct}%)`, timer: fmtDuration(minsToFull * 60000),
-          onClick: () => actions.goToFicha(hero.id),
-        })
-      }
-    }
-  }
-
-  for (const b of buildings ?? []) {
-    if (!b.upgrade_ends_at) continue
-    const endsAt = new Date(b.upgrade_ends_at)
-    const name   = BUILDING_NAMES[b.type] ?? b.type
-    if (endsAt <= now) {
-      items.push({
-        key: `bld-ready-${b.id}`, urgency: 'ready',
-        icon: Castle, title: `${name} — mejora completada`,
-        subtitle: `Nivel ${b.level} → ${b.level + 1}`, extra: 'Recoge para activar la mejora', badge: '¡Listo!',
-        onClick: actions.goToBase,
-      })
-    } else {
-      items.push({
-        key: `bld-active-${b.id}`, urgency: 'active',
-        icon: Castle, title: `${name} — mejorando`,
-        subtitle: `Nivel ${b.level} → ${b.level + 1}`, timer: fmtDuration(endsAt - now),
-        onClick: actions.goToBase,
-      })
-    }
-  }
-
-  const claimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
-  const done      = (missions ?? []).filter(m => m.claimed).length
-  const total     = (missions ?? []).length
-
-  if (claimable > 0) {
-    items.push({
-      key: 'missions-claimable', urgency: 'claimable',
-      icon: ClipboardList,
-      title: `${claimable} ${claimable === 1 ? 'misión lista' : 'misiones listas'} para reclamar`,
-      subtitle: `${done}/${total} completadas hoy`, extra: 'Recoge tus recompensas', badge: `+${claimable}`,
-      onClick: actions.openMissions,
-    })
-  } else if (total > 0) {
-    items.push({
-      key: 'missions-info', urgency: 'info',
-      icon: ClipboardList, title: 'Misiones del día',
-      subtitle: `${done}/${total} completadas`,
-      extra: done === total ? '✓ Todas completadas' : `${total - done} pendientes`,
-      onClick: actions.openMissions,
-    })
-  }
-
-  const ORDER = { ready: 0, active: 1, available: 2, claimable: 3, info: 4 }
-  items.sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency])
-  return items.map((item, i) => ({ ...item, index: i }))
 }
 
 /* ── Main ─────────────────────────────────────────────────────────────────── */
@@ -213,48 +181,90 @@ export default function Inicio() {
   const nextSlot     = [1, 2, 3].find(s => !usedSlots.includes(s))
   const canRecruit   = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
 
-  const actions = {
-    goToFicha:        (heroId) => { setSelectedHeroId(heroId); navigateToHeroTab('ficha') },
-    goToExpediciones: (heroId) => { setSelectedHeroId(heroId); navigateToHeroTab('expediciones') },
-    goToBase:         () => navigateTo('base'),
-    openMissions:     () => setMissionsOpen(true),
+  // Actividad: solo edificios y misiones (los héroes tienen su propio bloque)
+  const activityItems = []
+  let idx = 0
+
+  for (const b of buildings ?? []) {
+    if (!b.upgrade_ends_at) continue
+    const endsAt = new Date(b.upgrade_ends_at)
+    const name   = BUILDING_NAMES[b.type] ?? b.type
+    if (endsAt <= now) {
+      activityItems.push({
+        key: `bld-ready-${b.id}`, urgency: 'ready', index: idx++,
+        icon: Castle, title: `${name} — mejora completada`,
+        subtitle: `Nivel ${b.level} → ${b.level + 1}`, extra: 'Recoge para activar la mejora', badge: '¡Listo!',
+        onClick: () => navigateTo('base'),
+      })
+    } else {
+      activityItems.push({
+        key: `bld-active-${b.id}`, urgency: 'active', index: idx++,
+        icon: Castle, title: `${name} — mejorando`,
+        subtitle: `Nivel ${b.level} → ${b.level + 1}`, timer: fmtDuration(endsAt - now),
+        onClick: () => navigateTo('base'),
+      })
+    }
   }
 
-  const activities = buildActivities({ heroes, buildings, missions, now, actions })
+  const claimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
+  const done      = (missions ?? []).filter(m => m.claimed).length
+  const total     = (missions ?? []).length
+
+  if (claimable > 0) {
+    activityItems.push({
+      key: 'missions-claimable', urgency: 'claimable', index: idx++,
+      icon: ClipboardList,
+      title: `${claimable} ${claimable === 1 ? 'misión lista' : 'misiones listas'} para reclamar`,
+      subtitle: `${done}/${total} completadas hoy`, extra: 'Recoge tus recompensas', badge: `+${claimable}`,
+      onClick: () => setMissionsOpen(true),
+    })
+  } else if (total > 0) {
+    activityItems.push({
+      key: 'missions-info', urgency: 'info', index: idx++,
+      icon: ClipboardList, title: 'Misiones del día',
+      subtitle: `${done}/${total} completadas`,
+      extra: done === total ? '✓ Todas completadas' : `${total - done} pendientes`,
+      onClick: () => setMissionsOpen(true),
+    })
+  }
 
   return (
-    <div className="flex flex-col gap-4 max-w-[700px] mx-auto">
+    <div className="flex flex-col gap-6 max-w-[700px] mx-auto">
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap size={13} strokeWidth={2.5} className="text-text-3" />
-          <span className="text-[12px] font-bold tracking-[0.06em] uppercase text-text-3">Actividad</span>
+      {/* Héroes */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="section-title">Héroes</h2>
+          {canRecruit && (
+            <button className="btn btn--ghost btn--sm border-dashed" onClick={() => setRecruitOpen(true)}>
+              <Plus size={11} strokeWidth={2.5} /> Reclutar
+            </button>
+          )}
         </div>
-        {canRecruit && (
-          <button className="btn btn--ghost btn--sm border-dashed" onClick={() => setRecruitOpen(true)}>
-            <Plus size={11} strokeWidth={2.5} /> Reclutar héroe
-          </button>
-        )}
-      </div>
+        <div className="flex flex-col gap-2">
+          {heroes.map((hero, i) => (
+            <HeroCard
+              key={hero.id} hero={hero} now={now} index={i}
+              onClick={() => { setSelectedHeroId(hero.id); navigateToHeroTab('ficha') }}
+            />
+          ))}
+        </div>
+      </section>
 
-      <AnimatePresence mode="popLayout">
-        {activities.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            {activities.map(item => <ActivityItem key={item.key} {...item} />)}
+      {/* Actividad */}
+      {activityItems.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Zap size={13} strokeWidth={2.5} className="text-text-3" />
+            <span className="text-[12px] font-bold tracking-[0.06em] uppercase text-text-3">Actividad</span>
           </div>
-        ) : (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center gap-2 py-12 text-center"
-          >
-            <span className="text-[28px]">⚔️</span>
-            <p className="text-[14px] font-semibold text-text-2">Todo en calma</p>
-            <p className="text-[13px] text-text-3">Envía a tus héroes a explorar o mejora tu base.</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <AnimatePresence mode="popLayout">
+            <div className="flex flex-col gap-1.5">
+              {activityItems.map(item => <ActivityItem key={item.key} {...item} />)}
+            </div>
+          </AnimatePresence>
+        </section>
+      )}
 
     </div>
   )
