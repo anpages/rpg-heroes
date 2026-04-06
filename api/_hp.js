@@ -35,10 +35,10 @@ export function canPlay(currentHp, maxHp) {
 }
 
 /**
- * HP damage for an expedition based on dungeon difficulty (1-10).
- * Returns absolute HP damage (floor of % * max_hp).
+ * HP damage for an expedition based on duration.
+ * Rate: 10% of max_hp per hour (proportional to time).
+ * Minimum 1 HP.
  */
-export function expeditionHpDamage(maxHp, difficulty) {
-  const pct = difficulty <= 3 ? 0.05 : difficulty <= 6 ? 0.07 : 0.10
-  return Math.floor(maxHp * pct)
+export function expeditionHpDamage(maxHp, durationMinutes) {
+  return Math.max(1, Math.floor(maxHp * durationMinutes / 600))
 }

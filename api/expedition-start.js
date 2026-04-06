@@ -73,7 +73,7 @@ export default async function handler(req, res) {
   const manaEarned = Math.floor((dungeon.mana_min + Math.random() * (dungeon.mana_max - dungeon.mana_min)) * workshopBonus)
 
   // Deducir HP por peligro de la expedición al iniciar
-  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.difficulty)
+  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.duration_minutes)
   if (currentHp <= hpDamage) {
     return res.status(409).json({
       error: `HP insuficiente. Esta expedición cuesta ${hpDamage} HP y tienes ${currentHp}.`,

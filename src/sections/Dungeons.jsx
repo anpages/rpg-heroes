@@ -86,16 +86,15 @@ function useExpeditionTimer(expedition) {
   return { secondsLeft, canCollect, isMounted, pct }
 }
 
-function dungeonHpCost(maxHp, difficulty) {
-  const pct = difficulty <= 3 ? 0.05 : difficulty <= 6 ? 0.07 : 0.10
-  return Math.floor((maxHp ?? 100) * pct)
+function dungeonHpCost(maxHp, durationMinutes) {
+  return Math.max(1, Math.floor((maxHp ?? 100) * durationMinutes / 600))
 }
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor }) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
-  const hpCost   = dungeonHpCost(heroMaxHp, dungeon.difficulty)
+  const hpCost   = dungeonHpCost(heroMaxHp, dungeon.duration_minutes)
   const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
   const disabled = locked || busy || lowHp
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
