@@ -260,7 +260,7 @@ export default function Torre() {
         {hpNow}
         <span className="text-text-3 font-normal"> → </span>
         <span className={guaranteedKo ? 'text-[#dc2626]' : 'text-[#16a34a]'}>
-          {guaranteedKo ? 'KO' : hpAfterCombat}
+          {hpAfterCombat}
         </span>
       </span>
     : `${hpNow}/${effectiveMaxHp}`
