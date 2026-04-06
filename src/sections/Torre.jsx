@@ -153,10 +153,7 @@ export default function Torre() {
   }, [])
 
   // eslint-disable-next-line react-hooks/purity
-  const nowMs       = Date.now()
-  const hpNow       = interpolateHp(hero, nowMs)
-  const minHp       = hero ? Math.floor(hero.max_hp * 0.2) : 0
-  const hasEnoughHp = hpNow >= minHp
+  const nowMs = Date.now()
 
   // Bonos de equipo (durabilidad > 0) + cartas equipadas — necesario antes del render
   const equipBonuses = (items ?? [])
@@ -192,6 +189,12 @@ export default function Torre() {
     agility:      hero.agility      + equipBonuses.agility   + cardBonuses.agility,
     intelligence: hero.intelligence,
   } : null
+
+  // HP efectivo: usa max_hp con bonificaciones de equipo y cartas como techo
+  const effectiveMaxHp = effectiveHero?.max_hp ?? hero?.max_hp ?? 100
+  const hpNow          = interpolateHp(hero, nowMs, effectiveMaxHp)
+  const minHp          = Math.floor(effectiveMaxHp * 0.2)
+  const hasEnoughHp    = hpNow >= minHp
 
   const targetFloor = (maxFloor ?? 0) + 1
   const enemy       = floorEnemyStats(targetFloor)
@@ -308,11 +311,11 @@ export default function Torre() {
           <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-[width,background] duration-[400ms] ease-out ${isLowHp ? 'bg-[#dc2626]' : 'bg-[#16a34a]'}`}
-              style={{ width: `${Math.round((hpNow / (hero?.max_hp ?? 1)) * 100)}%` }}
+              style={{ width: `${Math.round((hpNow / effectiveMaxHp) * 100)}%` }}
             />
           </div>
           <span className={`text-[12px] font-semibold whitespace-nowrap ${isLowHp ? 'text-[#dc2626]' : 'text-text-2'}`}>
-            {hpNow}/{hero?.max_hp ?? 0} HP
+            {hpNow}/{effectiveMaxHp} HP
             {isLowHp && ` · mín. ${minHp}`}
           </span>
           {estDamage !== null && (
