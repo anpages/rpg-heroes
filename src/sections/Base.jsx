@@ -521,7 +521,7 @@ function Base() {
   )
 
   return (
-    <div className="flex flex-col gap-6 max-w-[960px] mx-auto">
+    <div className="flex flex-col gap-6">
       <div className="section-header">
         <h2 className="section-title">Base</h2>
         <p className="section-subtitle">Mejora tus edificios para aumentar la producción de recursos y las capacidades de tu héroe.</p>

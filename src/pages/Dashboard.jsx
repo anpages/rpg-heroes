@@ -45,7 +45,7 @@ function CatalogDebug() {
   }, {})
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'monospace', fontSize: 13 }}>
+    <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de items</h2>
         <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>DEV ONLY</span>
@@ -132,7 +132,7 @@ function CardCatalogDebug() {
   ]
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'monospace', fontSize: 13 }}>
+    <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de Cartas</h2>
         <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>DEV ONLY</span>

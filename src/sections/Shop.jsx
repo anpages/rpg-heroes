@@ -198,7 +198,7 @@ export default function Shop() {
   const MerchantIcon = merchant ? (MERCHANT_ICON[merchant.key] ?? Sword) : Sword
 
   return (
-    <div className="flex flex-col gap-6 max-w-[960px] mx-auto relative">
+    <div className="flex flex-col gap-6 relative">
       <HeroSelector />
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
