@@ -57,6 +57,7 @@ const BUILDING_META = {
     color: '#dc2626',
     effect: (level) => level === 1 ? 'Sin bonificación' : `+${(level - 1) * 2} fue · +${(level - 1) * 2} agi · +${(level - 1) * 2} int`,
     nextEffect: (level) => `+${level * 2} fue · +${level * 2} agi · +${level * 2} int`,
+    energyPerLevel: 5,
   },
   workshop: {
     name: 'Taller',
@@ -67,6 +68,7 @@ const BUILDING_META = {
       ? '20 espacios de mochila'
       : `+${(level - 1) * 5}% botín · ${20 + (level - 1) * 5} espacios`,
     nextEffect: (level) => `+${level * 5}% botín · ${20 + level * 5} espacios`,
+    energyPerLevel: 5,
   },
   forge: {
     name: 'Herrería',
@@ -75,6 +77,7 @@ const BUILDING_META = {
     color: '#b45309',
     effect: (level) => level === 1 ? 'Sin descuento' : `-${(level - 1) * 5}% coste de reparación`,
     nextEffect: (level) => `-${level * 5}% coste de reparación`,
+    energyPerLevel: 5,
   },
   library: {
     name: 'Biblioteca',
@@ -83,6 +86,7 @@ const BUILDING_META = {
     color: '#0f766e',
     effect: (level) => `${1 + level * 2} cartas equipables`,
     nextEffect: (level) => `${1 + (level + 1) * 2} cartas equipables`,
+    energyPerLevel: 5,
   },
 }
 
@@ -194,6 +198,12 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
             {meta.effect(level)}
             {!hasUpgrade && <span className="font-medium text-text-3"> → {meta.nextEffect(level)}</span>}
           </p>
+          {meta.energyPerLevel && (
+            <p className="text-[12px] font-medium text-text-3 -mt-0.5 flex items-center gap-1">
+              <Zap size={11} strokeWidth={2} color="#0891b2" />
+              Consume {meta.energyPerLevel * level}⚡ · {meta.energyPerLevel}⚡/nivel
+            </p>
+          )}
           {nexusRatio !== undefined && nexusRatio < 1 && (
             <p className="text-[12px] font-semibold text-[#d97706] -mt-1">
               ⚡ Energía insuficiente · tasa real reducida al {Math.round(nexusRatio * 100)}%
