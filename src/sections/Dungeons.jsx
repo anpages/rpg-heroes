@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
+import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
@@ -62,7 +62,6 @@ function ExpeditionProgress({ expedition, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [canCollect, setCanCollect] = useState(false)
   const [collecting, setCollecting] = useState(false)
-  const [collectError, setCollectError] = useState(null)
   const mountedRef = useRef(false)
 
   const totalSeconds = Math.round((new Date(expedition.ends_at) - new Date(expedition.started_at)) / 1000)
@@ -89,7 +88,7 @@ function ExpeditionProgress({ expedition, onCollect }) {
       const data = await apiPost('/api/expedition-collect', { expeditionId: expedition.id })
       onCollect(data)
     } catch (err) {
-      setCollectError(err.message)
+      toast.error(err.message)
       setCollecting(false)
     }
   }
@@ -122,7 +121,6 @@ function ExpeditionProgress({ expedition, onCollect }) {
             <PackageOpen size={16} strokeWidth={2} />
             {collecting ? 'Recogiendo...' : 'Recoger recompensas'}
           </motion.button>
-          {collectError && <p className="collect-error">{collectError}</p>}
         </>
       )}
     </div>
@@ -230,7 +228,6 @@ function Dungeons() {
   const { buildings } = useBuildings(userId)
   const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
   const [reward, setReward] = useState(null)
-  const [startError, setStartError] = useState(null)
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -262,8 +259,7 @@ function Dungeons() {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     } catch (err) {
       setExpedition(null) // revertir
-      setStartError(err.message)
-      setTimeout(() => setStartError(null), 4000)
+      toast.error(err.message)
     }
   }
 
@@ -343,15 +339,6 @@ function Dungeons() {
               </div>
             )}
           </motion.div>
-        )}
-        {startError && (
-          <motion.p
-            className="collect-error"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ marginBottom: 12 }}
-          >
-            {startError}
-          </motion.p>
         )}
       </AnimatePresence>
 

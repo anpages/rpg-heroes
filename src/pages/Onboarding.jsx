@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useClasses } from '../hooks/useClasses'
+import { apiPost } from '../lib/api'
 import './Onboarding.css'
 
 const MAX_STAT = 18
@@ -32,27 +32,13 @@ function Onboarding({ session, onComplete }) {
     setLoading(true)
     setError(null)
 
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const token = currentSession?.access_token
-
-    const res = await fetch('/api/onboarding', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ heroName, heroClass }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setError(data.error || 'Error desconocido.')
+    try {
+      await apiPost('/api/onboarding', { heroName, heroClass })
+      onComplete()
+    } catch (err) {
+      setError(err.message)
       setLoading(false)
-      return
     }
-
-    onComplete()
   }
 
   return (

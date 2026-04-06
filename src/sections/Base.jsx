@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
+import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
@@ -138,7 +138,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
   const meta = BUILDING_META[effectiveBuilding.type]
   const { level } = effectiveBuilding
   const hasUpgrade = !!effectiveBuilding.upgrade_ends_at
-  const { secondsLeft, loading, error, setLoading, setError, mountedRef } = useUpgradeTimer(effectiveBuilding, () => {
+  const { secondsLeft, loading, mountedRef } = useUpgradeTimer(effectiveBuilding, () => {
     setOptimisticEndsAt(null)
     onUpgradeCollect()
   })
@@ -159,7 +159,6 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
     const durationMs = building.level * building.level * 10 * 60 * 1000
     setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
     onOptimisticDeduct(cost)
-    setError(null)
 
     try {
       await apiPost('/api/building-upgrade-start', { buildingId: building.id })
@@ -167,7 +166,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
     } catch (err) {
       setOptimisticEndsAt(null)
       onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood }) // revertir
-      setError(err.message)
+      toast.error(err.message)
     }
   }
 
@@ -272,7 +271,6 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         </div>
       )}
 
-      {error && <p className="building-error">{error}</p>}
     </div>
   )
 }
@@ -340,7 +338,6 @@ const BUILDING_GROUPS = [
 function useUpgradeTimer(building, onUpgradeCollect) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const mountedRef = useRef(false)
   const collectingRef = useRef(false)
 
@@ -349,7 +346,6 @@ function useUpgradeTimer(building, onUpgradeCollect) {
     if (!hasUpgrade) {
       setSecondsLeft(null)
       setLoading(false)
-      setError(null)
       mountedRef.current = false
       collectingRef.current = false
       return
@@ -365,7 +361,7 @@ function useUpgradeTimer(building, onUpgradeCollect) {
         onUpgradeCollect()
         setLoading(false)
       } catch (err) {
-        setError(err.message)
+        toast.error(err.message)
         setLoading(false)
         collectingRef.current = false
       }
@@ -382,7 +378,7 @@ function useUpgradeTimer(building, onUpgradeCollect) {
     return () => clearInterval(interval)
   }, [building.upgrade_ends_at])
 
-  return { secondsLeft, loading, error, setLoading, setError, mountedRef }
+  return { secondsLeft, loading, mountedRef }
 }
 
 

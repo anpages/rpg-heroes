@@ -11,7 +11,6 @@ import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import './Shop.css'
 
 const RARITY_META = {
@@ -146,7 +145,6 @@ export default function Shop() {
   const heroName    = hero?.name
   const gold        = resources?.gold
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
-  const [localToast, setLocalToast] = useState(null)
 
   useEffect(() => {
     const t = setInterval(() => setRenewsIn(timeUntilMidnight()), 60000)
@@ -188,11 +186,6 @@ export default function Shop() {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
   })
-
-  function showToast(msg, type) {
-    setLocalToast({ msg, type })
-    setTimeout(() => setLocalToast(null), 3500)
-  }
 
   if (!heroId) return (
     <div className="shop-empty">
@@ -243,18 +236,6 @@ export default function Shop() {
         </div>
       )}
 
-      <AnimatePresence>
-        {localToast && (
-          <motion.div
-            className={`shop-toast shop-toast--${localToast.type}`}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-          >
-            {localToast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
