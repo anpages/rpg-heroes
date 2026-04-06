@@ -4,7 +4,7 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useMissions } from '../hooks/useMissions'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { Sword, Castle, ClipboardList, ChevronRight, Swords, Lock, Plus } from 'lucide-react'
+import { Sword, Castle, ClipboardList, ChevronRight, Swords, Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
@@ -165,15 +165,10 @@ export default function Inicio() {
   const missionsTotal     = (missions ?? []).length
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
-  const barrackLevel  = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
-  const usedSlots     = heroes.map(h => h.slot ?? 1)
-  const nextSlot      = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit    = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
-  const lockedSlots   = [2, 3].filter(slot => {
-    const filled   = heroes.some(h => h.slot === slot)
-    const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
-    return !filled && !unlocked
-  })
+  const barrackLevel = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
+  const usedSlots    = heroes.map(h => h.slot ?? 1)
+  const nextSlot     = [1, 2, 3].find(s => !usedSlots.includes(s))
+  const canRecruit   = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
 
   function goToHero(heroId) {
     setSelectedHeroId(heroId)
@@ -194,7 +189,7 @@ export default function Inicio() {
           )}
         </div>
 
-        <div className={`grid gap-3 ${heroes.length === 1 ? 'grid-cols-1 sm:grid-cols-2' : heroes.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+        <div className={`grid gap-3 ${heroes.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
           {heroes.map((hero, i) => (
             <motion.div
               key={hero.id}
@@ -204,20 +199,6 @@ export default function Inicio() {
             >
               <HeroCard hero={hero} now={now} onClick={() => goToHero(hero.id)} />
             </motion.div>
-          ))}
-
-          {/* Slots bloqueados */}
-          {lockedSlots.map(slot => (
-            <div
-              key={`locked-${slot}`}
-              className="flex flex-col items-center justify-center gap-2 p-4 bg-surface border border-dashed border-border rounded-[14px] opacity-50 select-none min-h-[120px]"
-            >
-              <Lock size={18} strokeWidth={1.8} className="text-text-3" />
-              <div className="text-center">
-                <p className="text-[13px] font-semibold text-text-3">Slot {slot} bloqueado</p>
-                <p className="text-[11px] text-text-3">Cuartel Nv.{SLOT_UNLOCK[slot]}</p>
-              </div>
-            </div>
           ))}
         </div>
       </section>
