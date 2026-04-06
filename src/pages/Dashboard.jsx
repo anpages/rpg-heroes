@@ -4,6 +4,7 @@ import { useResources } from '../hooks/useResources'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useClasses } from '../hooks/useClasses'
+import { useMissions } from '../hooks/useMissions'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
@@ -15,7 +16,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Globe, Map, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -197,15 +198,15 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'heroes',  label: 'Héroes',  icon: Sword   },
-  { id: 'mundo',   label: 'Mundo',   icon: Globe   },
-  { id: 'base',    label: 'Base',    icon: Castle  },
+  { id: 'heroes',  label: 'Héroes',  icon: Sword       },
+  { id: 'mundo',   label: 'Mundo',   icon: Globe       },
+  { id: 'tienda',  label: 'Tienda',  icon: ShoppingBag },
+  { id: 'base',    label: 'Base',    icon: Castle      },
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword       },
-  { id: 'expediciones', label: 'Expediciones', icon: Map         },
-  { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword },
+  { id: 'expediciones', label: 'Expediciones', icon: Map   },
 ]
 
 function fmt(n) {
@@ -247,10 +248,11 @@ function Dashboard({ session }) {
   const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
-  const { resources }              = useResources(session.user.id)
-  const { heroes }                 = useHeroes(session.user.id)
-  const { buildings }              = useBuildings(session.user.id)
+  const { resources }               = useResources(session.user.id)
+  const { heroes }                  = useHeroes(session.user.id)
+  const { buildings }               = useBuildings(session.user.id)
   const { classes: recruitClasses } = useClasses()
+  const { missions }                = useMissions()
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
@@ -270,6 +272,8 @@ function Dashboard({ session }) {
   const anyHeroExploring = !anyHeroReady && heroes.some(h => h.status === 'exploring')
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
+
+  const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
@@ -296,6 +300,18 @@ function Dashboard({ session }) {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            className="btn btn--ghost btn--icon relative"
+            onClick={() => setMissionsOpen(true)}
+            title="Misiones"
+          >
+            <ClipboardList size={17} strokeWidth={1.8} />
+            {missionsClaimable > 0 && (
+              <span className="absolute -top-[3px] -right-[3px] min-w-[16px] h-4 px-[3px] rounded-full bg-[#7c3aed] border-2 border-surface text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                {missionsClaimable}
+              </span>
+            )}
+          </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
           <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-2 overflow-hidden flex-shrink-0 flex items-center justify-center" title={session.user.email}>
             {session.user.user_metadata?.avatar_url
@@ -413,9 +429,6 @@ function Dashboard({ session }) {
                 <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
                 </div>
-                <div className={activeHeroTab === 'tienda' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
-                </div>
               </div>
             )}
           </div>
@@ -428,6 +441,11 @@ function Dashboard({ session }) {
           {/* Mundo */}
           <div className={activeTab === 'mundo' ? 'block animate-section-in' : 'hidden'}>
             {mountedTabs.has('mundo') && <ErrorBoundary><Combates /></ErrorBoundary>}
+          </div>
+
+          {/* Tienda */}
+          <div className={activeTab === 'tienda' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
           </div>
 
           {/* DEV only */}
