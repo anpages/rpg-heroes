@@ -198,10 +198,10 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
+  { id: 'base',    label: 'Base',    icon: Castle,      accent: '#d97706' },
   { id: 'heroes',  label: 'Héroes',  icon: Sword       },
   { id: 'mundo',   label: 'Mundo',   icon: Globe       },
   { id: 'tienda',  label: 'Tienda',  icon: ShoppingBag },
-  { id: 'base',    label: 'Base',    icon: Castle      },
 ]
 
 const HERO_SUB_TABS = [
@@ -342,9 +342,10 @@ function Dashboard({ session }) {
         {/* Sidebar — desktop only */}
         <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-surface border-r border-border flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
           <nav className="flex flex-col gap-1">
-            {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+            {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
               const badge    = badgeState(id)
               const isActive = activeTab === id
+              const iconColor = isActive ? 'var(--blue-700)' : (accent ?? undefined)
               return (
                 <button
                   key={id}
@@ -362,7 +363,7 @@ function Dashboard({ session }) {
                       transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                     />
                   )}
-                  <span className="relative z-[1] w-5 h-5 flex items-center justify-center flex-shrink-0">
+                  <span className="relative z-[1] w-5 h-5 flex items-center justify-center flex-shrink-0" style={iconColor ? { color: iconColor } : undefined}>
                     <Icon size={18} strokeWidth={1.8} />
                     {badge && (
                       <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
@@ -465,16 +466,18 @@ function Dashboard({ session }) {
 
       {/* Bottom nav — mobile only */}
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+        {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
           const badge = badgeState(id)
+          const isActive = activeTab === id
+          const iconColor = isActive ? 'var(--blue-600)' : (accent ?? undefined)
           return (
             <button
               key={id}
               className={`flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium transition-[color,background] duration-150 py-2 px-1 hover:bg-bg
-                ${activeTab === id ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
+                ${isActive ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
               onClick={() => navigateTo(id)}
             >
-              <span className="relative w-[22px] h-[22px] flex items-center justify-center">
+              <span className="relative w-[22px] h-[22px] flex items-center justify-center" style={iconColor ? { color: iconColor } : undefined}>
                 <Icon size={20} strokeWidth={1.8} />
                 {badge && (
                   <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
