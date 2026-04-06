@@ -129,7 +129,7 @@ function dungeonHpCost(maxHp, difficulty) {
   return Math.floor((maxHp ?? 100) * pct)
 }
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp }) {
+function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor }) {
   const locked  = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy    = heroStatus !== 'idle' && !isActive
@@ -163,9 +163,12 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
           <div className="flex gap-3.5 flex-wrap">
             <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
               <Clock size={13} strokeWidth={2} />
-              {dungeon.duration_minutes >= 60
-                ? `${Math.floor(dungeon.duration_minutes / 60)}h${dungeon.duration_minutes % 60 > 0 ? ` ${dungeon.duration_minutes % 60}m` : ''}`
-                : `${dungeon.duration_minutes}m`}
+              {(() => {
+                const mins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1))
+                return mins >= 60
+                  ? `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}m` : ''}`
+                  : `${mins}m`
+              })()}
             </span>
             <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
               <Star size={13} strokeWidth={2} />
@@ -372,6 +375,7 @@ function Dungeons() {
               onCollect={handleCollect}
               heroHpNow={heroHpNow}
               heroMaxHp={hero?.max_hp ?? 100}
+              agilityFactor={agilityFactor}
             />
           </motion.div>
         ))}
