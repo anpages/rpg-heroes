@@ -70,7 +70,7 @@ function StatBars({ effective, base }) {
         const bonusPct = Math.min(100 - basePct, (bonus / maxVal) * 100)
 
         return (
-          <div key={key} className="grid grid-cols-[14px_68px_1fr_26px_28px] gap-1.5 md:grid-cols-[16px_90px_1fr_26px_28px] md:gap-2 items-center">
+          <div key={key} className="grid grid-cols-[14px_68px_1fr_auto] gap-1.5 md:grid-cols-[16px_90px_1fr_auto] md:gap-2 items-center">
             <div className="flex items-center justify-center flex-shrink-0" style={{ color }}>
               <Icon size={13} strokeWidth={2} />
             </div>
@@ -79,10 +79,13 @@ function StatBars({ effective, base }) {
               <div className="h-full rounded-l-full transition-[width] duration-[400ms]" style={{ width: `${basePct}%`,  background: color, opacity: 0.55 }} />
               <div className="h-full rounded-r-full transition-[width] duration-[400ms]" style={{ width: `${bonusPct}%`, background: color }} />
             </div>
-            <span className="text-[13px] font-bold text-text text-right">{total}</span>
             {bonus > 0
-              ? <span className="text-[11px] font-bold text-left" style={{ color }}>+{bonus}</span>
-              : <span />
+              ? <span className="text-[12px] font-bold text-right whitespace-nowrap">
+                  <span className="text-text-3">{baseV}</span>
+                  <span className="text-text-3 mx-[3px]">→</span>
+                  <span className="text-text">{total}</span>
+                </span>
+              : <span className="text-[13px] font-bold text-text text-right">{total}</span>
             }
           </div>
         )
