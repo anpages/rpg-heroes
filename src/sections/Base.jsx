@@ -86,10 +86,18 @@ const BUILDING_META = {
   },
 }
 
-function upgradeCost(level) {
-  return {
-    gold: Math.round(60 * Math.pow(level, 1.6)),
-    wood: Math.round(36 * Math.pow(level, 1.4)),
+function upgradeCost(type, level) {
+  switch (type) {
+    case 'barracks':
+      return { gold: Math.round(100 * Math.pow(level, 1.8)), wood: Math.round(55 * Math.pow(level, 1.5)) }
+    case 'workshop':
+      return { gold: Math.round(80  * Math.pow(level, 1.7)), wood: Math.round(50 * Math.pow(level, 1.5)) }
+    case 'forge':
+      return { gold: Math.round(70  * Math.pow(level, 1.6)), wood: Math.round(35 * Math.pow(level, 1.4)), mana: Math.round(25 * Math.pow(level, 1.3)) }
+    case 'library':
+      return { gold: Math.round(70  * Math.pow(level, 1.6)), mana: Math.round(45 * Math.pow(level, 1.5)) }
+    default: // energy_nexus, gold_mine, lumber_mill, mana_well
+      return { gold: Math.round(60  * Math.pow(level, 1.6)), wood: Math.round(36 * Math.pow(level, 1.4)) }
   }
 }
 
@@ -127,13 +135,16 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
   if (!meta) return null
 
-  const cost = upgradeCost(level)
+  const cost = upgradeCost(building.type, level)
   const Icon = meta.icon
   const totalSeconds = level * level * 10 * 60
   const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
-  const canAfford = resources && resources.gold >= cost.gold && resources.wood >= cost.wood
+  const canAfford = resources
+    && resources.gold >= cost.gold
+    && (cost.wood === undefined || resources.wood >= cost.wood)
+    && (cost.mana === undefined || resources.mana >= cost.mana)
   const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
@@ -149,7 +160,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
       onUpgradeStart()
     } catch (err) {
       setOptimisticEndsAt(null)
-      onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood })
+      onOptimisticDeduct({ gold: -cost.gold, wood: -(cost.wood ?? 0), mana: -(cost.mana ?? 0) })
       onUpgradePending(false)
       toast.error(err.message)
     }
@@ -249,10 +260,18 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
               <Coins size={12} strokeWidth={2} />
               {fmt(cost.gold)}
             </span>
-            <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
-              <Axe size={12} strokeWidth={2} />
-              {fmt(cost.wood)}
-            </span>
+            {cost.wood !== undefined && (
+              <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
+                <Axe size={12} strokeWidth={2} />
+                {fmt(cost.wood)}
+              </span>
+            )}
+            {cost.mana !== undefined && (
+              <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.mana >= cost.mana ? 'text-success-text' : 'text-error-text'}`}>
+                <Sparkles size={12} strokeWidth={2} />
+                {fmt(cost.mana)}
+              </span>
+            )}
           </div>
           <motion.button
             className="btn btn--primary btn--sm sm:w-auto w-full justify-center"
@@ -311,6 +330,7 @@ function LockedBuildingCard({ type }) {
 }
 
 const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
+const UTILITY_TYPES    = ['barracks', 'workshop', 'forge', 'library']
 
 const BUILDING_GROUPS = [
   {
@@ -392,18 +412,18 @@ function Base() {
   const queryClient = useQueryClient()
   const { buildings, loading } = useBuildings(userId)
   const { resources } = useResources(userId)
-  const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
+  const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0, mana: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setResourceDelta({ gold: 0, wood: 0 }) }, [resources])
+  useEffect(() => { setResourceDelta({ gold: 0, wood: 0, mana: 0 }) }, [resources])
 
   const effectiveResources = resources
-    ? { ...resources, gold: resources.gold - resourceDelta.gold, wood: resources.wood - resourceDelta.wood }
+    ? { ...resources, gold: resources.gold - resourceDelta.gold, wood: resources.wood - resourceDelta.wood, mana: resources.mana - resourceDelta.mana }
     : null
 
-  function handleOptimisticDeduct({ gold = 0, wood = 0 }) {
-    setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood }))
+  function handleOptimisticDeduct({ gold = 0, wood = 0, mana = 0 }) {
+    setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood, mana: d.mana + mana }))
   }
 
   function handleUpgradeStart() {
@@ -424,8 +444,10 @@ function Base() {
 
   const nexusData = nexus ? (() => {
     const allBuildings = Object.values(byType)
-    const produced = nexus.level * 30
-    const consumed = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type) && b.unlocked !== false).reduce((s, b) => s + b.level * 10, 0)
+    const produced         = nexus.level * 30
+    const consumedProduction = allBuildings.filter(b => PRODUCTION_TYPES.includes(b.type) && b.unlocked !== false).reduce((s, b) => s + b.level * 10, 0)
+    const consumedUtility    = allBuildings.filter(b => UTILITY_TYPES.includes(b.type)    && b.unlocked !== false).reduce((s, b) => s + b.level * 5,  0)
+    const consumed           = consumedProduction + consumedUtility
     const balance = produced - consumed
     const deficit = balance < 0
     const barPct = consumed > 0 ? Math.min(100, Math.round((produced / consumed) * 100)) : 100

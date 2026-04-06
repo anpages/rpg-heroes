@@ -8,13 +8,17 @@ function computeRates(buildings) {
     return (b && b.unlocked !== false) ? b.level : 0
   }
 
-  const goldMine = unlockedLevel('gold_mine')
-  const lumber   = unlockedLevel('lumber_mill')
-  const mana     = unlockedLevel('mana_well')
-  const nexus    = unlockedLevel('energy_nexus')
+  const goldMine  = unlockedLevel('gold_mine')
+  const lumber    = unlockedLevel('lumber_mill')
+  const mana      = unlockedLevel('mana_well')
+  const nexus     = unlockedLevel('energy_nexus')
+  const barracks  = unlockedLevel('barracks')
+  const workshop  = unlockedLevel('workshop')
+  const forge     = unlockedLevel('forge')
+  const library   = unlockedLevel('library')
 
   const energyProduced = nexus * 30
-  const energyConsumed = (goldMine + lumber + mana) * 10
+  const energyConsumed = (goldMine + lumber + mana) * 10 + (barracks + workshop + forge + library) * 5
   const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
 
   return {

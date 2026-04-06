@@ -1,9 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
-function upgradeCost(level) {
-  return {
-    gold: Math.round(60 * Math.pow(level, 1.6)),
-    wood: Math.round(36 * Math.pow(level, 1.4)),
+function upgradeCost(type, level) {
+  switch (type) {
+    case 'barracks':
+      return { gold: Math.round(100 * Math.pow(level, 1.8)), wood: Math.round(55 * Math.pow(level, 1.5)) }
+    case 'workshop':
+      return { gold: Math.round(80  * Math.pow(level, 1.7)), wood: Math.round(50 * Math.pow(level, 1.5)) }
+    case 'forge':
+      return { gold: Math.round(70  * Math.pow(level, 1.6)), wood: Math.round(35 * Math.pow(level, 1.4)), mana: Math.round(25 * Math.pow(level, 1.3)) }
+    case 'library':
+      return { gold: Math.round(70  * Math.pow(level, 1.6)), mana: Math.round(45 * Math.pow(level, 1.5)) }
+    default:
+      return { gold: Math.round(60  * Math.pow(level, 1.6)), wood: Math.round(36 * Math.pow(level, 1.4)) }
   }
 }
 
@@ -49,7 +57,7 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Ya hay un edificio en construcción. Espera a que termine.' })
   }
 
-  const cost = upgradeCost(building.level)
+  const cost = upgradeCost(building.type, building.level)
   const durationMs = building.level * building.level * 10 * 60 * 1000
 
   const { data: resources } = await supabase
@@ -65,9 +73,11 @@ export default async function handler(req, res) {
   const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
   const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
   const currentWood = Math.floor(resources.wood + resources.wood_rate * minutesElapsed)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
 
   if (currentGold < cost.gold) return res.status(409).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (currentWood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
+  if (cost.wood && currentWood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
+  if (cost.mana && currentMana < cost.mana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
 
   const nowIso = new Date(now).toISOString()
   const endsAt = new Date(now + durationMs).toISOString()
@@ -75,7 +85,12 @@ export default async function handler(req, res) {
   // Descontar recursos (snapshot en este momento)
   const { error: resourcesError } = await supabase
     .from('resources')
-    .update({ gold: currentGold - cost.gold, wood: currentWood - cost.wood, last_collected_at: nowIso })
+    .update({
+      gold: currentGold - cost.gold,
+      wood: currentWood - (cost.wood ?? 0),
+      mana: currentMana - (cost.mana ?? 0),
+      last_collected_at: nowIso,
+    })
     .eq('player_id', user.id)
 
   if (resourcesError) return res.status(500).json({ error: resourcesError.message })
