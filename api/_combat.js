@@ -58,7 +58,7 @@ export function simulateCombat(a, b) {
   const critPA = critPeriod(a.agility)
   const critPB = critPeriod(b.agility)
 
-  for (let round = 1; round <= 30 && hpA > 0 && hpB > 0; round++) {
+  for (let round = 1; round <= 20 && hpA > 0 && hpB > 0; round++) {
     const events = []
     const isDoubleRound = round % 4 === 0
     const isCritA = round % critPA === 1          // offset 1 para A

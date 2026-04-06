@@ -105,70 +105,6 @@ function EventRow({ ev, heroName, enemyName, index }) {
   )
 }
 
-function ResultPanel({ won, rewards, knockedOut, onClose }) {
-  return (
-    <motion.div
-      className="flex flex-col items-center justify-center gap-5 px-6 py-8 flex-1"
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-    >
-      {/* Emoji */}
-      <motion.span
-        className="text-[56px] leading-none select-none"
-        initial={{ scale: 0.5, rotate: -10 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
-      >
-        {won ? '🏆' : '💀'}
-      </motion.span>
-
-      {/* Title */}
-      <div className="text-center">
-        <p className={`text-[26px] font-extrabold tracking-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
-          {won ? '¡Victoria!' : 'Derrota'}
-        </p>
-        {knockedOut && !won && (
-          <p className="text-[13px] text-text-3 mt-1">Héroe derribado. Recuperándose.</p>
-        )}
-        {!won && !knockedOut && (
-          <p className="text-[13px] text-text-3 mt-1">El enemigo aguantó este asalto.</p>
-        )}
-      </div>
-
-      {/* Rewards */}
-      {won && rewards && (
-        <div className="flex flex-wrap gap-2 justify-center">
-          <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#d97706_12%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] text-text px-3 py-1.5 rounded-full text-[13px] font-bold">
-            <Coins size={13} color="#d97706" strokeWidth={2} /> +{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#0369a1_12%,var(--surface-2))] border border-[color-mix(in_srgb,#0369a1_30%,var(--border))] text-text px-3 py-1.5 rounded-full text-[13px] font-bold">
-            <Star size={13} color="#0369a1" strokeWidth={2} /> +{rewards.experience} XP
-          </span>
-          {rewards.milestone && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#d97706_15%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_40%,var(--border))] text-[#b45309] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              ★ Hito · ×2
-            </span>
-          )}
-          {rewards.levelUp && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#7c3aed_12%,var(--surface-2))] border border-[color-mix(in_srgb,#7c3aed_30%,var(--border))] text-[#7c3aed] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              <Zap size={13} strokeWidth={2} /> ¡Nivel!
-            </span>
-          )}
-          {rewards.drop?.item_catalog && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#7c3aed_10%,var(--surface-2))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] text-[#7c3aed] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              ⚔ {rewards.drop.item_catalog.name}
-            </span>
-          )}
-        </div>
-      )}
-
-      <button className="btn btn--primary btn--lg min-w-[160px] mt-2" onClick={onClose}>
-        Continuar
-      </button>
-    </motion.div>
-  )
-}
 
 /**
  * Modal de replay de combate.
@@ -241,58 +177,104 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
           <FighterBar name={enemyName} hp={hpB} maxHp={enemyMaxHp} side="right" />
         </div>
 
-        {/* ── Contenido: log o resultado ── */}
-        <AnimatePresence mode="wait">
-          {phase !== 'done' ? (
-            <div
-              key="log"
-              ref={logRef}
-              className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1 min-h-[220px]"
-            >
-              {shown.map((ev, i) => (
-                <EventRow
-                  key={i}
-                  ev={ev}
-                  heroName={heroName}
-                  enemyName={enemyName}
-                  index={i}
-                />
-              ))}
-              {/* Indicador de progreso */}
-              <div className="flex items-center gap-1 px-3 py-1 text-[12px] text-text-3">
-                <span className="animate-pulse">···</span>
-              </div>
-            </div>
-          ) : (
-            <ResultPanel
-              key="result"
-              won={won}
-              rewards={rewards}
-              knockedOut={knockedOut}
-              onClose={onClose}
+        {/* ── Log — siempre visible ── */}
+        <div
+          ref={logRef}
+          className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1 min-h-[180px]"
+        >
+          {shown.map((ev, i) => (
+            <EventRow
+              key={i}
+              ev={ev}
+              heroName={heroName}
+              enemyName={enemyName}
+              index={i}
             />
-          )}
-        </AnimatePresence>
-
-        {/* ── Footer: controles de velocidad (solo mientras se reproduce) ── */}
-        {phase === 'playing' && (
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border flex-shrink-0">
-            <div className="flex gap-1.5">
-              {SPEEDS.map((s, i) => (
-                <button
-                  key={s.label}
-                  className={`btn btn--sm ${speedIdx === i ? 'btn--primary' : 'btn--ghost'}`}
-                  onClick={() => setSpeedIdx(i)}
-                >
-                  {s.label}
-                </button>
-              ))}
+          ))}
+          {phase === 'playing' && (
+            <div className="px-3 py-1 text-[12px] text-text-3">
+              <span className="animate-pulse">···</span>
             </div>
-            <button className="btn btn--ghost btn--sm text-text-3" onClick={skip}>
-              Saltar →
-            </button>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* ── Footer: controles mientras juega / resultado cuando termina ── */}
+        <div className="border-t border-border flex-shrink-0">
+          <AnimatePresence mode="wait">
+            {phase === 'playing' ? (
+              <motion.div
+                key="controls"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-between gap-3 px-5 py-3"
+              >
+                <div className="flex gap-1.5">
+                  {SPEEDS.map((s, i) => (
+                    <button
+                      key={s.label}
+                      className={`btn btn--sm ${speedIdx === i ? 'btn--primary' : 'btn--ghost'}`}
+                      onClick={() => setSpeedIdx(i)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <button className="btn btn--ghost btn--sm text-text-3" onClick={skip}>
+                  Saltar →
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="flex items-center gap-3 px-5 py-4"
+              >
+                {/* Emoji + título */}
+                <span className="text-[28px] leading-none select-none flex-shrink-0">
+                  {won ? '🏆' : '💀'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[15px] font-extrabold leading-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
+                    {won ? '¡Victoria!' : 'Derrota'}
+                  </p>
+                  {won && rewards && (
+                    <p className="text-[12px] text-text-3 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Coins size={11} color="#d97706" strokeWidth={2} />
+                        +{rewards.gold} oro
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Star size={11} color="#0369a1" strokeWidth={2} />
+                        +{rewards.experience} XP
+                      </span>
+                      {rewards.milestone && <span className="text-[#d97706] font-bold">★ Hito ×2</span>}
+                      {rewards.drop?.item_catalog && (
+                        <span className="text-[#7c3aed] font-bold">⚔ {rewards.drop.item_catalog.name}</span>
+                      )}
+                      {rewards.levelUp && (
+                        <span className="flex items-center gap-1 text-[#7c3aed] font-bold">
+                          <Zap size={11} strokeWidth={2} /> ¡Nivel!
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {!won && (
+                    <p className="text-[12px] text-text-3 mt-0.5">
+                      {knockedOut ? 'Héroe derribado. Recuperándose.' : 'El enemigo aguantó.'}
+                    </p>
+                  )}
+                </div>
+                <button className="btn btn--primary btn--sm flex-shrink-0" onClick={onClose}>
+                  Continuar
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
     </div>,
     document.body
