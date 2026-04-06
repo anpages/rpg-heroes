@@ -103,47 +103,29 @@ function ProgressStrip({ maxFloor }) {
 /* ─── Stat comparison row ────────────────────────────────────────────────────── */
 
 function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
-  const heroWins  = heroVal > enemyVal
-  const enemyWins = enemyVal > heroVal
-  const max       = Math.max(heroVal, enemyVal, 1)
-  const heroPct   = Math.round((heroVal  / max) * 100)
-  const enemyPct  = Math.round((enemyVal / max) * 100)
-
-  const heroColor  = heroWins  ? 'var(--blue-500)'  : enemyWins ? 'var(--border-2)' : 'var(--border-2)'
-  const enemyColor = enemyWins ? '#ef4444'           : heroWins  ? 'var(--border-2)' : 'var(--border-2)'
+  const heroWins = heroVal > enemyVal
 
   return (
-    <div className="grid grid-cols-[1fr_52px_1fr] items-center gap-2 py-[5px]">
-      {/* Héroe — valor + barra que crece hacia la derecha */}
-      <div className="flex items-center gap-2 justify-end flex-row-reverse">
-        <div className="flex-1 h-[6px] bg-border rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full"
-            style={{ width: `${heroPct}%`, background: heroColor, transition: 'width 400ms ease-out' }}
-          />
-        </div>
-        <span className={`text-[13px] font-bold tabular-nums whitespace-nowrap flex-shrink-0 ${heroWins ? 'text-[var(--blue-600)]' : 'text-text-3'}`}>
-          {heroDisplay ?? heroVal}
-        </span>
-      </div>
+    <div className="grid grid-cols-[1fr_44px_1fr_20px] items-center gap-x-2 py-[5px]">
+      {/* Héroe — valor alineado a la derecha */}
+      <span className={`text-[13px] font-bold tabular-nums whitespace-nowrap text-right ${heroWins ? 'text-[var(--blue-600)]' : 'text-text-3'}`}>
+        {heroDisplay ?? heroVal}
+      </span>
 
       {/* Label central */}
       <span className="text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.08em] leading-none">
         {label}
       </span>
 
-      {/* Enemigo — barra que crece hacia la izquierda + valor */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-[6px] bg-border rounded-full overflow-hidden" style={{ direction: 'rtl' }}>
-          <div
-            className="h-full rounded-full"
-            style={{ width: `${enemyPct}%`, background: enemyColor, transition: 'width 400ms ease-out' }}
-          />
-        </div>
-        <span className={`text-[13px] font-bold tabular-nums flex-shrink-0 ${enemyWins ? 'text-[#ef4444]' : 'text-text-3'}`}>
-          {enemyVal}
-        </span>
-      </div>
+      {/* Enemigo — valor alineado a la izquierda */}
+      <span className={`text-[13px] font-bold tabular-nums ${enemyVal > heroVal ? 'text-[#ef4444]' : 'text-text-3'}`}>
+        {enemyVal}
+      </span>
+
+      {/* Icono resultado */}
+      <span className={`text-[13px] font-bold text-center ${heroWins ? 'text-[#16a34a]' : enemyVal > heroVal ? 'text-[#ef4444]' : 'text-text-3'}`}>
+        {heroWins ? '✓' : enemyVal > heroVal ? '✗' : '='}
+      </span>
     </div>
   )
 }
