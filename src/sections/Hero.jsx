@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -777,21 +780,66 @@ function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
 }
 
 function Hero({ userId, heroId, refreshKey }) {
+  const queryClient = useQueryClient()
   const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
-  const { items, loading: invLoading, refetch: refetchInv } = useInventory(hero?.id)
-  const { cards, loading: cardsLoading, refetch: refetchCards } = useHeroCards(hero?.id)
-  const [actionLoading] = useState(false)
+  const { items, loading: invLoading } = useInventory(hero?.id)
+  const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
   const [error, setError] = useState(null)
   const [bagOpen, setBagOpen] = useState(false)
-  const [slotPicker, setSlotPicker] = useState(null)   // null | slot string e.g. 'helmet'
-  const [cardPickerOpen, setCardPickerOpen] = useState(false) // false | { currentCard: card | null }
+  const [slotPicker, setSlotPicker] = useState(null)
+  const [cardPickerOpen, setCardPickerOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
-  const [confirmModal, setConfirmModal] = useState(null) // { title, body, onConfirm }
+  const [confirmModal, setConfirmModal] = useState(null)
   const [workshopLevel, setWorkshopLevel] = useState(1)
   const [libraryLevel, setLibraryLevel] = useState(1)
-  const [optimisticItems, setOptimisticItems] = useState(null)
-  const [optimisticCards, setOptimisticCards] = useState(null)
   const [tick, setTick] = useState(0)
+
+  // Mutación para items (equip/unequip/repair/dismantle)
+  const itemMutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.inventory(hero?.id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKeys.inventory(hero?.id), context.previous)
+      }
+      setError(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(hero?.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
+  })
+
+  // Mutación para cartas (equip/unequip/fuse)
+  const cardMutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.heroCards(hero?.id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKeys.heroCards(hero?.id), context.previous)
+      }
+      setError(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(hero?.id) })
+    },
+  })
+
+  const mutationPending = itemMutation.isPending || cardMutation.isPending
 
   // Tick cada 30s para actualizar HP interpolado
   useEffect(() => {
@@ -819,10 +867,6 @@ function Hero({ userId, heroId, refreshKey }) {
       })
   }, [userId])
 
-  // Limpiar optimistas cuando llegan datos reales tras el refetch
-  useEffect(() => { setOptimisticItems(null) }, [items])
-  useEffect(() => { setOptimisticCards(null) }, [cards])
-
   if (heroLoading || invLoading || cardsLoading) return null
   if (!hero) return (
     <div className="hero-loading">
@@ -834,16 +878,13 @@ function Hero({ userId, heroId, refreshKey }) {
   const status = STATUS_META[hero.status] ?? STATUS_META.idle
   const isOccupied = hero.status === 'exploring'
 
-  const displayItems = optimisticItems ?? items
-  const displayCards = optimisticCards ?? cards
-
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
-    acc[slot] = displayItems?.find(i => i.equipped_slot === slot) ?? null
+    acc[slot] = items?.find(i => i.equipped_slot === slot) ?? null
     return acc
   }, {})
 
   // Bonos del equipo equipado (durabilidad > 0)
-  const equipBonuses = (displayItems ?? [])
+  const equipBonuses = (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
     .reduce((acc, i) => {
       const c = i.item_catalog
@@ -857,7 +898,7 @@ function Hero({ userId, heroId, refreshKey }) {
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
   // Bonos de cartas equipadas (efectos × rango)
-  const cardBonuses = (displayCards ?? [])
+  const cardBonuses = (cards ?? [])
     .filter(c => c.equipped)
     .reduce((acc, c) => {
       const sc = c.skill_cards
@@ -891,7 +932,7 @@ function Hero({ userId, heroId, refreshKey }) {
 
   // Presupuesto de cartas por categoría (usa stats BASE del héroe, no efectivas)
   const cardBudgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
-  ;(displayCards ?? []).filter(c => c.equipped).forEach(c => {
+  ;(cards ?? []).filter(c => c.equipped).forEach(c => {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
   const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
@@ -899,42 +940,35 @@ function Hero({ userId, heroId, refreshKey }) {
   void tick // provoca re-render cada 30s para actualizar HP interpolado
   const hpNow = interpolateHpClient(hero, Date.now(), effective.max_hp)
 
-  const bag = displayItems?.filter(i => !i.equipped_slot) ?? []
+  const bag = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
 
-  async function callApi(endpoint, body) {
-    setError(null)
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error ?? 'Error'); setOptimisticItems(null) }
-    else refetchInv()
-  }
-
   function handleEquip(itemId) {
-    const current = optimisticItems ?? items
-    const item = current?.find(i => i.id === itemId)
-    if (item) {
-      const targetSlot = item.item_catalog.slot
-      setOptimisticItems(current.map(i => {
+    const item = items?.find(i => i.id === itemId)
+    if (!item) return
+    const targetSlot = item.item_catalog.slot
+    setError(null)
+    itemMutation.mutate({
+      endpoint: '/api/item-equip',
+      body: { itemId, equip: true },
+      optimisticUpdate: items?.map(i => {
         if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
         if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
         if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
         return i
-      }))
-    }
-    callApi('/api/item-equip', { itemId, equip: true })
+      }),
+    })
   }
 
   function handleUnequip(itemId) {
-    const current = optimisticItems ?? items
-    setOptimisticItems((current ?? []).map(i => i.id === itemId ? { ...i, equipped_slot: null } : i))
-    callApi('/api/item-equip', { itemId, equip: false })
+    setError(null)
+    itemMutation.mutate({
+      endpoint: '/api/item-equip',
+      body: { itemId, equip: false },
+      optimisticUpdate: items?.map(i => i.id === itemId ? { ...i, equipped_slot: null } : i),
+    })
   }
+
   function handleRepair(item) {
     const cost = estimateRepairCost(item)
     const costText = cost.mana > 0 ? `${cost.gold} oro · ${cost.mana} maná` : `${cost.gold} oro`
@@ -942,9 +976,14 @@ function Hero({ userId, heroId, refreshKey }) {
       title: `Reparar ${item.item_catalog.name}`,
       body: `Coste estimado: ${costText}`,
       confirmLabel: 'Reparar',
-      onConfirm: () => { setConfirmModal(null); callApi('/api/item-repair', { itemId: item.id }) },
+      onConfirm: () => {
+        setConfirmModal(null)
+        setError(null)
+        itemMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
+      },
     })
   }
+
   function handleDiscard(item) {
     const mana = estimateDismantleMana(item)
     setConfirmModal({
@@ -953,45 +992,42 @@ function Hero({ userId, heroId, refreshKey }) {
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirmModal(null)
-        // Optimistic: quitar de la mochila al instante
-        const current = optimisticItems ?? items
-        setOptimisticItems((current ?? []).filter(i => i.id !== item.id))
-        callApi('/api/item-dismantle', { itemId: item.id })
+        setError(null)
+        itemMutation.mutate({
+          endpoint: '/api/item-dismantle',
+          body: { itemId: item.id },
+          optimisticUpdate: items?.filter(i => i.id !== item.id),
+        })
       },
     })
   }
 
-  async function callCardApi(endpoint, body, optimisticFn) {
+  function handleCardEquip(cardId) {
     setError(null)
-    if (optimisticFn) setOptimisticCards(optimisticFn(optimisticCards ?? cards))
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify(body),
+    cardMutation.mutate({
+      endpoint: '/api/card-equip',
+      body: { cardId, equip: true },
+      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: true } : c),
     })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error ?? 'Error'); setOptimisticCards(null) }
-    else refetchCards()
   }
 
-  function handleCardEquip(cardId) {
-    callCardApi(
-      '/api/card-equip', { cardId, equip: true },
-      cs => cs.map(c => c.id === cardId ? { ...c, equipped: true } : c)
-    )
-  }
   function handleCardUnequip(cardId) {
-    callCardApi(
-      '/api/card-equip', { cardId, equip: false },
-      cs => cs.map(c => c.id === cardId ? { ...c, equipped: false } : c)
-    )
+    setError(null)
+    cardMutation.mutate({
+      endpoint: '/api/card-equip',
+      body: { cardId, equip: false },
+      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: false } : c),
+    })
   }
+
   function handleCardFuse(id1, id2) {
-    callCardApi(
-      '/api/card-fuse', { cardId1: id1, cardId2: id2 },
-      cs => cs.filter(c => c.id !== id1 && c.id !== id2) // las dos se consumen, el resultado llega con refetch
-    )
+    setError(null)
+    cardMutation.mutate({
+      endpoint: '/api/card-fuse',
+      body: { cardId1: id1, cardId2: id2 },
+      // Las dos cartas se consumen; el resultado nuevo llega con el refetch (onSettled)
+      optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
+    })
   }
 
 
@@ -1043,7 +1079,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </p>
             <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
               <Zap size={13} strokeWidth={2} />
-              Colección {(displayCards ?? []).length}
+              Colección {(cards ?? []).length}
             </button>
           </div>
 
@@ -1060,13 +1096,13 @@ function Hero({ userId, heroId, refreshKey }) {
 
           <div className="equipped-cards-grid">
             {Array.from({ length: cardSlotCount }).map((_, idx) => {
-              const card = (displayCards ?? []).filter(c => c.equipped)[idx] ?? null
+              const card = (cards ?? []).filter(c => c.equipped)[idx] ?? null
               return card ? (
                 <CardChip
                   key={card.id}
                   card={card}
                   onClick={() => setCardPickerOpen({ currentCard: card })}
-                  loading={actionLoading}
+                  loading={mutationPending}
                   isOccupied={isOccupied}
                 />
               ) : (
@@ -1105,7 +1141,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid">
               {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -1118,7 +1154,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -1131,7 +1167,7 @@ function Hero({ userId, heroId, refreshKey }) {
             </div>
             <div className="eq-slots-grid eq-slots-grid--2">
               {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={actionLoading} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -1148,7 +1184,7 @@ function Hero({ userId, heroId, refreshKey }) {
             onEquip={(id) => { handleEquip(id); setSlotPicker(null) }}
             onUnequip={(id) => { handleUnequip(id); setSlotPicker(null) }}
             onRepair={handleRepair}
-            loading={actionLoading}
+            loading={mutationPending}
             isOccupied={isOccupied}
             onClose={() => setSlotPicker(null)}
           />
@@ -1159,13 +1195,13 @@ function Hero({ userId, heroId, refreshKey }) {
         {cardPickerOpen && (
           <CardPickerSheet
             currentCard={cardPickerOpen.currentCard ?? null}
-            cards={displayCards ?? []}
+            cards={cards ?? []}
             hero={hero}
             cardSlots={cardSlotCount}
             onEquip={(id) => { handleCardEquip(id); setCardPickerOpen(false) }}
             onUnequip={(id) => { handleCardUnequip(id); setCardPickerOpen(false) }}
             onFuse={handleCardFuse}
-            loading={actionLoading}
+            loading={mutationPending}
             error={error}
             isOccupied={isOccupied}
             onClose={() => setCardPickerOpen(false)}
@@ -1179,7 +1215,7 @@ function Hero({ userId, heroId, refreshKey }) {
             bag={bag}
             bagLimit={bagLimit}
             onDiscard={handleDiscard}
-            loading={actionLoading}
+            loading={mutationPending}
             error={error}
             onClose={() => setBagOpen(false)}
             isOccupied={isOccupied}
@@ -1190,13 +1226,13 @@ function Hero({ userId, heroId, refreshKey }) {
       <AnimatePresence>
         {cardModalOpen && (
           <CardModal
-            cards={displayCards ?? []}
+            cards={cards ?? []}
             hero={hero}
             cardSlots={cardSlotCount}
             onEquip={handleCardEquip}
             onUnequip={handleCardUnequip}
             onFuse={handleCardFuse}
-            loading={actionLoading}
+            loading={mutationPending}
             error={error}
             onClose={() => { setCardModalOpen(false); setError(null) }}
             isOccupied={isOccupied}

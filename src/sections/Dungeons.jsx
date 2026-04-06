@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
@@ -79,16 +82,13 @@ function ExpeditionProgress({ expedition, onCollect }) {
 
   async function handleCollect() {
     setCollecting(true)
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/expedition-collect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ expeditionId: expedition.id }),
-    })
-    const data = await res.json()
-    if (res.ok) onCollect(data)
-    else { setCollectError(data.error ?? 'Error al recoger recompensas'); setCollecting(false) }
+    try {
+      const data = await apiPost('/api/expedition-collect', { expeditionId: expedition.id })
+      onCollect(data)
+    } catch (err) {
+      setCollectError(err.message)
+      setCollecting(false)
+    }
   }
 
   return (
@@ -218,9 +218,10 @@ function interpolateHp(hero, nowMs) {
 }
 
 function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpeditionStart, workshopLevel = 1 }) {
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
+  const queryClient = useQueryClient()
+  const { hero, loading: heroLoading } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
-  const { expedition, loading: expLoading, setExpedition, refetch } = useActiveExpedition(hero?.id)
+  const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
   const [startError, setStartError] = useState(null)
   const [tick, setTick] = useState(0)
@@ -245,25 +246,17 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
       ends_at: new Date(now + effectiveMs).toISOString(),
     })
 
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/expedition-start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ dungeonId: dungeon.id, heroId: hero?.id }),
-    })
-
-    const data = await res.json()
-    if (res.ok) {
+    try {
+      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
       // Corregir ends_at optimista con el valor real del servidor
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
-      refetch()
-      refetchHero()
+      queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       onExpeditionStart?.()
       onHeroChange?.()
-    } else {
+    } catch (err) {
       setExpedition(null) // revertir
-      setStartError(data.error ?? 'Error al iniciar expedición')
+      setStartError(err.message)
       setTimeout(() => setStartError(null), 4000)
     }
   }
@@ -271,7 +264,8 @@ function Dungeons({ userId, heroId, onResourceChange, onHeroChange, onExpedition
   function handleCollect(data) {
     setReward({ ...data.rewards, drop: data.drop ?? null, cardDrop: data.cardDrop ?? null })
     setExpedition(null)
-    refetchHero()
+    queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     onResourceChange?.()
     onHeroChange?.()
     setTimeout(() => setReward(null), 6000)

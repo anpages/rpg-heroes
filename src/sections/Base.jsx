@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import { useBuildings } from '../hooks/useBuildings'
 import { Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -156,20 +159,13 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
     onOptimisticDeduct(cost)
     setError(null)
 
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/building-upgrade-start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ buildingId: building.id }),
-    })
-    const data = await res.json()
-    if (res.ok) {
+    try {
+      await apiPost('/api/building-upgrade-start', { buildingId: building.id })
       onUpgradeStart()
-    } else {
+    } catch (err) {
       setOptimisticEndsAt(null)
       onOptimisticDeduct({ gold: -cost.gold, wood: -cost.wood }) // revertir
-      setError(data.error ?? 'Error al iniciar mejora')
+      setError(err.message)
     }
   }
 
@@ -362,19 +358,12 @@ function useUpgradeTimer(building, onUpgradeCollect) {
       if (collectingRef.current) return
       collectingRef.current = true
       setLoading(true)
-      await supabase.auth.refreshSession()
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/building-upgrade-collect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ buildingId: building.id }),
-      })
-      const data = await res.json()
-      if (res.ok) {
+      try {
+        await apiPost('/api/building-upgrade-collect', { buildingId: building.id })
         onUpgradeCollect()
         setLoading(false)
-      } else {
-        setError(data.error ?? 'Error al aplicar mejora')
+      } catch (err) {
+        setError(err.message)
         setLoading(false)
         collectingRef.current = false
       }
@@ -394,29 +383,10 @@ function useUpgradeTimer(building, onUpgradeCollect) {
   return { secondsLeft, loading, error, setLoading, setError, mountedRef }
 }
 
-async function startUpgrade(buildingId, setLoading, setError, onUpgradeStart) {
-  setLoading(true)
-  setError(null)
-  await supabase.auth.refreshSession()
-  const { data: { session } } = await supabase.auth.getSession()
-  const res = await fetch('/api/building-upgrade-start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ buildingId }),
-  })
-  const data = await res.json()
-  if (res.ok) {
-    await onUpgradeStart()
-    setLoading(false)
-  } else {
-    setError(data.error ?? 'Error al iniciar mejora')
-    setLoading(false)
-  }
-}
-
 
 function Base({ userId, resources, onResourceChange, onBuildingChange }) {
-  const { buildings, loading, refetch } = useBuildings(userId)
+  const queryClient = useQueryClient()
+  const { buildings, loading } = useBuildings(userId)
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
 
   // Cuando llegan recursos reales del servidor, resetear el delta
@@ -430,8 +400,16 @@ function Base({ userId, resources, onResourceChange, onBuildingChange }) {
     setResourceDelta(d => ({ gold: d.gold + gold, wood: d.wood + wood }))
   }
 
-  function handleUpgradeStart() { refetch(); onResourceChange?.(); onBuildingChange?.() }
-  function handleUpgradeCollect() { refetch(); onResourceChange?.(); onBuildingChange?.() }
+  function handleUpgradeStart() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    onResourceChange?.(); onBuildingChange?.()
+  }
+  function handleUpgradeCollect() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    onResourceChange?.(); onBuildingChange?.()
+  }
 
   if (loading) return <div className="base-loading">Cargando base...</div>
 

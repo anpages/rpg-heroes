@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost, apiGet } from '../lib/api'
 import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
@@ -130,64 +132,52 @@ function ShopItem({ item, gold, onBuy, buying }) {
 }
 
 export default function Shop({ userId, heroId, heroName, gold, onResourceChange }) {
-  const [items, setItems]       = useState(null)
-  const [merchant, setMerchant] = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState(null)
-  const [buying, setBuying]     = useState(false)
+  const queryClient = useQueryClient()
+  const shopKey = ['shop', heroId]
   const [toast, setToast]       = useState(null)
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
-
-  useEffect(() => {
-    if (!heroId) return
-    loadShop()
-  }, [heroId])
 
   useEffect(() => {
     const t = setInterval(() => setRenewsIn(timeUntilMidnight()), 60000)
     return () => clearInterval(t)
   }, [])
 
-  async function loadShop() {
-    setLoading(true)
-    setError(null)
-    const { data: { session } } = await supabase.auth.getSession()
-    try {
-      const res = await fetch(`/api/shop-daily?heroId=${heroId}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      if (!res.ok) throw new Error('Error al cargar la tienda')
-      const data = await res.json()
-      setItems(data.items)
-      setMerchant(data.merchant)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Tienda — cacheada, se refresca automáticamente al volver al tab
+  const { data: shopData, isLoading: loading, error: shopError } = useQuery({
+    queryKey: shopKey,
+    queryFn: () => apiGet(`/api/shop-daily?heroId=${heroId}`),
+    enabled: !!heroId,
+    staleTime: 30 * 60_000, // 30 min — la tienda rota a medianoche
+  })
+  const items    = shopData?.items ?? null
+  const merchant = shopData?.merchant ?? null
+  const error    = shopError?.message ?? null
 
-  async function handleBuy(item) {
-    setBuying(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/shop-buy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ heroId, catalogId: item.catalogId }),
-    })
-    const data = await res.json()
-    setBuying(false)
-
-    if (res.ok) {
-      setItems(prev => prev.map(i =>
-        i.catalogId === item.catalogId ? { ...i, purchased: i.purchased + 1 } : i
-      ))
-      onResourceChange?.()
+  // Compra con optimistic update
+  const buyMutation = useMutation({
+    mutationFn: (item) => apiPost('/api/shop-buy', { heroId, catalogId: item.catalogId }),
+    onMutate: async (item) => {
+      await queryClient.cancelQueries({ queryKey: shopKey })
+      const previous = queryClient.getQueryData(shopKey)
+      queryClient.setQueryData(shopKey, (old) => ({
+        ...old,
+        items: old?.items?.map(i =>
+          i.catalogId === item.catalogId ? { ...i, purchased: i.purchased + 1 } : i
+        ),
+      }))
+      return { previous, item }
+    },
+    onError: (err, item, context) => {
+      queryClient.setQueryData(shopKey, context.previous)
+      showToast(err.message, 'err')
+    },
+    onSuccess: (data, item) => {
       showToast(`${item.name} añadido al inventario`, 'ok')
-    } else {
-      showToast(data.error ?? 'Error al comprar', 'err')
-    }
-  }
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      onResourceChange?.()
+    },
+  })
 
   function showToast(msg, type) {
     setToast({ msg, type })
@@ -236,8 +226,8 @@ export default function Shop({ userId, heroId, heroName, gold, onResourceChange 
               key={item.catalogId}
               item={item}
               gold={gold ?? 0}
-              onBuy={handleBuy}
-              buying={buying}
+              onBuy={(item) => buyMutation.mutate(item)}
+              buying={buyMutation.isPending}
             />
           ))}
         </div>

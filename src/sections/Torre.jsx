@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useHero } from '../hooks/useHero'
 import { useTowerProgress } from '../hooks/useTowerProgress'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import { Swords, Star, Coins, Sparkles, Trophy, ChevronUp, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './Torre.css'
@@ -175,12 +177,12 @@ function interpolateHp(hero, nowMs) {
 }
 
 export default function Torre({ userId, heroId, onResourceChange, onHeroChange }) {
-  const { hero, loading: heroLoading, refetch: refetchHero } = useHero(heroId)
-  const { maxFloor, loading: towerLoading, refetch: refetchTower } = useTowerProgress(hero?.id)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult]   = useState(null)
-  const [error, setError]     = useState(null)
-  const [tick, setTick]       = useState(0)
+  const queryClient = useQueryClient()
+  const { hero, loading: heroLoading } = useHero(heroId)
+  const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
+  const [result, setResult] = useState(null)
+  const [error, setError]   = useState(null)
+  const [tick, setTick]     = useState(0)
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30000)
@@ -198,29 +200,22 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
   const isBusy      = hero?.status !== 'idle'
   const estDamage   = estimateDamageTaken(hero, enemy)
 
-  async function attempt() {
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res  = await fetch('/api/tower-attempt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ heroId: hero?.id }),
-    })
-    const data = await res.json()
-    if (res.ok) {
+  const attemptMutation = useMutation({
+    mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
+    onSuccess: (data) => {
       setResult(data)
-      await refetchTower()
-      refetchHero()
+      if (data.won) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+        onResourceChange?.()
+      }
+    },
+    onError: (err) => setError(err.message),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
       onHeroChange?.()
-      if (data.won) onResourceChange?.()
-    } else {
-      setError(data.error ?? 'Error al intentar el piso')
-    }
-    setLoading(false)
-  }
+    },
+  })
 
   if (heroLoading || towerLoading) return <div className="tower-loading">Cargando torre...</div>
 
@@ -311,14 +306,14 @@ export default function Torre({ userId, heroId, onResourceChange, onHeroChange }
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"
-          onClick={attempt}
-          disabled={loading || isBusy || !hasEnoughHp}
-          whileTap={loading || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
-          whileHover={loading || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
+          onClick={() => { setError(null); setResult(null); attemptMutation.mutate() }}
+          disabled={attemptMutation.isPending || isBusy || !hasEnoughHp}
+          whileTap={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
+          whileHover={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >
           <Swords size={16} strokeWidth={2} />
-          {loading ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : !hasEnoughHp ? 'HP insuficiente' : `Intentar piso ${targetFloor}`}
+          {attemptMutation.isPending ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : !hasEnoughHp ? 'HP insuficiente' : `Intentar piso ${targetFloor}`}
         </motion.button>
       </div>
     </div>
