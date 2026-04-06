@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 // Coste base de reparación por rareza (oro + maná por punto de durabilidad restaurado)
 const REPAIR_COST = {
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
 
   const { itemId } = req.body
   if (!itemId) return res.status(400).json({ error: 'itemId requerido' })
+  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
 
   // Obtener item con catálogo
   const { data: item } = await supabase
@@ -80,9 +82,9 @@ export default async function handler(req, res) {
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
   const now = Date.now()
-  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const mins = safeMinutes(resources.last_collected_at, now)
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
 
   if (currentGold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
   if (currentMana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })

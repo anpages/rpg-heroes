@@ -39,7 +39,7 @@ export async function getEffectiveStats(supabase, heroId) {
 
   for (const card of cardsRes.data ?? []) {
     const sc = card.skill_cards
-    const r  = card.rank
+    const r  = Math.min(card.rank, 20)
     stats.attack       += (sc.attack_bonus       ?? 0) * r
     stats.defense      += (sc.defense_bonus      ?? 0) * r
     stats.max_hp       += (sc.hp_bonus           ?? 0) * r

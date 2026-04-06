@@ -4,6 +4,7 @@ import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
 import { interpolateHP, canPlay } from './_hp.js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
 
   const { heroId } = req.body
   if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
+  if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
@@ -112,8 +114,7 @@ export default async function handler(req, res) {
 
     if (resources) {
       const nowMs = Date.now()
-      const minutesElapsed = (nowMs - new Date(resources.last_collected_at).getTime()) / 60000
-      const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
+      const currentGold = Math.floor(resources.gold + resources.gold_rate * safeMinutes(resources.last_collected_at, nowMs))
       await supabase
         .from('resources')
         .update({ gold: currentGold + rewards.gold, last_collected_at: new Date(nowMs).toISOString() })

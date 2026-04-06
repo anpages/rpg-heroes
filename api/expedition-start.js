@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { interpolateHP, canPlay, expeditionHpDamage } from './_hp.js'
+import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -20,6 +21,8 @@ export default async function handler(req, res) {
   const { dungeonId, heroId } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
   if (!heroId)    return res.status(400).json({ error: 'heroId requerido' })
+  if (!isUUID(dungeonId)) return res.status(400).json({ error: 'dungeonId inválido' })
+  if (!isUUID(heroId))    return res.status(400).json({ error: 'heroId inválido' })
 
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
@@ -76,7 +79,30 @@ export default async function handler(req, res) {
   const woodEarned = Math.floor((dungeon.wood_min + Math.random() * (dungeon.wood_max - dungeon.wood_min)) * workshopBonus)
   const manaEarned = Math.floor((dungeon.mana_min + Math.random() * (dungeon.mana_max - dungeon.mana_min)) * workshopBonus)
 
-  // Crear expedición
+  // Deducir HP por peligro de la expedición al iniciar
+  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.difficulty)
+  const hpAfterExpedition = Math.max(1, currentHp - hpDamage) // mínimo 1 (no knock out en expedición)
+
+  // Reclamar el héroe atómicamente: solo actualiza si sigue en idle.
+  // Evita la condición de carrera donde dos peticiones simultáneas ambas
+  // pasan la comprobación de status pero solo una debe continuar.
+  const { data: claimed, error: claimError } = await supabase
+    .from('heroes')
+    .update({
+      status:             'exploring',
+      current_hp:         hpAfterExpedition,
+      hp_last_updated_at: new Date(nowMs).toISOString(),
+    })
+    .eq('id', hero.id)
+    .eq('status', 'idle')
+    .select('id')
+
+  if (claimError) return res.status(500).json({ error: claimError.message })
+  if (!claimed || claimed.length === 0) {
+    return res.status(409).json({ error: 'El héroe ya está en una expedición' })
+  }
+
+  // Crear expedición (héroe ya está bloqueado en exploring)
   const { error: expError } = await supabase
     .from('expeditions')
     .insert({
@@ -90,21 +116,14 @@ export default async function handler(req, res) {
       experience_earned: dungeon.experience_reward,
     })
 
-  if (expError) return res.status(500).json({ error: expError.message })
-
-  // Deducir HP por peligro de la expedición al iniciar
-  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.difficulty)
-  const hpAfterExpedition = Math.max(1, currentHp - hpDamage) // mínimo 1 (no knock out en expedición)
-
-  // Poner héroe en estado exploring y descontar HP
-  await supabase
-    .from('heroes')
-    .update({
-      status:             'exploring',
-      current_hp:         hpAfterExpedition,
-      hp_last_updated_at: new Date(nowMs).toISOString(),
-    })
-    .eq('id', hero.id)
+  if (expError) {
+    // Rollback: restaurar estado idle si la expedición no se pudo crear
+    await supabase
+      .from('heroes')
+      .update({ status: 'idle', current_hp: currentHp, hp_last_updated_at: hero.hp_last_updated_at })
+      .eq('id', hero.id)
+    return res.status(500).json({ error: expError.message })
+  }
 
   return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition })
 }

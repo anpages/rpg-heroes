@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
 
   const { missionId } = req.body
   if (!missionId) return res.status(400).json({ error: 'missionId requerido' })
+  if (!isUUID(missionId)) return res.status(400).json({ error: 'missionId inválido' })
 
   // Obtener misión
   const { data: mission } = await supabase
@@ -49,9 +51,9 @@ export default async function handler(req, res) {
 
   // Interpolar idle antes de sumar recompensa
   const nowMs = Date.now()
-  const minutesElapsed = (nowMs - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const mins = safeMinutes(resources.last_collected_at, nowMs)
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
 
   // Aplicar recompensas
   await Promise.all([

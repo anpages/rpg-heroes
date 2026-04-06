@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { safeMinutes } from './_validate.js'
 
 function upgradeCost(type, level) {
   switch (type) {
@@ -70,10 +71,10 @@ export default async function handler(req, res) {
 
   // Calcular recursos actuales con interpolación
   const now = Date.now()
-  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
-  const currentWood = Math.floor(resources.wood + resources.wood_rate * minutesElapsed)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const mins = safeMinutes(resources.last_collected_at, now)
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
+  const currentWood = Math.floor(resources.wood + resources.wood_rate * mins)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
 
   if (currentGold < cost.gold) return res.status(409).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
   if (cost.wood && currentWood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollCardDrop } from './_loot.js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
 
   const { expeditionId } = req.body
   if (!expeditionId) return res.status(400).json({ error: 'expeditionId requerido' })
+  if (!isUUID(expeditionId)) return res.status(400).json({ error: 'expeditionId inválido' })
 
   // Obtener expedición
   const { data: expedition, error: expError } = await supabase
@@ -73,10 +75,10 @@ export default async function handler(req, res) {
 
   // Añadir recursos — interpolar idle acumulado antes de sumar recompensa
   const nowMs = Date.now()
-  const minutesElapsed = (nowMs - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * minutesElapsed)
-  const currentWood = Math.floor(resources.wood + resources.wood_rate * minutesElapsed)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const mins = safeMinutes(resources.last_collected_at, nowMs)
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
+  const currentWood = Math.floor(resources.wood + resources.wood_rate * mins)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
 
   const { error: updateResourcesError } = await supabase
     .from('resources')

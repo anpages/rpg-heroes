@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
   const { cardId1, cardId2 } = req.body
   if (!cardId1 || !cardId2 || cardId1 === cardId2) {
     return res.status(400).json({ error: 'Se necesitan dos cartas distintas para fusionar' })
+  }
+  if (!isUUID(cardId1) || !isUUID(cardId2)) {
+    return res.status(400).json({ error: 'IDs de carta inválidos' })
   }
 
   // Obtener ambas cartas
@@ -58,15 +62,21 @@ export default async function handler(req, res) {
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
   const now = Date.now()
-  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeMinutes(resources.last_collected_at, now))
 
   if (currentMana < manaCost) {
     return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
   }
 
-  // Fusionar: eliminar ambas, crear una de rango superior
-  await supabase.from('hero_cards').delete().in('id', [cardId1, cardId2])
+  // Fusionar: eliminar ambas atómicamente (re-validar que siguen existiendo)
+  const { data: deleted } = await supabase
+    .from('hero_cards')
+    .delete()
+    .in('id', [cardId1, cardId2])
+    .select('id')
+  if (!deleted || deleted.length !== 2) {
+    return res.status(409).json({ error: 'Las cartas ya no están disponibles' })
+  }
 
   const { data: newCard } = await supabase
     .from('hero_cards')

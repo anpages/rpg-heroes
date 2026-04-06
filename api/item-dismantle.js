@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isUUID, safeMinutes } from './_validate.js'
 
 // Maná recuperado al desmantelar, por rareza × tier del item
 const DISMANTLE_MANA = {
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
 
   const { itemId } = req.body
   if (!itemId) return res.status(400).json({ error: 'itemId requerido' })
+  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
 
   const { data: item } = await supabase
     .from('inventory_items')
@@ -58,8 +60,7 @@ export default async function handler(req, res) {
   if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
   const now = Date.now()
-  const minutesElapsed = (now - new Date(resources.last_collected_at).getTime()) / 60000
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * minutesElapsed)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeMinutes(resources.last_collected_at, now))
 
   // Desmantelar item y añadir maná
   const [deleteResult, updateResult] = await Promise.all([
