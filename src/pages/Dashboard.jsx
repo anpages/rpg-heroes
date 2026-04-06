@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useResources } from '../hooks/useResources'
 import { useMissions } from '../hooks/useMissions'
@@ -269,12 +269,18 @@ function Dashboard({ session }) {
   const heroId      = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null
 
+  const mainRef = useRef(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 10000)
     return () => clearInterval(interval)
   }, [])
+
+  // Volver al inicio al cambiar de sección
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0
+  }, [activeSection])
 
   const heroExploringReady          = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
   const heroExploringInProgress     = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
@@ -476,7 +482,7 @@ function Dashboard({ session }) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
           <div className={activeSection === 'heroe'     ? 'block animate-section-in' : 'hidden'}>
             {mountedSections.has('heroe')     && <ErrorBoundary><Hero /></ErrorBoundary>}
           </div>
