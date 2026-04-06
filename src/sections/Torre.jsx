@@ -103,28 +103,38 @@ function ProgressStrip({ maxFloor }) {
 /* ─── Stat comparison row ────────────────────────────────────────────────────── */
 
 function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
-  const heroWins = heroVal > enemyVal
+  const heroWins  = heroVal > enemyVal
+  const enemyWins = enemyVal > heroVal
+  const total     = (heroVal + enemyVal) || 1
+  const heroPct   = Math.round((heroVal / total) * 100)
+
+  const fillBg = heroWins
+    ? 'rgba(59,130,246,0.11)'
+    : enemyWins
+      ? 'rgba(239,68,68,0.11)'
+      : 'rgba(107,114,128,0.06)'
 
   return (
-    <div className="grid grid-cols-[1fr_44px_1fr_20px] items-center gap-x-2 py-[5px]">
-      {/* Héroe — valor alineado a la derecha */}
-      <span className={`text-[13px] font-bold tabular-nums whitespace-nowrap text-right ${heroWins ? 'text-[var(--blue-600)]' : 'text-text-3'}`}>
+    <div className="relative grid grid-cols-[1fr_52px_1fr] items-center gap-2 px-3 py-2.5 rounded-lg overflow-hidden">
+      {/* Relleno proporcional — porción del héroe desde la izquierda */}
+      <div
+        className="absolute inset-y-0 left-0 transition-all duration-500"
+        style={{ width: `${heroPct}%`, background: fillBg }}
+      />
+
+      {/* Héroe */}
+      <span className={`relative text-[14px] font-bold tabular-nums whitespace-nowrap text-right ${heroWins ? 'text-[var(--blue-600)]' : 'text-text-2'}`}>
         {heroDisplay ?? heroVal}
       </span>
 
-      {/* Label central */}
-      <span className="text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.08em] leading-none">
+      {/* Label */}
+      <span className="relative text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.08em] leading-none">
         {label}
       </span>
 
-      {/* Enemigo — valor alineado a la izquierda */}
-      <span className={`text-[13px] font-bold tabular-nums ${enemyVal > heroVal ? 'text-[#ef4444]' : 'text-text-3'}`}>
+      {/* Enemigo */}
+      <span className={`relative text-[14px] font-bold tabular-nums ${enemyWins ? 'text-[#ef4444]' : 'text-text-2'}`}>
         {enemyVal}
-      </span>
-
-      {/* Icono resultado */}
-      <span className={`text-[13px] font-bold text-center ${heroWins ? 'text-[#16a34a]' : enemyVal > heroVal ? 'text-[#ef4444]' : 'text-text-3'}`}>
-        {heroWins ? '✓' : enemyVal > heroVal ? '✗' : '='}
       </span>
     </div>
   )
@@ -286,7 +296,7 @@ export default function Torre() {
       )}
 
       {/* Battle panel */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)] max-w-md mx-auto w-full">
+      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-[13px] font-bold text-text bg-surface-2 border border-border rounded-full px-2.5 py-1">
@@ -306,17 +316,32 @@ export default function Torre() {
         </div>
 
         {/* Combatants */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-2.5 border-b border-border">
-          <span className="text-[14px] font-bold text-[var(--blue-600)] text-left">{hero?.name ?? '—'}</span>
-          <span className="text-[11px] font-extrabold text-text-3 tracking-[0.08em] text-center">VS</span>
-          <span className="text-[14px] font-bold text-[#dc2626] text-right">{enemyName(targetFloor)}</span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-1">
+          <div className="flex justify-start">
+            <span className="text-[15px] font-extrabold text-[var(--blue-600)] bg-[rgba(59,130,246,0.1)] px-3 py-1.5 rounded-lg leading-none truncate max-w-full">
+              {hero?.name ?? '—'}
+            </span>
+          </div>
+          <span className="text-[12px] font-extrabold text-text-3 tracking-[0.1em] px-1">VS</span>
+          <div className="flex justify-end">
+            <span className="text-[15px] font-extrabold text-[#dc2626] bg-[rgba(239,68,68,0.1)] px-3 py-1.5 rounded-lg leading-none truncate max-w-full text-right">
+              {enemyName(targetFloor)}
+            </span>
+          </div>
+        </div>
+
+        {/* Stat headers */}
+        <div className="grid grid-cols-[1fr_52px_1fr] gap-2 px-3 pb-1">
+          <span className="text-[10px] font-semibold text-text-3 text-right uppercase tracking-[0.06em]">Héroe</span>
+          <span />
+          <span className="text-[10px] font-semibold text-[#ef4444]/70 uppercase tracking-[0.06em]">Rival</span>
         </div>
 
         {/* Stats */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5 -mx-1">
           {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
         </div>
-        <p className="text-[11px] text-text-3 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
+        <p className="text-[11px] text-text-3 px-2 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
 
         {/* Advertencia KO asegurado */}
         {guaranteedKo && (
