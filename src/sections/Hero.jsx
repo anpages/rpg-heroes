@@ -162,7 +162,8 @@ function XpBar({ level, experience }) {
 function HpBar({ current, max, recovering = false }) {
   const pct   = Math.min(100, Math.round((current / max) * 100))
   const color = recovering ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-  const lowHp = pct < 20
+  const lowHpCombat  = pct < 20
+  const lowHpExplore = current < 7
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
@@ -175,8 +176,12 @@ function HpBar({ current, max, recovering = false }) {
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      {lowHp && !recovering && (
-        <p className="text-[12px] text-[#dc2626] font-medium -mt-0.5">HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!</p>
+      {lowHpCombat && !recovering && (
+        <p className="text-[12px] text-[#dc2626] font-medium -mt-0.5">
+          {lowHpExplore
+            ? 'HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!'
+            : 'HP bajo — el héroe no puede combatir. Las expediciones aún son posibles.'}
+        </p>
       )}
     </div>
   )
