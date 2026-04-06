@@ -54,11 +54,26 @@
   0%, 100% { opacity: 1;   }
   50%       { opacity: 0.6; }
 }
+@keyframes rail-pulse {
+  0%, 100% { opacity: 1;    }
+  50%       { opacity: 0.75; }
+}
+@keyframes nav-badge-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.7; transform: scale(0.85); }
+}
+@keyframes section-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
 @theme {
   --animate-pulse-dot:        pulse-dot 1.6s ease-in-out infinite;
   --animate-install-slide-up: install-slide-up 0.3s ease;
   --animate-skeleton-pulse:   skeleton-pulse 1.6s ease-in-out infinite;
   --animate-nexo-pulse:       nexo-pulse 2.5s ease-in-out infinite;
+  --animate-rail-pulse:       rail-pulse 2s ease-in-out infinite;
+  --animate-nav-badge-pulse:  nav-badge-pulse 2s ease-in-out infinite;
+  --animate-section-in:       section-in 0.2s ease-out both;
 }
 
 @layer base {

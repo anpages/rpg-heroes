@@ -18,7 +18,6 @@ import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
 import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import './Dashboard.css'
 
 
 /* ─── DEV ONLY: Catálogo de items ───────────────────────────────────────────── */
@@ -201,16 +200,14 @@ function getHeroDerivedStatus(hero, now) {
   return hero.status
 }
 
-// Slots desbloqueables según nivel del Cuartel
-// Para añadir más héroes en el futuro: ampliar este mapa y los arrays de slots
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
 
 const NAV_ITEMS = [
-  { id: 'heroe',         label: 'Héroe',         icon: Sword },
-  { id: 'base',          label: 'Base',          icon: Castle },
-  { id: 'mazmorras',     label: 'Mazmorras',     icon: Skull },
-  { id: 'combates',      label: 'Combates',      icon: Swords },
-  { id: 'tienda',        label: 'Tienda',        icon: ShoppingBag },
+  { id: 'heroe',     label: 'Héroe',     icon: Sword      },
+  { id: 'base',      label: 'Base',      icon: Castle     },
+  { id: 'mazmorras', label: 'Mazmorras', icon: Skull      },
+  { id: 'combates',  label: 'Combates',  icon: Swords     },
+  { id: 'tienda',    label: 'Tienda',    icon: ShoppingBag },
 ]
 
 function fmt(n) {
@@ -220,15 +217,15 @@ function fmt(n) {
   return n.toLocaleString('es-ES')
 }
 
-function ResourceChip({ icon: Icon, color, value, rate }) {
+function ResourceChip({ icon: Icon, color, value, rate, className }) {
   const display = fmt(value)
   return (
-    <div className="resource-chip">
+    <div className={`flex items-center gap-[5px] bg-surface-2 border border-border rounded-lg py-[5px] px-[10px] text-[13px] font-semibold text-text whitespace-nowrap${className ? ' ' + className : ''}`}>
       <Icon size={15} color={color} strokeWidth={2} />
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={display}
-          className="resource-value"
+          className="min-w-[36px] text-right"
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 5 }}
@@ -237,22 +234,21 @@ function ResourceChip({ icon: Icon, color, value, rate }) {
           {display}
         </motion.span>
       </AnimatePresence>
-      <span className="resource-rate">+{rate}/min</span>
+      <span className="text-[11px] font-medium text-text-3 border-l border-border pl-1.5 ml-0.5">+{rate}/min</span>
     </div>
   )
 }
 
 function SectionPlaceholder({ title }) {
   return (
-    <div className="section-placeholder">
-      <p className="section-placeholder-title">{title}</p>
-      <p className="section-placeholder-text">Esta sección está en construcción.</p>
+    <div className="flex flex-col items-center justify-center min-h-[300px] gap-2 text-center">
+      <p className="font-display text-[28px] tracking-[0.04em] text-[var(--blue-700)]">{title}</p>
+      <p className="text-text-3 text-[15px]">Esta sección está en construcción.</p>
     </div>
   )
 }
 
 function Dashboard({ session }) {
-  // ── Store ──────────────────────────────────────────────────────────────────
   const activeSection    = useAppStore(s => s.activeSection)
   const mountedSections  = useAppStore(s => s.mountedSections)
   const navigateTo       = useAppStore(s => s.navigateTo)
@@ -263,7 +259,6 @@ function Dashboard({ session }) {
   const selectedHeroId   = useAppStore(s => s.selectedHeroId)
   const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
 
-  // ── Datos del servidor (para header + hero rail + badges) ──────────────────
   const { resources }              = useResources(session.user.id)
   const { heroes, loading: heroesLoading } = useHeroes(session.user.id)
   const { missions: missionsList } = useMissions()
@@ -281,9 +276,9 @@ function Dashboard({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  const heroExploringReady        = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
-  const heroExploringInProgress   = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
-  const buildingUpgradingReady    = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
+  const heroExploringReady          = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
+  const heroExploringInProgress     = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
+  const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
   const barrackLevel = buildings?.find(b => b.type === 'barracks')?.level ?? 1
 
@@ -291,9 +286,7 @@ function Dashboard({ session }) {
   const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
   const canRecruit      = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
 
-  function openRecruit() {
-    setRecruitOpen(true)
-  }
+  function openRecruit() { setRecruitOpen(true) }
 
   const missionsDone      = missionsList?.filter(m => m.claimed).length ?? 0
   const missionsTotal     = missionsList?.length ?? 0
@@ -301,83 +294,108 @@ function Dashboard({ session }) {
   const allMissionsDone   = missionsTotal > 0 && missionsDone === missionsTotal
   const isMobileDrawer    = typeof window !== 'undefined' && window.innerWidth <= 600
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
+  async function handleLogout() { await supabase.auth.signOut() }
+
+  function missionChipClass(extra) {
+    if (allMissionsDone) return `border-[#86efac] text-[#15803d] bg-[#f0fdf4] dark:border-[#166534] dark:text-[#4ade80] dark:bg-[color-mix(in_srgb,#16a34a_12%,var(--surface))] ${extra}`
+    if (missionsClaimable > 0) return `border-[var(--blue-400)] text-[var(--blue-700)] bg-[var(--blue-50)] ${extra}`
+    return extra
+  }
+
+  function badgeState(id) {
+    if (id === 'mazmorras') return heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null
+    if (id === 'base')      return buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null
+    return null
   }
 
   return (
-    <div className="dash-root">
+    <div className="h-screen flex flex-col bg-bg overflow-hidden">
 
       {/* Header */}
-      <header className="dash-header">
-        <span className="dash-logo">RPG Heroes</span>
+      <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
+        <span className="font-display text-[22px] tracking-[0.08em] text-[var(--blue-700)] flex-shrink-0">RPG Heroes</span>
 
-        <div className="dash-resources">
+        {/* Resources — desktop only */}
+        <div className="hidden md:flex items-center gap-1.5 flex-1 justify-center">
           <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} />
           <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} />
           <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} />
         </div>
 
-        <div className="dash-user">
+        <div className="flex items-center gap-3.5">
+          {/* Missions chip — desktop only */}
           <button
-            className={`missions-chip ${allMissionsDone ? 'missions-chip--done' : missionsClaimable > 0 ? 'missions-chip--claimable' : ''}`}
+            className={`hidden md:flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 relative whitespace-nowrap flex-shrink-0 hover:border-[var(--blue-400)] hover:text-[var(--blue-700)] hover:bg-[var(--blue-50)] ${missionChipClass('')}`}
             onClick={() => setMissionsOpen(true)}
             title="Misiones del día"
           >
             <ClipboardList size={14} strokeWidth={2} />
             <span>{missionsDone}/{missionsTotal}</span>
-            {missionsClaimable > 0 && <span className="missions-chip-dot" />}
+            {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
           </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
-          <div className="dash-avatar" title={session.user.email}>
+          <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-2 overflow-hidden flex-shrink-0 flex items-center justify-center" title={session.user.email}>
             {session.user.user_metadata?.avatar_url
-              ? <img src={session.user.user_metadata.avatar_url} alt="" className="dash-avatar-img" referrerPolicy="no-referrer" />
-              : <span className="dash-avatar-initials">{(session.user.user_metadata?.name ?? session.user.email ?? '?')[0].toUpperCase()}</span>
+              ? <img src={session.user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover block" referrerPolicy="no-referrer" />
+              : <span className="text-[13px] font-bold text-text-2 leading-none">{(session.user.user_metadata?.name ?? session.user.email ?? '?')[0].toUpperCase()}</span>
             }
           </div>
-          <button className="btn btn--ghost btn--sm dash-logout" onClick={handleLogout} title="Cerrar sesión">
+          <button
+            className="btn btn--ghost btn--sm hover:text-error-text hover:border-[color-mix(in_srgb,var(--error-text)_40%,var(--border))] hover:bg-[color-mix(in_srgb,var(--error-text)_6%,transparent)]"
+            onClick={handleLogout}
+            title="Cerrar sesión"
+          >
             <LogOut size={14} strokeWidth={2} />
-            <span className="dash-logout-label">Salir</span>
+            <span className="hidden md:inline">Salir</span>
           </button>
         </div>
       </header>
 
-      {/* Resource bar — solo visible en móvil */}
-      <div className="dash-resources-mobile">
-        <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} />
-        <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} />
-        <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} />
+      {/* Resource bar — mobile only */}
+      <div className="flex md:hidden items-center justify-around gap-2 px-3 py-2 bg-surface border-b border-border overflow-x-auto flex-shrink-0">
+        <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} className="flex-1 justify-center min-w-0" />
+        <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} className="flex-1 justify-center min-w-0" />
+        <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} className="flex-1 justify-center min-w-0" />
         <button
-          className={`missions-chip missions-chip--mobile ${allMissionsDone ? 'missions-chip--done' : missionsClaimable > 0 ? 'missions-chip--claimable' : ''}`}
+          className={`flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 whitespace-nowrap flex-shrink-0 ${missionChipClass('')}`}
           onClick={() => setMissionsOpen(true)}
           title="Misiones del día"
         >
           <ClipboardList size={13} strokeWidth={2} />
           <span>{missionsDone}/{missionsTotal}</span>
-          {missionsClaimable > 0 && <span className="missions-chip-dot" />}
+          {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
         </button>
       </div>
 
-      {/* Hero rail — visible cuando hay 2+ héroes o se puede reclutar (esperar carga) */}
+      {/* Hero rail */}
       {!heroesLoading && (heroes.length > 1 || canRecruit) && (
-        <div className="hero-rail">
+        <div className="flex items-center gap-1 px-5 md:px-5 px-3 h-11 bg-surface border-b border-border flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {heroes.map(hero => {
             const derivedStatus = getHeroDerivedStatus(hero, now)
+            const isActive = hero.id === heroId
+            const isReady = derivedStatus === 'ready'
+            const nameColor = isReady ? 'text-[#16a34a]' : isActive ? 'text-[var(--blue-700)]' : 'text-text'
             return (
               <button
                 key={hero.id}
-                className={`hero-rail-chip ${hero.id === heroId ? 'hero-rail-chip--active' : ''} ${derivedStatus === 'ready' ? 'hero-rail-chip--ready' : ''}`}
+                className={`flex items-center gap-1.5 px-[10px] py-[5px] rounded-lg border transition-[background,border-color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
+                  ${isReady
+                    ? 'bg-[color-mix(in_srgb,#16a34a_10%,var(--surface))] border-[color-mix(in_srgb,#16a34a_30%,var(--border))] animate-rail-pulse'
+                    : isActive
+                      ? 'bg-info-bg border-[var(--blue-200)]'
+                      : 'border-transparent bg-transparent hover:bg-surface-2'
+                  }`}
                 onClick={() => setSelectedHeroId(hero.id)}
               >
-                <span className="hero-rail-dot" style={{ background: HERO_STATUS_COLOR[derivedStatus] ?? HERO_STATUS_COLOR.idle }} />
-                <span className="hero-rail-name">{hero.name}</span>
-                <span className="hero-rail-meta">Nv.{hero.level}</span>
-                <span className="hero-rail-status">{HERO_STATUS_LABEL[derivedStatus] ?? 'Reposo'}</span>
+                <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: HERO_STATUS_COLOR[derivedStatus] ?? HERO_STATUS_COLOR.idle }} />
+                <span className={`text-[13px] font-bold ${nameColor}`}>{hero.name}</span>
+                <span className="text-[11px] font-medium text-text-3">Nv.{hero.level}</span>
+                <span className="hidden md:inline text-[11px] font-medium text-text-3 border-l border-border pl-1.5 ml-0.5">{HERO_STATUS_LABEL[derivedStatus] ?? 'Reposo'}</span>
               </button>
             )
           })}
           {canRecruit && (
-            <button className="btn btn--ghost btn--sm hero-rail-recruit" onClick={openRecruit}>
+            <button className="btn btn--ghost btn--sm border-dashed ml-1" onClick={openRecruit}>
               <Plus size={12} strokeWidth={2.5} />
               Reclutar
             </button>
@@ -385,83 +403,85 @@ function Dashboard({ session }) {
         </div>
       )}
 
-      <div className="dash-body">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Sidebar (desktop) */}
-        <aside className="dash-sidebar">
-          <nav className="dash-nav">
+        {/* Sidebar — desktop only */}
+        <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-surface border-r border-border flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
+          <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-              const badgeState =
-                id === 'mazmorras' ? (heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null)
-                : id === 'base'    ? (buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null)
-                : null
+              const badge = badgeState(id)
+              const isActive = activeSection === id
               return (
                 <button
                   key={id}
-                  className={`dash-nav-item ${activeSection === id ? 'dash-nav-item--active' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative
+                    ${isActive
+                      ? 'text-[var(--blue-700)] font-semibold hover:bg-transparent'
+                      : 'text-text-2 hover:bg-bg hover:text-text'
+                    }`}
                   onClick={() => navigateTo(id)}
                 >
-                  {activeSection === id && (
+                  {isActive && (
                     <motion.span
-                      className="dash-nav-indicator"
+                      className="absolute inset-0 rounded-lg bg-[var(--blue-50)] z-0"
                       layoutId="nav-indicator"
                       transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                     />
                   )}
-                  <span className="dash-nav-icon">
+                  <span className="relative z-[1] w-5 h-5 flex items-center justify-center flex-shrink-0">
                     <Icon size={18} strokeWidth={1.8} />
-                    {badgeState && <span className={`nav-badge nav-badge--${badgeState}`} />}
+                    {badge && (
+                      <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
+                    )}
                   </span>
-                  <span className="dash-nav-label">{label}</span>
+                  <span className="relative z-[1] leading-none">{label}</span>
                 </button>
               )
             })}
             {import.meta.env.DEV && (
               <>
                 <button
-                  className={`dash-nav-item ${activeSection === 'dev-catalogo' ? 'dash-nav-item--active' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 mt-auto ${activeSection === 'dev-catalogo' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
                   onClick={() => navigateTo('dev-catalogo')}
-                  style={{ opacity: 0.5, marginTop: 'auto' }}
                 >
-                  <span className="dash-nav-icon"><FlaskConical size={18} strokeWidth={1.8} /></span>
-                  <span className="dash-nav-label">Items</span>
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
+                  <span className="leading-none">Items</span>
                 </button>
                 <button
-                  className={`dash-nav-item ${activeSection === 'dev-cartas' ? 'dash-nav-item--active' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 ${activeSection === 'dev-cartas' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
                   onClick={() => navigateTo('dev-cartas')}
-                  style={{ opacity: 0.5 }}
                 >
-                  <span className="dash-nav-icon"><FlaskConical size={18} strokeWidth={1.8} /></span>
-                  <span className="dash-nav-label">Cartas</span>
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
+                  <span className="leading-none">Cartas</span>
                 </button>
               </>
             )}
           </nav>
         </aside>
 
-        {/* Main content — secciones persistentes: se montan la primera vez y se ocultan con CSS */}
-        <main className="dash-main">
-          <div className={`dash-section ${activeSection === 'heroe' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('heroe') && <ErrorBoundary><Hero /></ErrorBoundary>}
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
+          <div className={activeSection === 'heroe'     ? 'block animate-section-in' : 'hidden'}>
+            {mountedSections.has('heroe')     && <ErrorBoundary><Hero /></ErrorBoundary>}
           </div>
-          <div className={`dash-section ${activeSection === 'base' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('base') && <ErrorBoundary><Base /></ErrorBoundary>}
+          <div className={activeSection === 'base'      ? 'block animate-section-in' : 'hidden'}>
+            {mountedSections.has('base')      && <ErrorBoundary><Base /></ErrorBoundary>}
           </div>
-          <div className={`dash-section ${activeSection === 'mazmorras' ? 'dash-section--active' : ''}`}>
+          <div className={activeSection === 'mazmorras' ? 'block animate-section-in' : 'hidden'}>
             {mountedSections.has('mazmorras') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
           </div>
-          <div className={`dash-section ${activeSection === 'combates' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('combates') && <ErrorBoundary><Combates /></ErrorBoundary>}
+          <div className={activeSection === 'combates'  ? 'block animate-section-in' : 'hidden'}>
+            {mountedSections.has('combates')  && <ErrorBoundary><Combates /></ErrorBoundary>}
           </div>
-          <div className={`dash-section ${activeSection === 'tienda' ? 'dash-section--active' : ''}`}>
-            {mountedSections.has('tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
+          <div className={activeSection === 'tienda'    ? 'block animate-section-in' : 'hidden'}>
+            {mountedSections.has('tienda')    && <ErrorBoundary><Shop /></ErrorBoundary>}
           </div>
           {import.meta.env.DEV && (
             <>
-              <div className={`dash-section ${activeSection === 'dev-catalogo' ? 'dash-section--active' : ''}`}>
+              <div className={activeSection === 'dev-catalogo' ? 'block animate-section-in' : 'hidden'}>
                 {mountedSections.has('dev-catalogo') && <CatalogDebug />}
               </div>
-              <div className={`dash-section ${activeSection === 'dev-cartas' ? 'dash-section--active' : ''}`}>
+              <div className={activeSection === 'dev-cartas' ? 'block animate-section-in' : 'hidden'}>
                 {mountedSections.has('dev-cartas') && <CardCatalogDebug />}
               </div>
             </>
@@ -470,24 +490,24 @@ function Dashboard({ session }) {
 
       </div>
 
-      {/* Bottom bar (mobile) */}
-      <nav className="dash-bottombar">
+      {/* Bottom bar — mobile only */}
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-          const badgeState =
-            id === 'mazmorras' ? (heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null)
-            : id === 'base'    ? (buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null)
-            : null
+          const badge = badgeState(id)
           return (
             <button
               key={id}
-              className={`dash-bottombar-item ${activeSection === id ? 'dash-bottombar-item--active' : ''}`}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium transition-[color,background] duration-150 py-2 px-1 hover:bg-bg
+                ${activeSection === id ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
               onClick={() => navigateTo(id)}
             >
-              <span className="dash-bottombar-icon">
+              <span className="relative w-[22px] h-[22px] flex items-center justify-center">
                 <Icon size={20} strokeWidth={1.8} />
-                {badgeState && <span className={`nav-badge nav-badge--${badgeState}`} />}
+                {badge && (
+                  <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
+                )}
               </span>
-              <span className="dash-bottombar-label">{label}</span>
+              <span className="leading-none">{label}</span>
             </button>
           )
         })}
@@ -498,7 +518,7 @@ function Dashboard({ session }) {
         {missionsOpen && (
           <>
             <motion.div
-              className="missions-overlay"
+              className="fixed inset-0 bg-black/35 z-[200] backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -506,16 +526,20 @@ function Dashboard({ session }) {
               onClick={() => setMissionsOpen(false)}
             />
             <motion.div
-              className="missions-drawer"
+              className={`fixed bg-bg border-border z-[201] flex flex-col overflow-hidden
+                ${isMobileDrawer
+                  ? 'bottom-0 left-0 right-0 w-full max-h-[88vh] border-t rounded-t-[20px] shadow-[0_-4px_32px_rgba(0,0,0,0.15)]'
+                  : 'top-0 right-0 bottom-0 w-[420px] max-w-[100vw] border-l shadow-[-4px_0_24px_rgba(0,0,0,0.12)]'
+                }`}
               initial={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
               animate={isMobileDrawer ? { y: 0 } : { x: 0 }}
               exit={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             >
-              <button className="btn btn--ghost btn--icon" onClick={() => setMissionsOpen(false)}>
+              <button className="btn btn--ghost btn--icon absolute top-4 right-4 z-[1]" onClick={() => setMissionsOpen(false)}>
                 <X size={18} strokeWidth={2} />
               </button>
-              <div className="missions-drawer-body">
+              <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 sm:pb-12">
                 <Misiones />
               </div>
             </motion.div>
