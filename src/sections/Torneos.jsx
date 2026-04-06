@@ -198,7 +198,7 @@ export default function Torneos() {
           <motion.button
             className="btn btn--primary btn--lg btn--full"
             onClick={() => fightMutation.mutate()}
-            disabled={fightMutation.isPending || !hasHp || hero?.status !== 'idle'}
+            disabled={fightMutation.isPending || !hasHp || (hero?.status ?? 'idle') !== 'idle'}
             whileTap={fightMutation.isPending || !hasHp ? {} : { scale: 0.97 }}
             whileHover={fightMutation.isPending || !hasHp ? {} : { scale: 1.01 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
