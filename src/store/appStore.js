@@ -15,12 +15,46 @@ export const useAppStore = create((set) => ({
   selectedHeroId: null,
   setSelectedHeroId: (id) => set({ selectedHeroId: id }),
 
-  // ── Navegación ────────────────────────────────────────────────
-  activeSection: 'heroe',
-  mountedSections: new Set(['heroe']),
-  navigateTo: (section) => set((state) => ({
-    activeSection: section,
-    mountedSections: new Set([...state.mountedSections, section]),
+  // ── Navegación principal ──────────────────────────────────────
+  // Tabs: inicio | heroes | base | mundo
+  activeTab: 'inicio',
+  mountedTabs: new Set(['inicio']),
+
+  // Sub-tab de Héroes: ficha | expediciones
+  activeHeroTab: 'ficha',
+
+  // Sub-tab de Mundo: torre | torneos | clasificacion | historial
+  activeWorldTab: 'torre',
+
+  navigateTo: (tab, opts = {}) => set((state) => {
+    const next = {
+      activeTab: tab,
+      mountedTabs: new Set([...state.mountedTabs, tab]),
+    }
+    // Auto-mount el sub-tab activo al visitar heroes/mundo por primera vez
+    if (tab === 'heroes') {
+      const heroTab = opts.heroTab ?? state.activeHeroTab
+      next.activeHeroTab = heroTab
+      next.mountedTabs.add(`heroes:${heroTab}`)
+    }
+    if (tab === 'mundo') {
+      const worldTab = opts.worldTab ?? state.activeWorldTab
+      next.activeWorldTab = worldTab
+      next.mountedTabs.add(`mundo:${worldTab}`)
+    }
+    return next
+  }),
+
+  navigateToHeroTab: (heroTab) => set((state) => ({
+    activeTab: 'heroes',
+    activeHeroTab: heroTab,
+    mountedTabs: new Set([...state.mountedTabs, 'heroes', `heroes:${heroTab}`]),
+  })),
+
+  navigateToWorldTab: (worldTab) => set((state) => ({
+    activeTab: 'mundo',
+    activeWorldTab: worldTab,
+    mountedTabs: new Set([...state.mountedTabs, 'mundo', `mundo:${worldTab}`]),
   })),
 
   // ── Drawers / modales ─────────────────────────────────────────
@@ -29,4 +63,7 @@ export const useAppStore = create((set) => ({
 
   recruitOpen:   false,
   setRecruitOpen:   (open) => set({ recruitOpen: open }),
+
+  shopOpen: false,
+  setShopOpen: (open) => set({ shopOpen: open }),
 }))

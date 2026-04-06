@@ -8,6 +8,7 @@ import { useClasses } from '../hooks/useClasses'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
+import Inicio from '../sections/Inicio'
 import Dungeons from '../sections/Dungeons'
 import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
@@ -16,7 +17,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag, Lock } from 'lucide-react'
+import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag, Lock } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -203,11 +204,15 @@ function getHeroDerivedStatus(hero, now) {
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
 
 const NAV_ITEMS = [
-  { id: 'heroe',     label: 'Héroe',     icon: Sword      },
-  { id: 'base',      label: 'Base',      icon: Castle     },
-  { id: 'mazmorras', label: 'Mazmorras', icon: Skull      },
-  { id: 'combates',  label: 'Combates',  icon: Swords     },
-  { id: 'tienda',    label: 'Tienda',    icon: ShoppingBag },
+  { id: 'inicio',  label: 'Inicio',  icon: LayoutDashboard },
+  { id: 'heroes',  label: 'Héroes',  icon: Sword           },
+  { id: 'base',    label: 'Base',    icon: Castle          },
+  { id: 'mundo',   label: 'Mundo',   icon: Globe           },
+]
+
+const HERO_SUB_TABS = [
+  { id: 'ficha',        label: 'Ficha',        icon: Sword },
+  { id: 'expediciones', label: 'Expediciones', icon: Map   },
 ]
 
 function fmt(n) {
@@ -239,35 +244,28 @@ function ResourceChip({ icon: Icon, color, value, rate, className }) {
   )
 }
 
-function SectionPlaceholder({ title }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[300px] gap-2 text-center">
-      <p className="font-display text-[28px] tracking-[0.04em] text-[var(--blue-700)]">{title}</p>
-      <p className="text-text-3 text-[15px]">Esta sección está en construcción.</p>
-    </div>
-  )
-}
-
 function Dashboard({ session }) {
-  const activeSection    = useAppStore(s => s.activeSection)
-  const mountedSections  = useAppStore(s => s.mountedSections)
-  const navigateTo       = useAppStore(s => s.navigateTo)
-  const missionsOpen     = useAppStore(s => s.missionsOpen)
-  const setMissionsOpen  = useAppStore(s => s.setMissionsOpen)
-  const recruitOpen      = useAppStore(s => s.recruitOpen)
-  const setRecruitOpen   = useAppStore(s => s.setRecruitOpen)
-  const selectedHeroId   = useAppStore(s => s.selectedHeroId)
+  const activeTab         = useAppStore(s => s.activeTab)
+  const activeHeroTab     = useAppStore(s => s.activeHeroTab)
+  const mountedTabs       = useAppStore(s => s.mountedTabs)
+  const navigateTo        = useAppStore(s => s.navigateTo)
+  const navigateToHeroTab = useAppStore(s => s.navigateToHeroTab)
+  const missionsOpen      = useAppStore(s => s.missionsOpen)
+  const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
+  const shopOpen          = useAppStore(s => s.shopOpen)
+  const setShopOpen       = useAppStore(s => s.setShopOpen)
+  const recruitOpen       = useAppStore(s => s.recruitOpen)
+  const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
   const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
 
-  const { resources }              = useResources(session.user.id)
+  const { resources }               = useResources(session.user.id)
   const { heroes, loading: heroesLoading } = useHeroes(session.user.id)
-  const { missions: missionsList } = useMissions()
-  const { buildings }              = useBuildings(session.user.id)
+  const { missions: missionsList }  = useMissions()
+  const { buildings }               = useBuildings(session.user.id)
   const { classes: recruitClasses } = useClasses()
-  const { theme, setTheme }        = useTheme()
+  const { theme, setTheme }         = useTheme()
 
-  const heroId      = selectedHeroId ?? heroes?.[0]?.id ?? null
-  const selectedHero = heroes.find(h => h.id === heroId) ?? null
+  const heroId = useAppStore(s => s.selectedHeroId) ?? heroes?.[0]?.id ?? null
 
   const mainRef = useRef(null)
   const [now, setNow] = useState(() => new Date())
@@ -277,13 +275,13 @@ function Dashboard({ session }) {
     return () => clearInterval(interval)
   }, [])
 
-  // Volver al inicio al cambiar de sección
+  // Scroll to top al cambiar de tab
   useEffect(() => {
     if (mainRef.current) mainRef.current.scrollTop = 0
-  }, [activeSection])
+  }, [activeTab])
 
-  const heroExploringReady          = selectedHero ? getHeroDerivedStatus(selectedHero, now) === 'ready' : false
-  const heroExploringInProgress     = selectedHero ? (!heroExploringReady && selectedHero.status === 'exploring') : false
+  const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
+  const anyHeroExploring = !anyHeroReady && heroes.some(h => h.status === 'exploring')
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
   const barrackLevel = buildings?.find(b => b.type === 'barracks')?.level ?? 1
@@ -291,8 +289,6 @@ function Dashboard({ session }) {
   const usedSlots       = heroes.map(h => h.slot ?? 1)
   const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
   const canRecruit      = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
-
-  function openRecruit() { setRecruitOpen(true) }
 
   const missionsDone      = missionsList?.filter(m => m.claimed).length ?? 0
   const missionsTotal     = missionsList?.length ?? 0
@@ -309,10 +305,13 @@ function Dashboard({ session }) {
   }
 
   function badgeState(id) {
-    if (id === 'mazmorras') return heroExploringReady ? 'ready' : heroExploringInProgress ? 'active' : null
-    if (id === 'base')      return buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null
+    if (id === 'heroes') return anyHeroReady ? 'ready' : anyHeroExploring ? 'active' : null
+    if (id === 'base')   return buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null
     return null
   }
+
+  // Hero rail: solo en tabs donde tiene sentido
+  const showHeroRail = activeTab === 'heroes' || activeTab === 'mundo'
 
   return (
     <div className="h-screen flex flex-col bg-bg overflow-hidden">
@@ -328,8 +327,8 @@ function Dashboard({ session }) {
           <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} />
         </div>
 
-        <div className="flex items-center gap-3.5">
-          {/* Missions chip — desktop only */}
+        <div className="flex items-center gap-2.5">
+          {/* Missions chip */}
           <button
             className={`hidden md:flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 relative whitespace-nowrap flex-shrink-0 hover:border-[var(--blue-400)] hover:text-[var(--blue-700)] hover:bg-[var(--blue-50)] ${missionChipClass('')}`}
             onClick={() => setMissionsOpen(true)}
@@ -338,6 +337,14 @@ function Dashboard({ session }) {
             <ClipboardList size={14} strokeWidth={2} />
             <span>{missionsDone}/{missionsTotal}</span>
             {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
+          </button>
+          {/* Shop icon */}
+          <button
+            className="btn btn--ghost btn--icon"
+            onClick={() => setShopOpen(true)}
+            title="Tienda"
+          >
+            <ShoppingBag size={17} strokeWidth={1.8} />
           </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
           <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-2 overflow-hidden flex-shrink-0 flex items-center justify-center" title={session.user.email}>
@@ -365,7 +372,6 @@ function Dashboard({ session }) {
         <button
           className={`flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 whitespace-nowrap flex-shrink-0 ${missionChipClass('')}`}
           onClick={() => setMissionsOpen(true)}
-          title="Misiones del día"
         >
           <ClipboardList size={13} strokeWidth={2} />
           <span>{missionsDone}/{missionsTotal}</span>
@@ -373,13 +379,13 @@ function Dashboard({ session }) {
         </button>
       </div>
 
-      {/* Hero rail — siempre visible para que el jugador vea los slots futuros */}
-      {!heroesLoading && (
-        <div className="flex items-center gap-1 px-5 md:px-5 px-3 h-11 bg-surface border-b border-border flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Hero rail — solo en tabs de Heroes y Mundo */}
+      {showHeroRail && !heroesLoading && (
+        <div className="flex items-center gap-1 px-3 md:px-5 h-11 bg-surface border-b border-border flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {heroes.map(hero => {
             const derivedStatus = getHeroDerivedStatus(hero, now)
-            const isActive = hero.id === heroId
-            const isReady = derivedStatus === 'ready'
+            const isActive  = hero.id === heroId
+            const isReady   = derivedStatus === 'ready'
             const nameColor = isReady ? 'text-[#16a34a]' : isActive ? 'text-[var(--blue-700)]' : 'text-text'
             return (
               <button
@@ -401,12 +407,10 @@ function Dashboard({ session }) {
             )
           })}
           {canRecruit && (
-            <button className="btn btn--ghost btn--sm border-dashed ml-1" onClick={openRecruit}>
-              <Plus size={12} strokeWidth={2.5} />
-              Reclutar
+            <button className="btn btn--ghost btn--sm border-dashed ml-1" onClick={() => setRecruitOpen(true)}>
+              <Plus size={12} strokeWidth={2.5} /> Reclutar
             </button>
           )}
-          {/* Slots bloqueados — siempre visibles para mostrar la progresión */}
           {[2, 3].filter(slot => {
             const filled   = heroes.some(h => h.slot === slot)
             const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
@@ -431,8 +435,8 @@ function Dashboard({ session }) {
         <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-surface border-r border-border flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
           <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-              const badge = badgeState(id)
-              const isActive = activeSection === id
+              const badge    = badgeState(id)
+              const isActive = activeTab === id
               return (
                 <button
                   key={id}
@@ -463,14 +467,14 @@ function Dashboard({ session }) {
             {import.meta.env.DEV && (
               <>
                 <button
-                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 mt-auto ${activeSection === 'dev-catalogo' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 mt-auto ${activeTab === 'dev-catalogo' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
                   onClick={() => navigateTo('dev-catalogo')}
                 >
                   <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
                   <span className="leading-none">Items</span>
                 </button>
                 <button
-                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 ${activeSection === 'dev-cartas' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 ${activeTab === 'dev-cartas' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
                   onClick={() => navigateTo('dev-cartas')}
                 >
                   <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
@@ -483,36 +487,73 @@ function Dashboard({ session }) {
 
         {/* Main content */}
         <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
-          <div className={activeSection === 'heroe'     ? 'block animate-section-in' : 'hidden'}>
-            {mountedSections.has('heroe')     && <ErrorBoundary><Hero /></ErrorBoundary>}
+
+          {/* Inicio */}
+          <div className={activeTab === 'inicio' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('inicio') && <ErrorBoundary><Inicio /></ErrorBoundary>}
           </div>
-          <div className={activeSection === 'base'      ? 'block animate-section-in' : 'hidden'}>
-            {mountedSections.has('base')      && <ErrorBoundary><Base /></ErrorBoundary>}
+
+          {/* Héroes — con sub-nav */}
+          <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('heroes') && (
+              <div className="flex flex-col gap-6">
+                {/* Sub-nav */}
+                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
+                  {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
+                    const isActive = activeHeroTab === id
+                    return (
+                      <button
+                        key={id}
+                        className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit]
+                          ${isActive
+                            ? 'border-b-[var(--blue-600)] text-[var(--blue-700)]'
+                            : 'border-b-transparent text-text-3 hover:text-text'
+                          }`}
+                        onClick={() => navigateToHeroTab(id)}
+                      >
+                        <Icon size={14} strokeWidth={2} />
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Sub-content */}
+                <div className={activeHeroTab === 'ficha' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:ficha') && <ErrorBoundary><Hero /></ErrorBoundary>}
+                </div>
+                <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                </div>
+              </div>
+            )}
           </div>
-          <div className={activeSection === 'mazmorras' ? 'block animate-section-in' : 'hidden'}>
-            {mountedSections.has('mazmorras') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+
+          {/* Base */}
+          <div className={activeTab === 'base' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('base') && <ErrorBoundary><Base /></ErrorBoundary>}
           </div>
-          <div className={activeSection === 'combates'  ? 'block animate-section-in' : 'hidden'}>
-            {mountedSections.has('combates')  && <ErrorBoundary><Combates /></ErrorBoundary>}
+
+          {/* Mundo */}
+          <div className={activeTab === 'mundo' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('mundo') && <ErrorBoundary><Combates /></ErrorBoundary>}
           </div>
-          <div className={activeSection === 'tienda'    ? 'block animate-section-in' : 'hidden'}>
-            {mountedSections.has('tienda')    && <ErrorBoundary><Shop /></ErrorBoundary>}
-          </div>
+
+          {/* DEV only */}
           {import.meta.env.DEV && (
             <>
-              <div className={activeSection === 'dev-catalogo' ? 'block animate-section-in' : 'hidden'}>
-                {mountedSections.has('dev-catalogo') && <CatalogDebug />}
+              <div className={activeTab === 'dev-catalogo' ? 'block animate-section-in' : 'hidden'}>
+                {mountedTabs.has('dev-catalogo') && <CatalogDebug />}
               </div>
-              <div className={activeSection === 'dev-cartas' ? 'block animate-section-in' : 'hidden'}>
-                {mountedSections.has('dev-cartas') && <CardCatalogDebug />}
+              <div className={activeTab === 'dev-cartas' ? 'block animate-section-in' : 'hidden'}>
+                {mountedTabs.has('dev-cartas') && <CardCatalogDebug />}
               </div>
             </>
           )}
-        </main>
 
+        </main>
       </div>
 
-      {/* Bottom bar — mobile only */}
+      {/* Bottom nav — mobile only */}
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const badge = badgeState(id)
@@ -520,7 +561,7 @@ function Dashboard({ session }) {
             <button
               key={id}
               className={`flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium transition-[color,background] duration-150 py-2 px-1 hover:bg-bg
-                ${activeSection === id ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
+                ${activeTab === id ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
               onClick={() => navigateTo(id)}
             >
               <span className="relative w-[22px] h-[22px] flex items-center justify-center">
@@ -541,9 +582,7 @@ function Dashboard({ session }) {
           <>
             <motion.div
               className="fixed inset-0 bg-black/35 z-[200] backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
               onClick={() => setMissionsOpen(false)}
             />
@@ -555,8 +594,8 @@ function Dashboard({ session }) {
                 }`}
               initial={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
               animate={isMobileDrawer
-                ? { y: 0,       transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.38 } }
-                : { x: 0,       transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.32 } }
+                ? { y: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.38 } }
+                : { x: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.32 } }
               }
               exit={isMobileDrawer
                 ? { y: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.26 } }
@@ -568,6 +607,43 @@ function Dashboard({ session }) {
               </button>
               <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 sm:pb-12">
                 <Misiones />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Shop drawer */}
+      <AnimatePresence>
+        {shopOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/35 z-[200] backdrop-blur-sm"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              onClick={() => setShopOpen(false)}
+            />
+            <motion.div
+              className={`fixed bg-bg border-border z-[201] flex flex-col overflow-hidden
+                ${isMobileDrawer
+                  ? 'bottom-0 left-0 right-0 w-full max-h-[92vh] border-t rounded-t-[20px] shadow-[0_-4px_32px_rgba(0,0,0,0.15)]'
+                  : 'top-0 right-0 bottom-0 w-[560px] max-w-[100vw] border-l shadow-[-4px_0_24px_rgba(0,0,0,0.12)]'
+                }`}
+              initial={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
+              animate={isMobileDrawer
+                ? { y: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.38 } }
+                : { x: 0,      transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.32 } }
+              }
+              exit={isMobileDrawer
+                ? { y: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.26 } }
+                : { x: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.24 } }
+              }
+            >
+              <button className="btn btn--ghost btn--icon absolute top-4 right-4 z-[1]" onClick={() => setShopOpen(false)}>
+                <X size={18} strokeWidth={2} />
+              </button>
+              <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 sm:pb-12">
+                <Shop />
               </div>
             </motion.div>
           </>
