@@ -34,11 +34,5 @@ export function canPlay(currentHp, maxHp) {
   return currentHp >= Math.floor(maxHp * MIN_HP_PCT)
 }
 
-/**
- * HP damage for an expedition based on duration.
- * Rate: 10% of max_hp per hour (proportional to time).
- * Minimum 1 HP.
- */
-export function expeditionHpDamage(maxHp, durationMinutes) {
-  return Math.max(1, Math.floor(maxHp * durationMinutes / 300))
-}
+// Fórmula compartida con el frontend — no duplicar aquí
+export { expeditionHpCost as expeditionHpDamage } from '../src/lib/gameFormulas.js'

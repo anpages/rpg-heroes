@@ -12,6 +12,7 @@ import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { expeditionHpCost } from '../lib/gameFormulas'
 import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -86,15 +87,12 @@ function useExpeditionTimer(expedition) {
   return { secondsLeft, canCollect, isMounted, pct }
 }
 
-function dungeonHpCost(maxHp, durationMinutes) {
-  return Math.max(1, Math.floor((maxHp ?? 100) * durationMinutes / 300))
-}
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor }) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
-  const hpCost   = dungeonHpCost(heroMaxHp, dungeon.duration_minutes)
+  const hpCost   = expeditionHpCost(heroMaxHp, dungeon.duration_minutes)
   const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
   const disabled = locked || busy || lowHp
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
