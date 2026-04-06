@@ -6,7 +6,6 @@ import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import InstallPrompt from './components/InstallPrompt'
 import { AnimatePresence, motion } from 'framer-motion'
-import './App.css'
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -16,8 +15,8 @@ const pageVariants = {
 
 function LoadingScreen() {
   return (
-    <motion.div className="app-loading" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-      <div className="app-loading-dot" />
+    <motion.div className="min-h-screen bg-bg flex items-center justify-center" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse-dot" />
     </motion.div>
   )
 }

@@ -1,6 +1,56 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ── Dark mode: usa el atributo data-theme en lugar de prefers-color-scheme ── */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── Tokens de Tailwind mapeados a nuestras CSS vars (se adaptan al tema) ─── */
+@theme inline {
+  --color-bg:        var(--bg);
+  --color-surface:   var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border:    var(--border);
+  --color-border-2:  var(--border-2);
+
+  --color-text:      var(--text);
+  --color-text-2:    var(--text-2);
+  --color-text-3:    var(--text-3);
+
+  --color-btn-primary:       var(--btn-primary);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+
+  --color-success-bg:     var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-success-text:   var(--success-text);
+  --color-error-bg:       var(--error-bg);
+  --color-error-border:   var(--error-border);
+  --color-error-text:     var(--error-text);
+  --color-warning-bg:     var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text:   var(--warning-text);
+  --color-info-bg:        var(--info-bg);
+  --color-info-border:    var(--info-border);
+  --color-info-text:      var(--info-text);
+
+  --font-sans:    'Outfit', system-ui, sans-serif;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-ui:      'Outfit', system-ui, sans-serif;
+}
+
+/* ── Animaciones custom ──────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+@keyframes install-slide-up {
+  from { opacity: 0; translate: 0 12px; }
+  to   { opacity: 1; translate: 0 0;    }
+}
+@theme {
+  --animate-pulse-dot:        pulse-dot 1.6s ease-in-out infinite;
+  --animate-install-slide-up: install-slide-up 0.3s ease;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
