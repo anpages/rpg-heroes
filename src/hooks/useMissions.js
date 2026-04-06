@@ -1,27 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
+// Clave estática — missions siempre es del usuario autenticado
+const MISSIONS_KEY = ['missions', 'me']
+
 export function useMissions() {
-  const [missions, setMissions]           = useState(null)
-  const [secondsToReset, setSecondsToReset] = useState(null)
-  const [loading, setLoading]             = useState(true)
+  const { data, isLoading: loading, refetch } = useQuery({
+    queryKey: MISSIONS_KEY,
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return { missions: [], secondsToReset: null }
+      const res = await fetch('/api/missions-get', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) return { missions: [], secondsToReset: null }
+      return res.json()
+    },
+    staleTime: 60_000,
+  })
 
-  const fetch = useCallback(async () => {
-    await supabase.auth.refreshSession()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-
-    const res = await window.fetch('/api/missions-get', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    if (!res.ok) return
-    const data = await res.json()
-    setMissions(data.missions ?? [])
-    setSecondsToReset(data.secondsToReset)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetch() }, [fetch])
-
-  return { missions, secondsToReset, loading, refetch: fetch }
+  return {
+    missions:       data?.missions ?? null,
+    secondsToReset: data?.secondsToReset ?? null,
+    loading,
+    refetch,
+  }
 }

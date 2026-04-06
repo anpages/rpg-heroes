@@ -1,20 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
 
 export function useClasses() {
-  const [classes, setClasses] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    supabase
-      .from('classes')
-      .select('*')
-      .order('id')
-      .then(({ data }) => {
-        setClasses(data)
-        setLoading(false)
-      })
-  }, [])
+  const { data: classes = null, isLoading: loading } = useQuery({
+    queryKey: queryKeys.classes(),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('classes')
+        .select('*')
+        .order('id')
+      return data ?? []
+    },
+    staleTime: Infinity, // las clases nunca cambian en runtime
+  })
 
   return { classes, loading }
 }

@@ -1,28 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
 
 export function useHeroCards(heroId) {
-  const [cards, setCards] = useState(null)
-  const [loading, setLoading] = useState(!!heroId)
+  const { data: cards = null, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.heroCards(heroId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('hero_cards')
+        .select('*, skill_cards(*)')
+        .eq('hero_id', heroId)
+      return data ?? []
+    },
+    enabled:   !!heroId,
+    staleTime: 30_000,
+  })
 
-  const refetch = useCallback(() => {
-    if (!heroId) return Promise.resolve()
-    return supabase
-      .from('hero_cards')
-      .select('*, skill_cards(*)')
-      .eq('hero_id', heroId)
-      .then(({ data }) => setCards(data ?? []))
-  }, [heroId])
-
-  useEffect(() => {
-    if (!heroId) { setCards([]); setLoading(false); return }
-    setLoading(true)
-    supabase
-      .from('hero_cards')
-      .select('*, skill_cards(*)')
-      .eq('hero_id', heroId)
-      .then(({ data }) => { setCards(data ?? []); setLoading(false) })
-  }, [heroId])
-
-  return { cards, loading, refetch }
+  return { cards, loading: heroId ? loading : false, refetch }
 }

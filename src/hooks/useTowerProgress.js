@@ -1,22 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
 
 export function useTowerProgress(heroId) {
-  const [maxFloor, setMaxFloor] = useState(null)
-  const [loading, setLoading]   = useState(true)
+  const { data: maxFloor = null, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.towerProgress(heroId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('tower_progress')
+        .select('max_floor')
+        .eq('hero_id', heroId)
+        .maybeSingle()
+      return data?.max_floor ?? 0
+    },
+    enabled:   !!heroId,
+    staleTime: 30_000,
+  })
 
-  async function fetch() {
-    if (!heroId) return
-    const { data } = await supabase
-      .from('tower_progress')
-      .select('max_floor')
-      .eq('hero_id', heroId)
-      .maybeSingle()
-    setMaxFloor(data?.max_floor ?? 0)
-    setLoading(false)
-  }
-
-  useEffect(() => { fetch() }, [heroId])
-
-  return { maxFloor, loading, refetch: fetch }
+  return { maxFloor, loading, refetch }
 }

@@ -1,37 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
 
 export function useHero(heroId) {
-  const [hero, setHero]       = useState(null)
-  const [loading, setLoading] = useState(!!heroId)
+  const { data: hero = null, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.hero(heroId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('heroes')
+        .select('*, classes(*)')
+        .eq('id', heroId)
+        .single()
+      return data ?? null
+    },
+    enabled:   !!heroId,
+    staleTime: 30_000,
+  })
 
-  const refetch = useCallback(async () => {
-    if (!heroId) return
-    const { data } = await supabase
-      .from('heroes')
-      .select('*, classes(*)')
-      .eq('id', heroId)
-      .single()
-    setHero(data ?? null)
-  }, [heroId])
-
-  useEffect(() => {
-    if (!heroId) {
-      setHero(null)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    supabase
-      .from('heroes')
-      .select('*, classes(*)')
-      .eq('id', heroId)
-      .single()
-      .then(({ data }) => {
-        setHero(data ?? null)
-        setLoading(false)
-      })
-  }, [heroId])
-
-  return { hero, loading, refetch }
+  return { hero, loading: heroId ? loading : false, refetch }
 }

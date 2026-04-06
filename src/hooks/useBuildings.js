@@ -1,30 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { queryKeys } from '../lib/queryKeys'
 
 export function useBuildings(userId) {
-  const [buildings, setBuildings] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  const refetch = useCallback(() => {
-    if (!userId) return Promise.resolve()
-    return supabase
-      .from('buildings')
-      .select('*')
-      .eq('player_id', userId)
-      .then(({ data }) => setBuildings(data))
-  }, [userId])
-
-  useEffect(() => {
-    if (!userId) return
-    supabase
-      .from('buildings')
-      .select('*')
-      .eq('player_id', userId)
-      .then(({ data }) => {
-        setBuildings(data)
-        setLoading(false)
-      })
-  }, [userId])
+  const { data: buildings = null, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.buildings(userId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('buildings')
+        .select('*')
+        .eq('player_id', userId)
+      return data ?? []
+    },
+    enabled:   !!userId,
+    staleTime: 30_000,
+  })
 
   return { buildings, loading, refetch }
 }
