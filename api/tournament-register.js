@@ -30,7 +30,6 @@ export default async function handler(req, res) {
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
 
   const weekStart = getWeekStart()
 

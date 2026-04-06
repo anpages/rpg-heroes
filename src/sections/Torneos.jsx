@@ -124,7 +124,7 @@ export default function Torneos() {
         <motion.button
           className="btn btn--primary btn--lg min-w-[180px]"
           onClick={() => registerMutation.mutate()}
-          disabled={registerMutation.isPending || hero?.status !== 'idle'}
+          disabled={registerMutation.isPending || !hero}
           whileTap={{ scale: 0.97 }}
           whileHover={{ scale: 1.02 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
