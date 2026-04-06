@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import './LoginPage.css'
 
 const EMBER_COUNT = 22
 
@@ -34,66 +33,78 @@ function LoginPage() {
   }
 
   return (
-    <div className="login-root">
-      {/* Atmospheric background layers */}
-      <div className="login-bg-torch" />
-      <div className="login-bg-vignette" />
+    <div className="min-h-screen flex items-center justify-center bg-bg p-6">
+      {/* Embers y torch ocultos en tema claro — se muestran en dark */}
+      <div className="hidden" aria-hidden="true" />
 
-      {/* Floating embers */}
-      <div className="embers-layer" aria-hidden="true">
-        {embers.map((style, i) => (
-          <span key={i} className="ember" style={style} />
-        ))}
-      </div>
+      {/* Panel */}
+      <div className="w-[min(420px,100%)]" role="main">
+        <div className="bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] px-9 pt-10 pb-9 relative">
 
-      {/* Main panel */}
-      <div className="login-panel" role="main">
-        <div className="panel-shell">
-
-          <div className="ornament-row">
-            <div className="ornament-line" />
-            <div className="ornament-diamond" />
-            <div className="ornament-line" />
+          {/* Ornament top */}
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="flex-1 h-px bg-border" />
+            <div className="w-1.5 h-1.5 bg-[var(--blue-400)] rotate-45 flex-shrink-0" />
+            <div className="flex-1 h-px bg-border" />
           </div>
 
-          <div className="panel-body">
-            <p className="eyebrow">Tu aventura comienza aquí</p>
+          {/* Body */}
+          <div className="flex flex-col items-center text-center pb-2">
+            <p className="font-[inherit] text-[11px] font-semibold tracking-[0.2em] uppercase text-[var(--blue-500)] mb-2.5">
+              Tu aventura comienza aquí
+            </p>
 
-            <h1 className="game-title">
-              <span className="game-title-rpg">RPG</span>
-              <span className="game-title-heroes">Heroes</span>
+            <h1 className="flex flex-col items-center gap-0 mb-5">
+              <span className="font-display text-[12px] font-semibold tracking-[0.5em] text-text-3 uppercase block">
+                RPG
+              </span>
+              <span className="font-display text-[clamp(40px,10vw,54px)] font-bold text-[var(--blue-700)] block leading-none tracking-[0.02em]">
+                Heroes
+              </span>
             </h1>
 
-            <div className="title-divider">
-              <div className="divider-rule" />
-              <div className="divider-lozenge" />
-              <div className="divider-rule" />
+            {/* Divider */}
+            <div className="flex items-center gap-2.5 w-full mb-4">
+              <div className="flex-1 h-px bg-border" />
+              <div className="w-[5px] h-[5px] bg-border-2 rotate-45 flex-shrink-0" />
+              <div className="flex-1 h-px bg-border" />
             </div>
 
-            <p className="tagline">
+            <p className="text-[15px] leading-[1.7] text-text-2 mb-7">
               Forja tu leyenda en el campo de batalla.<br />
               Comanda tu gremio. Conquista la oscuridad.
             </p>
 
-            <button className="google-btn" onClick={handleGoogleLogin}>
-              <span className="google-btn-glyph">
+            <button
+              className="flex items-center justify-center gap-2.5 w-full px-5 py-3 bg-btn-primary border-0 text-white font-[inherit] text-[15px] font-semibold tracking-[0.01em] rounded-[10px] transition-[background,box-shadow,transform] duration-200 mb-3 hover:bg-btn-primary-hover hover:shadow-[0_4px_16px_rgba(37,99,235,0.35)] active:translate-y-px active:shadow-none"
+              onClick={handleGoogleLogin}
+            >
+              <span className="flex items-center bg-surface rounded-[4px] p-0.5 flex-shrink-0">
                 <GoogleIcon />
               </span>
-              <span className="google-btn-label">Entrar con Google</span>
+              <span>Entrar con Google</span>
             </button>
 
-            <p className="footnote">
+            <p className="text-[13px] text-text-3">
               Los nuevos héroes quedan vinculados a su juramento en el primer acceso.
             </p>
           </div>
 
-          <div className="ornament-row">
-            <div className="ornament-line" />
-            <div className="ornament-diamond" />
-            <div className="ornament-line" />
+          {/* Ornament bottom */}
+          <div className="flex items-center gap-2.5 mt-6">
+            <div className="flex-1 h-px bg-border" />
+            <div className="w-1.5 h-1.5 bg-[var(--blue-400)] rotate-45 flex-shrink-0" />
+            <div className="flex-1 h-px bg-border" />
           </div>
 
         </div>
+      </div>
+
+      {/* Embers (solo decorativos, ocultos en light mode) */}
+      <div className="hidden" aria-hidden="true">
+        {embers.map((style, i) => (
+          <span key={i} className="ember" style={style} />
+        ))}
       </div>
     </div>
   )

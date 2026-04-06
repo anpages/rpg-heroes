@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import './HeroPicker.css'
 
 export function RecruitModal({ classes, onRecruit, onClose }) {
   const userId      = useAppStore(s => s.userId)
@@ -28,14 +27,22 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
   }
 
   return (
-    <div className="recruit-overlay" onClick={onClose}>
-      <div className="recruit-modal" onClick={e => e.stopPropagation()}>
-        <h3 className="recruit-title">Reclutar héroe</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="recruit-field">
-            <label className="recruit-label">Nombre</label>
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-border rounded-[14px] p-7 w-[min(100%,400px)] shadow-[var(--shadow-lg)] flex flex-col gap-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-[1.1rem] font-bold text-text">Reclutar héroe</h3>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Nombre */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
             <input
-              className="recruit-input"
+              className="px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Nombre del héroe"
@@ -44,14 +51,20 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
               required
             />
           </div>
-          <div className="recruit-field">
-            <label className="recruit-label">Clase</label>
-            <div className="recruit-classes">
+
+          {/* Clase */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.75rem] font-semibold text-text-2">Clase</label>
+            <div className="flex gap-1.5 flex-wrap">
               {classes?.map(c => (
                 <button
                   key={c.id}
                   type="button"
-                  className={`recruit-class-btn ${classId === c.id ? 'recruit-class-btn--active' : ''}`}
+                  className={`px-3 py-[0.35rem] border rounded-lg text-[0.78rem] font-semibold cursor-pointer transition-all duration-150
+                    ${classId === c.id
+                      ? 'border-[var(--blue-500)] bg-info-bg text-[var(--blue-600)]'
+                      : 'border-border bg-surface-2 text-text-2 hover:border-border-2'
+                    }`}
                   onClick={() => setClassId(c.id)}
                 >
                   {c.name}
@@ -59,7 +72,9 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
               ))}
             </div>
           </div>
-          <div className="recruit-actions">
+
+          {/* Acciones */}
+          <div className="flex gap-2.5 justify-end pt-1">
             <button type="button" className="btn btn--ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn--primary" disabled={recruitMutation.isPending}>
               {recruitMutation.isPending ? 'Reclutando...' : 'Reclutar'}
