@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TowerControl, Trophy, Scroll, Swords, ChevronRight } from 'lucide-react'
+import { TowerControl, Trophy, Scroll, Swords } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HeroSelector } from '../components/HeroPicker'
 import Torre from './Torre'
@@ -8,38 +8,10 @@ import CombatHistorial from './CombatHistorial'
 import Torneos from './Torneos'
 
 const MODES = [
-  {
-    id:          'torre',
-    label:       'Torre',
-    sublabel:    'PvE',
-    description: 'Asciende planta a planta. Cada piso es más difícil. ¿Hasta dónde llegarás?',
-    Icon:        TowerControl,
-    color:       '#2563eb',
-  },
-  {
-    id:          'clasificacion',
-    label:       'Clasificación',
-    sublabel:    'Global',
-    description: 'Los héroes más poderosos del reino, ordenados por nivel y progreso.',
-    Icon:        Trophy,
-    color:       '#d97706',
-  },
-  {
-    id:          'torneos',
-    label:       'Torneo',
-    sublabel:    'Semanal',
-    description: 'Bracket de 3 rondas. Gana la final y obtén una carta de habilidad garantizada.',
-    Icon:        Swords,
-    color:       '#dc2626',
-  },
-  {
-    id:          'historial',
-    label:       'Historial',
-    sublabel:    'Combates',
-    description: 'Revive cada combate. Ver el replay de tus victorias y derrotas.',
-    Icon:        Scroll,
-    color:       '#7c3aed',
-  },
+  { id: 'torre',         label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
+  { id: 'torneos',       label: 'Torneo',          sublabel: 'Semanal',  Icon: Swords,       color: '#dc2626' },
+  { id: 'clasificacion', label: 'Clasificación',   sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
+  { id: 'historial',     label: 'Historial',       sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
 ]
 
 export default function Combates() {
@@ -52,53 +24,31 @@ export default function Combates() {
       <HeroSelector />
 
       {/* Mode selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+      <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-6 pb-0">
         {MODES.map(m => {
           const active = tab === m.id
           return (
             <button
               key={m.id}
-              className={`group relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 p-3 sm:px-[18px] sm:py-4 bg-surface border-[1.5px] rounded-[14px] cursor-pointer text-left transition-[border-color,background,box-shadow] duration-[180ms] shadow-[var(--shadow-sm)] font-[inherit] w-full
-                ${active
-                  ? 'border-[var(--mode-color)] bg-[color-mix(in_srgb,var(--mode-color)_6%,var(--surface))] shadow-[0_0_0_1px_var(--mode-color),var(--shadow-sm)]'
-                  : 'border-border hover:border-[color-mix(in_srgb,var(--mode-color)_40%,var(--border))] hover:shadow-[var(--shadow-md)]'
-                }`}
-              style={{ '--mode-color': m.color }}
+              className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] cursor-pointer flex-shrink-0"
+              style={{
+                borderBottomColor: active ? m.color : 'transparent',
+                color: active ? m.color : 'var(--text-3)',
+              }}
               onClick={() => setTab(m.id)}
             >
-              {/* Overlay tint */}
-              <div className={`absolute inset-0 bg-[var(--mode-color)] pointer-events-none transition-opacity duration-[180ms] ${active ? 'opacity-[0.05]' : 'opacity-0 group-hover:opacity-[0.04]'}`} />
-
-              {/* Icon */}
-              <div className={`relative w-[38px] h-[38px] sm:w-12 sm:h-12 rounded-[9px] sm:rounded-[12px] flex items-center justify-center text-[var(--mode-color)] flex-shrink-0 transition-[background] duration-[180ms]
-                ${active
-                  ? 'bg-[color-mix(in_srgb,var(--mode-color)_18%,var(--surface-2))]'
-                  : 'bg-[color-mix(in_srgb,var(--mode-color)_12%,var(--surface-2))]'
-                } border border-[color-mix(in_srgb,var(--mode-color)_25%,var(--border))]`}>
-                <m.Icon size={26} strokeWidth={1.6} />
-              </div>
-
-              {/* Info */}
-              <div className="relative flex-1 min-w-0">
-                <div className="flex items-baseline gap-[7px] mb-1">
-                  <span className={`font-['Rajdhani',sans-serif] text-[15px] sm:text-[17px] font-bold tracking-[0.02em] transition-colors duration-[180ms] ${active ? 'text-[var(--mode-color)]' : 'text-text'}`}>
-                    {m.label}
-                  </span>
-                  <span className="text-[10px] font-bold tracking-[0.1em] uppercase text-[var(--mode-color)] bg-[color-mix(in_srgb,var(--mode-color)_12%,var(--surface-2))] border border-[color-mix(in_srgb,var(--mode-color)_25%,var(--border))] px-1.5 py-px rounded-[4px]">
-                    {m.sublabel}
-                  </span>
-                </div>
-                <p className="hidden sm:block text-[12px] text-text-3 leading-[1.4] line-clamp-2">
-                  {m.description}
-                </p>
-              </div>
-
-              {/* Arrow */}
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className={`relative hidden sm:block flex-shrink-0 transition-[color,transform] duration-[180ms] ${active ? 'text-[var(--mode-color)] translate-x-0.5' : 'text-text-3 group-hover:text-[var(--mode-color)] group-hover:translate-x-0.5'}`}
-              />
+              <m.Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
+              {m.label}
+              <span
+                className="text-[10px] font-bold tracking-[0.08em] uppercase px-1.5 py-px rounded-[4px] border"
+                style={{
+                  color: active ? m.color : 'var(--text-3)',
+                  background: active ? `color-mix(in srgb,${m.color} 10%,var(--surface-2))` : 'var(--surface-2)',
+                  borderColor: active ? `color-mix(in srgb,${m.color} 30%,var(--border))` : 'var(--border)',
+                }}
+              >
+                {m.sublabel}
+              </span>
             </button>
           )
         })}
