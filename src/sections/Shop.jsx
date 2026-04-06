@@ -7,6 +7,7 @@ import { useResources } from '../hooks/useResources'
 import { useHero } from '../hooks/useHero'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
+import { HeroSelector } from '../components/HeroPicker'
 import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
@@ -198,6 +199,7 @@ export default function Shop() {
 
   return (
     <div className="flex flex-col gap-6 max-w-[960px] mx-auto relative">
+      <HeroSelector />
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5">
