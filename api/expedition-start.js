@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { interpolateHP, expeditionHpDamage } from './_hp.js'
+import { agilityDurationFactor } from '../src/lib/gameFormulas.js'
 import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -63,8 +64,7 @@ export default async function handler(req, res) {
 
   // Agilidad reduce duración (hasta −25%)
   const stats = await getEffectiveStats(supabase, hero.id)
-  const agilityReduction = stats ? Math.min(0.25, stats.agility * 0.003) : 0
-  const effectiveDuration = Math.round(dungeon.duration_minutes * (1 - agilityReduction))
+  const effectiveDuration = Math.round(dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1))
 
   // Calcular duración y recompensas (taller amplifica el botín)
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)

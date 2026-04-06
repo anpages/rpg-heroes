@@ -10,6 +10,7 @@ import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { floorEnemyStats, floorRewards } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -28,26 +29,6 @@ const ENEMY_NAMES = [
 
 function enemyName(floor) {
   return ENEMY_NAMES.find(([lo, hi]) => floor >= lo && floor <= hi)?.[2] ?? 'Guardián'
-}
-
-function floorEnemyStats(floor) {
-  return {
-    max_hp:        80  + floor * 15,
-    attack:         5  + floor * 2,
-    defense:        2  + floor * 1,
-    strength:       2  + Math.floor(floor * 0.5),
-    agility:        2  + Math.floor(floor * 0.3),
-    intelligence:   1  + Math.floor(floor * 0.3),
-  }
-}
-
-function floorRewards(floor) {
-  const milestone = floor % 5 === 0
-  return {
-    gold:       Math.round((30 + floor * 15) * (milestone ? 2 : 1)),
-    experience: Math.round((20 + floor * 10) * (milestone ? 2 : 1)),
-    milestone,
-  }
 }
 
 /* ─── Progress strip ─────────────────────────────────────────────────────────── */

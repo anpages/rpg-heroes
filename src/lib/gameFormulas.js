@@ -20,3 +20,29 @@ export function expeditionHpCost(maxHp, durationMinutes) {
 export function agilityDurationFactor(agility) {
   return 1 - Math.min(0.25, (agility ?? 0) * 0.003)
 }
+
+/**
+ * Stats del enemigo de un piso de la torre.
+ */
+export function floorEnemyStats(floor) {
+  return {
+    max_hp:       80  + floor * 15,
+    attack:        5  + floor * 2,
+    defense:       2  + floor * 1,
+    strength:      2  + Math.floor(floor * 0.5),
+    agility:       2  + Math.floor(floor * 0.3),
+    intelligence:  1  + Math.floor(floor * 0.3),
+  }
+}
+
+/**
+ * Recompensas por superar un piso de la torre.
+ */
+export function floorRewards(floor) {
+  const milestone = floor % 5 === 0
+  return {
+    gold:       Math.round((30 + floor * 15) * (milestone ? 2 : 1)),
+    experience: Math.round((20 + floor * 10) * (milestone ? 2 : 1)),
+    milestone,
+  }
+}

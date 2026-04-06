@@ -12,7 +12,7 @@ import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { expeditionHpCost } from '../lib/gameFormulas'
+import { expeditionHpCost, agilityDurationFactor } from '../lib/gameFormulas'
 import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -397,8 +397,7 @@ function Dungeons() {
   // eslint-disable-next-line react-hooks/purity
   const heroHpNow  = interpolateHp(hero, Date.now())
 
-  const agilityReduction = hero ? Math.min(0.25, (hero.agility ?? 0) * 0.003) : 0
-  const agilityFactor = 1 - agilityReduction
+  const agilityFactor = hero ? agilityDurationFactor(hero.agility) : 1
   const workshopBonus = Math.round((workshopLevel - 1) * 5)
 
 
