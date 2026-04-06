@@ -33,6 +33,7 @@ const BUILDING_META = {
     color: '#d97706',
     effect: (level) => `${2 + (level - 1)} oro/min`,
     nextEffect: (level) => `${2 + level} oro/min`,
+    energyPerLevel: 10,
   },
   lumber_mill: {
     name: 'Aserradero',
@@ -41,6 +42,7 @@ const BUILDING_META = {
     color: '#16a34a',
     effect: (level) => `${1 + (level - 1)} madera/min`,
     nextEffect: (level) => `${1 + level} madera/min`,
+    energyPerLevel: 10,
   },
   mana_well: {
     name: 'Pozo de Maná',
@@ -49,6 +51,7 @@ const BUILDING_META = {
     color: '#7c3aed',
     effect: (level) => `${1 + (level - 1)} maná/min`,
     nextEffect: (level) => `${1 + level} maná/min`,
+    energyPerLevel: 10,
   },
   barracks: {
     name: 'Cuartel',
@@ -189,24 +192,26 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h3 className="text-[15px] font-bold text-text leading-[1.2]">{meta.name}</h3>
-            <span className="text-[13px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[6px] px-2 py-0.5 whitespace-nowrap flex-shrink-0">
-              Nv. {level}
-            </span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {meta.energyPerLevel && (
+                <span className="flex items-center gap-[3px] text-[11px] font-semibold text-[#0891b2] bg-[#ecfeff] dark:bg-[color-mix(in_srgb,#0891b2_10%,var(--surface))] border border-[#a5f3fc] dark:border-[#164e63] rounded-[5px] px-1.5 py-0.5 leading-none">
+                  <Zap size={10} strokeWidth={2.5} />
+                  {meta.energyPerLevel * level}⚡
+                </span>
+              )}
+              <span className="text-[13px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[6px] px-2 py-0.5">
+                Nv. {level}
+              </span>
+            </div>
           </div>
           <p className="text-[13px] text-text-3 leading-[1.5] mb-1.5 line-clamp-3">{meta.description}</p>
           <p className="text-[13px] font-semibold text-[var(--accent)]">
             {meta.effect(level)}
             {!hasUpgrade && <span className="font-medium text-text-3"> → {meta.nextEffect(level)}</span>}
           </p>
-          {meta.energyPerLevel && (
-            <p className="text-[12px] font-medium text-text-3 -mt-0.5 flex items-center gap-1">
-              <Zap size={11} strokeWidth={2} color="#0891b2" />
-              Consume {meta.energyPerLevel * level}⚡ · {meta.energyPerLevel}⚡/nivel
-            </p>
-          )}
           {nexusRatio !== undefined && nexusRatio < 1 && (
-            <p className="text-[12px] font-semibold text-[#d97706] -mt-1">
-              ⚡ Energía insuficiente · tasa real reducida al {Math.round(nexusRatio * 100)}%
+            <p className="text-[12px] font-semibold text-[#d97706] mt-1">
+              ⚡ Energía insuficiente · producción al {Math.round(nexusRatio * 100)}%
             </p>
           )}
         </div>
