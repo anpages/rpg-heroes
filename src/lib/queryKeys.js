@@ -19,4 +19,5 @@ export const queryKeys = {
   towerProgress:   (heroId) => ['tower-progress', heroId],
   ranking:         ()       => ['ranking'],
   classes:         ()       => ['classes'],
+  combatHistory:   (heroId) => ['combat-history', heroId],
 }

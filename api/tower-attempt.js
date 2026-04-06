@@ -71,7 +71,8 @@ export default async function handler(req, res) {
   const result = simulateCombat(heroStats, enemyStats)
   const won = result.winner === 'a'
 
-  // Registrar intento
+  // Registrar intento con log completo para replay
+  const { data: heroRow } = await supabase.from('heroes').select('name').eq('id', hero.id).single()
   await supabase.from('tower_attempts').insert({
     hero_id:       hero.id,
     floor:         targetFloor,
@@ -79,6 +80,11 @@ export default async function handler(req, res) {
     rounds:        result.rounds,
     hero_hp_left:  result.hpLeftA,
     enemy_hp_left: result.hpLeftB,
+    log:           result.log,
+    hero_name:     heroRow?.name ?? null,
+    enemy_name:    `Piso ${targetFloor}`,
+    hero_max_hp:   heroStats.max_hp,
+    enemy_max_hp:  enemyStats.max_hp,
   })
 
   // Deducir HP del combate — daño proporcional al simulado vs max_hp del héroe
