@@ -4,26 +4,20 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useMissions } from '../hooks/useMissions'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { Sword, Castle, ClipboardList, ChevronRight, Swords, Plus } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Map, Castle, ClipboardList, ChevronRight, Plus, Sword, Moon } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
-/* ── helpers ──────────────────────────────────────────────────────────────── */
+/* ── constants ────────────────────────────────────────────────────────────── */
 
 const BUILDING_NAMES = {
-  energy_nexus: 'Nexo Arcano',
-  gold_mine:    'Mina de Oro',
-  lumber_mill:  'Aserradero',
-  mana_well:    'Pozo de Maná',
-  barracks:     'Cuartel',
-  workshop:     'Taller',
-  forge:        'Herrería',
-  library:      'Biblioteca',
+  energy_nexus: 'Nexo Arcano', gold_mine: 'Mina de Oro', lumber_mill: 'Aserradero',
+  mana_well: 'Pozo de Maná', barracks: 'Cuartel', workshop: 'Taller',
+  forge: 'Herrería', library: 'Biblioteca',
 }
 
-const STATUS_COLOR = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
-const STATUS_LABEL = { idle: 'En reposo', exploring: 'Explorando', ready: 'Misión lista' }
-
 const SLOT_UNLOCK = { 2: 5, 3: 10 }
+
+/* ── helpers ──────────────────────────────────────────────────────────────── */
 
 function fmtDuration(ms) {
   if (ms <= 0) return 'Listo'
@@ -35,7 +29,7 @@ function fmtDuration(ms) {
   return `${s}s`
 }
 
-function getHeroDerivedStatus(hero, now) {
+function getDerivedStatus(hero, now) {
   if (hero.status === 'exploring') {
     const active = hero.expeditions?.find(e => e.status === 'traveling')
     if (active && new Date(active.ends_at) <= now) return 'ready'
@@ -43,94 +37,200 @@ function getHeroDerivedStatus(hero, now) {
   return hero.status
 }
 
-/* ── HeroCard ─────────────────────────────────────────────────────────────── */
+/* ── ActivityItem ─────────────────────────────────────────────────────────── */
 
-function HeroCard({ hero, now, onClick }) {
-  const derivedStatus = getHeroDerivedStatus(hero, now)
-  const hpNow         = interpolateHp(hero, now.getTime())
-  const hpPct         = Math.min(100, Math.round((hpNow / hero.max_hp) * 100))
-  const isReady       = derivedStatus === 'ready'
-  const isExploring   = derivedStatus === 'exploring'
-  const isFullHp      = hpNow >= hero.max_hp
-  const isRecovering  = derivedStatus === 'idle' && !isFullHp
+const URGENCY = {
+  ready:     { border: '#16a34a', icon: '#16a34a', bg: 'color-mix(in srgb,#16a34a 8%,var(--surface))'  },
+  active:    { border: '#d97706', icon: '#d97706', bg: 'color-mix(in srgb,#d97706 6%,var(--surface))'  },
+  claimable: { border: '#7c3aed', icon: '#7c3aed', bg: 'color-mix(in srgb,#7c3aed 7%,var(--surface))'  },
+  info:      { border: 'var(--border)', icon: 'var(--text-3)', bg: 'var(--surface)' },
+}
 
-  const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
-  const expMsLeft = activeExp ? Math.max(0, new Date(activeExp.ends_at) - now) : 0
+function ActivityItem({ urgency = 'info', icon: Icon, title, subtitle, timer, badge, onClick, index = 0 }) {
+  const u = URGENCY[urgency]
+  return (
+    <motion.button
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.2 }}
+      onClick={onClick}
+      className="group flex items-center gap-3 w-full text-left px-4 py-3.5 rounded-[12px] border border-border transition-[box-shadow,border-color] duration-150 hover:shadow-[var(--shadow-md)] hover:border-[color-mix(in_srgb,var(--border)_60%,var(--blue-200))] font-[inherit] cursor-pointer border-l-[3px]"
+      style={{ background: u.bg, borderLeftColor: u.border }}
+    >
+      {/* Icon */}
+      <span
+        className="w-8 h-8 rounded-[9px] flex items-center justify-center flex-shrink-0"
+        style={{
+          background: `color-mix(in srgb,${u.icon} 14%,var(--surface-2))`,
+          border: `1px solid color-mix(in srgb,${u.icon} 22%,var(--border))`,
+          color: u.icon,
+        }}
+      >
+        <Icon size={16} strokeWidth={1.9} />
+      </span>
 
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold text-text leading-tight truncate">{title}</p>
+        {subtitle && <p className="text-[12px] text-text-3 mt-0.5 leading-tight truncate">{subtitle}</p>}
+      </div>
+
+      {/* Right side */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {timer && (
+          <span className="text-[12px] font-semibold tabular-nums" style={{ color: u.icon }}>
+            {timer}
+          </span>
+        )}
+        {badge && (
+          <span
+            className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+            style={{
+              background: `color-mix(in srgb,${u.icon} 12%,var(--surface-2))`,
+              color: u.icon,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+        <ChevronRight
+          size={14}
+          strokeWidth={2}
+          className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5"
+          style={{ color: `color-mix(in srgb,${u.icon} 60%,var(--text-3))` }}
+        />
+      </div>
+    </motion.button>
+  )
+}
+
+/* ── HeroStrip ────────────────────────────────────────────────────────────── */
+
+function HeroStrip({ hero, now, onClick }) {
+  const status  = getDerivedStatus(hero, now)
+  const hpNow   = interpolateHp(hero, now.getTime())
+  const hpPct   = Math.min(100, Math.round((hpNow / hero.max_hp) * 100))
   const hpColor = hpPct >= 60 ? '#16a34a' : hpPct >= 30 ? '#d97706' : '#dc2626'
+  const STATUS_DOT = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
 
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col gap-3 p-4 bg-surface border border-border rounded-[14px] shadow-[var(--shadow-sm)] text-left transition-[border-color,box-shadow] duration-150 hover:border-[var(--blue-200)] hover:shadow-[var(--shadow-md)] w-full font-[inherit]"
+      className="group flex items-center gap-3 w-full text-left px-4 py-3 bg-surface border border-border rounded-[12px] transition-[border-color,box-shadow] duration-150 hover:border-[var(--blue-200)] hover:shadow-[var(--shadow-sm)] font-[inherit] cursor-pointer"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: STATUS_COLOR[derivedStatus] ?? STATUS_COLOR.idle }}
-          />
-          <span className="font-['Rajdhani',sans-serif] text-[17px] font-bold tracking-[0.02em] text-text truncate">
-            {hero.name}
-          </span>
-          <span className="text-[12px] font-semibold text-text-3 flex-shrink-0">Nv.{hero.level}</span>
-        </div>
-        <ChevronRight size={15} strokeWidth={2} className="text-text-3 flex-shrink-0 mt-0.5 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[var(--blue-500)]" />
-      </div>
-
-      {/* Class */}
+      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: STATUS_DOT[status] ?? '#16a34a' }} />
+      <span className="font-['Rajdhani',sans-serif] text-[15px] font-bold tracking-[0.02em] text-text flex-shrink-0">{hero.name}</span>
+      <span className="text-[12px] font-medium text-text-3 flex-shrink-0">Nv.{hero.level}</span>
       {hero.classes?.name && (
-        <span className="text-[12px] font-medium text-text-3 -mt-1">{hero.classes.name}</span>
+        <span className="text-[11px] text-text-3 hidden sm:inline flex-shrink-0">· {hero.classes.name}</span>
       )}
-
       {/* HP bar */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-[11px] font-semibold">
-          <span className="text-text-3">HP</span>
-          <span style={{ color: hpColor }}>{hpNow} / {hero.max_hp}</span>
+      <div className="flex-1 flex items-center gap-1.5 min-w-0">
+        <div className="flex-1 h-1 rounded-full bg-[color-mix(in_srgb,var(--border)_70%,transparent)] overflow-hidden min-w-[40px]">
+          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${hpPct}%`, background: hpColor }} />
         </div>
-        <div className="h-1.5 rounded-full bg-[color-mix(in_srgb,var(--border)_60%,transparent)] overflow-hidden">
-          <div
-            className="h-full rounded-full transition-[width] duration-500"
-            style={{ width: `${hpPct}%`, background: hpColor }}
-          />
-        </div>
+        <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: hpColor }}>{hpPct}%</span>
       </div>
-
-      {/* Status line */}
-      <div className="text-[12px] font-medium" style={{ color: STATUS_COLOR[derivedStatus] ?? STATUS_COLOR.idle }}>
-        {isReady     && '⚡ Misión completada — recoge la recompensa'}
-        {isExploring && `🗺 Explorando · ${fmtDuration(expMsLeft)} restante`}
-        {isRecovering && `💤 Recuperando HP · ${hpPct}%`}
-        {derivedStatus === 'idle' && isFullHp && '✓ Disponible'}
-      </div>
+      <ChevronRight size={13} strokeWidth={2} className="text-text-3 flex-shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" />
     </button>
   )
 }
 
-/* ── WidgetCard ───────────────────────────────────────────────────────────── */
+/* ── buildActivities ──────────────────────────────────────────────────────── */
 
-function WidgetCard({ icon: Icon, iconColor, title, children, onClick, actionLabel }) {
-  return (
-    <div className="flex flex-col gap-3 p-4 bg-surface border border-border rounded-[14px] shadow-[var(--shadow-sm)]">
-      <div className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `color-mix(in srgb,${iconColor} 12%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${iconColor} 25%,var(--border))` }}>
-          <Icon size={15} strokeWidth={2} style={{ color: iconColor }} />
-        </span>
-        <span className="text-[12px] font-bold tracking-[0.06em] uppercase text-text-3">{title}</span>
-      </div>
-      <div className="flex-1">{children}</div>
-      {onClick && (
-        <button
-          onClick={onClick}
-          className="btn btn--ghost btn--sm self-start text-[12px]"
-        >
-          {actionLabel ?? 'Ver'} <ChevronRight size={12} strokeWidth={2} />
-        </button>
-      )}
-    </div>
-  )
+function buildActivities({ heroes, buildings, missions, now, actions }) {
+  const items = []
+  let idx = 0
+
+  // ── Héroes ────────────────────────────────────────────────────────────────
+  for (const hero of heroes) {
+    const status = getDerivedStatus(hero, now)
+    const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
+
+    if (status === 'ready') {
+      items.push({
+        key: `exp-ready-${hero.id}`, urgency: 'ready', index: idx++,
+        icon: Map, title: `${hero.name} — misión completada`,
+        subtitle: 'Recoger recompensa de expedición',
+        badge: '¡Listo!',
+        onClick: () => { actions.goToExpediciones(hero.id) },
+      })
+    } else if (status === 'exploring' && activeExp) {
+      const msLeft = Math.max(0, new Date(activeExp.ends_at) - now)
+      items.push({
+        key: `exp-active-${hero.id}`, urgency: 'active', index: idx++,
+        icon: Map, title: `${hero.name} — explorando`,
+        subtitle: hero.classes?.name ?? null,
+        timer: fmtDuration(msLeft),
+        onClick: () => { actions.goToExpediciones(hero.id) },
+      })
+    } else if (status === 'idle') {
+      const hpNow = interpolateHp(hero, now.getTime())
+      if (hpNow < hero.max_hp) {
+        const missingHp = hero.max_hp - hpNow
+        const minsToFull = Math.ceil(missingHp / (hero.max_hp / 60))
+        items.push({
+          key: `hp-${hero.id}`, urgency: 'info', index: idx++,
+          icon: Moon, title: `${hero.name} — recuperando HP`,
+          subtitle: `${hpNow}/${hero.max_hp} · listo en ${fmtDuration(minsToFull * 60000)}`,
+          onClick: () => { actions.goToFicha(hero.id) },
+        })
+      }
+    }
+  }
+
+  // ── Edificios ─────────────────────────────────────────────────────────────
+  for (const b of buildings ?? []) {
+    if (!b.upgrade_ends_at) continue
+    const endsAt = new Date(b.upgrade_ends_at)
+    const name   = BUILDING_NAMES[b.type] ?? b.type
+    if (endsAt <= now) {
+      items.push({
+        key: `bld-ready-${b.id}`, urgency: 'ready', index: idx++,
+        icon: Castle, title: `${name} — mejora completada`,
+        subtitle: `Nivel ${b.level} → ${b.level + 1}`,
+        badge: '¡Listo!',
+        onClick: actions.goToBase,
+      })
+    } else {
+      items.push({
+        key: `bld-active-${b.id}`, urgency: 'active', index: idx++,
+        icon: Castle, title: `${name} — mejorando`,
+        subtitle: `Nivel ${b.level} → ${b.level + 1}`,
+        timer: fmtDuration(endsAt - now),
+        onClick: actions.goToBase,
+      })
+    }
+  }
+
+  // ── Misiones ──────────────────────────────────────────────────────────────
+  const claimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
+  const done      = (missions ?? []).filter(m => m.claimed).length
+  const total     = (missions ?? []).length
+
+  if (claimable > 0) {
+    items.push({
+      key: 'missions-claimable', urgency: 'claimable', index: idx++,
+      icon: ClipboardList,
+      title: `${claimable} ${claimable === 1 ? 'misión lista' : 'misiones listas'} para reclamar`,
+      subtitle: `${done}/${total} completadas hoy`,
+      onClick: actions.openMissions,
+    })
+  } else if (total > 0 && done < total) {
+    items.push({
+      key: 'missions-progress', urgency: 'info', index: idx++,
+      icon: ClipboardList, title: 'Misiones del día',
+      subtitle: `${done}/${total} completadas`,
+      badge: `${done}/${total}`,
+      onClick: actions.openMissions,
+    })
+  }
+
+  // Ordenar: ready primero, luego active, luego claimable, luego info
+  const ORDER = { ready: 0, active: 1, claimable: 2, info: 3 }
+  items.sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency])
+
+  return items
 }
 
 /* ── Main ─────────────────────────────────────────────────────────────────── */
@@ -143,9 +243,9 @@ export default function Inicio() {
   const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
 
-  const { heroes }       = useHeroes(userId)
-  const { buildings }    = useBuildings(userId)
-  const { missions }     = useMissions()
+  const { heroes }    = useHeroes(userId)
+  const { buildings } = useBuildings(userId)
+  const { missions }  = useMissions()
 
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -153,127 +253,77 @@ export default function Inicio() {
     return () => clearInterval(id)
   }, [])
 
-  /* derived */
-  const activeUpgrade = (buildings ?? []).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now
-  )
-  const upgradeReady = !activeUpgrade && (buildings ?? []).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now
-  )
-
-  const missionsDone      = (missions ?? []).filter(m => m.claimed).length
-  const missionsTotal     = (missions ?? []).length
-  const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
-
   const barrackLevel = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
   const usedSlots    = heroes.map(h => h.slot ?? 1)
   const nextSlot     = [1, 2, 3].find(s => !usedSlots.includes(s))
   const canRecruit   = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
 
-  function goToHero(heroId) {
-    setSelectedHeroId(heroId)
-    navigateToHeroTab('ficha')
+  const actions = {
+    goToFicha:         (heroId) => { setSelectedHeroId(heroId); navigateToHeroTab('ficha') },
+    goToExpediciones:  (heroId) => { setSelectedHeroId(heroId); navigateToHeroTab('expediciones') },
+    goToBase:          () => navigateTo('base'),
+    openMissions:      () => setMissionsOpen(true),
   }
 
-  return (
-    <div className="flex flex-col gap-6 max-w-[860px] mx-auto">
+  const activities = buildActivities({ heroes, buildings, missions, now, actions })
 
-      {/* Héroes */}
-      <section className="flex flex-col gap-3">
+  return (
+    <div className="flex flex-col gap-5 max-w-[700px] mx-auto">
+
+      {/* Héroes — overview strip */}
+      <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="section-title">Héroes</h2>
+          <div className="flex items-center gap-2">
+            <Sword size={15} strokeWidth={2} className="text-text-3" />
+            <span className="text-[12px] font-bold tracking-[0.06em] uppercase text-text-3">Héroes</span>
+          </div>
           {canRecruit && (
             <button className="btn btn--ghost btn--sm border-dashed" onClick={() => setRecruitOpen(true)}>
-              <Plus size={12} strokeWidth={2.5} /> Reclutar
+              <Plus size={11} strokeWidth={2.5} /> Reclutar
             </button>
           )}
         </div>
-
-        <div className={`grid gap-3 ${heroes.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
-          {heroes.map((hero, i) => (
-            <motion.div
+        <div className="flex flex-col gap-1.5">
+          {heroes.map(hero => (
+            <HeroStrip
               key={hero.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.2 }}
-            >
-              <HeroCard hero={hero} now={now} onClick={() => goToHero(hero.id)} />
-            </motion.div>
+              hero={hero}
+              now={now}
+              onClick={() => actions.goToFicha(hero.id)}
+            />
           ))}
         </div>
       </section>
 
-      {/* Widgets */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Actividad */}
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--blue-600)] animate-pulse" />
+          <span className="text-[12px] font-bold tracking-[0.06em] uppercase text-text-3">Ahora mismo</span>
+        </div>
 
-        {/* Base widget */}
-        <WidgetCard
-          icon={Castle}
-          iconColor="#0369a1"
-          title="Base"
-          onClick={() => navigateTo('base')}
-          actionLabel="Ver Base"
-        >
-          {activeUpgrade ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-[14px] font-semibold text-text">
-                {BUILDING_NAMES[activeUpgrade.type] ?? activeUpgrade.type}
-                <span className="text-text-3 font-medium"> · Nv.{activeUpgrade.level} → {activeUpgrade.level + 1}</span>
-              </p>
-              <p className="text-[13px] font-medium" style={{ color: '#d97706' }}>
-                Listo en {fmtDuration(new Date(activeUpgrade.upgrade_ends_at) - now)}
-              </p>
+        <AnimatePresence mode="popLayout">
+          {activities.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              {activities.map(item => (
+                <ActivityItem key={item.key} {...item} />
+              ))}
             </div>
-          ) : upgradeReady ? (
-            <p className="text-[14px] font-semibold text-[#16a34a]">⚡ Mejora lista para recoger</p>
           ) : (
-            <p className="text-[13px] text-text-3">Sin mejoras activas</p>
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center gap-2 py-10 text-center"
+            >
+              <span className="text-[28px]">⚔️</span>
+              <p className="text-[14px] font-semibold text-text-2">Todo en calma</p>
+              <p className="text-[13px] text-text-3">Envía a tus héroes a explorar o mejora tu base.</p>
+            </motion.div>
           )}
-        </WidgetCard>
-
-        {/* Misiones widget */}
-        {missionsTotal > 0 && (
-          <WidgetCard
-            icon={ClipboardList}
-            iconColor="#7c3aed"
-            title="Misiones del día"
-            onClick={() => setMissionsOpen(true)}
-            actionLabel="Ver misiones"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 rounded-full bg-[color-mix(in_srgb,var(--border)_60%,transparent)] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#7c3aed] transition-[width] duration-500"
-                    style={{ width: `${Math.round((missionsDone / missionsTotal) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[12px] font-semibold text-text-3 flex-shrink-0">{missionsDone}/{missionsTotal}</span>
-              </div>
-              {missionsClaimable > 0 && (
-                <p className="text-[13px] font-semibold text-[var(--blue-700)]">
-                  {missionsClaimable} {missionsClaimable === 1 ? 'recompensa lista' : 'recompensas listas'}
-                </p>
-              )}
-              {missionsDone === missionsTotal && (
-                <p className="text-[13px] font-semibold text-[#16a34a]">✓ Todas completadas</p>
-              )}
-            </div>
-          </WidgetCard>
-        )}
-
-        {/* Combates widget */}
-        <WidgetCard
-          icon={Swords}
-          iconColor="#dc2626"
-          title="Mundo"
-          onClick={() => navigateTo('mundo')}
-          actionLabel="Ver Mundo"
-        >
-          <p className="text-[13px] text-text-3">Torre de Desafíos · Torneos · Clasificación</p>
-        </WidgetCard>
-
+        </AnimatePresence>
       </section>
+
     </div>
   )
 }
