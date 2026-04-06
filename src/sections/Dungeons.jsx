@@ -12,7 +12,6 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import './Dungeons.css'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.07 } },
@@ -45,9 +44,12 @@ const DUNGEON_TYPE_META = {
 
 function DifficultyDots({ value }) {
   return (
-    <div className="difficulty-dots">
+    <div className="flex gap-[3px]">
       {Array.from({ length: 10 }, (_, i) => (
-        <span key={i} className={`dot ${i < value ? 'dot--filled' : ''}`} />
+        <span
+          key={i}
+          className={`w-[7px] h-[7px] rounded-full ${i < value ? 'bg-[#dc2626]' : 'bg-border'}`}
+        />
       ))}
     </div>
   )
@@ -65,7 +67,6 @@ function ExpeditionProgress({ expedition, onCollect }) {
     function tick() {
       const remaining = Math.max(0, Math.floor((new Date(expedition.ends_at) - Date.now()) / 1000))
       setSecondsLeft(remaining)
-      // Solo se puede recoger si hay un id real (no optimista)
       setCanCollect(remaining === 0 && expedition.id !== '__optimistic__')
     }
     tick()
@@ -89,87 +90,95 @@ function ExpeditionProgress({ expedition, onCollect }) {
   }
 
   return (
-    <div className="exp-progress">
-      <div className="exp-progress-row">
-        <div className="exp-progress-track">
+    <div className="flex flex-col gap-2.5 pt-3.5 border-t border-[var(--blue-100)]">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 bg-[var(--blue-100)] rounded-full overflow-hidden">
           <div
-            className="exp-progress-fill"
+            className="h-full bg-[linear-gradient(90deg,var(--blue-400),var(--blue-600))] rounded-full"
             style={{ width: `${pct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
           />
         </div>
-        <span className="exp-progress-pct">{pct}%</span>
-        <span className={`exp-progress-timer ${canCollect ? 'exp-progress-timer--done' : ''}`}>
+        <span className="text-[12px] font-semibold text-[var(--blue-600)] w-[30px] text-right flex-shrink-0">{pct}%</span>
+        <span className={`flex items-center gap-1 text-[12px] font-semibold whitespace-nowrap flex-shrink-0 ${canCollect ? 'text-[#16a34a]' : 'text-text-3'}`}>
           <Clock size={12} strokeWidth={2} />
           {canCollect ? 'Lista' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
         </span>
       </div>
       {canCollect && (
-        <>
-          <motion.button
-            className="btn btn--primary btn--lg btn--full"
-            onClick={handleCollect}
-            disabled={collecting}
-            whileTap={{ scale: 0.96 }}
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          >
-            <PackageOpen size={16} strokeWidth={2} />
-            {collecting ? 'Recogiendo...' : 'Recoger recompensas'}
-          </motion.button>
-        </>
+        <motion.button
+          className="btn btn--primary btn--lg btn--full"
+          onClick={handleCollect}
+          disabled={collecting}
+          whileTap={{ scale: 0.96 }}
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+        >
+          <PackageOpen size={16} strokeWidth={2} />
+          {collecting ? 'Recogiendo...' : 'Recoger recompensas'}
+        </motion.button>
       )}
     </div>
   )
 }
 
-// DungeonCard es puro display: no hace fetch, onStart(dungeon) dispara la lógica en el padre
 function dungeonHpCost(maxHp, difficulty) {
   const pct = difficulty <= 3 ? 0.05 : difficulty <= 6 ? 0.07 : 0.10
   return Math.floor((maxHp ?? 100) * pct)
 }
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp }) {
-  const locked = heroLevel < dungeon.min_hero_level
+  const locked  = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
-  const busy = heroStatus !== 'idle' && !isActive
-  const minHp = Math.floor((heroMaxHp ?? 100) * 0.2)
-  const lowHp = !isActive && !locked && !busy && (heroHpNow ?? minHp) < minHp
+  const busy    = heroStatus !== 'idle' && !isActive
+  const minHp   = Math.floor((heroMaxHp ?? 100) * 0.2)
+  const lowHp   = !isActive && !locked && !busy && (heroHpNow ?? minHp) < minHp
   const disabled = locked || busy || lowHp
-  const hpCost = dungeonHpCost(heroMaxHp, dungeon.difficulty)
+  const hpCost  = dungeonHpCost(heroMaxHp, dungeon.difficulty)
+  const meta    = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
 
   return (
-    <div className={`dungeon-card ${locked ? 'dungeon-card--locked' : ''} ${isActive ? 'dungeon-card--active' : ''}`}>
-      <div className="dungeon-card-top">
-        <div className="dungeon-main">
-          <div className="dungeon-name-row">
-            <h3 className="dungeon-name">{dungeon.name}</h3>
-            {dungeon.type && DUNGEON_TYPE_META[dungeon.type] && (
-              <span className="dungeon-type-badge" style={{ color: DUNGEON_TYPE_META[dungeon.type].color }}>
-                {DUNGEON_TYPE_META[dungeon.type].label}
+    <div className={`bg-surface border rounded-xl p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200
+      ${isActive
+        ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-600)] dark:bg-[color-mix(in_srgb,var(--blue-600)_8%,var(--surface))]'
+        : locked
+          ? 'border-border opacity-55'
+          : 'border-border hover:shadow-[var(--shadow-md)] hover:border-border-2'
+      }`}>
+
+      {/* Top */}
+      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-5 mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className="text-[17px] font-bold text-text">{dungeon.name}</h3>
+            {meta && (
+              <span className="text-[11px] font-bold uppercase tracking-[0.07em] opacity-85" style={{ color: meta.color }}>
+                {meta.label}
               </span>
             )}
           </div>
-          <p className="dungeon-desc">{dungeon.description}</p>
-          <div className="dungeon-meta">
-            <span className="dungeon-meta-item">
+          <p className="text-[13px] text-text-3 leading-[1.5] mb-2.5 line-clamp-2">{dungeon.description}</p>
+          <div className="flex gap-3.5 flex-wrap">
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
               <Clock size={13} strokeWidth={2} />
               {dungeon.duration_minutes >= 60
                 ? `${Math.floor(dungeon.duration_minutes / 60)}h${dungeon.duration_minutes % 60 > 0 ? ` ${dungeon.duration_minutes % 60}m` : ''}`
                 : `${dungeon.duration_minutes}m`}
             </span>
-            <span className="dungeon-meta-item">
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
               <Star size={13} strokeWidth={2} />
               Nv. {dungeon.min_hero_level}+
             </span>
-            {dungeon.type && DUNGEON_TYPE_META[dungeon.type] && (
-              <span className="dungeon-meta-item dungeon-loot-hint" style={{ color: DUNGEON_TYPE_META[dungeon.type].color }}>
-                {DUNGEON_TYPE_META[dungeon.type].loot}
+            {meta && (
+              <span className="flex items-center gap-1 text-[12px] font-semibold opacity-85" style={{ color: meta.color }}>
+                {meta.loot}
               </span>
             )}
           </div>
         </div>
-        <div className="dungeon-difficulty">
-          <span className="dungeon-difficulty-label">Peligro</span>
+
+        {/* Difficulty — row on mobile, column on sm+ */}
+        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1.5 flex-shrink-0">
+          <span className="text-[13px] font-bold tracking-[0.08em] uppercase text-text-3">Peligro</span>
           <DifficultyDots value={dungeon.difficulty} />
         </div>
       </div>
@@ -177,13 +186,17 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
       {isActive ? (
         <ExpeditionProgress expedition={expedition} onCollect={onCollect} />
       ) : (
-        <div className="dungeon-card-bottom">
-          <div className="dungeon-rewards">
-            <span className="reward-item"><Star size={13} strokeWidth={2} color="#0369a1" />{dungeon.experience_reward} XP</span>
-            <span className="reward-item reward-item--hp-cost">−{hpCost} HP</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-3.5 border-t border-border flex-wrap">
+          <div className="flex gap-3 flex-wrap">
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
+              <Star size={13} strokeWidth={2} color="#0369a1" />{dungeon.experience_reward} XP
+            </span>
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-[#dc2626]">
+              −{hpCost} HP
+            </span>
           </div>
           <motion.button
-            className="btn btn--primary"
+            className="btn btn--primary w-full sm:w-auto"
             onClick={() => onStart(dungeon)}
             disabled={disabled}
             whileTap={disabled ? {} : { scale: 0.96 }}
@@ -232,7 +245,6 @@ function Dungeons() {
 
   useWakeLock(!!expedition)
 
-  // Optimistic start: la card muestra progreso al instante, la API confirma en background
   async function handleStart(dungeon) {
     const now = Date.now()
     const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 60000
@@ -245,13 +257,12 @@ function Dungeons() {
 
     try {
       const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
-      // Corregir ends_at optimista con el valor real del servidor
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
       queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     } catch (err) {
-      setExpedition(null) // revertir
+      setExpedition(null)
       toast.error(err.message)
     }
   }
@@ -265,7 +276,7 @@ function Dungeons() {
   }
 
   if (heroLoading || dungeonsLoading || expLoading) {
-    return <div className="dungeons-loading">Cargando mazmorras...</div>
+    return <div className="text-text-3 text-[15px] p-10 text-center">Cargando mazmorras...</div>
   }
 
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
@@ -273,7 +284,9 @@ function Dungeons() {
 
   const agilityReduction = hero ? Math.min(0.25, (hero.agility ?? 0) * 0.003) : 0
   const agilityFactor = 1 - agilityReduction
-  const workshopBonus = Math.round((workshopLevel - 1) * 5) // +5% por nivel
+  const workshopBonus = Math.round((workshopLevel - 1) * 5)
+
+  const isLowHp = heroHpNow < Math.floor((hero?.max_hp ?? 100) * 0.2)
 
   return (
     <div className="dungeons-section">
@@ -287,45 +300,52 @@ function Dungeons() {
         <p className="section-subtitle">Envía a tu héroe a explorar mazmorras para conseguir recursos, experiencia y equipo. El botín es aleatorio; cada tipo tiene sus especialidades.</p>
       </div>
 
+      {/* HP bar */}
       {hero && (
-        <div className="dungeon-hp-row">
-          <div className={`dungeon-hp-bar-track ${heroHpNow < Math.floor(hero.max_hp * 0.2) ? 'dungeon-hp-bar-track--low' : ''}`}>
-            <div className="dungeon-hp-bar-fill" style={{ width: `${Math.round((heroHpNow / hero.max_hp) * 100)}%` }} />
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-[400ms] ease-out ${isLowHp ? 'bg-[#dc2626]' : 'bg-[#16a34a]'}`}
+              style={{ width: `${Math.round((heroHpNow / hero.max_hp) * 100)}%` }}
+            />
           </div>
-          <span className={`dungeon-hp-label ${heroHpNow < Math.floor(hero.max_hp * 0.2) ? 'dungeon-hp-label--low' : ''}`}>
+          <span className={`text-[12px] font-semibold whitespace-nowrap ${isLowHp ? 'text-[#dc2626]' : 'text-text-2'}`}>
             {heroHpNow}/{hero.max_hp} HP
           </span>
         </div>
       )}
 
+      {/* Reward toast */}
       <AnimatePresence>
         {reward && (
           <motion.div
-            className="reward-toast"
+            className="bg-success-bg border border-success-border rounded-[10px] px-[18px] py-3.5 mb-6"
             initial={{ opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.97 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            <div className="reward-toast-header">
-              <p className="reward-toast-title">Recompensas recogidas</p>
-              <button className="btn btn--ghost btn--icon" onClick={() => setReward(null)} aria-label="Cerrar"><X size={14} strokeWidth={2} /></button>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[13px] font-bold text-[#16a34a]">Recompensas recogidas</p>
+              <button className="btn btn--ghost btn--icon" onClick={() => setReward(null)} aria-label="Cerrar">
+                <X size={14} strokeWidth={2} />
+              </button>
             </div>
-            <div className="reward-toast-items">
-              <span><Coins size={13} color="#d97706" />{reward.gold} oro</span>
-              <span><Axe size={13} color="#16a34a" />{reward.wood} madera</span>
-              <span><Sparkles size={13} color="#7c3aed" />{reward.mana} maná</span>
-              <span><Star size={13} color="#0369a1" />{reward.experience} XP</span>
+            <div className="flex gap-4 flex-wrap">
+              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Coins size={13} color="#d97706" />{reward.gold} oro</span>
+              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Axe size={13} color="#16a34a" />{reward.wood} madera</span>
+              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Sparkles size={13} color="#7c3aed" />{reward.mana} maná</span>
+              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Star size={13} color="#0369a1" />{reward.experience} XP</span>
             </div>
             {(reward.drop || reward.cardDrop) && (
-              <div className="reward-toast-drops">
+              <div className="flex flex-col gap-1 pt-2 border-t border-border mt-1">
                 {reward.drop?.item_catalog && (
-                  <span className="reward-drop-item" style={{ '--drop-color': RARITY_COLORS[reward.drop.item_catalog.rarity] }}>
+                  <span className="text-[13px] font-bold" style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity] }}>
                     ⚔ {reward.drop.item_catalog.name}
                   </span>
                 )}
                 {reward.cardDrop?.skill_cards && (
-                  <span className="reward-drop-item" style={{ '--drop-color': RARITY_COLORS[reward.cardDrop.skill_cards.rarity] }}>
+                  <span className="text-[13px] font-bold" style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity] }}>
                     ✦ {reward.cardDrop.skill_cards.name}
                   </span>
                 )}
@@ -335,8 +355,9 @@ function Dungeons() {
         )}
       </AnimatePresence>
 
+      {/* Grid */}
       <motion.div
-        className="dungeons-grid"
+        className="grid grid-cols-1 md:grid-cols-2 gap-3.5"
         variants={listVariants}
         initial="initial"
         animate="animate"
