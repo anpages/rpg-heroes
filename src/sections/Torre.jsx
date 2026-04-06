@@ -105,35 +105,26 @@ function ProgressStrip({ maxFloor }) {
 function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
   const heroWins  = heroVal > enemyVal
   const enemyWins = enemyVal > heroVal
-  const total     = (heroVal + enemyVal) || 1
-  const heroPct   = Math.round((heroVal / total) * 100)
-
-  const fillBg = heroWins
-    ? 'rgba(59,130,246,0.11)'
-    : enemyWins
-      ? 'rgba(239,68,68,0.11)'
-      : 'rgba(107,114,128,0.06)'
 
   return (
-    <div className="relative grid grid-cols-[1fr_52px_1fr] items-center gap-2 px-3 py-2.5 rounded-lg overflow-hidden">
-      {/* Relleno proporcional — porción del héroe desde la izquierda */}
-      <div
-        className="absolute inset-y-0 left-0 transition-all duration-500"
-        style={{ width: `${heroPct}%`, background: fillBg }}
-      />
-
-      {/* Héroe */}
-      <span className={`relative text-[14px] font-bold tabular-nums whitespace-nowrap text-right ${heroWins ? 'text-[var(--blue-600)]' : 'text-text-2'}`}>
+    <div
+      className="grid items-center gap-x-3 px-4 py-2.5 rounded-lg"
+      style={{
+        gridTemplateColumns: '1fr 48px 1fr',
+        background: heroWins
+          ? 'rgba(59,130,246,0.07)'
+          : enemyWins
+            ? 'rgba(239,68,68,0.07)'
+            : 'transparent',
+      }}
+    >
+      <span className="text-[15px] font-extrabold tabular-nums whitespace-nowrap text-right text-[var(--blue-500)]">
         {heroDisplay ?? heroVal}
       </span>
-
-      {/* Label */}
-      <span className="relative text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.08em] leading-none">
+      <span className="text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.1em] leading-none">
         {label}
       </span>
-
-      {/* Enemigo */}
-      <span className={`relative text-[14px] font-bold tabular-nums ${enemyWins ? 'text-[#ef4444]' : 'text-text-2'}`}>
+      <span className="text-[15px] font-extrabold tabular-nums text-[#ef4444]">
         {enemyVal}
       </span>
     </div>
@@ -321,17 +312,16 @@ export default function Torre() {
         </div>
 
         {/* Stat headers */}
-        <div className="grid grid-cols-[1fr_52px_1fr] gap-2 px-3 pb-1">
-          <span className="text-[10px] font-semibold text-text-3 text-right uppercase tracking-[0.06em]">Héroe</span>
-          <span />
-          <span className="text-[10px] font-semibold text-[#ef4444]/70 uppercase tracking-[0.06em]">Rival</span>
-        </div>
-
         {/* Stats */}
-        <div className="flex flex-col gap-0.5 -mx-1">
+        <div className="flex flex-col gap-0.5">
+          <div className="grid items-center gap-x-3 px-4 pb-1" style={{ gridTemplateColumns: '1fr 48px 1fr' }}>
+            <span className="text-[10px] font-bold text-[var(--blue-500)] text-right uppercase tracking-[0.08em]">Héroe</span>
+            <span />
+            <span className="text-[10px] font-bold text-[#ef4444] uppercase tracking-[0.08em]">Rival</span>
+          </div>
           {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
         </div>
-        <p className="text-[11px] text-text-3 px-2 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
+        <p className="text-[11px] text-text-3 px-1 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
 
         {/* Advertencia KO asegurado */}
         {guaranteedKo && (
