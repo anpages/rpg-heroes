@@ -272,6 +272,8 @@ function Dungeons() {
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
     setTimeout(() => setReward(null), 6000)
   }
 

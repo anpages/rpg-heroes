@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
+import { useInventory } from '../hooks/useInventory'
+import { useHeroCards } from '../hooks/useHeroCards'
 import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
@@ -209,6 +211,8 @@ export default function Torre() {
   const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
+  const { items } = useInventory(hero?.id)
+  const { cards } = useHeroCards(hero?.id)
   const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
   const [result, setResult]   = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
@@ -227,14 +231,17 @@ export default function Torre() {
   const enemy       = floorEnemyStats(targetFloor)
   const rewards     = floorRewards(targetFloor)
   const isBusy      = hero?.status !== 'idle'
-  const estDamage   = estimateDamageTaken(hero, enemy)
+  const estDamage   = estimateDamageTaken(effectiveHero, enemy)
   const isLowHp     = !hasEnoughHp
 
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
       setResult(data)
-      if (data.won) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      if (data.won) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      }
     },
     onError: (err) => toast.error(err.message),
     onSettled: () => {
@@ -245,12 +252,47 @@ export default function Torre() {
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
 
+  // Bonos de equipo (durabilidad > 0) + cartas equipadas
+  const equipBonuses = (items ?? [])
+    .filter(i => i.equipped_slot && i.current_durability > 0)
+    .reduce((acc, i) => {
+      const c = i.item_catalog
+      acc.attack       += c.attack_bonus       ?? 0
+      acc.defense      += c.defense_bonus      ?? 0
+      acc.max_hp       += c.hp_bonus           ?? 0
+      acc.strength     += c.strength_bonus     ?? 0
+      acc.agility      += c.agility_bonus      ?? 0
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
+
+  const cardBonuses = (cards ?? [])
+    .filter(c => c.equipped)
+    .reduce((acc, c) => {
+      const sc = c.skill_cards
+      const r  = c.rank
+      acc.attack   += (sc.attack_bonus   ?? 0) * r
+      acc.defense  += (sc.defense_bonus  ?? 0) * r
+      acc.max_hp   += (sc.hp_bonus       ?? 0) * r
+      acc.strength += (sc.strength_bonus ?? 0) * r
+      acc.agility  += (sc.agility_bonus  ?? 0) * r
+      return acc
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
+
+  const effectiveHero = hero ? {
+    max_hp:    hero.max_hp    + equipBonuses.max_hp    + cardBonuses.max_hp,
+    attack:    hero.attack    + equipBonuses.attack    + cardBonuses.attack,
+    defense:   hero.defense   + equipBonuses.defense   + cardBonuses.defense,
+    strength:  hero.strength  + equipBonuses.strength  + cardBonuses.strength,
+    agility:   hero.agility   + equipBonuses.agility   + cardBonuses.agility,
+    intelligence: hero.intelligence,
+  } : null
+
   const HERO_STATS = [
-    { label: 'HP',  heroVal: hero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
-    { label: 'Atq', heroVal: hero?.attack   ?? 0, enemyVal: enemy.attack   },
-    { label: 'Def', heroVal: hero?.defense  ?? 0, enemyVal: enemy.defense  },
-    { label: 'Fue', heroVal: hero?.strength ?? 0, enemyVal: enemy.strength },
-    { label: 'Agi', heroVal: hero?.agility  ?? 0, enemyVal: enemy.agility  },
+    { label: 'HP',  heroVal: effectiveHero?.max_hp   ?? 0, enemyVal: enemy.max_hp   },
+    { label: 'Atq', heroVal: effectiveHero?.attack   ?? 0, enemyVal: enemy.attack   },
+    { label: 'Def', heroVal: effectiveHero?.defense  ?? 0, enemyVal: enemy.defense  },
+    { label: 'Fue', heroVal: effectiveHero?.strength ?? 0, enemyVal: enemy.strength },
+    { label: 'Agi', heroVal: effectiveHero?.agility  ?? 0, enemyVal: enemy.agility  },
   ]
 
   const heroAdvantages = HERO_STATS.filter(s => s.heroVal > s.enemyVal).length
