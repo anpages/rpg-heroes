@@ -49,7 +49,7 @@ export default function Combates() {
     <div className="flex flex-col gap-6">
 
       {/* Selector de héroe */}
-      <HeroSelector variant="compact" />
+      <HeroSelector />
 
       {/* Mode selector */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
