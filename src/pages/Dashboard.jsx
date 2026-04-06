@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useResources } from '../hooks/useResources'
-import { useMissions } from '../hooks/useMissions'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useClasses } from '../hooks/useClasses'
@@ -17,7 +16,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Swords, Globe, Map, LayoutDashboard, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -253,7 +252,6 @@ function Dashboard({ session }) {
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
   const { resources }              = useResources(session.user.id)
   const { heroes }                 = useHeroes(session.user.id)
-  const { missions: missionsList } = useMissions()
   const { buildings }              = useBuildings(session.user.id)
   const { classes: recruitClasses } = useClasses()
   const { theme, setTheme }        = useTheme()
@@ -276,19 +274,9 @@ function Dashboard({ session }) {
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
 
-  const missionsDone      = missionsList?.filter(m => m.claimed).length ?? 0
-  const missionsTotal     = missionsList?.length ?? 0
-  const missionsClaimable = missionsList?.filter(m => m.completed && !m.claimed).length ?? 0
-  const allMissionsDone   = missionsTotal > 0 && missionsDone === missionsTotal
-  const isMobileDrawer    = typeof window !== 'undefined' && window.innerWidth <= 600
+  const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
   async function handleLogout() { await supabase.auth.signOut() }
-
-  function missionChipClass(extra) {
-    if (allMissionsDone) return `border-[#86efac] text-[#15803d] bg-[#f0fdf4] dark:border-[#166534] dark:text-[#4ade80] dark:bg-[color-mix(in_srgb,#16a34a_12%,var(--surface))] ${extra}`
-    if (missionsClaimable > 0) return `border-[var(--blue-400)] text-[var(--blue-700)] bg-[var(--blue-50)] ${extra}`
-    return extra
-  }
 
   function badgeState(id) {
     if (id === 'heroes') return anyHeroReady ? 'ready' : anyHeroExploring ? 'active' : null
@@ -311,16 +299,6 @@ function Dashboard({ session }) {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Missions chip */}
-          <button
-            className={`hidden md:flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 relative whitespace-nowrap flex-shrink-0 hover:border-[var(--blue-400)] hover:text-[var(--blue-700)] hover:bg-[var(--blue-50)] ${missionChipClass('')}`}
-            onClick={() => setMissionsOpen(true)}
-            title="Misiones del día"
-          >
-            <ClipboardList size={14} strokeWidth={2} />
-            <span>{missionsDone}/{missionsTotal}</span>
-            {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
-          </button>
           {/* Shop icon */}
           <button
             className="btn btn--ghost btn--icon"
@@ -352,14 +330,6 @@ function Dashboard({ session }) {
         <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} className="flex-1 justify-center min-w-0" />
         <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} className="flex-1 justify-center min-w-0" />
         <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} className="flex-1 justify-center min-w-0" />
-        <button
-          className={`flex items-center gap-[5px] px-[10px] py-[5px] rounded-lg border border-border bg-surface-2 text-text-2 text-[13px] font-semibold cursor-pointer transition-[border-color,color,background] duration-150 whitespace-nowrap flex-shrink-0 ${missionChipClass('')}`}
-          onClick={() => setMissionsOpen(true)}
-        >
-          <ClipboardList size={13} strokeWidth={2} />
-          <span>{missionsDone}/{missionsTotal}</span>
-          {missionsClaimable > 0 && <span className="w-[7px] h-[7px] rounded-full bg-[var(--blue-600)] flex-shrink-0" />}
-        </button>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
