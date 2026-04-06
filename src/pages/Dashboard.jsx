@@ -423,7 +423,7 @@ function Dashboard({ session }) {
               <>
                 <button
                   className={`dash-nav-item ${activeSection === 'dev-catalogo' ? 'dash-nav-item--active' : ''}`}
-                  onClick={() => setActiveSection('dev-catalogo')}
+                  onClick={() => navigateTo('dev-catalogo')}
                   style={{ opacity: 0.5, marginTop: 'auto' }}
                 >
                   <span className="dash-nav-icon"><FlaskConical size={18} strokeWidth={1.8} /></span>
@@ -431,7 +431,7 @@ function Dashboard({ session }) {
                 </button>
                 <button
                   className={`dash-nav-item ${activeSection === 'dev-cartas' ? 'dash-nav-item--active' : ''}`}
-                  onClick={() => setActiveSection('dev-cartas')}
+                  onClick={() => navigateTo('dev-cartas')}
                   style={{ opacity: 0.5 }}
                 >
                   <span className="dash-nav-icon"><FlaskConical size={18} strokeWidth={1.8} /></span>
@@ -484,7 +484,7 @@ function Dashboard({ session }) {
             <button
               key={id}
               className={`dash-bottombar-item ${activeSection === id ? 'dash-bottombar-item--active' : ''}`}
-              onClick={() => { setActiveSection(id); setMountedSections(s => new Set([...s, id])) }}
+              onClick={() => navigateTo(id)}
             >
               <span className="dash-bottombar-icon">
                 <Icon size={20} strokeWidth={1.8} />
