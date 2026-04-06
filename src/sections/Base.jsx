@@ -175,134 +175,170 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
     }
   }
 
-  return (
-    <div
-      className={`bc-accent flex flex-col gap-3.5 rounded-xl p-5 h-full transition-[box-shadow,border-color] duration-200
-        ${featured
-          ? 'border border-[var(--accent-border)] bg-[linear-gradient(180deg,var(--accent-bg)_0%,var(--surface)_55%)] shadow-[0_0_0_1px_var(--accent-border),var(--shadow-sm)] hover:shadow-[0_0_0_1px_var(--accent-border),var(--shadow-md)]'
-          : 'bg-surface border border-border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--accent-border)]'
-        }`}
-      style={{ '--accent': meta.color }}
-    >
-      {/* Top */}
-      <div className="flex gap-3.5 items-start flex-1">
-        <div className={`w-12 h-12 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0${featured ? ' animate-nexo-pulse' : ''}`}>
-          <Icon size={24} strokeWidth={1.8} color={meta.color} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="text-[15px] font-bold text-text leading-[1.2]">{meta.name}</h3>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {meta.energyPerLevel && (
-                <span className="flex items-center gap-[3px] text-[11px] font-semibold text-[#0891b2] bg-[#ecfeff] dark:bg-[color-mix(in_srgb,#0891b2_10%,var(--surface))] border border-[#a5f3fc] dark:border-[#164e63] rounded-[5px] px-1.5 py-0.5 leading-none">
-                  <Zap size={10} strokeWidth={2.5} />
-                  {meta.energyPerLevel * level}⚡
-                </span>
-              )}
-              <span className="text-[13px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[6px] px-2 py-0.5">
+  const energyBadge = meta.energyPerLevel ? (
+    <span className="flex items-center gap-[3px] text-[11px] font-semibold text-[#0891b2] bg-[#ecfeff] dark:bg-[color-mix(in_srgb,#0891b2_10%,var(--surface))] border border-[#a5f3fc] dark:border-[#164e63] rounded-[5px] px-1.5 py-[3px] leading-none whitespace-nowrap">
+      <Zap size={10} strokeWidth={2.5} />{meta.energyPerLevel * level}⚡
+    </span>
+  ) : null
+
+  const costRow = (
+    <div className="flex items-center justify-between gap-2 pt-3 border-t border-border mt-auto">
+      <div className="flex gap-2 flex-wrap">
+        <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.gold >= cost.gold ? 'text-success-text' : 'text-error-text'}`}>
+          <Coins size={12} strokeWidth={2} />{fmt(cost.gold)}
+        </span>
+        {cost.wood !== undefined && (
+          <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
+            <Axe size={12} strokeWidth={2} />{fmt(cost.wood)}
+          </span>
+        )}
+        {cost.mana !== undefined && (
+          <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.mana >= cost.mana ? 'text-success-text' : 'text-error-text'}`}>
+            <Sparkles size={12} strokeWidth={2} />{fmt(cost.mana)}
+          </span>
+        )}
+      </div>
+      <motion.button
+        className="btn btn--primary btn--sm flex-shrink-0"
+        onClick={handleUpgradeStart}
+        disabled={!canAfford || blockedByOther}
+        title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
+        whileTap={(!canAfford || blockedByOther) ? {} : { scale: 0.96 }}
+        whileHover={(!canAfford || blockedByOther) ? {} : { scale: 1.02 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+      >
+        <span>Mejorar</span><ChevronRight size={13} strokeWidth={2} />
+      </motion.button>
+    </div>
+  )
+
+  const progressRow = (
+    <div className="flex flex-col gap-2 pt-3 border-t border-border mt-auto">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-[var(--accent)]">→ Nivel {level + 1}</span>
+        <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3">
+          <Clock size={12} strokeWidth={2} />
+          {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
+        </span>
+      </div>
+      <div className="h-1.5 bg-border rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[var(--accent)] rounded-full"
+          style={{ width: `${pct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
+        />
+      </div>
+    </div>
+  )
+
+  /* ── Nexo Arcano — layout especial horizontal ─────────────────────── */
+  if (featured) {
+    return (
+      <div
+        className="bc-accent flex flex-col gap-4 rounded-xl p-5 border border-[var(--accent-border)] bg-[linear-gradient(135deg,var(--accent-bg)_0%,var(--surface)_60%)] shadow-[0_0_0_1px_var(--accent-border),var(--shadow-sm)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_var(--accent-border),var(--shadow-md)]"
+        style={{ '--accent': meta.color }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0 animate-nexo-pulse">
+            <Icon size={20} strokeWidth={1.8} color={meta.color} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-bold text-text">{meta.name}</h3>
+              <span className="text-[13px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[6px] px-2 py-0.5 flex-shrink-0">
                 Nv. {level}
               </span>
             </div>
+            <p className="text-[12px] text-text-3 leading-[1.4] mt-0.5">{meta.description}</p>
           </div>
-          <p className="text-[13px] text-text-3 leading-[1.5] mb-1.5 line-clamp-3">{meta.description}</p>
-          <p className="text-[13px] font-semibold text-[var(--accent)]">
-            {meta.effect(level)}
-            {!hasUpgrade && <span className="font-medium text-text-3"> → {meta.nextEffect(level)}</span>}
-          </p>
-          {nexusRatio !== undefined && nexusRatio < 1 && (
-            <p className="text-[12px] font-semibold text-[#d97706] mt-1">
-              ⚡ Energía insuficiente · producción al {Math.round(nexusRatio * 100)}%
-            </p>
-          )}
+        </div>
+
+        {/* Stat central */}
+        <div className="text-center py-1">
+          <p className="text-[28px] font-bold leading-none text-[var(--accent)]">{meta.effect(level)}</p>
+          {!hasUpgrade && <p className="text-[13px] text-text-3 mt-1">→ {meta.nextEffect(level)} al mejorar</p>}
+        </div>
+
+        {/* Panel energía */}
+        {nexusData && (
+          <div className="flex flex-col gap-2 p-3 rounded-lg bg-[color-mix(in_srgb,var(--accent)_6%,var(--surface))] border border-[var(--accent-border)]">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center">
+                <p className="text-[18px] font-bold leading-none text-[var(--accent)]">{nexusData.produced}</p>
+                <p className="text-[10px] font-medium text-text-3 uppercase tracking-wide mt-0.5">Produce</p>
+              </div>
+              <div className="text-center border-x border-border">
+                <p className="text-[18px] font-bold leading-none text-text-2">{nexusData.consumed}</p>
+                <p className="text-[10px] font-medium text-text-3 uppercase tracking-wide mt-0.5">Consume</p>
+              </div>
+              <div className="text-center">
+                <p className={`text-[18px] font-bold leading-none ${nexusData.deficit ? 'text-error-text' : 'text-success-text'}`}>
+                  {nexusData.deficit ? `−${Math.abs(nexusData.balance)}` : `+${nexusData.balance}`}
+                </p>
+                <p className={`text-[10px] font-medium uppercase tracking-wide mt-0.5 ${nexusData.deficit ? 'text-error-text opacity-70' : 'text-text-3'}`}>
+                  {nexusData.deficit ? `${nexusData.efficiency}% efic.` : 'Excedente'}
+                </p>
+              </div>
+            </div>
+            <div className="h-1.5 bg-border rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-[width] duration-[400ms] ${nexusData.deficit ? 'bg-error-text' : 'bg-[var(--accent)]'}`}
+                style={{ width: `${nexusData.barPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {hasUpgrade ? progressRow : costRow}
+      </div>
+    )
+  }
+
+  /* ── Resto de edificios ───────────────────────────────────────────── */
+  return (
+    <div
+      className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--accent-border)] transition-[box-shadow,border-color] duration-200 h-full"
+      style={{ '--accent': meta.color }}
+    >
+      {/* Header con franja de color */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <div className="w-9 h-9 rounded-[8px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+          <Icon size={18} strokeWidth={1.8} color={meta.color} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1.5">
+            <h3 className="text-[14px] font-bold text-text leading-none truncate">{meta.name}</h3>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {energyBadge}
+              <span className="text-[12px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[5px] px-1.5 py-[3px] leading-none">
+                Nv.{level}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Nexus panel */}
-      {nexusData && (
-        <div className="flex flex-col gap-2.5 pt-3.5 border-t border-border">
-          <div className="grid grid-cols-3">
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[20px] font-bold leading-none text-[var(--accent)]">{nexusData.produced}</span>
-              <span className="text-[11px] font-medium text-text-3 uppercase tracking-[0.06em]">Producción</span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5 border-x border-border">
-              <span className="text-[20px] font-bold leading-none text-[var(--accent)]">{nexusData.consumed}</span>
-              <span className="text-[11px] font-medium text-text-3 uppercase tracking-[0.06em]">Consumo</span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <span className={`text-[20px] font-bold leading-none ${nexusData.deficit ? 'text-error-text' : 'text-success-text'}`}>
-                {nexusData.deficit ? `−${Math.abs(nexusData.balance)}` : `+${nexusData.balance}`}
-              </span>
-              <span className={`text-[11px] font-medium uppercase tracking-[0.06em] ${nexusData.deficit ? 'text-error-text opacity-70' : 'text-text-3'}`}>
-                {nexusData.deficit ? `${nexusData.efficiency}% efic.` : 'Excedente'}
-              </span>
-            </div>
-          </div>
-          <div className="h-1 bg-border rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-[width] duration-[400ms] ${nexusData.deficit ? 'bg-error-text' : 'bg-[var(--accent)]'}`}
-              style={{ width: `${nexusData.barPct}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Stat central */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-3 border-y border-border bg-[color-mix(in_srgb,var(--accent)_4%,var(--bg))]">
+        <p className="text-[20px] font-bold text-[var(--accent)] leading-tight text-center">
+          {meta.effect(level)}
+        </p>
+        {!hasUpgrade && (
+          <p className="text-[12px] text-text-3 mt-1 text-center">
+            → {meta.nextEffect(level)}
+          </p>
+        )}
+        {nexusRatio !== undefined && nexusRatio < 1 && (
+          <p className="text-[11px] font-semibold text-[#d97706] mt-1.5 text-center">
+            ⚡ Producción al {Math.round(nexusRatio * 100)}%
+          </p>
+        )}
+      </div>
 
-      {/* Upgrade progress */}
-      {hasUpgrade && (
-        <div className="flex flex-col gap-2 pt-3 border-t border-border mt-auto">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-semibold text-[var(--accent)]">→ Nv. {level + 1}</span>
-            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3 whitespace-nowrap flex-shrink-0">
-              <Clock size={12} strokeWidth={2} />
-              {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
-            </span>
-          </div>
-          <div className="h-1 bg-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[var(--accent)] rounded-full"
-              style={{
-                width: `${pct}%`,
-                transition: mountedRef.current ? 'width 1s linear' : 'none',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Bottom — costs + button */}
-      {!hasUpgrade && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-3 border-t border-border mt-auto">
-          <div className="flex gap-1.5 flex-wrap">
-            <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.gold >= cost.gold ? 'text-success-text' : 'text-error-text'}`}>
-              <Coins size={12} strokeWidth={2} />
-              {fmt(cost.gold)}
-            </span>
-            {cost.wood !== undefined && (
-              <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
-                <Axe size={12} strokeWidth={2} />
-                {fmt(cost.wood)}
-              </span>
-            )}
-            {cost.mana !== undefined && (
-              <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.mana >= cost.mana ? 'text-success-text' : 'text-error-text'}`}>
-                <Sparkles size={12} strokeWidth={2} />
-                {fmt(cost.mana)}
-              </span>
-            )}
-          </div>
-          <motion.button
-            className="btn btn--primary btn--sm sm:w-auto w-full justify-center"
-            onClick={handleUpgradeStart}
-            disabled={!canAfford || blockedByOther}
-            title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
-            whileTap={(!canAfford || blockedByOther) ? {} : { scale: 0.96 }}
-            whileHover={(!canAfford || blockedByOther) ? {} : { scale: 1.02 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          >
-            <span>Mejorar</span><ChevronRight size={13} strokeWidth={2} />
-          </motion.button>
-        </div>
-      )}
+      {/* Footer */}
+      <div className="px-4 pb-4">
+        {hasUpgrade ? progressRow : costRow}
+      </div>
     </div>
   )
 }
@@ -323,24 +359,26 @@ function LockedBuildingCard({ type }) {
   const Icon = meta.icon
   return (
     <div
-      className="bc-accent flex flex-col gap-3.5 rounded-xl p-5 bg-surface border border-border shadow-[var(--shadow-sm)] h-full opacity-50 pointer-events-none"
+      className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] h-full opacity-40 pointer-events-none"
       style={{ '--accent': meta.color }}
     >
-      <div className="flex gap-3.5 items-start flex-1">
-        <div className="w-12 h-12 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-          <Icon size={24} strokeWidth={1.8} color={meta.color} />
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <div className="w-9 h-9 rounded-[8px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+          <Icon size={18} strokeWidth={1.8} color={meta.color} />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="text-[15px] font-bold text-text leading-[1.2]">{meta.name}</h3>
-            <Lock size={14} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
-          </div>
-          <p className="text-[13px] text-text-3 leading-[1.5] line-clamp-3">{meta.description}</p>
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+          <h3 className="text-[14px] font-bold text-text truncate">{meta.name}</h3>
+          <Lock size={13} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
         </div>
       </div>
-      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 pt-3 border-t border-border mt-auto">
-        <Lock size={11} strokeWidth={2.5} />
-        Requiere {req.name} Nv.{req.level}
+      <div className="flex-1 flex items-center justify-center px-4 py-3 border-y border-border bg-[color-mix(in_srgb,var(--accent)_4%,var(--bg))]">
+        <p className="text-[13px] text-text-3 text-center">{meta.description}</p>
+      </div>
+      <div className="px-4 py-3">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3">
+          <Lock size={11} strokeWidth={2.5} />
+          Requiere {req.name} Nv.{req.level}
+        </p>
       </div>
     </div>
   )
