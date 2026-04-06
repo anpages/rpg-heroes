@@ -24,7 +24,9 @@ export function useResources(userId) {
   const baseRef = useRef(null)
   const key = queryKeys.resources(userId)
 
-  // Fetch con caché + polling de respaldo cada 30s
+  // Fetch con caché + polling de seguridad cada 60s.
+  // Las mutaciones que cambian recursos ya invalidan explícitamente esta query,
+  // así que el refetch periódico es solo red de seguridad (múltiples tabs, etc.)
   const { data: baseData, isLoading: loading, refetch } = useQuery({
     queryKey: key,
     queryFn: async () => {
@@ -36,8 +38,8 @@ export function useResources(userId) {
       return data
     },
     enabled:         !!userId,
-    staleTime:       25_000,
-    refetchInterval: 30_000,
+    staleTime:       55_000,
+    refetchInterval: 60_000,
   })
 
   // Cuando el servidor devuelve datos, actualizar ref + estado interpolado

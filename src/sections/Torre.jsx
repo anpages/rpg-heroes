@@ -212,7 +212,7 @@ export default function Torre() {
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
-    const id = setInterval(forceUpdate, 30000)
+    const id = setInterval(forceUpdate, 10000)
     return () => clearInterval(id)
   }, [])
 

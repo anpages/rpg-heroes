@@ -848,7 +848,7 @@ function Hero() {
   const mutationPending = itemMutation.isPending || cardMutation.isPending
 
   useEffect(() => {
-    const id = setInterval(forceUpdate, 30000)
+    const id = setInterval(forceUpdate, 10000)
     return () => clearInterval(id)
   }, [])
 
