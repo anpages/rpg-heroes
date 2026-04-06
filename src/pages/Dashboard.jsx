@@ -16,7 +16,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag } from 'lucide-react'
+import { Castle, Sword, Swords, Skull, Coins, Axe, Sparkles, FlaskConical, ClipboardList, X, Plus, LogOut, ShoppingBag, Lock } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -367,8 +367,8 @@ function Dashboard({ session }) {
         </button>
       </div>
 
-      {/* Hero rail */}
-      {!heroesLoading && (heroes.length > 1 || canRecruit) && (
+      {/* Hero rail — siempre visible para que el jugador vea los slots futuros */}
+      {!heroesLoading && (
         <div className="flex items-center gap-1 px-5 md:px-5 px-3 h-11 bg-surface border-b border-border flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {heroes.map(hero => {
             const derivedStatus = getHeroDerivedStatus(hero, now)
@@ -400,6 +400,22 @@ function Dashboard({ session }) {
               Reclutar
             </button>
           )}
+          {/* Slots bloqueados — siempre visibles para mostrar la progresión */}
+          {[2, 3].filter(slot => {
+            const filled   = heroes.some(h => h.slot === slot)
+            const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
+            return !filled && !unlocked
+          }).map(slot => (
+            <div
+              key={`locked-${slot}`}
+              className="flex items-center gap-1.5 px-[10px] py-[5px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap ml-1 select-none"
+              title={`Desbloquea el slot ${slot} con Cuartel Nv.${SLOT_UNLOCK[slot]}`}
+            >
+              <Lock size={10} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
+              <span className="text-[12px] font-semibold text-text-3">Héroe {slot}</span>
+              <span className="hidden sm:inline text-[11px] text-text-3">· Cuartel Nv.{SLOT_UNLOCK[slot]}</span>
+            </div>
+          ))}
         </div>
       )}
 

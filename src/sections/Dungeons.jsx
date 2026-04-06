@@ -1,4 +1,5 @@
 import { useState, useEffect, useReducer } from 'react'
+import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
@@ -11,8 +12,8 @@ import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.07 } },
@@ -64,6 +65,7 @@ function useExpeditionTimer(expedition) {
   const [isMounted,  setIsMounted]    = useState(false)
 
   useEffect(() => {
+    if (!expedition) return
     function tick() {
       const remaining = Math.max(0, Math.floor((new Date(expedition.ends_at) - Date.now()) / 1000))
       setSecondsLeft(remaining)
@@ -73,11 +75,13 @@ function useExpeditionTimer(expedition) {
     requestAnimationFrame(() => setIsMounted(true))
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [expedition.ends_at, expedition.id])
+  }, [expedition?.ends_at, expedition?.id])
 
-  const totalSeconds = Math.round((new Date(expedition.ends_at) - new Date(expedition.started_at)) / 1000)
-  const elapsed      = totalSeconds - (secondsLeft ?? totalSeconds)
-  const pct          = Math.min(100, Math.round((elapsed / totalSeconds) * 100))
+  const totalSeconds = expedition
+    ? Math.max(1, Math.round((new Date(expedition.ends_at) - new Date(expedition.started_at)) / 1000))
+    : 1
+  const elapsed = totalSeconds - (secondsLeft ?? totalSeconds)
+  const pct     = expedition ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
   return { secondsLeft, canCollect, isMounted, pct }
 }
@@ -98,7 +102,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
 
   const [collecting, setCollecting] = useState(false)
-  const timer = isActive ? useExpeditionTimer(expedition) : null  // eslint-disable-line react-hooks/rules-of-hooks
+  const timer = useExpeditionTimer(isActive ? expedition : null)
 
   async function handleCollect() {
     setCollecting(true)
@@ -226,6 +230,118 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   )
 }
 
+function RewardModal({ reward, onClose }) {
+  const hasDrop = reward.drop?.item_catalog || reward.cardDrop?.skill_cards
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm overflow-hidden"
+        initial={{ opacity: 0, scale: 0.92, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
+          <div>
+            <p className="text-[17px] font-bold text-text">¡Expedición completada!</p>
+            <p className="text-[13px] text-text-3 mt-0.5">Has vuelto con recompensas</p>
+          </div>
+          <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar">
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Resources */}
+        <div className="grid grid-cols-2 gap-3 px-5 py-4">
+          <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#d97706_8%,var(--bg))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-xl px-3.5 py-3">
+            <Coins size={18} color="#d97706" strokeWidth={2} />
+            <div>
+              <p className="text-[18px] font-bold text-text leading-none">{reward.gold}</p>
+              <p className="text-[11px] text-text-3 mt-0.5">Oro</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#16a34a_8%,var(--bg))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))] rounded-xl px-3.5 py-3">
+            <Axe size={18} color="#16a34a" strokeWidth={2} />
+            <div>
+              <p className="text-[18px] font-bold text-text leading-none">{reward.wood}</p>
+              <p className="text-[11px] text-text-3 mt-0.5">Madera</p>
+            </div>
+          </div>
+          {reward.mana > 0 && (
+            <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#7c3aed_8%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] rounded-xl px-3.5 py-3">
+              <Sparkles size={18} color="#7c3aed" strokeWidth={2} />
+              <div>
+                <p className="text-[18px] font-bold text-text leading-none">{reward.mana}</p>
+                <p className="text-[11px] text-text-3 mt-0.5">Maná</p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#0369a1_8%,var(--bg))] border border-[color-mix(in_srgb,#0369a1_25%,var(--border))] rounded-xl px-3.5 py-3">
+            <Star size={18} color="#0369a1" strokeWidth={2} />
+            <div>
+              <p className="text-[18px] font-bold text-text leading-none">{reward.experience}</p>
+              <p className="text-[11px] text-text-3 mt-0.5">XP</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Item / card drop */}
+        {hasDrop && (
+          <div className="flex flex-col gap-2 px-5 pb-4">
+            {reward.drop?.item_catalog && (
+              <div
+                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${RARITY_COLORS[reward.drop.item_catalog.rarity]} 8%, var(--bg))`,
+                  borderColor:     `color-mix(in srgb, ${RARITY_COLORS[reward.drop.item_catalog.rarity]} 30%, var(--border))`,
+                }}
+              >
+                <Sword size={16} strokeWidth={2} style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity], flexShrink: 0 }} />
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold truncate" style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity] }}>
+                    {reward.drop.item_catalog.name}
+                  </p>
+                  <p className="text-[11px] text-text-3 capitalize">{reward.drop.item_catalog.rarity} · {reward.drop.item_catalog.slot}</p>
+                </div>
+              </div>
+            )}
+            {reward.cardDrop?.skill_cards && (
+              <div
+                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${RARITY_COLORS[reward.cardDrop.skill_cards.rarity]} 8%, var(--bg))`,
+                  borderColor:     `color-mix(in srgb, ${RARITY_COLORS[reward.cardDrop.skill_cards.rarity]} 30%, var(--border))`,
+                }}
+              >
+                <Layers size={16} strokeWidth={2} style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity], flexShrink: 0 }} />
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold truncate" style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity] }}>
+                    {reward.cardDrop.skill_cards.name}
+                  </p>
+                  <p className="text-[11px] text-text-3 capitalize">Carta · {reward.cardDrop.skill_cards.rarity}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="px-5 pb-5">
+          <button className="btn btn--primary btn--full" onClick={onClose}>
+            Continuar
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 function Dungeons() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
@@ -275,7 +391,6 @@ function Dungeons() {
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
-    setTimeout(() => setReward(null), 6000)
   }
 
   if (heroLoading || dungeonsLoading || expLoading) {
@@ -304,45 +419,11 @@ function Dungeons() {
       </div>
 
 
-      {/* Reward toast */}
-      <AnimatePresence>
-        {reward && (
-          <motion.div
-            className="bg-success-bg border border-success-border rounded-[10px] px-[18px] py-3.5 mb-6"
-            initial={{ opacity: 0, y: 20, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.97 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[13px] font-bold text-[#16a34a]">Recompensas recogidas</p>
-              <button className="btn btn--ghost btn--icon" onClick={() => setReward(null)} aria-label="Cerrar">
-                <X size={14} strokeWidth={2} />
-              </button>
-            </div>
-            <div className="flex gap-4 flex-wrap">
-              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Coins size={13} color="#d97706" />{reward.gold} oro</span>
-              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Axe size={13} color="#16a34a" />{reward.wood} madera</span>
-              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Sparkles size={13} color="#7c3aed" />{reward.mana} maná</span>
-              <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2"><Star size={13} color="#0369a1" />{reward.experience} XP</span>
-            </div>
-            {(reward.drop || reward.cardDrop) && (
-              <div className="flex flex-col gap-1 pt-2 border-t border-border mt-1">
-                {reward.drop?.item_catalog && (
-                  <span className="text-[13px] font-bold" style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity] }}>
-                    ⚔ {reward.drop.item_catalog.name}
-                  </span>
-                )}
-                {reward.cardDrop?.skill_cards && (
-                  <span className="text-[13px] font-bold" style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity] }}>
-                    ✦ {reward.cardDrop.skill_cards.name}
-                  </span>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Reward modal */}
+      {reward && createPortal(
+        <RewardModal reward={reward} onClose={() => setReward(null)} />,
+        document.body
+      )}
 
       {/* Grid */}
       <motion.div

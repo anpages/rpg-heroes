@@ -165,7 +165,8 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
     try {
       await apiPost('/api/building-upgrade-start', { buildingId: building.id })
-      onUpgradePending(false)
+      // No llamamos onUpgradePending(false) aquí: Base lo limpia via useEffect
+      // cuando buildings refetche y confirme upgrade_ends_at (evita flicker)
       onUpgradeStart()
     } catch (err) {
       setOptimisticEndsAt(null)
@@ -472,6 +473,15 @@ function Base() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setResourceDelta({ gold: 0, wood: 0, mana: 0 }) }, [resources])
+
+  // Limpia upgradePending cuando buildings confirma la mejora activa (evita el flicker de botones)
+  useEffect(() => {
+    if (!upgradePending) return
+    const hasActive = (buildings ?? []).some(
+      b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
+    )
+    if (hasActive) setUpgradePending(false)
+  }, [buildings, upgradePending])
 
   const effectiveResources = resources
     ? { ...resources, gold: resources.gold - resourceDelta.gold, wood: resources.wood - resourceDelta.wood, mana: resources.mana - resourceDelta.mana }

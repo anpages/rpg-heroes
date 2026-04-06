@@ -136,7 +136,7 @@ function ResultBanner({ result, onClose }) {
           <p className="text-[14px] font-bold text-text">{won ? `Piso ${floor} superado` : `Derrotado en el piso ${floor}`}</p>
           <p className="text-[12px] text-text-2 mt-0.5">
             {rounds} rondas · {won ? `${heroHpLeft} HP restante` : `Enemigo con ${enemyHpLeft} HP`}
-            {knockedOut && ' · ¡Héroe derribado! Entrando en descanso.'}
+            {knockedOut && ' · ¡Héroe derribado! Recuperándose.'}
           </p>
         </div>
       </div>
