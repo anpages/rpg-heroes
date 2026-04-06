@@ -95,10 +95,9 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
-  const minHp    = Math.floor((heroMaxHp ?? 100) * 0.2)
-  const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? minHp) < minHp
-  const disabled = locked || busy || lowHp
   const hpCost   = dungeonHpCost(heroMaxHp, dungeon.difficulty)
+  const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
+  const disabled = locked || busy || lowHp
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
 
   const [collecting, setCollecting] = useState(false)
