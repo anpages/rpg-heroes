@@ -12,11 +12,10 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import { useBuildings } from '../hooks/useBuildings'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
-  Crown, Shirt, Hand, Move, Gem, Trash2, ArrowUpDown, Backpack, X,
+  Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
   BookOpen, Zap, FlameKindling, Wrench, Plus,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import './Hero.css'
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -32,10 +31,8 @@ function sheetVariants() {
     : { initial: { opacity: 0, scale: 0.96, y: 8 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.97, y: 4 } }
 }
 
-const sheetTransition = { type: 'spring', stiffness: 340, damping: 30 }
+const sheetTransition  = { type: 'spring', stiffness: 340, damping: 30 }
 const overlayTransition = { duration: 0.18 }
-
-/* ─── Stat radar ──────────────────────────────────────────────────────────────── */
 
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
@@ -51,28 +48,29 @@ function StatBars({ effective, base }) {
   const maxVal = Math.max(20, ...STAT_BARS.map(s => effective[s.key] ?? 0)) * 1.4
 
   return (
-    <div className="stat-bars">
+    <div className="flex flex-col gap-2 pt-3.5 border-t border-border">
       {STAT_BARS.map(({ key, label, Icon, color }) => {
-        const total = effective[key] ?? 0
-        const baseV = base[key]      ?? 0
-        const bonus = total - baseV
+        const total    = effective[key] ?? 0
+        const baseV    = base[key]      ?? 0
+        const bonus    = total - baseV
         const basePct  = Math.min(100, (baseV  / maxVal) * 100)
         const bonusPct = Math.min(100 - basePct, (bonus / maxVal) * 100)
 
         return (
-          <div key={key} className="stat-bar-row">
-            <div className="stat-bar-icon" style={{ color }}>
+          <div key={key} className="grid grid-cols-[14px_68px_1fr_26px_28px] gap-1.5 md:grid-cols-[16px_90px_1fr_26px_28px] md:gap-2 items-center">
+            <div className="flex items-center justify-center flex-shrink-0" style={{ color }}>
               <Icon size={13} strokeWidth={2} />
             </div>
-            <span className="stat-bar-label">{label}</span>
-            <div className="stat-bar-track">
-              <div className="stat-bar-base"  style={{ width: `${basePct}%`,  background: color, opacity: 0.55 }} />
-              <div className="stat-bar-bonus" style={{ width: `${bonusPct}%`, background: color }} />
+            <span className="text-[11px] md:text-[12px] font-semibold text-text-2 whitespace-nowrap">{label}</span>
+            <div className="h-[6px] bg-surface-2 border border-border rounded-full overflow-hidden flex">
+              <div className="h-full rounded-l-full transition-[width] duration-[400ms]" style={{ width: `${basePct}%`,  background: color, opacity: 0.55 }} />
+              <div className="h-full rounded-r-full transition-[width] duration-[400ms]" style={{ width: `${bonusPct}%`, background: color }} />
             </div>
-            <span className="stat-bar-value">{total}</span>
-            {bonus > 0 && (
-              <span className="stat-bar-bonus-label" style={{ color }}>+{bonus}</span>
-            )}
+            <span className="text-[13px] font-bold text-text text-right">{total}</span>
+            {bonus > 0
+              ? <span className="text-[11px] font-bold text-left" style={{ color }}>+{bonus}</span>
+              : <span />
+            }
           </div>
         )
       })}
@@ -91,14 +89,14 @@ const STATUS_META = {
 /* ─── Inventory constants ─────────────────────────────────────────────────────── */
 
 const SLOT_META = {
-  helmet:    { label: 'Casco',           icon: Crown  },
-  chest:     { label: 'Torso',           icon: Shirt  },
-  arms:      { label: 'Brazos',          icon: Hand   },
-  legs:      { label: 'Piernas',         icon: Move   },
-  main_hand: { label: 'Arma Principal',  icon: Sword  },
-  off_hand:  { label: 'Mano Secundaria', icon: Shield },
-  accessory:   { label: 'Complemento',   icon: Gem    },
-  accessory_2: { label: 'Complemento 2', icon: Gem    },
+  helmet:      { label: 'Casco',           icon: Crown  },
+  chest:       { label: 'Torso',           icon: Shirt  },
+  arms:        { label: 'Brazos',          icon: Hand   },
+  legs:        { label: 'Piernas',         icon: Move   },
+  main_hand:   { label: 'Arma Principal',  icon: Sword  },
+  off_hand:    { label: 'Mano Secundaria', icon: Shield },
+  accessory:   { label: 'Complemento',     icon: Gem    },
+  accessory_2: { label: 'Complemento 2',   icon: Gem    },
 }
 
 const RARITY_META = {
@@ -109,7 +107,7 @@ const RARITY_META = {
   legendary: { label: 'Legendario', color: '#d97706' },
 }
 
-const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
+const EQUIPMENT_SLOTS   = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 const INVENTORY_BASE_LIMIT = 20
 
 const REPAIR_COST_TABLE = {
@@ -136,7 +134,7 @@ function estimateDismantleMana(item) {
 function estimateRepairCost(item) {
   const catalog = item.item_catalog
   const missing = catalog.max_durability - item.current_durability
-  const costs = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
+  const costs   = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
   return {
     gold: Math.ceil(missing * costs.gold),
     mana: Math.ceil(missing * costs.mana),
@@ -147,73 +145,95 @@ function estimateRepairCost(item) {
 
 function XpBar({ level, experience }) {
   const needed = level * 150
-  const pct = Math.min(100, Math.round((experience / needed) * 100))
+  const pct    = Math.min(100, Math.round((experience / needed) * 100))
   return (
-    <div className="xp-bar-wrap">
-      <div className="xp-bar-labels">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between text-[13px] font-semibold text-text-2">
         <span>Nivel {level}</span>
         <span>{experience} / {needed} XP</span>
       </div>
-      <div className="xp-track">
-        <div className="xp-fill" style={{ width: `${pct}%` }} />
+      <div className="h-2 bg-border rounded-full overflow-hidden">
+        <div className="h-full bg-[linear-gradient(90deg,var(--btn-primary),var(--btn-primary-hover))] rounded-full transition-[width] duration-[400ms]" style={{ width: `${pct}%` }} />
       </div>
-    </div>
-  )
-}
-
-function StatRow({ icon: Icon, label, value, color, bonus, equipBonus = 0, cardBonus = 0 }) {
-  const [open, setOpen] = useState(false)
-  const hasBonus = bonus > 0
-
-  return (
-    <div className="stat-row-wrap">
-      <div
-        className={`stat-row ${hasBonus ? 'stat-row--tappable' : ''}`}
-        onClick={() => hasBonus && setOpen(o => !o)}
-      >
-        <div className="stat-icon" style={{ color }}>
-          <Icon size={16} strokeWidth={1.8} />
-        </div>
-        <span className="stat-label">{label}</span>
-        <span className="stat-value">{value}</span>
-        <span className="stat-bonus">{hasBonus ? `+${bonus}` : ''}</span>
-      </div>
-      {open && hasBonus && (
-        <div className="stat-breakdown">
-          {equipBonus > 0 && <span className="stat-breakdown-item">⚔ Equipo +{equipBonus}</span>}
-          {cardBonus  > 0 && <span className="stat-breakdown-item">✦ Cartas +{cardBonus}</span>}
-        </div>
-      )}
     </div>
   )
 }
 
 function HpBar({ current, max, recovering = false }) {
-  const pct = Math.min(100, Math.round((current / max) * 100))
+  const pct   = Math.min(100, Math.round((current / max) * 100))
   const color = recovering ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
   const lowHp = pct < 20
   return (
-    <div className="hp-bar-wrap">
-      <div className="hp-bar-labels">
-        <span className="hp-label"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
-        <span className="hp-value" style={{ color }}>{current} / {max}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
+        <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
+        <span className="text-text-3 font-medium" style={{ color }}>{current} / {max}</span>
       </div>
-      <div className={`hp-track ${recovering ? 'hp-track--recovering' : ''}`}>
-        <div className="hp-fill" style={{ width: `${pct}%`, background: color }} />
+      <div className="h-2 bg-border rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width,background] duration-[400ms]${recovering ? ' animate-hp-regen-pulse' : ''}`}
+          style={{ width: `${pct}%`, background: color }}
+        />
       </div>
       {lowHp && !recovering && (
-        <p className="hp-low-warning">HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!</p>
+        <p className="text-[12px] text-[#dc2626] font-medium -mt-0.5">HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!</p>
       )}
     </div>
   )
 }
 
 function DurabilityBar({ current, max }) {
-  const pct = max > 0 ? Math.round((current / max) * 100) : 0
+  const pct   = max > 0 ? Math.round((current / max) * 100) : 0
   const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
   return (
-    <div className="inv-dur-track">
-      <div className="inv-dur-fill" style={{ width: `${pct}%`, background: color }} />
+    <div className="w-full h-[3px] bg-border rounded-full overflow-hidden">
+      <div className="h-full rounded-full transition-[width] duration-[300ms]" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  )
+}
+
+/* ─── Common modal panel & overlay ───────────────────────────────────────────── */
+
+function ModalOverlay({ onClick, children }) {
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/55 z-[200] flex overflow-hidden items-end p-0 sm:items-center sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+      onClick={onClick}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function ModalPanel({ onClick, children, sv }) {
+  return (
+    <motion.div
+      className="bg-bg border border-border-2 w-full flex flex-col gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-y-auto overscroll-contain
+        rounded-t-[20px] sm:rounded-[14px]
+        max-w-full sm:max-w-[700px]
+        max-h-[88vh] sm:max-h-[80vh]
+        px-4 pt-5 pb-[max(32px,env(safe-area-inset-bottom))] sm:p-6
+        [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      variants={sv} initial="initial" animate="animate" exit="exit"
+      transition={sheetTransition}
+      onClick={onClick}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function ModalHeader({ icon: Icon, title, subtitle, onClose }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 text-text">
+        <Icon size={18} strokeWidth={1.8} />
+        <span className="text-[16px] font-bold">{title}</span>
+        {subtitle && <span className="text-[13px] font-semibold text-text-3">{subtitle}</span>}
+      </div>
+      <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={18} strokeWidth={2} /></button>
     </div>
   )
 }
@@ -222,19 +242,23 @@ function DurabilityBar({ current, max }) {
 
 function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
   return createPortal(
-    <motion.div className="confirm-overlay" onClick={onCancel}
+    <motion.div
+      className="fixed inset-0 bg-black/45 flex items-center justify-center z-[2000] p-4"
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
+      onClick={onCancel}
     >
-      <motion.div className="confirm-modal" onClick={e => e.stopPropagation()}
+      <motion.div
+        className="bg-surface border border-border rounded-[14px] p-6 w-[min(100%,340px)] shadow-[var(--shadow-lg)] flex flex-col gap-3"
         initial={{ opacity: 0, scale: 0.94, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 6 }}
         transition={sheetTransition}
+        onClick={e => e.stopPropagation()}
       >
-        <p className="confirm-title">{title}</p>
-        {body && <p className="confirm-body">{body}</p>}
-        <div className="confirm-actions">
+        <p className="text-[15px] font-bold text-text">{title}</p>
+        {body && <p className="text-[13px] text-text-2">{body}</p>}
+        <div className="flex gap-2 justify-end mt-1">
           <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
           <button className="btn btn--primary btn--sm" onClick={onConfirm}>{confirmLabel}</button>
         </div>
@@ -244,53 +268,9 @@ function ConfirmModal({ title, body, confirmLabel = 'Confirmar', onConfirm, onCa
   )
 }
 
-/* ─── Equipment slot (panel lateral) ─────────────────────────────────────────── */
+/* ─── Stats list ──────────────────────────────────────────────────────────────── */
 
-function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied }) {
-  const meta = SLOT_META[slot]
-  const Icon = meta.icon
-  const catalog = item?.item_catalog
-  const rarity = catalog ? RARITY_META[catalog.rarity] : null
-  const durPct = item ? Math.round((item.current_durability / catalog.max_durability) * 100) : 100
-
-  const isCritical = item && durPct > 0 && durPct <= 25
-  const isBroken   = item && durPct === 0
-  const needsRepair = item && durPct < 100
-
-  return (
-    <button
-      className={`eq-slot eq-slot--interactive ${item ? 'eq-slot--filled' : ''} ${isCritical ? 'eq-slot--critical' : ''} ${isBroken ? 'eq-slot--broken' : ''}`}
-      onClick={() => onSlotClick(slot)}
-    >
-      <div className="eq-slot-header">
-        <Icon size={13} strokeWidth={1.8} className="eq-slot-icon" />
-        <span className="eq-slot-label">{meta.label}</span>
-        {isBroken   && <span className="eq-slot-status eq-slot-status--broken">Roto</span>}
-        {isCritical && <span className="eq-slot-status eq-slot-status--critical">Crítico</span>}
-      </div>
-      {item ? (
-        <>
-          <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
-          <StatsList catalog={catalog} />
-          <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-          {needsRepair && (
-            <div className="eq-slot-actions">
-              <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={e => { e.stopPropagation(); onRepair(item) }} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
-                <Wrench size={13} strokeWidth={2} />
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="eq-slot-empty">Vacío</p>
-      )}
-    </button>
-  )
-}
-
-/* ─── Bag item (modal) ────────────────────────────────────────────────────────── */
-
-function StatsList({ catalog }) {
+function StatsList({ catalog, hideEmpty }) {
   const stats = [
     { key: 'attack_bonus',       label: 'Atq' },
     { key: 'defense_bonus',      label: 'Def' },
@@ -300,35 +280,94 @@ function StatsList({ catalog }) {
     { key: 'intelligence_bonus', label: 'Int' },
   ].filter(s => catalog[s.key] > 0)
 
-  if (!stats.length) return <span className="inv-no-stats">Sin bonificaciones</span>
+  if (!stats.length) return hideEmpty ? null : <span className="text-[13px] text-text-3">Sin bonificaciones</span>
   return (
-    <div className="inv-stats">
+    <div className="flex flex-wrap gap-1">
       {stats.map(s => (
-        <span key={s.key} className="inv-stat">+{catalog[s.key]} {s.label}</span>
+        <span key={s.key} className="text-[11px] font-semibold text-text-2 bg-surface-2 rounded-[4px] px-[5px] py-px">+{catalog[s.key]} {s.label}</span>
       ))}
     </div>
   )
 }
 
+/* ─── Equipment slot ──────────────────────────────────────────────────────────── */
+
+function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied }) {
+  const meta    = SLOT_META[slot]
+  const Icon    = meta.icon
+  const catalog = item?.item_catalog
+  const rarity  = catalog ? RARITY_META[catalog.rarity] : null
+  const durPct  = item ? Math.round((item.current_durability / catalog.max_durability) * 100) : 100
+
+  const isCritical  = item && durPct > 0 && durPct <= 25
+  const isBroken    = item && durPct === 0
+  const needsRepair = item && durPct < 100
+
+  const borderClass = isBroken
+    ? 'border-error-border bg-error-bg'
+    : isCritical
+      ? 'border-warning-border bg-warning-bg'
+      : item
+        ? 'border-border-2 border-[color-mix(in_srgb,var(--eq-color)_35%,var(--border))]'
+        : 'border-border'
+
+  return (
+    <button
+      className={`bg-surface border rounded-[10px] py-[9px] px-[11px] flex flex-col gap-1 transition-[border-color] duration-150 w-full text-left cursor-pointer hover:border-border-2 ${borderClass}`}
+      onClick={() => onSlotClick(slot)}
+    >
+      <div className="flex items-center gap-1.5">
+        <Icon size={13} strokeWidth={1.8} className="text-text-3" />
+        <span className="text-[13px] font-bold uppercase tracking-[0.07em] text-text-3">{meta.label}</span>
+        {isBroken   && <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.06em] px-[5px] py-px rounded border text-[#dc2626] bg-error-bg border-error-border">Roto</span>}
+        {isCritical && <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.06em] px-[5px] py-px rounded border text-warning-text bg-warning-bg border-warning-border">Crítico</span>}
+      </div>
+      {item ? (
+        <>
+          <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: rarity?.color }}>{catalog.name}</p>
+          <StatsList catalog={catalog} hideEmpty />
+          <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
+          {needsRepair && (
+            <div className="flex items-center justify-between mt-0.5">
+              <button
+                className="btn btn--ghost btn--icon text-warning-text border-warning-border hover:border-warning-text hover:bg-[color-mix(in_srgb,var(--warning-text)_8%,transparent)] hover:text-warning-text"
+                onClick={e => { e.stopPropagation(); onRepair(item) }}
+                disabled={loading || isOccupied}
+                title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}
+              >
+                <Wrench size={13} strokeWidth={2} />
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-[13px] text-text-3 italic">Vacío</p>
+      )}
+    </button>
+  )
+}
+
+/* ─── Bag item ────────────────────────────────────────────────────────────────── */
+
 function BagItem({ item, onDiscard, loading, isOccupied }) {
-  const catalog = item.item_catalog
-  const rarity = RARITY_META[catalog.rarity]
+  const catalog  = item.item_catalog
+  const rarity   = RARITY_META[catalog.rarity]
   const slotMeta = SLOT_META[catalog.slot]
 
   return (
-    <div className="bag-item">
-      <div className="bag-item-header">
-        <span className="bag-item-name" style={{ color: rarity.color }}>{catalog.name}</span>
-        <span className="bag-item-tier">T{catalog.tier}</span>
+    <div className="bg-surface border border-border rounded-[10px] p-3 flex flex-col gap-1.5 transition-[border-color] duration-150 hover:border-border-2">
+      <div className="flex items-start justify-between gap-1.5">
+        <span className="text-[13px] font-bold leading-[1.3] flex-1" style={{ color: rarity.color }}>{catalog.name}</span>
+        <span className="text-[10px] font-bold bg-surface-2 border border-border rounded-[4px] px-[5px] py-px text-text-2 flex-shrink-0">T{catalog.tier}</span>
       </div>
-      <div className="bag-item-meta">
-        <span className="bag-item-rarity" style={{ color: rarity.color }}>{rarity.label}</span>
-        <span className="bag-item-slot">{slotMeta.label}</span>
-        {catalog.is_two_handed && <span className="bag-item-2h">2 manos</span>}
+      <div className="flex gap-1.5 flex-wrap">
+        <span className="text-[11px] font-semibold" style={{ color: rarity.color }}>{rarity.label}</span>
+        <span className="text-[11px] font-semibold text-text-3">{slotMeta.label}</span>
+        {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
       </div>
       <StatsList catalog={catalog} />
       <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-      <div className="bag-item-actions">
+      <div className="flex gap-1.5 mt-0.5">
         <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
           <Trash2 size={13} strokeWidth={2} />
         </button>
@@ -337,52 +376,46 @@ function BagItem({ item, onDiscard, loading, isOccupied }) {
   )
 }
 
+/* ─── Common modal content helpers ───────────────────────────────────────────── */
+
+function LockedNotice() {
+  return <p className="text-[12px] text-[#d97706] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-lg px-3 py-2 text-center">El héroe está en expedición — el equipo no se puede modificar.</p>
+}
+
+function LockedCardsNotice() {
+  return <p className="text-[12px] text-[#d97706] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-lg px-3 py-2 text-center">El héroe está en expedición — las cartas no se pueden modificar.</p>
+}
+
+function InvError({ msg }) {
+  return <p className="text-[13px] text-[#dc2626] bg-error-bg border border-error-border rounded-lg px-[14px] py-[10px]">{msg}</p>
+}
+
+function BagEmpty({ children }) {
+  return <p className="text-[14px] text-text-3 py-10 px-5 text-center bg-surface border border-dashed border-border rounded-xl">{children}</p>
+}
+
 /* ─── Bag modal ───────────────────────────────────────────────────────────────── */
 
 function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupied }) {
   const sv = sheetVariants()
   return createPortal(
-    <motion.div className="bag-modal-overlay" onClick={onClose}
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-    >
-      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
-        variants={sv} initial="initial" animate="animate" exit="exit"
-        transition={sheetTransition}
-      >
-        <div className="bag-modal-header">
-          <div className="bag-modal-title-wrap">
-            <Backpack size={18} strokeWidth={1.8} />
-            <span className="bag-modal-title">Mochila</span>
-            <span className="bag-modal-count">{bag.length} / {bagLimit}</span>
-          </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        {error && <p className="inv-error">{error}</p>}
-
-        {isOccupied && (
-          <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
-        )}
-        {bag.length === 0 ? (
-          <p className="inv-bag-empty">La mochila está vacía. Explora mazmorras para conseguir equipo.</p>
-        ) : (
-          <div className="bag-grid">
-            {bag.map(item => (
-              <BagItem
-                key={item.id}
-                item={item}
-                onDiscard={onDiscard}
-                loading={loading}
-                isOccupied={isOccupied}
-              />
-            ))}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>,
+    <ModalOverlay onClick={onClose}>
+      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
+        <ModalHeader icon={Backpack} title="Mochila" subtitle={`${bag.length} / ${bagLimit}`} onClose={onClose} />
+        {error      && <InvError msg={error} />}
+        {isOccupied && <LockedNotice />}
+        {bag.length === 0
+          ? <BagEmpty>La mochila está vacía. Explora mazmorras para conseguir equipo.</BagEmpty>
+          : (
+            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+              {bag.map(item => (
+                <BagItem key={item.id} item={item} onDiscard={onDiscard} loading={loading} isOccupied={isOccupied} />
+              ))}
+            </div>
+          )
+        }
+      </ModalPanel>
+    </ModalOverlay>,
     document.body
   )
 }
@@ -390,30 +423,30 @@ function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupie
 /* ─── Card constants ──────────────────────────────────────────────────────────── */
 
 const CATEGORY_META = {
-  attack:       { label: 'Ataque',  short: 'Atq', color: '#d97706', icon: Sword    },
-  defense:      { label: 'Defensa', short: 'Def', color: '#475569', icon: Shield   },
-  strength:     { label: 'Fuerza',  short: 'Fue', color: '#dc2626', icon: Dumbbell },
-  agility:      { label: 'Agilidad',short: 'Agi', color: '#0369a1', icon: Wind     },
-  intelligence: { label: 'Int.',    short: 'Int', color: '#7c3aed', icon: Brain    },
+  attack:       { label: 'Ataque',   short: 'Atq', color: '#d97706', icon: Sword    },
+  defense:      { label: 'Defensa',  short: 'Def', color: '#475569', icon: Shield   },
+  strength:     { label: 'Fuerza',   short: 'Fue', color: '#dc2626', icon: Dumbbell },
+  agility:      { label: 'Agilidad', short: 'Agi', color: '#0369a1', icon: Wind     },
+  intelligence: { label: 'Int.',     short: 'Int', color: '#7c3aed', icon: Brain    },
 }
 
 /* ─── Card budget bar ─────────────────────────────────────────────────────────── */
 
 function CardBudgetBar({ category, used, total }) {
-  const meta = CATEGORY_META[category]
-  const Icon = meta.icon
-  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-  const over = used > total
+  const meta  = CATEGORY_META[category]
+  const Icon  = meta.icon
+  const pct   = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  const over  = used > total
   const color = over ? '#dc2626' : meta.color
   return (
-    <div className="card-budget" title={`${meta.label}: ${used}/${total}`}>
-      <div className="card-budget-row">
-        <span className="card-budget-icon" style={{ color }}><Icon size={11} strokeWidth={2.2} /></span>
-        <span className="card-budget-short" style={{ color }}>{meta.short}</span>
-        <div className="card-budget-track">
-          <div className="card-budget-fill" style={{ width: `${pct}%`, background: color }} />
+    <div className="bg-surface-2 border border-border rounded-[7px] px-2 py-[5px]" title={`${meta.label}: ${used}/${total}`}>
+      <div className="flex items-center gap-[5px]">
+        <span className="flex items-center flex-shrink-0" style={{ color }}><Icon size={11} strokeWidth={2.2} /></span>
+        <span className="text-[11px] font-bold tracking-[0.04em] flex-shrink-0 w-[22px]" style={{ color }}>{meta.short}</span>
+        <div className="flex-1 h-[3px] bg-border rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-[width] duration-[300ms]" style={{ width: `${pct}%`, background: color }} />
         </div>
-        <span className={`card-budget-nums ${over ? 'card-budget-nums--over' : ''}`}>{used}/{total}</span>
+        <span className={`text-[11px] font-semibold flex-shrink-0 whitespace-nowrap ${over ? 'text-[#dc2626]' : 'text-text-3'}`}>{used}/{total}</span>
       </div>
     </div>
   )
@@ -422,85 +455,91 @@ function CardBudgetBar({ category, used, total }) {
 /* ─── Equipped card chip ──────────────────────────────────────────────────────── */
 
 function CardChip({ card, onClick, loading, isOccupied }) {
-  const sc = card.skill_cards
+  const sc   = card.skill_cards
   const meta = CATEGORY_META[sc.category]
   return (
     <button
-      className="card-chip card-chip--interactive"
+      className="bg-surface-2 border border-[color-mix(in_srgb,var(--card-color)_25%,var(--border))] rounded-lg px-[10px] py-2 flex flex-col gap-[3px] cursor-pointer transition-[border-color] duration-150 w-full text-left hover:border-text-2"
       style={{ '--card-color': meta.color }}
       onClick={onClick}
       disabled={loading}
       title={isOccupied ? 'El héroe está en expedición' : 'Gestionar carta'}
     >
-      <div className="card-chip-top">
-        <span className="card-chip-name">{sc.name}</span>
-        <span className="card-chip-rank">R{card.rank}</span>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[13px] font-bold text-text leading-[1.2] flex-1">{sc.name}</span>
+        <span className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px flex-shrink-0">R{card.rank}</span>
       </div>
-      <div className="card-chip-meta">
-        <span className="card-chip-category" style={{ color: meta.color }}>{meta.label}</span>
-        <span className="card-chip-cost">{sc.base_cost * card.rank} pts</span>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[13px] font-semibold" style={{ color: meta.color }}>{meta.label}</span>
+        <span className="text-[13px] text-text-3">{sc.base_cost * card.rank} pts</span>
       </div>
     </button>
   )
 }
 
-/* ─── Card collection modal ───────────────────────────────────────────────────── */
+/* ─── Card item ───────────────────────────────────────────────────────────────── */
 
 function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading, isOccupied }) {
-  const sc = card.skill_cards
+  const sc   = card.skill_cards
   const meta = CATEGORY_META[sc.category]
   const Icon = meta.icon
   const effects = [
-    sc.attack_bonus       > 0 && `+${sc.attack_bonus * card.rank} Atq`,
-    sc.defense_bonus      > 0 && `+${sc.defense_bonus * card.rank} Def`,
-    sc.hp_bonus           > 0 && `+${sc.hp_bonus * card.rank} HP`,
-    sc.strength_bonus     > 0 && `+${sc.strength_bonus * card.rank} Fue`,
-    sc.agility_bonus      > 0 && `+${sc.agility_bonus * card.rank} Agi`,
+    sc.attack_bonus       > 0 && `+${sc.attack_bonus       * card.rank} Atq`,
+    sc.defense_bonus      > 0 && `+${sc.defense_bonus      * card.rank} Def`,
+    sc.hp_bonus           > 0 && `+${sc.hp_bonus           * card.rank} HP`,
+    sc.strength_bonus     > 0 && `+${sc.strength_bonus     * card.rank} Fue`,
+    sc.agility_bonus      > 0 && `+${sc.agility_bonus      * card.rank} Agi`,
     sc.intelligence_bonus > 0 && `+${sc.intelligence_bonus * card.rank} Int`,
   ].filter(Boolean)
 
   return (
-    <div className={`card-item ${card.equipped ? 'card-item--equipped' : ''}`} style={{ '--card-color': meta.color }}>
-      <div className="card-item-header">
-        <span className="card-item-name">{sc.name}</span>
-        <div className="card-item-badges">
-          <span className="card-item-rank">R{card.rank}</span>
-          {canFuseWith && <span className="card-item-fuseable"><FlameKindling size={10} strokeWidth={2} /></span>}
+    <div
+      className={`flex flex-col gap-1.5 rounded-[10px] p-3 transition-[border-color] duration-150 border
+        ${card.equipped
+          ? 'border-[color-mix(in_srgb,var(--card-color)_40%,var(--border))] bg-[color-mix(in_srgb,var(--card-color)_3%,var(--surface))]'
+          : 'bg-surface border-border'
+        }`}
+      style={{ '--card-color': meta.color }}
+    >
+      <div className="flex items-start justify-between gap-1.5">
+        <span className="text-[13px] font-bold text-text flex-1 leading-[1.3]">{sc.name}</span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px">R{card.rank}</span>
+          {canFuseWith && <span className="flex items-center text-[#d97706]"><FlameKindling size={10} strokeWidth={2} /></span>}
         </div>
       </div>
-      <div className="card-item-meta">
-        <span className="card-item-category" style={{ color: meta.color }}>
+      <div className="flex items-center justify-between gap-1.5">
+        <span className="flex items-center gap-[3px] text-[13px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>
           <Icon size={10} strokeWidth={2} /> {meta.label}
         </span>
-        <span className="card-item-cost">{sc.base_cost * card.rank} pts · {sc.rarity}</span>
+        <span className="text-[13px] text-text-3 font-semibold">{sc.base_cost * card.rank} pts · {sc.rarity}</span>
       </div>
-      {sc.description && <p className="card-item-desc">{sc.description}</p>}
-      <div className="card-item-effects">
-        {effects.map(e => <span key={e} className="card-item-effect">{e}</span>)}
-      </div>
-      <div className="card-item-actions">
+      {sc.description && <p className="text-[13px] text-text-3 leading-[1.4] italic">{sc.description}</p>}
+      {effects.length > 0 && (
+        <div className="flex flex-wrap gap-[3px]">
+          {effects.map(e => <span key={e} className="text-[13px] font-semibold text-[#16a34a] bg-success-bg border border-success-border rounded-[4px] px-[5px] py-px">{e}</span>)}
+        </div>
+      )}
+      <div className="flex flex-col gap-1 mt-0.5">
         {canFuseWith && !card.equipped && (
           <button className="btn btn--warning btn--sm" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading || isOccupied}>
             <FlameKindling size={12} strokeWidth={2} /> Fusionar · {sc.base_mana_fuse * Math.pow(2, card.rank - 1)} maná
           </button>
         )}
-        {card.equipped ? (
-          <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied}>Desequipar</button>
-        ) : (
-          <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip || isOccupied}>
-            Equipar
-          </button>
-        )}
+        {card.equipped
+          ? <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied}>Desequipar</button>
+          : <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip || isOccupied}>Equipar</button>
+        }
       </div>
     </div>
   )
 }
 
+/* ─── Card modal ──────────────────────────────────────────────────────────────── */
+
 function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose, isOccupied }) {
   const equippedCount = cards.filter(c => c.equipped).length
 
-
-  // Detectar cartas fusionables: misma card_id y mismo rango, sin equipar
   const fuseMap = {}
   cards.filter(c => !c.equipped).forEach(c => {
     const key = `${c.card_id}-${c.rank}`
@@ -508,7 +547,6 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
     fuseMap[key].push(c)
   })
 
-  // Presupuesto usado por categoría (para saber si puede equipar)
   const budgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
   cards.filter(c => c.equipped).forEach(c => {
     budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
@@ -516,56 +554,40 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 
   const sv = sheetVariants()
   return createPortal(
-    <motion.div className="bag-modal-overlay" onClick={onClose}
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-    >
-      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
-        variants={sv} initial="initial" animate="animate" exit="exit"
-        transition={sheetTransition}
-      >
-        <div className="bag-modal-header">
-          <div className="bag-modal-title-wrap">
-            <BookOpen size={18} strokeWidth={1.8} />
-            <span className="bag-modal-title">Colección de Cartas</span>
-            <span className="bag-modal-count">{cards.length} cartas · {equippedCount}/{cardSlots} equipadas</span>
-          </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={18} strokeWidth={2} /></button>
-        </div>
-
-        {error && <p className="inv-error">{error}</p>}
-        {isOccupied && (
-          <p className="inv-locked-notice">El héroe está en expedición — las cartas no se pueden modificar.</p>
-        )}
-
-        {cards.length === 0 ? (
-          <p className="inv-bag-empty">Sin cartas. Explora mazmorras mágicas o antiguas para conseguirlas.</p>
-        ) : (
-          <div className="bag-grid">
-            {cards.map(card => {
-              const key = `${card.card_id}-${card.rank}`
-              const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
-              const cat = card.skill_cards.category
-              const cost = card.skill_cards.base_cost * card.rank
-              const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
-              return (
-                <CardItem
-                  key={card.id}
-                  card={card}
-                  canEquip={wouldFit}
-                  canFuseWith={!card.equipped ? fusePair : null}
-                  onEquip={onEquip}
-                  onUnequip={onUnequip}
-                  onFuse={onFuse}
-                  loading={loading}
-                  isOccupied={isOccupied}
-                />
-              )
-            })}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>,
+    <ModalOverlay onClick={onClose}>
+      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
+        <ModalHeader icon={BookOpen} title="Colección de Cartas" subtitle={`${cards.length} cartas · ${equippedCount}/${cardSlots} equipadas`} onClose={onClose} />
+        {error      && <InvError msg={error} />}
+        {isOccupied && <LockedCardsNotice />}
+        {cards.length === 0
+          ? <BagEmpty>Sin cartas. Explora mazmorras mágicas o antiguas para conseguirlas.</BagEmpty>
+          : (
+            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+              {cards.map(card => {
+                const key      = `${card.card_id}-${card.rank}`
+                const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
+                const cat      = card.skill_cards.category
+                const cost     = card.skill_cards.base_cost * card.rank
+                const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
+                return (
+                  <CardItem
+                    key={card.id}
+                    card={card}
+                    canEquip={wouldFit}
+                    canFuseWith={!card.equipped ? fusePair : null}
+                    onEquip={onEquip}
+                    onUnequip={onUnequip}
+                    onFuse={onFuse}
+                    loading={loading}
+                    isOccupied={isOccupied}
+                  />
+                )
+              })}
+            </div>
+          )
+        }
+      </ModalPanel>
+    </ModalOverlay>,
     document.body
   )
 }
@@ -575,97 +597,83 @@ function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading
 function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onRepair, loading, isOccupied, onClose }) {
   const meta = SLOT_META[slot]
   const Icon = meta.icon
-  const sv = sheetVariants()
-
+  const sv   = sheetVariants()
   const compatible = bagItems.filter(i => i.item_catalog.slot === slot)
 
   return createPortal(
-    <motion.div className="bag-modal-overlay" onClick={onClose}
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-    >
-      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
-        variants={sv} initial="initial" animate="animate" exit="exit"
-        transition={sheetTransition}
-      >
-        <div className="bag-modal-header">
-          <div className="bag-modal-title-wrap">
-            <Icon size={18} strokeWidth={1.8} />
-            <span className="bag-modal-title">{meta.label}</span>
-          </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        {isOccupied && (
-          <p className="inv-locked-notice">El héroe está en expedición — el equipo no se puede modificar.</p>
-        )}
+    <ModalOverlay onClick={onClose}>
+      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
+        <ModalHeader icon={Icon} title={meta.label} onClose={onClose} />
+        {isOccupied && <LockedNotice />}
 
         {equippedItem && (() => {
-          const catalog = equippedItem.item_catalog
-          const rarity = RARITY_META[catalog.rarity]
-          const durPct = Math.round((equippedItem.current_durability / catalog.max_durability) * 100)
+          const catalog    = equippedItem.item_catalog
+          const rarity     = RARITY_META[catalog.rarity]
+          const durPct     = Math.round((equippedItem.current_durability / catalog.max_durability) * 100)
           const needsRepair = durPct < 100
           return (
-            <div className="slot-picker-current">
-              <div className="slot-picker-current-header">
-                <div className="slot-picker-current-info">
-                  <p className="eq-item-name" style={{ color: rarity?.color }}>{catalog.name}</p>
+            <div className="bg-surface border border-border rounded-[10px] p-3 -mb-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: rarity?.color }}>{catalog.name}</p>
                   <StatsList catalog={catalog} />
                   <DurabilityBar current={equippedItem.current_durability} max={catalog.max_durability} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
                   {needsRepair && (
-                    <button className="btn btn--ghost btn--icon eq-repair-btn" onClick={() => onRepair(equippedItem)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}>
+                    <button
+                      className="btn btn--ghost btn--icon text-warning-text border-warning-border hover:border-warning-text hover:bg-[color-mix(in_srgb,var(--warning-text)_8%,transparent)] hover:text-warning-text"
+                      onClick={() => onRepair(equippedItem)}
+                      disabled={loading || isOccupied}
+                      title={isOccupied ? 'El héroe está en expedición' : 'Reparar'}
+                    >
                       <Wrench size={13} strokeWidth={2} />
                     </button>
                   )}
-                  <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(equippedItem.id)} disabled={loading || isOccupied}>
-                    Desequipar
-                  </button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(equippedItem.id)} disabled={loading || isOccupied}>Desequipar</button>
                 </div>
               </div>
             </div>
           )
         })()}
 
-        <p className="slot-picker-section-label">Disponible en mochila</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-text-3">Disponible en mochila</p>
 
-        {compatible.length === 0 ? (
-          <p className="inv-bag-empty">No hay ítems compatibles en la mochila.</p>
-        ) : (
-          <div className="slot-picker-list">
-            {compatible.map(item => {
-              const catalog = item.item_catalog
-              const rarity = RARITY_META[catalog.rarity]
-              const durPct = Math.round((item.current_durability / catalog.max_durability) * 100)
-              const disabled = loading || durPct === 0 || isOccupied
-              return (
-                <button
-                  key={item.id}
-                  className={`slot-picker-item${disabled ? ' slot-picker-item--disabled' : ''}`}
-                  onClick={() => onEquip(item.id)}
-                  disabled={disabled}
-                  title={isOccupied ? 'El héroe está en expedición' : durPct === 0 ? 'Repara el ítem antes de equiparlo' : ''}
-                >
-                  <div className="slot-picker-item-header">
-                    <span className="bag-item-name" style={{ color: rarity.color }}>{catalog.name}</span>
-                    <span className="bag-item-tier">T{catalog.tier}</span>
-                  </div>
-                  <div className="bag-item-meta">
-                    <span className="bag-item-rarity" style={{ color: rarity.color }}>{rarity.label}</span>
-                    {catalog.is_two_handed && <span className="bag-item-2h">2 manos</span>}
-                  </div>
-                  <StatsList catalog={catalog} />
-                  <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>,
+        {compatible.length === 0
+          ? <BagEmpty>No hay ítems compatibles en la mochila.</BagEmpty>
+          : (
+            <div className="flex flex-col gap-2">
+              {compatible.map(item => {
+                const catalog  = item.item_catalog
+                const rarity   = RARITY_META[catalog.rarity]
+                const durPct   = Math.round((item.current_durability / catalog.max_durability) * 100)
+                const disabled = loading || durPct === 0 || isOccupied
+                return (
+                  <button
+                    key={item.id}
+                    className={`block w-full text-left bg-surface border border-border rounded-[10px] p-3 transition-[border-color,background] duration-150 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-[var(--blue-500)] hover:bg-[color-mix(in_srgb,var(--blue-500)_5%,var(--surface))]'}`}
+                    onClick={() => onEquip(item.id)}
+                    disabled={disabled}
+                    title={isOccupied ? 'El héroe está en expedición' : durPct === 0 ? 'Repara el ítem antes de equiparlo' : ''}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[13px] font-bold leading-[1.3]" style={{ color: rarity.color }}>{catalog.name}</span>
+                      <span className="text-[10px] font-bold bg-surface-2 border border-border rounded-[4px] px-[5px] py-px text-text-2 flex-shrink-0">T{catalog.tier}</span>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap mb-1">
+                      <span className="text-[11px] font-semibold" style={{ color: rarity.color }}>{rarity.label}</span>
+                      {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+                    </div>
+                    <StatsList catalog={catalog} />
+                    <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
+                  </button>
+                )
+              })}
+            </div>
+          )
+        }
+      </ModalPanel>
+    </ModalOverlay>,
     document.body
   )
 }
@@ -687,91 +695,75 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
     budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
 
-  const sv = sheetVariants()
+  const sv         = sheetVariants()
   const unequipped = cards.filter(c => !c.equipped)
 
   return createPortal(
-    <motion.div className="bag-modal-overlay" onClick={onClose}
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-    >
-      <motion.div className="bag-modal-panel" onClick={e => e.stopPropagation()}
-        variants={sv} initial="initial" animate="animate" exit="exit"
-        transition={sheetTransition}
-      >
-        <div className="bag-modal-header">
-          <div className="bag-modal-title-wrap">
-            <BookOpen size={18} strokeWidth={1.8} />
-            <span className="bag-modal-title">Cartas de habilidad</span>
-          </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        {error && <p className="inv-error">{error}</p>}
-        {isOccupied && (
-          <p className="inv-locked-notice">El héroe está en expedición — las cartas no se pueden modificar.</p>
-        )}
+    <ModalOverlay onClick={onClose}>
+      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
+        <ModalHeader icon={BookOpen} title="Cartas de habilidad" onClose={onClose} />
+        {error      && <InvError msg={error} />}
+        {isOccupied && <LockedCardsNotice />}
 
         {currentCard && (() => {
-          const sc = currentCard.skill_cards
+          const sc   = currentCard.skill_cards
           const meta = CATEGORY_META[sc.category]
           return (
-            <div className="slot-picker-current">
-              <div className="slot-picker-current-header">
-                <div className="slot-picker-current-info">
-                  <p className="card-item-name" style={{ color: meta.color }}>{sc.name}</p>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                    <span className="card-item-rank" style={{ '--card-color': meta.color }}>R{currentCard.rank}</span>
-                    <span className="card-item-cost">{sc.base_cost * currentCard.rank} pts</span>
+            <div className="bg-surface border border-border rounded-[10px] p-3 -mb-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: meta.color }}>{sc.name}</p>
+                  <div className="flex gap-1.5 mt-1">
+                    <span
+                      className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px"
+                      style={{ '--card-color': meta.color }}
+                    >R{currentCard.rank}</span>
+                    <span className="text-[13px] text-text-3 font-semibold">{sc.base_cost * currentCard.rank} pts</span>
                   </div>
                 </div>
-                <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(currentCard.id)} disabled={loading || isOccupied}>
-                  Desequipar
-                </button>
+                <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(currentCard.id)} disabled={loading || isOccupied}>Desequipar</button>
               </div>
             </div>
           )
         })()}
 
-        <p className="slot-picker-section-label">Disponible</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-text-3">Disponible</p>
 
-        {unequipped.length === 0 ? (
-          <p className="inv-bag-empty">No hay cartas disponibles para equipar.</p>
-        ) : (
-          <div className="bag-grid">
-            {unequipped.map(card => {
-              const key = `${card.card_id}-${card.rank}`
-              const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
-              const cat = card.skill_cards.category
-              const cost = card.skill_cards.base_cost * card.rank
-              const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
-              return (
-                <CardItem
-                  key={card.id}
-                  card={card}
-                  canEquip={wouldFit}
-                  canFuseWith={fusePair ?? null}
-                  onEquip={onEquip}
-                  onUnequip={onUnequip}
-                  onFuse={onFuse}
-                  loading={loading}
-                  isOccupied={isOccupied}
-                />
-              )
-            })}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>,
+        {unequipped.length === 0
+          ? <BagEmpty>No hay cartas disponibles para equipar.</BagEmpty>
+          : (
+            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+              {unequipped.map(card => {
+                const key      = `${card.card_id}-${card.rank}`
+                const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
+                const cat      = card.skill_cards.category
+                const cost     = card.skill_cards.base_cost * card.rank
+                const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
+                return (
+                  <CardItem
+                    key={card.id}
+                    card={card}
+                    canEquip={wouldFit}
+                    canFuseWith={fusePair ?? null}
+                    onEquip={onEquip}
+                    onUnequip={onUnequip}
+                    onFuse={onFuse}
+                    loading={loading}
+                    isOccupied={isOccupied}
+                  />
+                )
+              })}
+            </div>
+          )
+        }
+      </ModalPanel>
+    </ModalOverlay>,
     document.body
   )
 }
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
-// HP interpolation — 100%/hr idle (full recovery from 0 in ~1h)
 function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
   if (!hero) return 0
   const maxHp      = effectiveMaxHp ?? hero.max_hp
@@ -787,19 +779,18 @@ function Hero() {
   const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
-  const { items, loading: invLoading } = useInventory(hero?.id)
+  const { items, loading: invLoading  } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
   const { buildings } = useBuildings(userId)
-  const [bagOpen, setBagOpen] = useState(false)
-  const [slotPicker, setSlotPicker] = useState(null)
+  const [bagOpen,       setBagOpen]       = useState(false)
+  const [slotPicker,    setSlotPicker]    = useState(null)
   const [cardPickerOpen, setCardPickerOpen] = useState(false)
   const [cardModalOpen, setCardModalOpen] = useState(false)
-  const [confirmModal, setConfirmModal] = useState(null)
+  const [confirmModal,  setConfirmModal]  = useState(null)
   const [workshopLevel, setWorkshopLevel] = useState(1)
-  const [libraryLevel, setLibraryLevel] = useState(1)
+  const [libraryLevel,  setLibraryLevel]  = useState(1)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
-  // Mutación para items (equip/unequip/repair/dismantle)
   const itemMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ optimisticUpdate }) => {
@@ -811,9 +802,7 @@ function Hero() {
       return { previous }
     },
     onError: (err, vars, context) => {
-      if (context?.previous !== undefined) {
-        queryClient.setQueryData(queryKeys.inventory(hero?.id), context.previous)
-      }
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(hero?.id), context.previous)
       toast.error(err.message)
     },
     onSettled: () => {
@@ -822,7 +811,6 @@ function Hero() {
     },
   })
 
-  // Mutación para cartas (equip/unequip/fuse)
   const cardMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ optimisticUpdate }) => {
@@ -834,9 +822,7 @@ function Hero() {
       return { previous }
     },
     onError: (err, vars, context) => {
-      if (context?.previous !== undefined) {
-        queryClient.setQueryData(queryKeys.heroCards(hero?.id), context.previous)
-      }
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(hero?.id), context.previous)
       toast.error(err.message)
     },
     onSettled: () => {
@@ -846,13 +832,11 @@ function Hero() {
 
   const mutationPending = itemMutation.isPending || cardMutation.isPending
 
-  // Tick cada 30s para actualizar HP interpolado
   useEffect(() => {
     const id = setInterval(forceUpdate, 30000)
     return () => clearInterval(id)
   }, [])
 
-  // Derivar workshop/library level de la caché de buildings
   useEffect(() => {
     if (!buildings) return
     buildings.forEach(b => {
@@ -863,13 +847,13 @@ function Hero() {
 
   if (heroLoading || invLoading || cardsLoading) return null
   if (!hero) return (
-    <div className="hero-loading">
+    <div className="text-text-3 text-[15px] p-10 text-center">
       {heroId ? 'No se encontró el héroe.' : 'Recluta tu primer héroe para comenzar.'}
     </div>
   )
 
-  const cls = hero.classes
-  const status = STATUS_META[hero.status] ?? STATUS_META.idle
+  const cls      = hero.classes
+  const status   = STATUS_META[hero.status] ?? STATUS_META.idle
   const isOccupied = hero.status === 'exploring'
 
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
@@ -877,7 +861,6 @@ function Hero() {
     return acc
   }, {})
 
-  // Bonos del equipo equipado (durabilidad > 0)
   const equipBonuses = (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
     .reduce((acc, i) => {
@@ -891,7 +874,6 @@ function Hero() {
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
-  // Bonos de cartas equipadas (efectos × rango)
   const cardBonuses = (cards ?? [])
     .filter(c => c.equipped)
     .reduce((acc, c) => {
@@ -924,23 +906,20 @@ function Hero() {
     intelligence: hero.intelligence + bonuses.intelligence,
   }
 
-  // Presupuesto de cartas por categoría (usa stats BASE del héroe, no efectivas)
   const cardBudgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
   ;(cards ?? []).filter(c => c.equipped).forEach(c => {
     cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
   })
-  const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
+  const cardSlotCount = 1 + libraryLevel * 2
 
-  const hpNow = interpolateHpClient(hero, Date.now(), effective.max_hp)
-
-  const bag = items?.filter(i => !i.equipped_slot) ?? []
+  const hpNow    = interpolateHpClient(hero, Date.now(), effective.max_hp)
+  const bag      = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
 
   function handleEquip(itemId) {
     const item = items?.find(i => i.id === itemId)
     if (!item) return
     const targetSlot = item.item_catalog.slot
-    
     itemMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: true },
@@ -954,7 +933,6 @@ function Hero() {
   }
 
   function handleUnequip(itemId) {
-    
     itemMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: false },
@@ -971,7 +949,6 @@ function Hero() {
       confirmLabel: 'Reparar',
       onConfirm: () => {
         setConfirmModal(null)
-        
         itemMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
       },
     })
@@ -985,7 +962,6 @@ function Hero() {
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirmModal(null)
-        
         itemMutation.mutate({
           endpoint: '/api/item-dismantle',
           body: { itemId: item.id },
@@ -996,7 +972,6 @@ function Hero() {
   }
 
   function handleCardEquip(cardId) {
-    
     cardMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: true },
@@ -1005,7 +980,6 @@ function Hero() {
   }
 
   function handleCardUnequip(cardId) {
-    
     cardMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: false },
@@ -1014,153 +988,147 @@ function Hero() {
   }
 
   function handleCardFuse(id1, id2) {
-    
     cardMutation.mutate({
       endpoint: '/api/card-fuse',
       body: { cardId1: id1, cardId2: id2 },
-      // Las dos cartas se consumen; el resultado nuevo llega con el refetch (onSettled)
       optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
     })
   }
 
-
   return (
-    <motion.div key="hero-content" className="hero-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
-      <div className="hero-layout">
+    <motion.div key="hero-content" className="pt-[4px] overflow-x-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-start">
 
-        {/* Columna izquierda: ficha + cartas */}
-        <div className="hero-left-col">
+        {/* Left column: hero card + cards */}
+        <div className="flex flex-col gap-4">
 
-        <div className="hero-card">
-          <div className="hero-card-header">
-            <div className="hero-avatar">
-              <Sword size={32} strokeWidth={1.5} color={cls?.color} />
-            </div>
-            <div className="hero-identity">
-              <h3 className="hero-name">{hero.name}</h3>
-              <div className="hero-badges">
-                <span className="hero-class-badge" style={{ '--cls-color': cls?.color }}>
-                  {cls?.name}
-                </span>
-                <span className="hero-status-badge" style={{ color: status.color }}>
-                  <CircleDot size={10} strokeWidth={2.5} />
-                  {status.label}
-                </span>
+          {/* Hero card */}
+          <div className="bg-surface border border-border rounded-xl p-4 md:p-6 shadow-[var(--shadow-sm)] flex flex-col gap-3.5 md:gap-5">
+            {/* Header */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-xl bg-surface-2 border border-border flex items-center justify-center flex-shrink-0">
+                <Sword size={32} strokeWidth={1.5} color={cls?.color} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="font-hero text-[20px] md:text-[24px] font-bold tracking-[0.02em] text-text leading-none">{hero.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-[10px] font-bold tracking-[0.06em] uppercase px-2 py-0.5 rounded-[6px]"
+                    style={{
+                      color: cls?.color ?? 'var(--text-2)',
+                      background: `color-mix(in srgb, ${cls?.color ?? 'transparent'} 12%, var(--surface))`,
+                      border: `1px solid color-mix(in srgb, ${cls?.color ?? 'transparent'} 28%, var(--border))`,
+                    }}
+                  >
+                    {cls?.name}
+                  </span>
+                  <span className="flex items-center gap-1 text-[13px] font-medium text-text-3" style={{ color: status.color }}>
+                    <CircleDot size={10} strokeWidth={2.5} />
+                    {status.label}
+                  </span>
+                </div>
               </div>
             </div>
+
+            <XpBar level={hero.level} experience={hero.experience} />
+            <HpBar current={hpNow ?? hero.current_hp} max={effective.max_hp} recovering={hero.status === 'idle'} />
+            <StatBars
+              effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
+              base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
+            />
           </div>
 
-          <XpBar level={hero.level} experience={hero.experience} />
-          <HpBar
-            current={hpNow ?? hero.current_hp}
-            max={effective.max_hp}
-            recovering={hero.status === 'idle'}
-          />
+          {/* Cards section */}
+          <div className="flex flex-col gap-3 p-4 md:p-5 bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)]">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
+                <BookOpen size={14} strokeWidth={2} />
+                Cartas de Habilidad
+              </p>
+              <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
+                <Zap size={13} strokeWidth={2} />
+                Colección {(cards ?? []).length}
+              </button>
+            </div>
 
-          <StatBars
-            effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
-            base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
-          />
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-2 md:gap-1.5">
+              {['attack', 'defense', 'strength', 'agility', 'intelligence'].map(cat => (
+                <CardBudgetBar key={cat} category={cat} used={cardBudgetUsed[cat]} total={hero[cat]} />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
+              {Array.from({ length: cardSlotCount }).map((_, idx) => {
+                const card = (cards ?? []).filter(c => c.equipped)[idx] ?? null
+                return card ? (
+                  <CardChip
+                    key={card.id}
+                    card={card}
+                    onClick={() => setCardPickerOpen({ currentCard: card })}
+                    loading={mutationPending}
+                    isOccupied={isOccupied}
+                  />
+                ) : (
+                  <button
+                    key={`empty-card-${idx}`}
+                    className="flex items-center justify-center gap-1.5 p-[10px] border border-dashed border-border-2 rounded-[10px] bg-transparent text-text-3 text-[13px] font-medium cursor-pointer w-full transition-[border-color,color] duration-150 hover:border-text-2 hover:text-text"
+                    onClick={() => setCardPickerOpen({ currentCard: null })}
+                  >
+                    <Plus size={13} strokeWidth={2} />
+                    Equipar carta
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
         </div>
 
-        {/* Panel de cartas */}
-        <div className="hero-cards-section">
-          <div className="hero-cards-header">
-            <p className="hero-cards-title">
-              <BookOpen size={14} strokeWidth={2} />
-              Cartas de Habilidad
-            </p>
-            <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
-              <Zap size={13} strokeWidth={2} />
-              Colección {(cards ?? []).length}
-            </button>
-          </div>
-
-          <div className="card-budgets">
-            {['attack', 'defense', 'strength', 'agility', 'intelligence'].map(cat => (
-              <CardBudgetBar
-                key={cat}
-                category={cat}
-                used={cardBudgetUsed[cat]}
-                total={hero[cat]}
-              />
-            ))}
-          </div>
-
-          <div className="equipped-cards-grid">
-            {Array.from({ length: cardSlotCount }).map((_, idx) => {
-              const card = (cards ?? []).filter(c => c.equipped)[idx] ?? null
-              return card ? (
-                <CardChip
-                  key={card.id}
-                  card={card}
-                  onClick={() => setCardPickerOpen({ currentCard: card })}
-                  loading={mutationPending}
-                  isOccupied={isOccupied}
-                />
-              ) : (
-                <button
-                  key={`empty-card-${idx}`}
-                  className="card-slot-add-btn"
-                  onClick={() => setCardPickerOpen({ currentCard: null })}
-                >
-                  <Plus size={13} strokeWidth={2} />
-                  Equipar carta
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        </div>{/* /hero-left-col */}
-
-        {/* Panel de equipo */}
-        <div className="hero-equipment-panel">
-          <div className="hero-eq-header">
-            <p className="hero-eq-title">Equipo</p>
+        {/* Right column: equipment */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
             <button className="btn btn--ghost btn--sm" onClick={() => setBagOpen(true)}>
               <Backpack size={13} strokeWidth={2} />
               Mochila {bag.length}/{bagLimit}
             </button>
           </div>
 
-
-
           {/* Armadura */}
-          <div className="eq-group eq-group--armor">
-            <div className="eq-group-header">
-              <Shield size={11} strokeWidth={2.5} className="eq-group-icon" />
-              <span className="eq-group-name">Armadura</span>
+          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#3b82f6', borderLeftColor: '#3b82f6', background: 'color-mix(in srgb, #3b82f6 4%, transparent)' }}>
+            <div className="flex items-center gap-[5px]">
+              <Shield size={11} strokeWidth={2.5} style={{ color: '#3b82f6', opacity: 0.85 }} />
+              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#3b82f6' }}>Armadura</span>
             </div>
-            <div className="eq-slots-grid">
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
               {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
 
           {/* Armas */}
-          <div className="eq-group eq-group--weapons">
-            <div className="eq-group-header">
-              <Sword size={11} strokeWidth={2.5} className="eq-group-icon" />
-              <span className="eq-group-name">Armas</span>
+          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#d97706', borderLeftColor: '#d97706', background: 'color-mix(in srgb, #d97706 4%, transparent)' }}>
+            <div className="flex items-center gap-[5px]">
+              <Sword size={11} strokeWidth={2.5} style={{ color: '#d97706', opacity: 0.85 }} />
+              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#d97706' }}>Armas</span>
             </div>
-            <div className="eq-slots-grid eq-slots-grid--2">
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
               {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
 
           {/* Complemento */}
-          <div className="eq-group eq-group--accessory">
-            <div className="eq-group-header">
-              <Gem size={11} strokeWidth={2.5} className="eq-group-icon" />
-              <span className="eq-group-name">Complemento</span>
+          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#7c3aed', borderLeftColor: '#7c3aed', background: 'color-mix(in srgb, #7c3aed 4%, transparent)' }}>
+            <div className="flex items-center gap-[5px]">
+              <Gem size={11} strokeWidth={2.5} style={{ color: '#7c3aed', opacity: 0.85 }} />
+              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#7c3aed' }}>Complemento</span>
             </div>
-            <div className="eq-slots-grid eq-slots-grid--2">
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
               {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={(slot) => setSlotPicker(slot)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
+                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
               ))}
             </div>
           </div>
@@ -1195,7 +1163,6 @@ function Hero() {
             onUnequip={(id) => { handleCardUnequip(id); setCardPickerOpen(false) }}
             onFuse={handleCardFuse}
             loading={mutationPending}
-
             isOccupied={isOccupied}
             onClose={() => setCardPickerOpen(false)}
           />
@@ -1209,7 +1176,6 @@ function Hero() {
             bagLimit={bagLimit}
             onDiscard={handleDiscard}
             loading={mutationPending}
-
             onClose={() => setBagOpen(false)}
             isOccupied={isOccupied}
           />
@@ -1226,7 +1192,6 @@ function Hero() {
             onUnequip={handleCardUnequip}
             onFuse={handleCardFuse}
             loading={mutationPending}
-
             onClose={() => setCardModalOpen(false)}
             isOccupied={isOccupied}
           />
