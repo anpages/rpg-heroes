@@ -146,7 +146,7 @@ export default function Inicio() {
         )}
       </div>
 
-      <div className={`grid gap-3 ${heroes.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} grid-cols-1`}>
+      <div className="flex flex-col gap-3">
         {heroes.map((hero, i) => (
           <HeroCard key={hero.id} hero={hero} now={now} index={i} onClick={() => goToHero(hero.id)} />
         ))}
