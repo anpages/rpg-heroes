@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
 
@@ -20,7 +20,6 @@ function interpolate(resources) {
 }
 
 export function useResources(userId) {
-  const queryClient = useQueryClient()
   const [resources, setResources] = useState(null)
   const baseRef = useRef(null)
   const key = queryKeys.resources(userId)
@@ -48,22 +47,6 @@ export function useResources(userId) {
       setResources(interpolate(baseData))
     }
   }, [baseData])
-
-  // Supabase Realtime → inyecta directo en la caché → dispara el effect de arriba
-  useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel(`resources:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'resources', filter: `player_id=eq.${userId}` },
-        ({ new: newData }) => {
-          queryClient.setQueryData(key, newData)
-        }
-      )
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [userId]) // eslint-disable-line
 
   // Ticker de 1s: interpolación client-side desde el base en ref
   useEffect(() => {
