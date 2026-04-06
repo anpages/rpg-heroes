@@ -26,14 +26,26 @@ const overlayVariants = {
   exit:    { opacity: 0 },
 }
 
+const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
+const EASE_IN  = [0.55, 0,    0.75, 0.06]
+
 function sheetVariants() {
-  return isMobile()
-    ? { initial: { y: '100vh' }, animate: { y: 0 }, exit: { y: '100vh' } }
-    : { initial: { opacity: 0, scale: 0.96, y: 8 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.97, y: 4 } }
+  if (isMobile()) {
+    return {
+      initial: { y: '100vh' },
+      animate: { y: 0,       transition: { type: 'tween', ease: EASE_OUT, duration: 0.38 } },
+      exit:    { y: '100vh', transition: { type: 'tween', ease: EASE_IN,  duration: 0.26 } },
+    }
+  }
+  return {
+    initial: { opacity: 0, scale: 0.97, y: 10 },
+    animate: { opacity: 1, scale: 1,    y: 0,  transition: { type: 'spring', stiffness: 260, damping: 26 } },
+    exit:    { opacity: 0, scale: 0.98, y: 4,  transition: { type: 'tween', ease: EASE_IN, duration: 0.18 } },
+  }
 }
 
-const sheetTransition  = { type: 'spring', stiffness: 340, damping: 30 }
-const overlayTransition = { duration: 0.18 }
+const sheetTransition   = { type: 'spring', stiffness: 260, damping: 26 }
+const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 

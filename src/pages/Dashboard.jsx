@@ -522,7 +522,7 @@ function Dashboard({ session }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
               onClick={() => setMissionsOpen(false)}
             />
             <motion.div
@@ -532,9 +532,14 @@ function Dashboard({ session }) {
                   : 'top-0 right-0 bottom-0 w-[420px] max-w-[100vw] border-l shadow-[-4px_0_24px_rgba(0,0,0,0.12)]'
                 }`}
               initial={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
-              animate={isMobileDrawer ? { y: 0 } : { x: 0 }}
-              exit={isMobileDrawer ? { y: '100%' } : { x: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              animate={isMobileDrawer
+                ? { y: 0,       transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.38 } }
+                : { x: 0,       transition: { type: 'tween', ease: [0.25, 0.46, 0.45, 0.94], duration: 0.32 } }
+              }
+              exit={isMobileDrawer
+                ? { y: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.26 } }
+                : { x: '100%', transition: { type: 'tween', ease: [0.55, 0, 0.75, 0.06], duration: 0.24 } }
+              }
             >
               <button className="btn btn--ghost btn--icon absolute top-4 right-4 z-[1]" onClick={() => setMissionsOpen(false)}>
                 <X size={18} strokeWidth={2} />
