@@ -198,7 +198,7 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'base',    label: 'Base',    icon: Castle,      accent: '#d97706' },
+  { id: 'base',    label: 'Base',    icon: Castle      },
   { id: 'heroes',  label: 'Héroes',  icon: Sword       },
   { id: 'mundo',   label: 'Mundo',   icon: Globe       },
   { id: 'tienda',  label: 'Tienda',  icon: ShoppingBag },
