@@ -41,7 +41,7 @@ function App() {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [setUserId])
 
   useEffect(() => {
     if (!session) return

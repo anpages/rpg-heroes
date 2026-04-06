@@ -1,7 +1,14 @@
-import { useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 
 const EMBER_COUNT = 22
+
+const EMBERS = Array.from({ length: EMBER_COUNT }, () => ({
+  left:              `${4 + Math.random() * 92}%`,
+  width:             `${2 + Math.random() * 3}px`,
+  height:            `${2 + Math.random() * 4}px`,
+  animationDuration: `${5 + Math.random() * 7}s`,
+  animationDelay:    `${Math.random() * 8}s`,
+}))
 
 function GoogleIcon() {
   return (
@@ -15,16 +22,6 @@ function GoogleIcon() {
 }
 
 function LoginPage() {
-  const embers = useMemo(() =>
-    Array.from({ length: EMBER_COUNT }, () => ({
-      left:              `${4 + Math.random() * 92}%`,
-      width:             `${2 + Math.random() * 3}px`,
-      height:            `${2 + Math.random() * 4}px`,
-      animationDuration: `${5 + Math.random() * 7}s`,
-      animationDelay:    `${Math.random() * 8}s`,
-    })),
-  [])
-
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -102,7 +99,7 @@ function LoginPage() {
 
       {/* Embers (solo decorativos, ocultos en light mode) */}
       <div className="hidden" aria-hidden="true">
-        {embers.map((style, i) => (
+        {EMBERS.map((style, i) => (
           <span key={i} className="ember" style={style} />
         ))}
       </div>

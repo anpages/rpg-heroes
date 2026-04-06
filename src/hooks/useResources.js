@@ -44,6 +44,7 @@ export function useResources(userId) {
   useEffect(() => {
     if (baseData) {
       baseRef.current = baseData
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResources(interpolate(baseData))
     }
   }, [baseData])

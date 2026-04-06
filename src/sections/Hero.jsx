@@ -15,6 +15,7 @@ import {
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
   BookOpen, Zap, FlameKindling, Wrench, Plus,
 } from 'lucide-react'
+import { interpolateHp } from '../lib/hpInterpolation'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
@@ -317,9 +318,12 @@ function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied 
         : 'border-border'
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       className={`bg-surface border rounded-[10px] py-[9px] px-[11px] flex flex-col gap-1 transition-[border-color] duration-150 w-full text-left cursor-pointer hover:border-border-2 ${borderClass}`}
       onClick={() => onSlotClick(slot)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSlotClick(slot) } }}
     >
       <div className="flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.8} className="text-text-3" />
@@ -348,7 +352,7 @@ function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied 
       ) : (
         <p className="text-[13px] text-text-3 italic">Vacío</p>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -769,15 +773,6 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
-function interpolateHpClient(hero, nowMs, effectiveMaxHp) {
-  if (!hero) return 0
-  const maxHp      = effectiveMaxHp ?? hero.max_hp
-  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
-  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
-  const regenPerMin = hero.status === 'exploring' ? 0 : (100 / 60)
-  const regen      = elapsedMin * regenPerMin * hero.max_hp / 100
-  return Math.min(maxHp, Math.floor(hero.current_hp + regen))
-}
 
 function Hero() {
   const userId      = useAppStore(s => s.userId)
@@ -917,7 +912,8 @@ function Hero() {
   })
   const cardSlotCount = 1 + libraryLevel * 2
 
-  const hpNow    = interpolateHpClient(hero, Date.now(), effective.max_hp)
+  // eslint-disable-next-line react-hooks/purity
+  const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
 

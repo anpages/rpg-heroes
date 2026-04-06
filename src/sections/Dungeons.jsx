@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useReducer } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
@@ -10,6 +10,7 @@ import { useBuildings } from '../hooks/useBuildings'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { interpolateHp } from '../lib/hpInterpolation'
 import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -59,7 +60,7 @@ function ExpeditionProgress({ expedition, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [canCollect, setCanCollect] = useState(false)
   const [collecting, setCollecting] = useState(false)
-  const mountedRef = useRef(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   const totalSeconds = Math.round((new Date(expedition.ends_at) - new Date(expedition.started_at)) / 1000)
 
@@ -70,7 +71,7 @@ function ExpeditionProgress({ expedition, onCollect }) {
       setCanCollect(remaining === 0 && expedition.id !== '__optimistic__')
     }
     tick()
-    requestAnimationFrame(() => { mountedRef.current = true })
+    requestAnimationFrame(() => setIsMounted(true))
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [expedition.ends_at, expedition.id])
@@ -95,7 +96,7 @@ function ExpeditionProgress({ expedition, onCollect }) {
         <div className="flex-1 h-1.5 bg-[var(--blue-100)] rounded-full overflow-hidden">
           <div
             className="h-full bg-[linear-gradient(90deg,var(--blue-400),var(--blue-600))] rounded-full"
-            style={{ width: `${pct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
+            style={{ width: `${pct}%`, transition: isMounted ? 'width 1s linear' : 'none' }}
           />
         </div>
         <span className="text-[12px] font-semibold text-[var(--blue-600)] w-[30px] text-right flex-shrink-0">{pct}%</span>
@@ -218,14 +219,6 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   )
 }
 
-function interpolateHp(hero, nowMs) {
-  if (!hero) return 0
-  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
-  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
-  const regen      = hero.status === 'exploring' ? 0 : elapsedMin * (100 / 60) * hero.max_hp / 100
-  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
-}
-
 function Dungeons() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
@@ -282,6 +275,7 @@ function Dungeons() {
   }
 
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
+  // eslint-disable-next-line react-hooks/purity
   const heroHpNow  = interpolateHp(hero, Date.now())
 
   const agilityReduction = hero ? Math.min(0.25, (hero.agility ?? 0) * 0.003) : 0

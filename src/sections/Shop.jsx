@@ -141,7 +141,7 @@ export default function Shop() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
   const queryClient = useQueryClient()
-  const shopKey     = ['shop', heroId]
+  const shopKey     = queryKeys.shop(heroId)
   const { hero }    = useHero(heroId)
   const { resources } = useResources(userId)
   const heroName    = hero?.name

@@ -1,12 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '../lib/api'
-
-// Clave estática — missions siempre es del usuario autenticado
-const MISSIONS_KEY = ['missions', 'me']
+import { queryKeys } from '../lib/queryKeys'
 
 export function useMissions() {
   const { data, isLoading: loading, refetch } = useQuery({
-    queryKey: MISSIONS_KEY,
+    queryKey: queryKeys.missions(),
     queryFn: () => apiGet('/api/missions-get'),
     staleTime: 60_000,
   })

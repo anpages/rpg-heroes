@@ -35,23 +35,23 @@ function MissionCard({ mission }) {
   const claimMutation = useMutation({
     mutationFn: () => apiPost('/api/missions-claim', { missionId: mission.id }),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['missions', 'me'] })
-      const previous = queryClient.getQueryData(['missions', 'me'])
-      queryClient.setQueryData(['missions', 'me'], (old) => old
+      await queryClient.cancelQueries({ queryKey: queryKeys.missions() })
+      const previous = queryClient.getQueryData(queryKeys.missions())
+      queryClient.setQueryData(queryKeys.missions(), (old) => old
         ? { ...old, missions: old.missions.map(m => m.id === mission.id ? { ...m, claimed: true } : m) }
         : old
       )
       return { previous }
     },
     onError: (err, _, context) => {
-      queryClient.setQueryData(['missions', 'me'], context.previous)
+      queryClient.setQueryData(queryKeys.missions(), context.previous)
       toast.error(err.message)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['missions', 'me'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.missions() })
     },
   })
 
@@ -147,6 +147,7 @@ function ResetTimer({ seconds }) {
   const [remaining, setRemaining] = useState(seconds)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemaining(seconds)
     const interval = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000)
     return () => clearInterval(interval)

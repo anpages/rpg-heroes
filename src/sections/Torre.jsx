@@ -9,6 +9,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { interpolateHp } from '../lib/hpInterpolation'
 import { Swords, Star, Coins, Sparkles, Trophy, ChevronUp, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -198,13 +199,6 @@ function estimateDamageTaken(hero, enemy) {
   return hero.max_hp - Math.max(0, hpA)
 }
 
-function interpolateHp(hero, nowMs) {
-  if (!hero) return 0
-  const lastMs     = hero.hp_last_updated_at ? new Date(hero.hp_last_updated_at).getTime() : nowMs
-  const elapsedMin = Math.max(0, (nowMs - lastMs) / 60000)
-  const regen      = hero.status === 'exploring' ? 0 : elapsedMin * (100 / 60) * hero.max_hp / 100
-  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
-}
 
 export default function Torre() {
   const userId      = useAppStore(s => s.userId)
@@ -222,6 +216,7 @@ export default function Torre() {
     return () => clearInterval(id)
   }, [])
 
+  // eslint-disable-next-line react-hooks/purity
   const nowMs       = Date.now()
   const hpNow       = interpolateHp(hero, nowMs)
   const minHp       = hero ? Math.floor(hero.max_hp * 0.2) : 0

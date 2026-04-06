@@ -138,6 +138,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
 
   async function handleUpgradeStart() {
     const durationMs = building.level * building.level * 10 * 60 * 1000
+    // eslint-disable-next-line react-hooks/purity
     setOptimisticEndsAt(new Date(Date.now() + durationMs).toISOString())
     onOptimisticDeduct(cost)
     onUpgradePending(true)
@@ -379,7 +380,8 @@ function useUpgradeTimer(building, onUpgradeCollect) {
     requestAnimationFrame(() => { mountedRef.current = true })
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [building.upgrade_ends_at])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [building.upgrade_ends_at, building.id])
 
   return { secondsLeft, loading, mountedRef }
 }
@@ -393,6 +395,7 @@ function Base() {
   const [resourceDelta, setResourceDelta] = useState({ gold: 0, wood: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setResourceDelta({ gold: 0, wood: 0 }) }, [resources])
 
   const effectiveResources = resources
