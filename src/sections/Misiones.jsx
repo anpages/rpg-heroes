@@ -31,12 +31,8 @@ function fmtTime(seconds) {
 function MissionCard({ mission }) {
   const userId      = useAppStore(s => s.userId)
   const queryClient = useQueryClient()
-  const def = MISSION_POOL.find(p => p.type === mission.type)
-  if (!def) return null
 
-  const pct   = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
-  const label = def.description(mission.target_value)
-
+  // Hook debe estar ANTES de cualquier return condicional (Rules of Hooks)
   const claimMutation = useMutation({
     mutationFn: () => apiPost('/api/missions-claim', { missionId: mission.id }),
     onMutate: async () => {
@@ -60,6 +56,11 @@ function MissionCard({ mission }) {
     },
   })
 
+  const def = MISSION_POOL.find(p => p.type === mission.type)
+  if (!def) return null
+
+  const pct   = Math.min(100, Math.round((mission.current_value / mission.target_value) * 100))
+  const label = def.description(mission.target_value)
   const isClaimed = mission.claimed || claimMutation.isSuccess
 
   return (

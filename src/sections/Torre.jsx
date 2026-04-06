@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
@@ -185,11 +185,11 @@ export default function Torre() {
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
-  const [result, setResult] = useState(null)
-  const [tick, setTick]     = useState(0)
+  const [result, setResult]   = useState(null)
+  const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000)
+    const id = setInterval(forceUpdate, 30000)
     return () => clearInterval(id)
   }, [])
 

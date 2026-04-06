@@ -18,7 +18,7 @@ function StatBar({ label, value }) {
   )
 }
 
-function Onboarding({ session, onComplete }) {
+function Onboarding({ onComplete }) {
   const { classes, loading: classesLoading } = useClasses()
   const [heroName, setHeroName] = useState('')
   const [heroClass, setHeroClass] = useState(null)

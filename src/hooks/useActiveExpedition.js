@@ -42,7 +42,7 @@ export function useActiveExpedition(heroId) {
   // Para optimistic updates: sobreescribe la caché sin esperar al servidor
   const setExpedition = useCallback((value) => {
     queryClient.setQueryData(key, value)
-  }, [queryClient, key]) // eslint-disable-line
+  }, [queryClient, key])
 
   return { expedition: expedition ?? undefined, loading, setExpedition, refetch }
 }

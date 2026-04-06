@@ -17,7 +17,7 @@ function GoogleIcon() {
 
 function LoginPage() {
   const embers = useMemo(() =>
-    Array.from({ length: EMBER_COUNT }, (_, i) => ({
+    Array.from({ length: EMBER_COUNT }, () => ({
       left:              `${4 + Math.random() * 92}%`,
       width:             `${2 + Math.random() * 3}px`,
       height:            `${2 + Math.random() * 4}px`,

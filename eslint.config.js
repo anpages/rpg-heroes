@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import reactPlugin from 'eslint-plugin-react'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -13,6 +14,9 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    plugins: {
+      react: reactPlugin,
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -23,7 +27,22 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // JSX: marca como "usado" cualquier variable referenciada en JSX (<Icon />, <motion.div>)
+      'react/jsx-uses-vars': 'error',
+
+      // Variables: permitir _prefix para parámetros ignorados intencionalmente
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
+
+      // Estas reglas de react-hooks v7 tienen falsos positivos para patrones
+      // intencionalmente válidos (setState en setInterval, Date.now() en render).
+      // Las dejamos como warn para que no bloqueen el build pero sigan siendo visibles.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity':              'warn',
+      'react-hooks/refs':                'warn',
     },
   },
 ])

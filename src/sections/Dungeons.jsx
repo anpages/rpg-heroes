@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useReducer } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
@@ -20,11 +20,6 @@ const listVariants = {
 const cardVariants = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
-}
-
-function fmt(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return n.toString()
 }
 
 function fmtTime(seconds) {
@@ -228,10 +223,10 @@ function Dungeons() {
   const { buildings } = useBuildings(userId)
   const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
   const [reward, setReward] = useState(null)
-  const [tick, setTick] = useState(0)
+  const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000)
+    const id = setInterval(forceUpdate, 30000)
     return () => clearInterval(id)
   }, [])
 

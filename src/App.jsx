@@ -58,26 +58,22 @@ function App() {
   }, [session])
 
   // Determinar qué página mostrar y su key para AnimatePresence
-  let pageKey, pageContent
+  let pageContent
   if (loading || (session && playerExists === null)) {
-    pageKey = 'loading'
     pageContent = <LoadingScreen key="loading" />
   } else if (!session) {
-    pageKey = 'login'
     pageContent = (
       <motion.div key="login" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ minHeight: '100vh' }}>
         <LoginPage />
       </motion.div>
     )
   } else if (!playerExists) {
-    pageKey = 'onboarding'
     pageContent = (
       <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ minHeight: '100vh' }}>
-        <Onboarding session={session} onComplete={() => setPlayerExists(true)} />
+        <Onboarding onComplete={() => setPlayerExists(true)} />
       </motion.div>
     )
   } else {
-    pageKey = 'dashboard'
     pageContent = (
       <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ height: '100vh' }}>
         <Dashboard session={session} />

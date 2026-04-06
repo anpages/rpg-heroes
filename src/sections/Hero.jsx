@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -797,7 +797,7 @@ function Hero() {
   const [confirmModal, setConfirmModal] = useState(null)
   const [workshopLevel, setWorkshopLevel] = useState(1)
   const [libraryLevel, setLibraryLevel] = useState(1)
-  const [tick, setTick] = useState(0)
+  const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   // Mutación para items (equip/unequip/repair/dismantle)
   const itemMutation = useMutation({
@@ -848,7 +848,7 @@ function Hero() {
 
   // Tick cada 30s para actualizar HP interpolado
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000)
+    const id = setInterval(forceUpdate, 30000)
     return () => clearInterval(id)
   }, [])
 
@@ -931,7 +931,6 @@ function Hero() {
   })
   const cardSlotCount = 1 + libraryLevel * 2  // nivel 1=3, nivel 2=5, nivel 3=7...
 
-  void tick // provoca re-render cada 30s para actualizar HP interpolado
   const hpNow = interpolateHpClient(hero, Date.now(), effective.max_hp)
 
   const bag = items?.filter(i => !i.equipped_slot) ?? []
