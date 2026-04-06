@@ -201,7 +201,6 @@ export default function Torre() {
   const rewards     = floorRewards(targetFloor)
   const isBusy      = hero?.status !== 'idle'
   const estDamage   = estimateDamageTaken(effectiveHero, enemy)
-  const isLowHp     = !hasEnoughHp
 
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
@@ -223,9 +222,21 @@ export default function Torre() {
 
   const guaranteedKo = estDamage !== null && hpNow <= estDamage
 
-  // HP row usa hpNow (no max) para que la predicción refleje el estado real
+  // HP row usa hpNow para que la predicción refleje el estado real
+  // heroDisplay muestra la proyección de HP tras el combate estimado
+  const hpAfterCombat = estDamage !== null ? Math.max(0, hpNow - estDamage) : null
+  const hpDisplay = estDamage !== null
+    ? <span className="text-[14px] font-bold tabular-nums">
+        {hpNow}
+        <span className="text-text-3 font-normal"> → </span>
+        <span className={guaranteedKo ? 'text-[#dc2626]' : 'text-[#16a34a]'}>
+          {guaranteedKo ? 'KO' : hpAfterCombat}
+        </span>
+      </span>
+    : `${hpNow}/${effectiveMaxHp}`
+
   const HERO_STATS = [
-    { label: 'HP',  heroVal: hpNow,                        enemyVal: enemy.max_hp,   heroDisplay: `${hpNow}/${effectiveMaxHp}` },
+    { label: 'HP',  heroVal: hpNow,                        enemyVal: enemy.max_hp,   heroDisplay: hpDisplay },
     { label: 'Atq', heroVal: effectiveHero?.attack   ?? 0, enemyVal: enemy.attack   },
     { label: 'Def', heroVal: effectiveHero?.defense  ?? 0, enemyVal: enemy.defense  },
     { label: 'Fue', heroVal: effectiveHero?.strength ?? 0, enemyVal: enemy.strength },
@@ -316,23 +327,6 @@ export default function Torre() {
           </span>
           {rewards.milestone && (
             <span className="ml-auto text-[11px] font-bold text-[#d97706]">×2 recompensas</span>
-          )}
-        </div>
-
-        {/* HP row */}
-        <div className="flex items-center gap-2.5 mb-1">
-          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-[width,background] duration-[400ms] ease-out ${isLowHp ? 'bg-[#dc2626]' : 'bg-[#16a34a]'}`}
-              style={{ width: `${Math.round((hpNow / effectiveMaxHp) * 100)}%` }}
-            />
-          </div>
-          <span className={`text-[12px] font-semibold whitespace-nowrap ${isLowHp ? 'text-[#dc2626]' : 'text-text-2'}`}>
-            {hpNow}/{effectiveMaxHp} HP
-            {isLowHp && ` · mín. ${minHp}`}
-          </span>
-          {estDamage !== null && (
-            <span className="text-[12px] font-semibold text-[#dc2626] whitespace-nowrap">−{estDamage} HP est.</span>
           )}
         </div>
 
