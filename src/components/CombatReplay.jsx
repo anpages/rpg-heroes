@@ -226,7 +226,7 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
     >
       <motion.div
         className="relative bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-lg flex flex-col overflow-hidden"
-        style={{ maxHeight: '92vh' }}
+        style={{ height: 'min(92vh, 560px)' }}
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
