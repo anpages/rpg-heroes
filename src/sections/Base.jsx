@@ -108,10 +108,12 @@ function fmt(n) {
 
 function fmtTime(seconds) {
   if (seconds <= 0) return '0s'
-  const m = Math.floor(seconds / 60)
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
-  if (m === 0) return `${s}s`
-  return `${m}m ${s}s`
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  if (m > 0) return s > 0 ? `${m}m ${s}s` : `${m}m`
+  return `${s}s`
 }
 
 function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, nexusData, nexusRatio, featured, anyUpgrading }) {
