@@ -56,71 +56,51 @@ function fmtDate(d) {
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
-/* ── BracketPath ────────────────────────────────────────────────────────────── */
+/* ── WeekBracket — calendario + estado de rondas fusionados ────────────────── */
 
-function BracketPath({ matchByRound, nextRound, eliminated, champion }) {
+function WeekBracket({ todayOffset, matchByRound, nextRound, eliminated, champion }) {
   return (
-    <div className="flex items-center justify-center">
-      {[1, 2, 3].map((r, i) => {
-        const match     = matchByRound[r]
-        const won       = match?.won
-        const isCurrent = r === nextRound && !eliminated && !champion
-        const color     = ROUND_COLORS[r - 1]
-        return (
-          <div key={r} className="flex items-center">
-            {i > 0 && (
-              <div className={`h-px w-12 sm:w-20 transition-colors duration-500 ${won === true ? 'bg-[#16a34a]' : 'bg-border'}`} />
-            )}
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-extrabold border-2 transition-all duration-300 ${
-                  won === true  ? 'bg-[#16a34a] border-[#16a34a] text-white' :
-                  won === false ? 'bg-[#dc2626] border-[#dc2626] text-white' :
-                  isCurrent     ? 'text-white shadow-[0_0_0_4px_color-mix(in_srgb,var(--cc)_18%,transparent)]' :
-                                  'bg-surface-2 border-border text-text-3'
-                }`}
-                style={isCurrent ? { background: color, borderColor: color, '--cc': color } : {}}
-              >
-                {won === true ? '✓' : won === false ? '✗' : r}
-              </div>
-              <span
-                className="text-[10px] font-bold tracking-[0.06em] uppercase"
-                style={{ color: isCurrent ? color : won != null ? (won ? '#16a34a' : '#dc2626') : 'var(--text-3)' }}
-              >
-                {ROUND_LABELS[r - 1]}
-              </span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ── WeekStrip ──────────────────────────────────────────────────────────────── */
-
-function WeekStrip({ todayOffset, matchByRound }) {
-  return (
-    <div className="flex gap-1">
+    <div className="flex items-end gap-1">
       {WEEK_DAYS.map(d => {
-        const isToday = todayOffset === d.offset
-        const match   = d.round ? matchByRound[d.round] : null
-        const won     = match?.won
-        const color   = d.round ? ROUND_COLORS[d.round - 1] : null
-        const isFight = d.type === 'fight'
+        const isToday   = todayOffset === d.offset
+        const match     = d.round ? matchByRound[d.round] : null
+        const won       = match?.won
+        const color     = d.round ? ROUND_COLORS[d.round - 1] : null
+        const isFight   = d.type === 'fight'
+        const isCurrent = d.round === nextRound && !eliminated && !champion
 
+        // Días de descanso/gracia: pequeños y neutros
+        if (!isFight) {
+          return (
+            <div key={d.offset} className="flex-1 flex flex-col items-center gap-[3px]">
+              <div
+                className="w-5 h-5 rounded-full bg-surface-2 flex items-center justify-center"
+                style={isToday ? { outline: '2px solid var(--blue-500)', outlineOffset: '2px' } : {}}
+              />
+              <span className={`text-[9px] font-medium ${isToday ? 'text-text' : 'text-text-3'}`}>{d.label}</span>
+            </div>
+          )
+        }
+
+        // Días de combate: prominentes con nombre de ronda
         return (
-          <div key={d.offset} className="flex-1 flex flex-col items-center gap-[3px]">
+          <div key={d.offset} className="flex-1 flex flex-col items-center gap-1">
+            <span
+              className="text-[9px] font-bold uppercase tracking-[0.06em]"
+              style={{ color: won === true ? '#16a34a' : won === false ? '#dc2626' : isCurrent ? color : 'var(--text-3)' }}
+            >
+              {ROUND_LABELS[d.round - 1]}
+            </span>
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
-                won === true  ? 'bg-[#16a34a] text-white' :
-                won === false ? 'bg-[#dc2626] text-white' :
-                isFight       ? 'text-white' :
-                                'bg-surface-2 text-text-3'
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-extrabold border-2 transition-all duration-300 ${
+                won === true  ? 'bg-[#16a34a] border-[#16a34a] text-white' :
+                won === false ? 'bg-[#dc2626] border-[#dc2626] text-white' :
+                isCurrent     ? 'text-white shadow-[0_0_0_4px_color-mix(in_srgb,var(--cc)_18%,transparent)]' :
+                                'bg-surface-2 border-border text-text-3'
               }`}
               style={{
-                ...(isFight && won == null ? { background: color } : {}),
-                ...(isToday ? { outline: `2px solid ${color ?? 'var(--blue-500)'}`, outlineOffset: '2px' } : {}),
+                ...(isCurrent ? { background: color, borderColor: color, '--cc': color } : {}),
+                ...(isToday   ? { outline: `2px solid ${color}`, outlineOffset: '2px' } : {}),
               }}
             >
               {won === true ? '✓' : won === false ? '✗' : d.short}
@@ -486,14 +466,14 @@ export default function Torneos() {
 
       {/* Bracket + week — siempre visible si está inscrito */}
       {!bracket.champion && (
-        <div className="bg-surface border border-border rounded-xl px-4 py-4 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
-          <BracketPath
+        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
+          <WeekBracket
+            todayOffset={todayOffset}
             matchByRound={matchByRound}
             nextRound={nextRound}
             eliminated={bracket.eliminated}
             champion={bracket.champion}
           />
-          <WeekStrip todayOffset={todayOffset} matchByRound={matchByRound} />
         </div>
       )}
 
