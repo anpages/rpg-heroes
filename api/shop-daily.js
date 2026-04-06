@@ -42,14 +42,13 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
-  const { data: hero } = await supabase
-    .from('heroes').select('id, level').eq('id', heroId).eq('player_id', user.id).single()
+  // Hero + catalog en paralelo
+  const [{ data: hero }, { data: catalog }] = await Promise.all([
+    supabase.from('heroes').select('id, level').eq('id', heroId).eq('player_id', user.id).single(),
+    supabase.from('shop_catalog').select('id, catalog_id, gold_price, daily_weight, item_catalog(name, slot, tier, rarity, attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)'),
+  ])
+
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
-
-  const { data: catalog } = await supabase
-    .from('shop_catalog')
-    .select('id, catalog_id, gold_price, daily_weight, item_catalog(name, slot, tier, rarity, attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)')
-
   if (!catalog?.length) return res.status(200).json({ items: [], date: '', merchant: MERCHANT_TYPES[0] })
 
   const dateStr = new Date().toISOString().slice(0, 10)
@@ -62,12 +61,14 @@ export default async function handler(req, res) {
   const filtered = catalog.filter(entry => merchantType.slots.includes(entry.item_catalog.slot))
   const rotation = pickWeighted(filtered, rand, Math.min(SHOP_SIZE, filtered.length))
 
-  // Compras de hoy
+  // Compras de hoy (solo para la rotación seleccionada)
+  const rotationCatalogIds = rotation.map(e => e.catalog_id)
   const { data: purchases } = await supabase
     .from('shop_purchases')
     .select('catalog_id, quantity')
     .eq('hero_id', heroId)
     .eq('purchase_date', dateStr)
+    .in('catalog_id', rotationCatalogIds)
 
   const purchaseMap = {}
   for (const p of purchases ?? []) purchaseMap[p.catalog_id] = p.quantity

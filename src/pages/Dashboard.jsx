@@ -4,6 +4,7 @@ import { useResources } from '../hooks/useResources'
 import { useMissions } from '../hooks/useMissions'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
+import { useClasses } from '../hooks/useClasses'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
@@ -267,12 +268,12 @@ function Dashboard({ session }) {
   const { heroes, loading: heroesLoading } = useHeroes(session.user.id)
   const { missions: missionsList } = useMissions()
   const { buildings }              = useBuildings(session.user.id)
+  const { classes: recruitClasses } = useClasses()
   const { theme, setTheme }        = useTheme()
 
   const heroId      = selectedHeroId ?? heroes?.[0]?.id ?? null
   const selectedHero = heroes.find(h => h.id === heroId) ?? null
 
-  const [recruitClasses, setRecruitClasses] = useState(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -290,11 +291,7 @@ function Dashboard({ session }) {
   const nextRecruitSlot = [1, 2, 3].find(s => !usedSlots.includes(s))
   const canRecruit      = !!(nextRecruitSlot && (!SLOT_UNLOCK[nextRecruitSlot] || barrackLevel >= SLOT_UNLOCK[nextRecruitSlot]))
 
-  async function openRecruit() {
-    if (!recruitClasses) {
-      const { data } = await supabase.from('classes').select('*').order('name')
-      setRecruitClasses(data ?? [])
-    }
+  function openRecruit() {
     setRecruitOpen(true)
   }
 
