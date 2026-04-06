@@ -85,24 +85,5 @@ export default async function handler(req, res) {
   // Inicializar progreso en torre
   await supabase.from('tower_progress').insert({ hero_id: hero.id, max_floor: 0 })
 
-  // Equipo inicial (igual que onboarding)
-  const { data: starterCatalog } = await supabase
-    .from('item_catalog')
-    .select('id, slot, max_durability')
-    .in('slot', ['helmet', 'chest', 'legs'])
-    .eq('tier', 1)
-    .eq('rarity', 'common')
-
-  if (starterCatalog?.length) {
-    await supabase.from('inventory_items').insert(
-      starterCatalog.map(item => ({
-        hero_id:          hero.id,
-        catalog_id:       item.id,
-        current_durability: item.max_durability,
-        equipped_slot:    item.slot,
-      }))
-    )
-  }
-
   return res.status(200).json({ ok: true, heroId: hero.id, slot: nextSlot })
 }
