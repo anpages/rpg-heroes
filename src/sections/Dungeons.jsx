@@ -105,6 +105,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
     try {
       const data = await apiPost('/api/expedition-collect', { expeditionId: expedition.id })
       onCollect(data)
+      setCollecting(false)
     } catch (err) {
       toast.error(err.message)
       setCollecting(false)

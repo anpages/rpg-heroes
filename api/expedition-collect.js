@@ -45,10 +45,10 @@ export default async function handler(req, res) {
   if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Obtener recursos actuales (solo gold — madera/hierro/maná no se ganan en expediciones)
+  // Obtener recursos actuales — se hace snapshot de todos los recursos pasivos antes de mover last_collected_at
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')
-    .select('gold, last_collected_at')
+    .select('gold, iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -75,12 +75,19 @@ export default async function handler(req, res) {
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
-  // Añadir oro — las expediciones solo dan oro (madera/hierro/maná son de edificios)
+  // Añadir oro y hacer snapshot de recursos pasivos antes de mover last_collected_at
   const nowMs = Date.now()
+  const hours = safeHours(resources.last_collected_at, nowMs)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+  const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
   const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
       gold: resources.gold + finalGold,
+      iron: snapshotIron,
+      wood: snapshotWood,
+      mana: snapshotMana,
       last_collected_at: new Date(nowMs).toISOString(),
     })
     .eq('player_id', user.id)
