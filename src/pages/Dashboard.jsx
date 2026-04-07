@@ -17,9 +17,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Package, Layers } from 'lucide-react'
-import { useInventory } from '../hooks/useInventory'
-import { useHeroCards } from '../hooks/useHeroCards'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -197,10 +195,8 @@ const NAV_ITEMS = [
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword   },
-  { id: 'expediciones', label: 'Expediciones', icon: Map     },
-  { id: 'equipo',       label: 'Equipo',       icon: Package },
-  { id: 'cartas',       label: 'Cartas',       icon: Layers  },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword },
+  { id: 'expediciones', label: 'Expediciones', icon: Map   },
 ]
 
 
@@ -238,12 +234,6 @@ function Dashboard({ session }) {
   const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
   const anyHeroExploring = !anyHeroReady && heroes.some(h => h.status === 'exploring')
 
-  const selectedHeroId = useAppStore(s => s.selectedHeroId)
-  const heroId         = selectedHeroId ?? heroes?.[0]?.id ?? null
-  const { items: heroInventory } = useInventory(heroId)
-  const { cards: heroCards }     = useHeroCards(heroId)
-  const hasUnequippedItems = (heroInventory ?? []).some(item => item.equipped_slot === null)
-  const hasUnequippedCards = (heroCards     ?? []).some(card => card.slot_index === null || card.slot_index === undefined)
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
 
@@ -369,9 +359,7 @@ function Dashboard({ session }) {
                 <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
-                    const hasAlert = (id === 'expediciones' && anyHeroReady)
-                      || (id === 'equipo'  && hasUnequippedItems)
-                      || (id === 'cartas'  && hasUnequippedCards)
+                    const hasAlert = id === 'expediciones' && anyHeroReady
                     return (
                       <button
                         key={id}

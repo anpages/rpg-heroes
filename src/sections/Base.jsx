@@ -531,7 +531,7 @@ const ZONES = [
 
 function ZonePills({ active, onChange }) {
   return (
-    <div className="flex items-center gap-1 border-b border-border -mt-1">
+    <div className="flex items-center gap-1 border-b border-border -mt-1 overflow-x-auto scrollbar-none">
       {ZONES.map(z => {
         const Icon = z.icon
         const isActive = active === z.id
