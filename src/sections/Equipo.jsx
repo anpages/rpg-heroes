@@ -691,42 +691,41 @@ export default function Equipo() {
                 const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
                 const canEquip = durPct > 0
                 return (
-                  <div key={item.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border bg-surface-2 transition-all duration-150">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                      <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                  <div key={item.id} className="rounded-xl border border-border bg-surface-2 overflow-hidden">
+                    {/* Info */}
+                    <div className="px-3 pt-3 pb-2 flex flex-col gap-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
+                        <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                      </div>
+                      <span className="text-[10px] font-medium" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
+                        {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
+                        {cat.hp_bonus           > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.hp_bonus} HP</span>}
+                        {cat.strength_bonus     > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.strength_bonus} Fue</span>}
+                        {cat.agility_bonus      > 0 && <span className="text-[10px] text-[#2563eb] font-medium">+{cat.agility_bonus} Agi</span>}
+                        {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
+                      </div>
+                      <DurabilityBar current={item.current_durability} max={cat.max_durability} />
                     </div>
-                    <span className="text-[10px] font-medium" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
-                    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                      {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
-                      {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
-                      {cat.hp_bonus           > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.hp_bonus} HP</span>}
-                      {cat.strength_bonus     > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.strength_bonus} Fue</span>}
-                      {cat.agility_bonus      > 0 && <span className="text-[10px] text-[#2563eb] font-medium">+{cat.agility_bonus} Agi</span>}
-                      {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
-                    </div>
-                    <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-                    {/* Actions */}
-                    <div className="flex gap-1.5 mt-0.5">
+                    {/* Footer */}
+                    <div className="flex border-t border-border divide-x divide-border">
                       <button
-                        className="flex-1 text-[11px] font-bold py-1 rounded-lg border transition-colors disabled:opacity-40"
-                        style={canEquip
-                          ? { color: 'var(--blue-600)', borderColor: 'var(--blue-400)', background: 'color-mix(in srgb, var(--blue-500) 8%, transparent)' }
-                          : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface)', cursor: 'not-allowed' }
-                        }
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40"
+                        style={canEquip ? { color: 'var(--blue-600)' } : { color: 'var(--text-3)', cursor: 'not-allowed' }}
                         onClick={() => canEquip && handleEquip(item.id)}
                         disabled={!canEquip}
-                        title={canEquip ? 'Equipar' : 'Repara el ítem antes de equiparlo'}
+                        title={canEquip ? undefined : 'Repara el ítem antes de equiparlo'}
                       >
                         Equipar
                       </button>
                       <button
-                        className="flex items-center justify-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors disabled:opacity-40"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
                         onClick={() => handleDismantle(item)}
                         disabled={actionMutation.isPending}
-                        title="Desmantelar"
                       >
-                        <Trash2 size={11} strokeWidth={2} />
+                        <Trash2 size={12} strokeWidth={2} /> Desmantelar
                       </button>
                     </div>
                   </div>

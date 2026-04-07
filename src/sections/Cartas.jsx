@@ -120,61 +120,63 @@ function CardSlot({ card, slotIndex, onUnequip }) {
 }
 
 function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading }) {
-  const sc       = card.skill_cards
-  const meta     = getMeta(sc)
-  const rank     = Math.min(card.rank ?? 1, 5)
-  const bonuses  = getBonuses(sc)
-  const penalties = getPenalties(sc)
-  const topBonus = bonuses[0]
+  const sc         = card.skill_cards
+  const meta       = getMeta(sc)
+  const rank       = Math.min(card.rank ?? 1, 5)
+  const bonuses    = getBonuses(sc)
+  const penalties  = getPenalties(sc)
+  const topBonus   = bonuses[0]
   const topPenalty = penalties[0]
 
   return (
-    <div className="relative flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] transition-colors">
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
-        style={{ background: meta.bg }}>
-        <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[12px] font-bold text-text truncate">{sc.name}</span>
-          <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
-            {RANK_LABELS[rank] ?? rank}
-          </span>
+    <div className="rounded-xl border border-border bg-surface overflow-hidden">
+      {/* Info */}
+      <div className="flex items-center gap-2.5 px-3 pt-3 pb-2">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
+          style={{ background: meta.bg }}>
+          <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
         </div>
-        <div className="flex items-center gap-2">
-          {topBonus && (
-            <span className="text-[10px] font-medium text-[#86efac]">
-              +{formatVal(topBonus.stat, cardBonusAtRank(topBonus.value, rank))} {STAT_LABELS[topBonus.stat] ?? topBonus.stat}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12px] font-bold text-text truncate">{sc.name}</span>
+            <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
+              {RANK_LABELS[rank] ?? rank}
             </span>
-          )}
-          {topPenalty && (
-            <span className="text-[10px] font-medium text-[#fca5a5]">
-              −{formatVal(topPenalty.stat, cardPenaltyAtRank(topPenalty.value, rank))} {STAT_LABELS[topPenalty.stat] ?? topPenalty.stat}
-            </span>
-          )}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            {topBonus && (
+              <span className="text-[10px] font-medium text-[#86efac]">
+                +{formatVal(topBonus.stat, cardBonusAtRank(topBonus.value, rank))} {STAT_LABELS[topBonus.stat] ?? topBonus.stat}
+              </span>
+            )}
+            {topPenalty && (
+              <span className="text-[10px] font-medium text-[#fca5a5]">
+                −{formatVal(topPenalty.stat, cardPenaltyAtRank(topPenalty.value, rank))} {STAT_LABELS[topPenalty.stat] ?? topPenalty.stat}
+              </span>
+            )}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* Footer */}
+      <div className="flex border-t border-border divide-x divide-border">
         {fusePair && (
           <button
-            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,transparent)] border border-[color-mix(in_srgb,#d97706_25%,transparent)] rounded-lg px-2 py-1 hover:bg-[color-mix(in_srgb,#d97706_18%,transparent)] transition-colors disabled:opacity-40"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onFuse(card.id, fusePair.id)}
             disabled={fuseLoading}
-            title="Fusionar con carta idéntica → Rango superior"
           >
-            <FlameKindling size={11} strokeWidth={2} />
-            Fusionar
+            <FlameKindling size={12} strokeWidth={2} /> Fusionar
           </button>
         )}
         <button
-          className="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40"
           style={canEquip
-            ? { color: 'var(--blue-600)', borderColor: 'var(--blue-400)', background: 'color-mix(in srgb, var(--blue-500) 8%, transparent)' }
-            : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface-2)', cursor: 'not-allowed' }
+            ? { color: 'var(--blue-600)' }
+            : { color: 'var(--text-3)', cursor: 'not-allowed' }
           }
           onClick={() => canEquip && onEquip(card.id)}
           disabled={!canEquip}
-          title={canEquip ? 'Equipar' : 'Slots llenos — desequipa una carta primero'}
+          title={canEquip ? undefined : 'Slots llenos — desequipa una carta primero'}
         >
           Equipar
         </button>
