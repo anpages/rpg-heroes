@@ -575,6 +575,9 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
           ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
           : `Energía +${nexusData.balance} ⚡`
         : 'Gestiona tus edificios',
+      summaryClass: nexusData
+        ? nexusData.deficit ? 'font-bold text-[#dc2626]' : 'font-bold text-[#0891b2]'
+        : undefined,
       detail:  upgradingBuilding
         ? `${upgradingMeta?.name ?? 'Edificio'} ${upgradingBuilding.level === 0 ? 'en construcción' : 'mejorando'}…`
         : null,
@@ -672,7 +675,7 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
               </div>
               <div>
                 <p className="text-[13px] font-bold text-text">{z.label}</p>
-                <p className={`text-[12px] mt-0.5 ${z.alert ? 'font-semibold text-[#16a34a]' : 'text-text-3'}`}>{z.summary}</p>
+                <p className={`text-[12px] mt-0.5 ${z.summaryClass ?? (z.alert ? 'font-semibold text-[#16a34a]' : 'text-text-3')}`}>{z.summary}</p>
                 {z.detail && (
                   <p className="text-[11px] mt-1 text-text-3">{z.detail}</p>
                 )}
