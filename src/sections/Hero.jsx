@@ -1001,18 +1001,43 @@ function Hero() {
         {/* Right column: equipment + cards */}
         <div className="flex flex-col gap-4">
 
-          {/* Equipment preview → links to Equipo tab */}
+          {/* Quick-nav pills */}
+          <div className="flex gap-2">
+            <button
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors flex-1 justify-center"
+              style={{
+                background: 'color-mix(in srgb, var(--blue-500) 10%, var(--surface))',
+                borderColor: 'color-mix(in srgb, var(--blue-500) 25%, var(--border))',
+                color: 'var(--blue-700)',
+              }}
+              onClick={() => navigateToHeroTab('equipo')}
+            >
+              <Shield size={12} strokeWidth={2} />
+              Equipo
+              {(items ?? []).some(i => i.equipped_slot === null) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse" />
+              )}
+            </button>
+            <button
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors flex-1 justify-center"
+              style={{
+                background: 'color-mix(in srgb, var(--blue-500) 10%, var(--surface))',
+                borderColor: 'color-mix(in srgb, var(--blue-500) 25%, var(--border))',
+                color: 'var(--blue-700)',
+              }}
+              onClick={() => navigateToHeroTab('cartas')}
+            >
+              <Layers size={12} strokeWidth={2} />
+              Cartas
+              {(cards ?? []).some(c => c.slot_index === null || c.slot_index === undefined) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse" />
+              )}
+            </button>
+          </div>
+
+          {/* Equipment preview */}
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
-              <button className="relative btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('equipo')}>
-                <Shield size={13} strokeWidth={2} />
-                Gestionar
-                {(items ?? []).some(i => i.equipped_slot === null) && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse" />
-                )}
-              </button>
-            </div>
+            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
             <div className="grid grid-cols-2 gap-1.5">
               {EQUIPMENT_SLOTS.map(slot => {
                 const item     = equipped[slot]
@@ -1075,21 +1100,12 @@ function Hero() {
             </div>
           </div>
 
-          {/* Cards preview → links to Cartas tab */}
+          {/* Cards preview */}
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
-                <BookOpen size={14} strokeWidth={2} />
-                Cartas
-              </p>
-              <button className="relative btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('cartas')}>
-                <Layers size={13} strokeWidth={2} />
-                Gestionar
-                {(cards ?? []).some(c => c.slot_index === null || c.slot_index === undefined) && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse" />
-                )}
-              </button>
-            </div>
+            <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
+              <BookOpen size={14} strokeWidth={2} />
+              Cartas
+            </p>
             {(() => {
               const equippedCards = (cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined)
               if (!equippedCards.length) {
