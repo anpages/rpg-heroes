@@ -1031,7 +1031,7 @@ function Hero() {
     <motion.div key="hero-content" className="pt-[4px] overflow-x-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-start">
 
-        {/* Left column: hero card + cards */}
+        {/* Left column: hero card only */}
         <div className="flex flex-col gap-4">
 
           {/* Hero card */}
@@ -1099,8 +1099,45 @@ function Hero() {
             />
           </div>
 
+        </div>
+
+        {/* Right column: equipment + cards */}
+        <div className="flex flex-col gap-4">
+
+          {/* Equipment preview → links to Equipo tab */}
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
+              <button className="btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('equipo')}>
+                <Shield size={13} strokeWidth={2} />
+                Gestionar
+              </button>
+            </div>
+            <button
+              className="w-full text-left grid grid-cols-2 gap-1.5 hover:opacity-80 transition-opacity"
+              onClick={() => navigateToHeroTab('equipo')}
+            >
+              {EQUIPMENT_SLOTS.map(slot => {
+                const item     = equipped[slot]
+                const meta     = SLOT_META[slot]
+                const Icon     = meta.icon
+                const cat      = item?.item_catalog
+                const rarColor = cat ? (RARITY_META[cat.rarity]?.color ?? '#6b7280') : null
+                return (
+                  <div key={slot} className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-border bg-surface-2 min-w-0">
+                    <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                    {item
+                      ? <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
+                      : <span className="text-[11px] text-text-3 italic">Vacío</span>
+                    }
+                  </div>
+                )
+              })}
+            </button>
+          </div>
+
           {/* Cards preview → links to Cartas tab */}
-          <div className="flex flex-col gap-3 p-4 md:p-5 bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)]">
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
                 <BookOpen size={14} strokeWidth={2} />
@@ -1111,13 +1148,12 @@ function Hero() {
                 Gestionar
               </button>
             </div>
-
             {(() => {
               const equippedCards = (cards ?? []).filter(c => c.equipped)
               if (!equippedCards.length) {
                 return (
                   <button
-                    className="flex items-center justify-center gap-1.5 h-16 border border-dashed border-border rounded-xl text-[13px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[var(--blue-600)] transition-colors w-full"
+                    className="flex items-center justify-center gap-1.5 h-14 border border-dashed border-border rounded-xl text-[13px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[var(--blue-600)] transition-colors w-full"
                     onClick={() => navigateToHeroTab('cartas')}
                   >
                     <Plus size={14} strokeWidth={1.8} />
@@ -1126,22 +1162,13 @@ function Hero() {
                 )
               }
               return (
-                <button
-                  className="flex flex-wrap gap-1.5 text-left w-full hover:opacity-80 transition-opacity"
-                  onClick={() => navigateToHeroTab('cartas')}
-                >
+                <button className="flex flex-wrap gap-1.5 text-left w-full hover:opacity-80 transition-opacity" onClick={() => navigateToHeroTab('cartas')}>
                   {equippedCards.map(card => {
                     const sc   = card.skill_cards
                     const meta = CATEGORY_META[sc.category]
                     return (
-                      <span
-                        key={card.id}
-                        className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border"
-                        style={{
-                          color:       meta.color,
-                          borderColor: `color-mix(in srgb, ${meta.color} 30%, var(--border))`,
-                          background:  `color-mix(in srgb, ${meta.color} 8%, var(--surface))`,
-                        }}
+                      <span key={card.id} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border"
+                        style={{ color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 30%, var(--border))`, background: `color-mix(in srgb, ${meta.color} 8%, var(--surface))` }}
                       >
                         R{card.rank} {sc.name}
                       </span>
@@ -1152,42 +1179,6 @@ function Hero() {
             })()}
           </div>
 
-        </div>
-
-        {/* Right column: equipment preview → links to Equipo tab */}
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
-            <button className="btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('equipo')}>
-              <Shield size={13} strokeWidth={2} />
-              Gestionar
-            </button>
-          </div>
-
-          <button
-            className="w-full text-left grid grid-cols-2 gap-1.5 hover:opacity-80 transition-opacity"
-            onClick={() => navigateToHeroTab('equipo')}
-          >
-            {EQUIPMENT_SLOTS.map(slot => {
-              const item     = equipped[slot]
-              const meta     = SLOT_META[slot]
-              const Icon     = meta.icon
-              const cat      = item?.item_catalog
-              const rarColor = cat ? (RARITY_META[cat.rarity]?.color ?? '#6b7280') : null
-              return (
-                <div
-                  key={slot}
-                  className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-border bg-surface-2 min-w-0"
-                >
-                  <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
-                  {item
-                    ? <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                    : <span className="text-[11px] text-text-3 italic">Vacío</span>
-                  }
-                </div>
-              )
-            })}
-          </button>
         </div>
 
       </div>

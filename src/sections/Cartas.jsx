@@ -216,44 +216,46 @@ export default function Cartas() {
       </div>
 
       {/* Card slots */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Slots Equipados</p>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {equippedCards.map((card, i) => (
-            <CardSlot key={i} card={card} slotIndex={i} />
-          ))}
+        <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {equippedCards.map((card, i) => (
+              <CardSlot key={i} card={card} slotIndex={i} />
+            ))}
+          </div>
+
+          {/* Stat summary inline */}
+          {equippedCount > 0 && (() => {
+            const totals = { attack: 0, defense: 0, hp: 0, strength: 0, agility: 0, intelligence: 0 }
+            equippedCards.filter(Boolean).forEach(c => {
+              const sc = c.skill_cards
+              const r  = Math.min(c.rank, 20)
+              totals.attack       += (sc.attack_bonus       ?? 0) * r
+              totals.defense      += (sc.defense_bonus      ?? 0) * r
+              totals.hp           += (sc.hp_bonus           ?? 0) * r
+              totals.strength     += (sc.strength_bonus     ?? 0) * r
+              totals.agility      += (sc.agility_bonus      ?? 0) * r
+              totals.intelligence += (sc.intelligence_bonus ?? 0) * r
+            })
+            const active = Object.entries(totals).filter(([, v]) => v > 0)
+            if (!active.length) return null
+            return (
+              <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-border">
+                <span className="text-[10px] font-bold text-text-3 w-full uppercase tracking-wider">Bonus activos</span>
+                {active.map(([key, val]) => (
+                  <span key={key} className="text-[11px] font-bold text-[#86efac] bg-surface-2 border border-border rounded-lg px-2 py-0.5">
+                    +{val} {STAT_LABELS[key]}
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
-      {/* Stat summary from equipped cards */}
-      {equippedCount > 0 && (() => {
-        const totals = { attack: 0, defense: 0, hp: 0, strength: 0, agility: 0, intelligence: 0 }
-        equippedCards.filter(Boolean).forEach(c => {
-          const sc = c.skill_cards
-          const r  = Math.min(c.rank, 20)
-          totals.attack       += (sc.attack_bonus       ?? 0) * r
-          totals.defense      += (sc.defense_bonus      ?? 0) * r
-          totals.hp           += (sc.hp_bonus           ?? 0) * r
-          totals.strength     += (sc.strength_bonus     ?? 0) * r
-          totals.agility      += (sc.agility_bonus      ?? 0) * r
-          totals.intelligence += (sc.intelligence_bonus ?? 0) * r
-        })
-        const active = Object.entries(totals).filter(([, v]) => v > 0)
-        if (!active.length) return null
-        return (
-          <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-surface border border-border">
-            <span className="text-[11px] font-bold text-text-3 w-full uppercase tracking-wider">Bonus total de cartas</span>
-            {active.map(([key, val]) => (
-              <span key={key} className="text-[12px] font-bold text-[#86efac] bg-surface-2 border border-border rounded-lg px-2.5 py-1">
-                +{val} {STAT_LABELS[key]}
-              </span>
-            ))}
-          </div>
-        )
-      })()}
-
       {/* Collection */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Colección</p>
           {collectionCards.length > 0 && (
@@ -262,15 +264,17 @@ export default function Cartas() {
         </div>
 
         {collectionCards.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 h-20 text-[13px] text-text-3 border border-dashed border-border rounded-xl">
+          <div className="flex items-center justify-center gap-2 h-20 text-[13px] text-text-3 border border-dashed border-border rounded-xl bg-surface">
             <Layers size={14} strokeWidth={1.8} />
             No hay cartas en colección
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {collectionCards.map(card => (
-              <CollectionCard key={card.id} card={card} isEquipped={equippedSet.has(card.id)} />
-            ))}
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {collectionCards.map(card => (
+                <CollectionCard key={card.id} card={card} isEquipped={equippedSet.has(card.id)} />
+              ))}
+            </div>
           </div>
         )}
       </div>

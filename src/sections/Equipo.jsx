@@ -222,77 +222,72 @@ export default function Equipo() {
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_230px] gap-6">
+      {/* Main grid — stats arriba en mobile, slots a la izquierda en desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
 
-        {/* Equipment slots */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {ALL_SLOTS.map(slot => (
-              <EquipmentSlot key={slot} slotKey={slot} item={equippedBySlot[slot] ?? null} />
+        {/* Stats — order-1 mobile (arriba), order-2 desktop (derecha) */}
+        <div className="flex flex-col gap-2 order-1 lg:order-2">
+          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Estadísticas</p>
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+            {STAT_CONFIG.map(({ key, label, color, Icon }) => (
+              <StatRow key={key} statKey={key} label={label} color={color} Icon={Icon}
+                base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0} cardBonus={cardBonus[key] ?? 0}
+              />
             ))}
           </div>
         </div>
 
-        {/* Stats panel */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Estadísticas</p>
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface">
-            {STAT_CONFIG.map(({ key, label, color, Icon }) => (
-              <StatRow
-                key={key}
-                statKey={key}
-                label={label}
-                color={color}
-                Icon={Icon}
-                base={hero[key] ?? 0}
-                equipBonus={equipBonus[key] ?? 0}
-                cardBonus={cardBonus[key] ?? 0}
-              />
-            ))}
+        {/* Slots — order-2 mobile (abajo), order-1 desktop (izquierda) */}
+        <div className="flex flex-col gap-2 order-2 lg:order-1">
+          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ALL_SLOTS.map(slot => (
+                <EquipmentSlot key={slot} slotKey={slot} item={equippedBySlot[slot] ?? null} />
+              ))}
+            </div>
           </div>
         </div>
 
       </div>
 
       {/* Inventory */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Mochila</p>
-          {unequipped.length > 0 && (
-            <span className="text-[11px] text-text-3">{unequipped.length} items</span>
-          )}
+          {unequipped.length > 0 && <span className="text-[11px] text-text-3">{unequipped.length} items</span>}
         </div>
 
         {unequipped.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 h-20 text-[13px] text-text-3 border border-dashed border-border rounded-xl">
+          <div className="flex items-center justify-center gap-2 h-20 text-[13px] text-text-3 border border-dashed border-border rounded-xl bg-surface">
             <Backpack size={14} strokeWidth={1.8} />
             Mochila vacía
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {unequipped.map(item => {
-              const cat      = item.item_catalog
-              const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-              return (
-                <div key={item.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] hover:shadow-[0_0_0_1px_var(--blue-200)] transition-all duration-150 cursor-pointer">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                    <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {unequipped.map(item => {
+                const cat      = item.item_catalog
+                const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+                return (
+                  <div key={item.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border bg-surface-2 hover:border-[color:var(--blue-400)] transition-all duration-150 cursor-pointer">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
+                      <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
+                      {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
+                      {cat.hp_bonus           > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.hp_bonus} HP</span>}
+                      {cat.strength_bonus     > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.strength_bonus} Fue</span>}
+                      {cat.agility_bonus      > 0 && <span className="text-[10px] text-[#2563eb] font-medium">+{cat.agility_bonus} Agi</span>}
+                      {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
+                    </div>
+                    <DurabilityBar current={item.current_durability} max={cat.max_durability} />
                   </div>
-                  <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                    {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
-                    {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
-                    {cat.hp_bonus           > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.hp_bonus} HP</span>}
-                    {cat.strength_bonus     > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.strength_bonus} Fue</span>}
-                    {cat.agility_bonus      > 0 && <span className="text-[10px] text-[#2563eb] font-medium">+{cat.agility_bonus} Agi</span>}
-                    {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
-                  </div>
-                  <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
