@@ -6,7 +6,7 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { Lock, Plus } from 'lucide-react'
+import { Lock, Plus, ChevronDown } from 'lucide-react'
 import { computeBaseLevel } from '../lib/gameConstants'
 
 const SLOT_UNLOCK      = { 2: 2, 3: 3 } // slot → nivel mínimo de Base
@@ -56,27 +56,42 @@ export function HeroSelector() {
         const isActive = hero.id === heroId
         const isReady  = status === 'ready'
         return (
-          <button
-            key={hero.id}
-            className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
-              ${isReady
-                ? 'bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border-[#16a34a] text-[#15803d]'
-                : isActive
-                  ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
-                  : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
-              }`}
-            onClick={() => setSelectedHeroId(hero.id)}
-          >
-            <span
-              className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}
-              style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
-            />
-            {hero.name}
-            <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
-            <span className={`hidden sm:inline text-[11px] border-l border-current/20 pl-1.5 ml-0.5 ${isReady ? 'font-bold opacity-90' : 'font-normal opacity-60'}`}>
-              {STATUS_LABEL[status] ?? 'Reposo'}
-            </span>
-          </button>
+          <div key={hero.id} className="relative">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
+                ${isReady
+                  ? 'bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border-[#16a34a] text-[#15803d]'
+                  : isActive
+                    ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
+                    : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
+                }`}
+              onClick={() => setSelectedHeroId(hero.id)}
+            >
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}
+                style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
+              />
+              {hero.name}
+              <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
+              <span className={`hidden sm:inline text-[11px] border-l border-current/20 pl-1.5 ml-0.5 ${isReady ? 'font-bold opacity-90' : 'font-normal opacity-60'}`}>
+                {STATUS_LABEL[status] ?? 'Reposo'}
+              </span>
+              {isActive && (
+                <ChevronDown size={12} strokeWidth={2.5} className="flex-shrink-0 opacity-60 ml-0.5" />
+              )}
+            </button>
+            {isActive && (
+              <span
+                className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-0 h-0 pointer-events-none"
+                style={{
+                  borderLeft: '5px solid transparent',
+                  borderRight: '5px solid transparent',
+                  borderTop: `5px solid ${isReady ? '#16a34a' : 'var(--blue-400)'}`,
+                  opacity: 0.7,
+                }}
+              />
+            )}
+          </div>
         )
       })}
 
