@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -245,13 +245,16 @@ export default function Equipo() {
   const { hero }    = useHero(heroId)
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
-  const queryClient = useQueryClient()
+  const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
+  const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
 
-  // Equip / unequip: optimistic desde el cache actual (no del render) → sin race conditions
+  // Equip / unequip — optimistic desde el cache actual, invalida solo cuando
+  // todas las mutaciones en vuelo hayan terminado (evita el caos visual)
   const equipMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ body }) => {
+      equipPending.current++
       const key = queryKeys.inventory(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
@@ -280,10 +283,16 @@ export default function Equipo() {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
       toast.error(err.message)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }),
+    onSettled: () => {
+      equipPending.current--
+      // Solo invalida cuando no quedan mutaciones pendientes
+      if (equipPending.current === 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      }
+    },
   })
 
-  // Repair / dismantle: bloquea solo su botón de confirmación
+  // Repair / dismantle — bloquea solo su botón de confirmación
   const actionMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ body }) => {
@@ -291,7 +300,6 @@ export default function Equipo() {
       const key = queryKeys.inventory(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      // dismantle: remove from cache immediately
       if (body._dismantle) {
         queryClient.setQueryData(key, (previous ?? []).filter(i => i.id !== body.itemId))
       }

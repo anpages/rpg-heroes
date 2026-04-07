@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
@@ -209,12 +209,14 @@ export default function Cartas() {
   const heroId      = useHeroId()
   const { hero }    = useHero(heroId)
   const { cards }   = useHeroCards(heroId)
-  const queryClient = useQueryClient()
+  const queryClient  = useQueryClient()
+  const equipPending = useRef(0)
 
-  // Equip / unequip: optimistic desde el cache actual → sin race conditions
+  // Equip / unequip: optimistic desde el cache actual, invalida solo al terminar todas
   const equipMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ body }) => {
+      equipPending.current++
       const key = queryKeys.heroCards(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
@@ -228,7 +230,12 @@ export default function Cartas() {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(heroId), context.previous)
       toast.error(err.message)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) }),
+    onSettled: () => {
+      equipPending.current--
+      if (equipPending.current === 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      }
+    },
   })
 
   // Fusión: destructiva, bloquea solo el botón de fusionar
