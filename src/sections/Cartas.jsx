@@ -69,47 +69,50 @@ function CardSlot({ card, slotIndex, onUnequip }) {
     )
   }
 
-  const sc       = card.skill_cards
-  const meta     = getMeta(sc)
-  const rank     = Math.min(card.rank ?? 1, 5)
-  const bonuses  = getBonuses(sc)
+  const sc        = card.skill_cards
+  const meta      = getMeta(sc)
+  const rank      = Math.min(card.rank ?? 1, 5)
+  const bonuses   = getBonuses(sc)
   const penalties = getPenalties(sc)
-  const rankLabel = RANK_LABELS[rank] ?? rank
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-surface transition-colors"
+    <div className="rounded-xl border border-border bg-surface overflow-hidden"
       style={{ borderColor: `color-mix(in srgb, ${meta.color} 28%, var(--border))` }}>
-      {/* Icono */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
-        style={{ background: meta.bg }}>
-        <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
-      </div>
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[13px] font-bold text-text truncate">{sc.name}</span>
-          <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
-            {rankLabel}
-          </span>
+      <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
+          style={{ background: meta.bg }}>
+          <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
         </div>
-        <div className="flex items-center gap-2 flex-wrap mt-0.5">
-          {bonuses.slice(0, 2).map((b, i) => (
-            <span key={i} className="text-[11px] font-semibold text-[#86efac]">
-              +{formatVal(b.stat, cardBonusAtRank(b.value, rank))} {STAT_LABELS[b.stat] ?? b.stat}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-text truncate">{sc.name}</span>
+            <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
+              {RANK_LABELS[rank] ?? rank}
             </span>
-          ))}
-          {penalties.slice(0, 1).map((p, i) => (
-            <span key={i} className="text-[11px] font-semibold text-[#fca5a5]">
-              −{formatVal(p.stat, cardPenaltyAtRank(p.value, rank))} {STAT_LABELS[p.stat] ?? p.stat}
-            </span>
-          ))}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            {bonuses.slice(0, 2).map((b, i) => (
+              <span key={i} className="text-[11px] font-semibold text-[#86efac]">
+                +{formatVal(b.stat, cardBonusAtRank(b.value, rank))} {STAT_LABELS[b.stat] ?? b.stat}
+              </span>
+            ))}
+            {penalties.slice(0, 1).map((p, i) => (
+              <span key={i} className="text-[11px] font-semibold text-[#fca5a5]">
+                −{formatVal(p.stat, cardPenaltyAtRank(p.value, rank))} {STAT_LABELS[p.stat] ?? p.stat}
+              </span>
+            ))}
+          </div>
         </div>
+        <span className="text-[10px] font-black text-text-3 opacity-40 flex-shrink-0">#{slotIndex + 1}</span>
       </div>
-      {/* Slot # + quitar */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className="text-[10px] font-black text-text-3 opacity-50">#{slotIndex + 1}</span>
-        <button className="btn btn--ghost btn--icon" onClick={() => onUnequip(card.id)} title="Desequipar">
-          <X size={13} strokeWidth={2.5} />
+      {/* Footer */}
+      <div className="border-t border-border">
+        <button
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+          onClick={() => onUnequip(card.id)}
+        >
+          <X size={12} strokeWidth={2.5} /> Quitar
         </button>
       </div>
     </div>
