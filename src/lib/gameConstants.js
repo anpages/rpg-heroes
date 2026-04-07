@@ -126,28 +126,41 @@ export function buildingUpgradeDurationMs(currentLevel) {
 /**
  * Coste de subir el edificio `type` desde `currentLevel` al siguiente nivel.
  * Fuente de verdad para la API (building-upgrade-start) y el frontend (display).
+ *
+ * Nivel 0 = construcción inicial (solo lab, mina y pozo arrancan en 0).
+ * Nivel máximo: BUILDING_MAX_LEVEL — la API rechaza subir más allá.
  */
 export function buildingUpgradeCost(type, currentLevel) {
   switch (type) {
     case 'energy_nexus':
-      // Nivel 1→2: solo madera — esta mejora ES la que desbloquea la mina de hierro,
-      // no tiene sentido pedirlo como prerequisito de sí mismo.
+      // 1→2: solo madera (desbloquea la mina, no puede pedir hierro que aún no existe)
       if (currentLevel === 1) return { wood: 80 }
-      return { wood: Math.round(80 * Math.pow(currentLevel, 1.8)), iron: Math.round(60 * Math.pow(currentLevel, 1.6)) }
+      // 2→5: mismos exponentes que el resto pero base mayor (es el edificio clave)
+      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(45 * Math.pow(currentLevel, 1.4)) }
     case 'lumber_mill':
       return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(30 * Math.pow(currentLevel, 1.4)) }
+    case 'gold_mine':
+      if (currentLevel === 0) return { wood: 60, iron: 30 }  // construcción inicial (hierro del stock inicial)
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(40 * Math.pow(currentLevel, 1.4)) }
     case 'mana_well':
+      if (currentLevel === 0) return { wood: 60, iron: 40 }  // construcción inicial (ya hay mina activa)
       return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(35 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
     case 'laboratory':
       if (currentLevel === 0) return { wood: 80, iron: 50 }  // construcción inicial
       return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(50 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
-    default: // gold_mine y otros
+    default:
       return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(40 * Math.pow(currentLevel, 1.4)) }
   }
 }
 
 /** Nivel de base mínimo requerido para construir el Laboratorio */
 export const LAB_BASE_LEVEL_REQUIRED = 2
+
+/** Nivel máximo de cualquier edificio de base */
+export const BUILDING_MAX_LEVEL = 5
+
+/** Nivel máximo de cualquier sala de entrenamiento */
+export const TRAINING_ROOM_MAX_LEVEL = 5
 
 // ── Salas de entrenamiento ────────────────────────────────────────────────────
 

@@ -16,11 +16,13 @@ import {
   buildingUpgradeCost,
   buildingUpgradeDurationMs,
   LAB_BASE_LEVEL_REQUIRED,
+  BUILDING_MAX_LEVEL,
   TRAINING_ROOM_BUILD_COST,
   TRAINING_ROOM_BUILD_TIME_MS,
   trainingRoomUpgradeCost,
   trainingRoomUpgradeDurationMs,
   TRAINING_ROOM_BASE_LEVEL_REQUIRED,
+  TRAINING_ROOM_MAX_LEVEL,
   ironRateForLevel,
   woodRateForLevel,
   manaRateForLevel,
@@ -300,7 +302,7 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         whileHover={(!canAfford || blockedByOther) ? {} : { scale: 1.02 }}
         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
       >
-        <span>Mejorar</span><ChevronRight size={13} strokeWidth={2} />
+        <span>{level === 0 ? 'Construir' : 'Mejorar'}</span><ChevronRight size={13} strokeWidth={2} />
       </motion.button>
     </div>
   )
@@ -336,14 +338,26 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[14px] font-bold text-text leading-none truncate">{meta.name}</h3>
-            <span className="text-[12px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[5px] px-1.5 py-[3px] leading-none flex-shrink-0">
-              Nv.{level}
-            </span>
+            {level === 0 ? (
+              <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-[5px] px-1.5 py-[3px] leading-none flex-shrink-0">
+                Sin construir
+              </span>
+            ) : (
+              <span className="text-[12px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[5px] px-1.5 py-[3px] leading-none flex-shrink-0">
+                Nv.{level}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="text-[13px] font-semibold text-text-2">{meta.effect(level)}</span>
-            {!hasUpgrade && (
-              <span className="text-[12px] text-text-3">→ {meta.nextEffect(level)}</span>
+            {level === 0 ? (
+              <span className="text-[13px] font-semibold text-text-3">→ {meta.nextEffect(0)}</span>
+            ) : (
+              <>
+                <span className="text-[13px] font-semibold text-text-2">{meta.effect(level)}</span>
+                {!hasUpgrade && (
+                  <span className="text-[12px] text-text-3">→ {meta.nextEffect(level)}</span>
+                )}
+              </>
             )}
             {nexusRatio !== undefined && nexusRatio < 1 && (
               <span className="text-[11px] font-semibold text-[#d97706]">· ⚡ {Math.round(nexusRatio * 100)}%</span>
@@ -352,9 +366,13 @@ function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, o
         </div>
       </div>
 
-      {/* Footer: coste o progreso */}
+      {/* Footer: coste, progreso o nivel máximo */}
       <div className="px-4 pb-4 border-t border-border">
-        {hasUpgrade ? progressRow : costRow}
+        {hasUpgrade ? progressRow : level >= BUILDING_MAX_LEVEL ? (
+          <div className="flex items-center justify-center pt-3 mt-auto">
+            <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel máximo</span>
+          </div>
+        ) : costRow}
       </div>
     </div>
   )
@@ -984,28 +1002,34 @@ function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPendin
       {/* Acción — no se muestra cuando está construyendo */}
       {!isConstructing && !lockedByBase && (
         <div className="px-4 pb-4 mt-auto">
-          <div className="flex items-center justify-between gap-2 pt-3 border-t border-border">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`flex items-center gap-1 text-[12px] font-semibold ${resources?.wood >= upgCost.wood ? 'text-text-3' : 'text-error-text'}`}>
-                <Axe size={11} strokeWidth={2} />{fmt(upgCost.wood)}
-              </span>
-              <span className={`flex items-center gap-1 text-[12px] font-semibold ${resources?.iron >= upgCost.iron ? 'text-text-3' : 'text-error-text'}`}>
-                <Pickaxe size={11} strokeWidth={2} />{fmt(upgCost.iron)}
-              </span>
+          {isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (
+            <div className="flex items-center justify-center pt-3 border-t border-border">
+              <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel máximo</span>
             </div>
-            <motion.button
-              className="btn btn--primary btn--sm flex-shrink-0"
-              onClick={() => isBuilt ? onUpgrade() : onBuild()}
-              disabled={!canAfford || mutPending}
-              whileTap={(!canAfford || mutPending) ? {} : { scale: 0.96 }}
-            >
-              {isBuilt ? (
-                <><ChevronRight size={12} strokeWidth={2.5} />Mejorar</>
-              ) : (
-                <><Hammer size={12} strokeWidth={2.5} />Construir</>
-              )}
-            </motion.button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-border">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`flex items-center gap-1 text-[12px] font-semibold ${resources?.wood >= upgCost.wood ? 'text-text-3' : 'text-error-text'}`}>
+                  <Axe size={11} strokeWidth={2} />{fmt(upgCost.wood)}
+                </span>
+                <span className={`flex items-center gap-1 text-[12px] font-semibold ${resources?.iron >= upgCost.iron ? 'text-text-3' : 'text-error-text'}`}>
+                  <Pickaxe size={11} strokeWidth={2} />{fmt(upgCost.iron)}
+                </span>
+              </div>
+              <motion.button
+                className="btn btn--primary btn--sm flex-shrink-0"
+                onClick={() => isBuilt ? onUpgrade() : onBuild()}
+                disabled={!canAfford || mutPending}
+                whileTap={(!canAfford || mutPending) ? {} : { scale: 0.96 }}
+              >
+                {isBuilt ? (
+                  <><ChevronRight size={12} strokeWidth={2.5} />Mejorar</>
+                ) : (
+                  <><Hammer size={12} strokeWidth={2.5} />Construir</>
+                )}
+              </motion.button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -67,7 +67,9 @@ export default async function handler(req, res) {
       ALL_BUILDING_TYPES.map(type => ({
         player_id: user.id,
         type,
-        level:    type === 'laboratory' ? 0 : 1,
+        // Edificios desbloqueados desde el inicio (nexo y aserradero) arrancan en Nv1.
+        // Laboratorio, mina y pozo de maná se construyen manualmente desde Nv0.
+        level:    (INITIALLY_UNLOCKED_BUILDINGS.includes(type) && type !== 'laboratory') ? 1 : 0,
         unlocked: INITIALLY_UNLOCKED_BUILDINGS.includes(type),
       }))
     )

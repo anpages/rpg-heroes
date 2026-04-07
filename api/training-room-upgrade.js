@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { safeHours } from './_validate.js'
-import { trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs } from '../src/lib/gameConstants.js'
+import { trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs, TRAINING_ROOM_MAX_LEVEL } from '../src/lib/gameConstants.js'
 
 const VALID_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']
 
@@ -32,6 +32,7 @@ export default async function handler(req, res) {
 
   if (roomError || !room) return res.status(404).json({ error: 'Sala no construida' })
   if (!room.built_at) return res.status(409).json({ error: 'La sala aún está en construcción' })
+  if (room.level >= TRAINING_ROOM_MAX_LEVEL) return res.status(409).json({ error: `Nivel máximo alcanzado (${TRAINING_ROOM_MAX_LEVEL})` })
   if (room.building_ends_at && new Date(room.building_ends_at) > new Date()) {
     return res.status(409).json({ error: 'Ya hay una mejora en curso' })
   }
