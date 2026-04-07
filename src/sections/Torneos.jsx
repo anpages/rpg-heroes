@@ -394,11 +394,11 @@ export default function Torneos() {
             <div className="w-full max-w-xs flex items-end justify-between gap-1 text-[11px]">
               {/* Inscripción — Dom + Lun agrupados */}
               <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border"
-                  style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
-                  <span className="font-bold text-text-3">Dom</span>
-                  <span className="text-text-3 opacity-40">·</span>
-                  <span className="font-bold text-text-3">Lun</span>
+                <div className="h-8 w-[calc(4rem+4px)] flex items-center justify-center gap-2 rounded-full border font-bold text-[12px]"
+                  style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text-3)' }}>
+                  <span>Dom</span>
+                  <span className="opacity-40">·</span>
+                  <span>Lun</span>
                 </div>
                 <span className="text-text-3 font-medium">Inscripción</span>
               </div>
