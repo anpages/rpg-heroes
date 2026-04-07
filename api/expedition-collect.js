@@ -58,22 +58,30 @@ export default async function handler(req, res) {
   const { data: dungeon } = await supabase
     .from('dungeons').select('difficulty, type').eq('id', expedition.dungeon_id).single()
 
-  // Stats efectivas para bonificaciones
-  const stats = await getEffectiveStats(supabase, hero.id)
+  // Stats efectivas para bonificaciones (con bonos de investigación)
+  const stats = await getEffectiveStats(supabase, hero.id, user.id)
+
+  // Obtener bonos de investigación para aplicar sobre oro/XP/durabilidad
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
 
   // Ataque escala oro y XP (hasta +100%)
   const attackMultiplier = calcAttackMultiplier(stats?.attack)
   const xpBoost  = hero.active_effects?.xp_boost ?? 0
-  const finalGold = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
-  const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
+  const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
+  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct))
+  const xpBase    = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
+  const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct))
 
   // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa y cartas
   // Peligro 1 → base 1, peligro 9 → base 5; defensa y carta Herrero reducen, Destrozador aumenta
   const dangerBase = dungeon ? 1 + Math.floor(dungeon.difficulty / 2) : 3
-  const durabilityLoss = Math.max(0, (stats
+  const rawDurabilityLoss = (stats
     ? dangerBase - Math.floor(stats.defense / 15)
     : dangerBase
-  ) + (stats?.durabilityMod ?? 0))
+  ) + (stats?.durabilityMod ?? 0)
+  // durability_loss_pct es negativo (reducción), máximo 0
+  const durabilityLoss = Math.max(0, Math.round(rawDurabilityLoss * (1 + rb.durability_loss_pct)))
 
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0

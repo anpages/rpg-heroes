@@ -2,8 +2,9 @@
  * Calcula las stats efectivas del héroe:
  * base + bonos del equipo equipado (durabilidad > 0) + bonos de cartas equipadas (× rango)
  * + bonos de runas incrustadas + amplificaciones (weapon_attack_amp, armor_defense_amp, enchantment_amp)
+ * + bonos de investigación si se pasa playerId
  */
-export async function getEffectiveStats(supabase, heroId) {
+export async function getEffectiveStats(supabase, heroId, playerId = null) {
   const [heroRes, itemsRes, cardsRes] = await Promise.all([
     supabase
       .from('heroes')
@@ -90,6 +91,25 @@ export async function getEffectiveStats(supabase, heroId) {
     for (const [stat, runeVal] of Object.entries(runeStatBonuses)) {
       if (runeVal > 0) stats[stat] += Math.round(runeVal * enchantmentAmp)
     }
+  }
+
+  // Aplicar bonos de investigación completada
+  if (playerId) {
+    const { getResearchBonuses } = await import('./_research.js')
+    const rb = await getResearchBonuses(supabase, playerId)
+
+    if (rb.attack_pct > 0)       stats.attack        = Math.round(stats.attack        * (1 + rb.attack_pct))
+    if (rb.defense_pct > 0)      stats.defense       = Math.round(stats.defense       * (1 + rb.defense_pct))
+    if (rb.intelligence_pct > 0) stats.intelligence  = Math.round(stats.intelligence  * (1 + rb.intelligence_pct))
+
+    // enchantment_amp de investigación amplifica los bonos de runas ya calculados
+    if (rb.enchantment_amp > 0) {
+      for (const [stat, runeVal] of Object.entries(runeStatBonuses)) {
+        if (runeVal > 0) stats[stat] += Math.round(runeVal * rb.enchantment_amp)
+      }
+    }
+
+    itemDropRateBonus += rb.item_drop_pct
   }
 
   return { ...stats, durabilityMod, itemDropRateBonus }

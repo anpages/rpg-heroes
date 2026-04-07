@@ -7,6 +7,7 @@ import { useTraining, xpThreshold, hasReadyPoint } from '../hooks/useTraining'
 import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { usePotions } from '../hooks/usePotions'
 import { useHeroRunes } from '../hooks/useHeroRunes'
+import { useResearch } from '../hooks/useResearch'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useBuildings } from '../hooks/useBuildings'
@@ -30,11 +31,12 @@ import {
   xpRateForLevel,
   TRAINING_XP_CAP_HOURS,
   runeSlotsByForgeLevel,
+  RESEARCH_NODES,
 } from '../lib/gameConstants.js'
 import {
   Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock,
   Dumbbell, FlaskConical, ShieldCheck, Zap as ZapIcon, Brain, Plus, PackageOpen,
-  Home, Shield, Pickaxe,
+  Home, Shield, Pickaxe, Telescope, Sword, Map, CheckCircle2, Timer, AlertCircle,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -113,7 +115,7 @@ const BUILDING_META = {
   },
   library: {
     name: 'Biblioteca',
-    description: 'Custodia las cartas de habilidad.',
+    description: 'Custodia las cartas y alberga el árbol de investigación.',
     icon: BookOpen,
     color: '#0f766e',
     effect: (level) => `${1 + level * 2} cartas equipables`,
@@ -624,6 +626,7 @@ const ZONES = [
   { id: 'recursos',      label: 'Recursos',        icon: Coins      },
   { id: 'entrenamiento', label: 'Entrenamiento',   icon: Dumbbell   },
   { id: 'laboratorio',   label: 'Laboratorio',     icon: FlaskConical },
+  { id: 'biblioteca',    label: 'Biblioteca',      icon: BookOpen   },
 ]
 
 function ZonePills({ active, onChange }) {
@@ -1317,6 +1320,243 @@ function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, ru
   )
 }
 
+/* ─── Zona: Biblioteca ───────────────────────────────────────────────────────── */
+
+const BRANCH_META = {
+  combat:     { label: 'Combate',     icon: Sword,     color: '#dc2626' },
+  expedition: { label: 'Expedición',  icon: Map,       color: '#0369a1' },
+  crafting:   { label: 'Artesanía',   icon: Hammer,    color: '#b45309' },
+  magic:      { label: 'Magia',       icon: Sparkles,  color: '#7c3aed' },
+}
+
+const BRANCH_ORDER = ['combat', 'expedition', 'crafting', 'magic']
+
+function fmtCountdown(endsAt) {
+  const ms = new Date(endsAt).getTime() - Date.now()
+  if (ms <= 0) return '¡Listo!'
+  const totalSecs = Math.ceil(ms / 1000)
+  const h = Math.floor(totalSecs / 3600)
+  const m = Math.floor((totalSecs % 3600) / 60)
+  const s = totalSecs % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function ResearchNodeCard({ node, state, isActive, activeNode, resources, onStart, onCollect, startPending, collectPending }) {
+  // state: 'locked' | 'available' | 'active' | 'completed'
+  const bm = BRANCH_META[node.branch]
+  const isReady = isActive && new Date(activeNode?.ends_at) <= new Date()
+
+  const stateColors = {
+    locked:    { bg: 'bg-surface',   border: 'border-border',                           text: 'text-text-3'  },
+    available: { bg: 'bg-surface',   border: 'border-border hover:border-[var(--blue-400)]', text: 'text-text' },
+    active:    { bg: 'bg-surface-2', border: 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', text: 'text-text' },
+    completed: { bg: 'bg-surface',   border: 'border-[color-mix(in_srgb,var(--accent)_30%,var(--border))]', text: 'text-text' },
+  }
+
+  const sc = stateColors[state] ?? stateColors.locked
+
+  const canAfford = resources
+    ? resources.gold >= node.cost.gold && resources.iron >= node.cost.iron && resources.mana >= node.cost.mana
+    : false
+
+  return (
+    <div
+      className={`relative flex flex-col gap-1.5 p-3 rounded-xl border transition-all duration-150 ${sc.bg} ${sc.border}`}
+      style={{ '--accent': bm.color }}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {state === 'completed' && (
+            <CheckCircle2 size={13} strokeWidth={2.5} style={{ color: bm.color, flexShrink: 0 }} />
+          )}
+          {state === 'active' && (
+            <Timer size={13} strokeWidth={2.5} style={{ color: bm.color, flexShrink: 0 }} />
+          )}
+          {state === 'locked' && (
+            <Lock size={13} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
+          )}
+          {state === 'available' && (
+            <div className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5" style={{ background: bm.color, opacity: 0.6 }} />
+          )}
+          <span className={`text-[12px] font-semibold truncate ${sc.text}`}>{node.name}</span>
+        </div>
+        <span className="text-[10px] text-text-3 flex-shrink-0 font-mono">
+          {node.duration_hours >= 24
+            ? `${node.duration_hours / 24}d`
+            : `${node.duration_hours}h`}
+        </span>
+      </div>
+
+      {/* Description */}
+      <p className="text-[11px] text-text-3 leading-snug">{node.description}</p>
+
+      {/* Cost / timer / button */}
+      {state === 'available' && (
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <div className="flex items-center gap-2 text-[10px] text-text-3 flex-wrap">
+            {node.cost.gold  > 0 && <span className="text-[#d97706]">{node.cost.gold}g</span>}
+            {node.cost.iron  > 0 && <span className="text-[#64748b]">{node.cost.iron}h</span>}
+            {node.cost.mana  > 0 && <span className="text-[#7c3aed]">{node.cost.mana}m</span>}
+          </div>
+          <button
+            className="btn btn--primary btn--sm flex-shrink-0"
+            style={{ fontSize: '11px', padding: '2px 10px', height: '24px', minHeight: 'unset' }}
+            onClick={() => onStart(node.id)}
+            disabled={startPending || !canAfford}
+            title={!canAfford ? 'Recursos insuficientes' : undefined}
+          >
+            Investigar
+          </button>
+        </div>
+      )}
+
+      {state === 'active' && (
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          {isReady ? (
+            <span className="text-[11px] font-bold" style={{ color: bm.color }}>¡Listo para recoger!</span>
+          ) : (
+            <span className="text-[11px] text-text-3 font-mono">{fmtCountdown(activeNode.ends_at)}</span>
+          )}
+          {isReady && (
+            <button
+              className="btn btn--primary btn--sm flex-shrink-0"
+              style={{ fontSize: '11px', padding: '2px 10px', height: '24px', minHeight: 'unset' }}
+              onClick={() => onCollect(node.id)}
+              disabled={collectPending}
+            >
+              Recoger
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResearchBranch({ branch, nodesInBranch, completedSet, activeNode, resources, onStart, onCollect, startPending, collectPending }) {
+  const bm = BRANCH_META[branch]
+  const BranchIcon = bm.icon
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Branch header */}
+      <div className="flex items-center gap-2 pb-1 border-b border-border">
+        <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: `color-mix(in srgb,${bm.color} 12%,var(--surface-2))` }}>
+          <BranchIcon size={12} strokeWidth={2} style={{ color: bm.color }} />
+        </div>
+        <span className="text-[12px] font-bold text-text">{bm.label}</span>
+      </div>
+
+      {/* Nodes */}
+      <div className="flex flex-col gap-2">
+        {nodesInBranch.map((node, idx) => {
+          const prereqDone = !node.prerequisite || completedSet.has(node.prerequisite)
+          const isCompleted = completedSet.has(node.id)
+          const isActive    = activeNode?.node_id === node.id
+          let state = 'locked'
+          if (isCompleted) state = 'completed'
+          else if (isActive) state = 'active'
+          else if (prereqDone) state = 'available'
+
+          return (
+            <div key={node.id} className="relative">
+              {/* Connector line between nodes */}
+              {idx > 0 && (
+                <div
+                  className="absolute left-[18px] -top-2 w-px h-2"
+                  style={{
+                    background: nodesInBranch[idx - 1] && completedSet.has(nodesInBranch[idx - 1].id)
+                      ? bm.color
+                      : 'var(--border)',
+                    opacity: 0.6,
+                  }}
+                />
+              )}
+              <ResearchNodeCard
+                node={node}
+                state={state}
+                isActive={isActive}
+                activeNode={activeNode}
+                resources={resources}
+                onStart={onStart}
+                onCollect={onCollect}
+                startPending={startPending}
+                collectPending={collectPending}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function BibliotecaZone({ byType, research, resources, onResearchStart, onResearchCollect, startPending, collectPending, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending }) {
+  const library = byType['library']
+  const [, forceUpdate] = useReducer(x => x + 1, 0)
+
+  // Tick para actualizar el countdown cada segundo
+  useEffect(() => {
+    if (!research.active) return
+    const id = setInterval(forceUpdate, 1000)
+    return () => clearInterval(id)
+  }, [research.active])
+
+  const completedSet = new Set(research.completed ?? [])
+  const activeNode   = research.active
+  const byBranch     = Object.fromEntries(BRANCH_ORDER.map(b => [b, RESEARCH_NODES.filter(n => n.branch === b)]))
+
+  return (
+    <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
+      {library && (
+        <BuildingCard
+          building={library}
+          resources={resources}
+          anyUpgrading={anyUpgrading}
+          onUpgradeStart={onUpgradeStart}
+          onUpgradeCollect={onUpgradeCollect}
+          onOptimisticDeduct={onOptimisticDeduct}
+          onUpgradePending={onUpgradePending}
+        />
+      )}
+
+      <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+        <div className="flex items-center gap-2 mb-4">
+          <Telescope size={14} strokeWidth={2} className="text-[#0f766e]" />
+          <span className="text-[14px] font-bold text-text">Árbol de Investigación</span>
+          {activeNode && (
+            <span className="ml-auto text-[11px] text-text-3 font-medium">
+              1 investigación activa
+            </span>
+          )}
+        </div>
+
+        {/* Research branches grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {BRANCH_ORDER.map(branch => (
+            <ResearchBranch
+              key={branch}
+              branch={branch}
+              nodesInBranch={byBranch[branch]}
+              completedSet={completedSet}
+              activeNode={activeNode}
+              resources={resources}
+              onStart={onResearchStart}
+              onCollect={onResearchCollect}
+              startPending={startPending}
+              collectPending={collectPending}
+            />
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 /* ─── Base ───────────────────────────────────────────────────────────────────── */
 
 function Base({ mainRef }) {
@@ -1330,6 +1570,7 @@ function Base({ mainRef }) {
   const { rows: trainingProgress } = useTraining(heroId)
   const { potions }                        = usePotions(heroId)
   const { catalog: runesCatalog, inventory: runesInventory } = useHeroRunes(heroId)
+  const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('inicio')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
@@ -1366,6 +1607,28 @@ function Base({ mainRef }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       toast.success('¡Runa creada!')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const researchStartMutation = useMutation({
+    mutationFn: (nodeId) => apiPost('/api/research-start', { nodeId }),
+    onSuccess: (_, nodeId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.research(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      const node = RESEARCH_NODES.find(n => n.id === nodeId)
+      toast.success(`Investigando: ${node?.name ?? nodeId}`)
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const researchCollectMutation = useMutation({
+    mutationFn: (nodeId) => apiPost('/api/research-collect', { nodeId }),
+    onSuccess: (_, nodeId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.research(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      const node = RESEARCH_NODES.find(n => n.id === nodeId)
+      toast.success(`¡${node?.name ?? nodeId} completado!`)
     },
     onError: err => toast.error(err.message),
   })
@@ -1484,6 +1747,20 @@ function Base({ mainRef }) {
             runesInventory={runesInventory}
             onCraft={(potionId) => craftMutation.mutate(potionId)}
             onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
+            {...sharedBuildingProps}
+          />
+        )}
+
+        {activeZone === 'biblioteca' && (
+          <BibliotecaZone
+            key="biblioteca"
+            byType={byType}
+            research={research}
+            resources={effectiveResources}
+            onResearchStart={(nodeId) => researchStartMutation.mutate(nodeId)}
+            onResearchCollect={(nodeId) => researchCollectMutation.mutate(nodeId)}
+            startPending={researchStartMutation.isPending}
+            collectPending={researchCollectMutation.isPending}
             {...sharedBuildingProps}
           />
         )}

@@ -61,8 +61,15 @@ export default async function handler(req, res) {
   const discount   = repairDiscount(forgeLevel)
   const costs      = REPAIR_COST[catalog.rarity] ?? REPAIR_COST.common
 
-  const goldCost = Math.ceil(missing * costs.gold * (1 - discount))
-  const manaCost = Math.ceil(missing * costs.mana * (1 - discount))
+  // Investigación: repair_cost_pct reduce el coste adicionalmente (valor negativo = descuento)
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+
+  const researchDiscount = -rb.repair_cost_pct  // convierte el valor negativo en positivo
+  const totalDiscount    = Math.min(0.9, discount + researchDiscount)
+
+  const goldCost = Math.ceil(missing * costs.gold * (1 - totalDiscount))
+  const manaCost = Math.ceil(missing * costs.mana * (1 - totalDiscount))
 
   // Verificar recursos (con interpolación idle)
   const { data: resources } = await supabase

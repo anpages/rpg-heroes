@@ -12,10 +12,10 @@ import { useHeroRunes } from '../hooks/useHeroRunes'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, runeSlotsByForgeLevel } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, runeSlotsByForgeLevel, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
-  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles,
+  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles, ArrowUp,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -120,7 +120,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, repairLoading }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repairLoading, upgradeLoading, forgeLevel }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -138,7 +138,9 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, repairLoading }) {
   const mainStat = mainStatForSlot(slotKey, cat)
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
-  const needsRepair = durPct < 100
+  const needsRepair  = durPct < 100
+  const canUpgrade   = forgeLevel >= 3 && cat.tier < 3 && durPct >= 100
+  const upgradeCost  = ITEM_TIER_UPGRADE_COST[cat.tier]
 
   return (
     <button
@@ -175,6 +177,19 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, repairLoading }) {
         >
           <Wrench size={9} strokeWidth={2} />
           Rep.
+        </button>
+      )}
+
+      {/* Tier upgrade button — visible cuando Forja Nv.3+, tier < 3, durabilidad 100% */}
+      {canUpgrade && (
+        <button
+          className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] font-bold text-[#0f766e] bg-surface border border-[color-mix(in_srgb,#0f766e_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
+          onClick={e => { e.stopPropagation(); onUpgradeTier(item, upgradeCost) }}
+          disabled={upgradeLoading}
+          title={upgradeCost ? `Mejorar a T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : 'Mejorar tier'}
+        >
+          <ArrowUp size={9} strokeWidth={2.5} />
+          T{cat.tier}→T{cat.tier + 1}
         </button>
       )}
     </button>
@@ -385,6 +400,16 @@ export default function Equipo() {
     onError: err => toast.error(err.message),
   })
 
+  const tierUpgradeMutation = useMutation({
+    mutationFn: ({ inventoryItemId }) => apiPost('/api/item-upgrade-tier', { heroId, inventoryItemId }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      toast.success(`¡Ítem mejorado a ${data.newItemName ?? `T${data.newTier}`}!`)
+    },
+    onError: err => toast.error(err.message),
+  })
+
   const forgeLevel   = (buildings ?? []).find(b => b.type === 'forge')?.level ?? 1
   const maxRuneSlots = runeSlotsByForgeLevel(forgeLevel)
 
@@ -490,6 +515,23 @@ export default function Equipo() {
     setRunePickerTarget(null)
   }
 
+  function handleUpgradeTier(item, cost) {
+    const costText = [
+      cost?.gold > 0 ? `${cost.gold} oro` : null,
+      cost?.iron > 0 ? `${cost.iron} hierro` : null,
+      cost?.mana > 0 ? `${cost.mana} maná` : null,
+    ].filter(Boolean).join(' · ')
+    setConfirm({
+      title: `Mejorar ${item.item_catalog.name} a T${item.item_catalog.tier + 1}`,
+      body: `Coste: ${costText}. El ítem debe estar al 100% de durabilidad. Esta acción es irreversible.`,
+      confirmLabel: 'Mejorar tier',
+      onConfirm: () => {
+        setConfirm(null)
+        tierUpgradeMutation.mutate({ inventoryItemId: item.id })
+      },
+    })
+  }
+
   function handleDismantle(item) {
     const mana = estimateDismantleMana(item)
     setConfirm({
@@ -560,7 +602,10 @@ export default function Equipo() {
                   item={equippedBySlot[slot] ?? null}
                   onUnequip={handleUnequip}
                   onRepair={handleRepair}
+                  onUpgradeTier={handleUpgradeTier}
                   repairLoading={actionMutation.isPending}
+                  upgradeLoading={tierUpgradeMutation.isPending}
+                  forgeLevel={forgeLevel}
                 />
               ))}
             </div>

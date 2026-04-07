@@ -284,3 +284,39 @@ export function xpRateForLevel(roomLevel) {
 export function xpThreshold(totalGained) {
   return Math.round(10 * Math.pow(1.5, totalGained))
 }
+
+// ── Árbol de investigación ────────────────────────────────────────────────────
+
+/**
+ * 16 nodos de investigación en 4 ramas: combat, expedition, crafting, magic.
+ * Cada nodo tiene un efecto que se aplica a nivel de juego cuando está completado.
+ * Fuente de verdad para la API (_research.js) y el frontend (BibliotecaZone).
+ */
+export const RESEARCH_NODES = [
+  // Combat
+  { id: 'combat_1',     branch: 'combat',     position: 1, name: 'Técnica de Ataque',     description: '+5% al ataque base.',                                    effect_type: 'attack_pct',          effect_value: 0.05,  cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
+  { id: 'combat_2',     branch: 'combat',     position: 2, name: 'Postura Defensiva',     description: '+5% a la defensa base.',                                 effect_type: 'defense_pct',         effect_value: 0.05,  cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'combat_1' },
+  { id: 'combat_3',     branch: 'combat',     position: 3, name: 'Golpe Crítico',         description: '+3% probabilidad de crítico.',                           effect_type: 'crit_pct',            effect_value: 0.03,  cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'combat_2' },
+  { id: 'combat_4',     branch: 'combat',     position: 4, name: 'Maestría en Combate',   description: '+10% al daño en la Torre.',                              effect_type: 'tower_dmg_pct',       effect_value: 0.10,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'combat_3' },
+  // Expedition
+  { id: 'expedition_1', branch: 'expedition', position: 1, name: 'Saqueo Eficiente',      description: '+5% al oro de expediciones.',                            effect_type: 'expedition_gold_pct', effect_value: 0.05,  cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
+  { id: 'expedition_2', branch: 'expedition', position: 2, name: 'Mantenimiento',         description: '-10% al desgaste de equipo en expediciones.',            effect_type: 'durability_loss_pct', effect_value: -0.10, cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'expedition_1' },
+  { id: 'expedition_3', branch: 'expedition', position: 3, name: 'Aprendizaje Acelerado', description: '+5% a la XP de expediciones.',                           effect_type: 'expedition_xp_pct',   effect_value: 0.05,  cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'expedition_2' },
+  { id: 'expedition_4', branch: 'expedition', position: 4, name: 'Doble Expedición',      description: 'Permite enviar un héroe a dos expediciones simultáneas.', effect_type: 'expedition_slots',    effect_value: 1,     cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'expedition_3' },
+  // Crafting
+  { id: 'crafting_1',   branch: 'crafting',   position: 1, name: 'Técnicas de Reparación',description: '-10% al coste de reparación.',                          effect_type: 'repair_cost_pct',     effect_value: -0.10, cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
+  { id: 'crafting_2',   branch: 'crafting',   position: 2, name: 'Ojo de Buitre',         description: '+5% a la tasa de drop de ítems.',                       effect_type: 'item_drop_pct',       effect_value: 0.05,  cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'crafting_1' },
+  { id: 'crafting_3',   branch: 'crafting',   position: 3, name: 'Grabado Profundo',      description: 'Desbloquea un 3er slot de runa en todos los ítems.',     effect_type: 'rune_slot_bonus',     effect_value: 1,     cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'crafting_2' },
+  { id: 'crafting_4',   branch: 'crafting',   position: 4, name: 'Artesano Supremo',      description: 'Reduce en 1 el nivel de Lab necesario para craftear runas.',effect_type: 'lab_req_reduction', effect_value: 1,     cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'crafting_3' },
+  // Magic
+  { id: 'magic_1',      branch: 'magic',      position: 1, name: 'Estudios Arcanos',      description: '+5% a la inteligencia base.',                            effect_type: 'intelligence_pct',    effect_value: 0.05,  cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
+  { id: 'magic_2',      branch: 'magic',      position: 2, name: 'Canalización Arcana',   description: '+5% a la producción de maná.',                           effect_type: 'mana_rate_pct',       effect_value: 0.05,  cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'magic_1' },
+  { id: 'magic_3',      branch: 'magic',      position: 3, name: 'Fusión Rúnica',         description: '-10% al coste de fusión de cartas.',                     effect_type: 'fusion_cost_pct',     effect_value: -0.10, cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'magic_2' },
+  { id: 'magic_4',      branch: 'magic',      position: 4, name: 'Resonancia Rúnica',     description: '+10% a los bonos de runas.',                             effect_type: 'enchantment_amp',     effect_value: 0.10,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'magic_3' },
+]
+
+/** Costes de mejora de tier en la Forja v2. key = tier actual → siguiente */
+export const ITEM_TIER_UPGRADE_COST = {
+  1: { gold: 150, iron: 80, mana: 30 },
+  2: { gold: 350, iron: 200, mana: 80 },
+}

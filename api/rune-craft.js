@@ -35,8 +35,15 @@ export default async function handler(req, res) {
   if (!rune) return res.status(404).json({ error: 'Runa no encontrada' })
 
   const labLevel = labRes.data?.level ?? 0
-  if (labLevel < rune.min_lab_level) {
-    return res.status(400).json({ error: `Se necesita Laboratorio Nv.${rune.min_lab_level}` })
+
+  // Investigación: lab_req_reduction puede reducir el nivel de lab requerido para craftear runas
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+  const effectiveLabLevel = labLevel + rb.lab_req_reduction
+
+  if (effectiveLabLevel < rune.min_lab_level) {
+    const neededLevel = Math.max(1, rune.min_lab_level - rb.lab_req_reduction)
+    return res.status(400).json({ error: `Se necesita Laboratorio Nv.${neededLevel}` })
   }
 
   const resources = resourcesRes.data

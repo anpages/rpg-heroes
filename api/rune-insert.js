@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const { heroId, inventoryItemId, slotIndex, runeId } = req.body
   if (!heroId || !isUUID(heroId))               return res.status(400).json({ error: 'heroId inválido' })
   if (!inventoryItemId || !isUUID(inventoryItemId)) return res.status(400).json({ error: 'inventoryItemId inválido' })
-  if (slotIndex !== 0 && slotIndex !== 1)       return res.status(400).json({ error: 'slotIndex debe ser 0 o 1' })
+  if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2) return res.status(400).json({ error: 'slotIndex debe ser 0, 1 o 2' })
   if (!runeId)                                  return res.status(400).json({ error: 'runeId requerido' })
 
   // Verificar héroe
@@ -32,9 +32,16 @@ export default async function handler(req, res) {
   const { data: forge } = await supabase
     .from('buildings').select('level').eq('player_id', user.id).eq('type', 'forge').maybeSingle()
   const forgeLevel = forge?.level ?? 1
-  const maxSlots   = runeSlotsByForgeLevel(forgeLevel)
+
+  // Investigación: rune_slot_bonus puede añadir un slot extra
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+  const maxSlots = runeSlotsByForgeLevel(forgeLevel) + rb.rune_slot_bonus
 
   if (slotIndex >= maxSlots) {
+    if (rb.rune_slot_bonus > 0 && slotIndex === 2) {
+      return res.status(400).json({ error: 'Se necesita Herrería Nv.3 para ese slot' })
+    }
     const needed = slotIndex === 0 ? 2 : 3
     return res.status(400).json({ error: `Se necesita Herrería Nv.${needed} para ese slot` })
   }

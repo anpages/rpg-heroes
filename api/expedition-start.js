@@ -36,6 +36,29 @@ export default async function handler(req, res) {
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe ya está en una expedición' })
 
+  // Verificar slots de expedición simultánea (base: 1 slot, +1 con investigación expedition_slots)
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+  const maxExpeditions = 1 + rb.expedition_slots
+
+  if (maxExpeditions < 2) {
+    // Sin investigación: solo se puede tener 1 expedición activa (comportamiento original)
+    // El check de hero.status === 'idle' ya lo cubre arriba
+  } else {
+    // Con investigación: contar expediciones activas del jugador
+    const { count } = await supabase
+      .from('expeditions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'traveling')
+      .in('hero_id',
+        (await supabase.from('heroes').select('id').eq('player_id', user.id)).data?.map(h => h.id) ?? []
+      )
+
+    if ((count ?? 0) >= maxExpeditions) {
+      return res.status(409).json({ error: `Ya tienes ${maxExpeditions} expedición(es) activa(s)` })
+    }
+  }
+
   const nowMs = Date.now()
   const currentHp = interpolateHP(hero, nowMs)
 
@@ -63,7 +86,7 @@ export default async function handler(req, res) {
   const workshopBonus = 1 + (workshopLevel - 1) * 0.05
 
   // Agilidad reduce duración (hasta −25%)
-  const stats = await getEffectiveStats(supabase, hero.id)
+  const stats = await getEffectiveStats(supabase, hero.id, user.id)
   const effectiveDuration = Math.round(dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1))
 
   // Calcular duración y recompensas (taller amplifica el botín)

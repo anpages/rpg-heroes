@@ -52,8 +52,11 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'No autorizado' })
   }
 
-  // Coste en maná: base_mana_fuse × 2^(rank-1)
-  const manaCost = c1.skill_cards.base_mana_fuse * Math.pow(2, c1.rank - 1)
+  // Coste en maná: base_mana_fuse × 2^(rank-1), reducido por investigación fusion_cost_pct
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+  const baseMana = c1.skill_cards.base_mana_fuse * Math.pow(2, c1.rank - 1)
+  const manaCost = Math.max(1, Math.round(baseMana * (1 + rb.fusion_cost_pct)))
 
   const { data: resources } = await supabase
     .from('resources')
