@@ -565,19 +565,19 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
 
   const zoneCards = [
     {
-      id:       'recursos',
-      label:    'Recursos',
-      icon:     Pickaxe,
-      color:    '#64748b',
-      alert:    !!upgradingBuilding,
-      summary:  [
-        upgradingBuilding ? `${upgradingMeta?.name ?? 'Edificio'} en construcción` : null,
-        nexusData
-          ? nexusData.deficit
-            ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
-            : `+${nexusData.balance} ⚡`
-          : null,
-      ].filter(Boolean).join(' · ') || 'Gestiona tus edificios',
+      id:      'recursos',
+      label:   'Recursos',
+      icon:    Pickaxe,
+      color:   '#64748b',
+      alert:   !!upgradingBuilding,
+      summary: nexusData
+        ? nexusData.deficit
+          ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
+          : `Energía +${nexusData.balance} ⚡`
+        : 'Gestiona tus edificios',
+      detail:  upgradingBuilding
+        ? `${upgradingMeta?.name ?? 'Edificio'} en construcción…`
+        : null,
     },
     {
       id:       'entrenamiento',
@@ -672,7 +672,10 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
               </div>
               <div>
                 <p className="text-[13px] font-bold text-text">{z.label}</p>
-                <p className={`text-[12px] mt-0.5 ${z.alert ? 'font-semibold text-[#16a34a]' : 'text-text-3'}`}>{z.summary}</p>
+                <p className="text-[12px] mt-0.5 text-text-3">{z.summary}</p>
+                {z.detail && (
+                  <p className="text-[11px] mt-0.5 font-semibold text-[#d97706]">{z.detail}</p>
+                )}
               </div>
               <span className="text-[11px] font-semibold text-text-3 flex items-center gap-1">
                 Gestionar <ChevronRight size={10} strokeWidth={2.5} />
