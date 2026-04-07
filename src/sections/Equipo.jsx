@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
@@ -127,7 +128,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, repairLoading }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -151,7 +152,6 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
     <button
       className="relative flex flex-col p-3 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] active:bg-surface-2 transition-all duration-150 min-h-[64px] gap-0.5 w-full text-left cursor-pointer disabled:opacity-50"
       onClick={() => onUnequip(item.id)}
-      disabled={loading}
       title="Toca para desequipar"
     >
       <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
         <button
           className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
           onClick={e => { e.stopPropagation(); onRepair(item) }}
-          disabled={loading}
+          disabled={repairLoading}
           title="Reparar"
         >
           <Wrench size={9} strokeWidth={2} />
@@ -240,6 +240,7 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) 
 /* ─── Componente principal ───────────────────────────────────────────────────── */
 
 export default function Equipo() {
+  const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
   const { hero }    = useHero(heroId)
   const { items }   = useInventory(heroId)
@@ -247,7 +248,26 @@ export default function Equipo() {
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState(null)
 
-  const mutation = useMutation({
+  // Equip / unequip: optimistic, nunca bloquea la UI
+  const equipMutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.inventory(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
+      toast.error(err.message)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }),
+  })
+
+  // Repair / dismantle: bloquea solo el botón de confirmación
+  const actionMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ optimisticUpdate }) => {
       if (!optimisticUpdate) return
@@ -263,7 +283,7 @@ export default function Equipo() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(hero?.player_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
   })
 
@@ -310,7 +330,6 @@ export default function Equipo() {
     )
   }
 
-  const loading       = mutation.isPending
   // eslint-disable-next-line react-hooks/purity
   const currentHp     = interpolateHp(hero, Date.now())
   const equippedCount = Object.keys(equippedBySlot).length
@@ -319,7 +338,7 @@ export default function Equipo() {
     const item = items?.find(i => i.id === itemId)
     if (!item) return
     const targetSlot = item.item_catalog.slot
-    mutation.mutate({
+    equipMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: true },
       optimisticUpdate: items?.map(i => {
@@ -332,7 +351,7 @@ export default function Equipo() {
   }
 
   function handleUnequip(itemId) {
-    mutation.mutate({
+    equipMutation.mutate({
       endpoint: '/api/item-equip',
       body: { itemId, equip: false },
       optimisticUpdate: items?.map(i => i.id === itemId ? { ...i, equipped_slot: null } : i),
@@ -348,7 +367,7 @@ export default function Equipo() {
       confirmLabel: 'Reparar',
       onConfirm: () => {
         setConfirm(null)
-        mutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
+        actionMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
       },
     })
   }
@@ -361,7 +380,7 @@ export default function Equipo() {
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirm(null)
-        mutation.mutate({
+        actionMutation.mutate({
           endpoint: '/api/item-dismantle',
           body: { itemId: item.id },
           optimisticUpdate: items?.filter(i => i.id !== item.id),
@@ -434,7 +453,7 @@ export default function Equipo() {
                   item={equippedBySlot[slot] ?? null}
                   onUnequip={handleUnequip}
                   onRepair={handleRepair}
-                  loading={loading}
+                  repairLoading={actionMutation.isPending}
                 />
               ))}
             </div>
@@ -488,7 +507,7 @@ export default function Equipo() {
                           : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface)', cursor: 'not-allowed' }
                         }
                         onClick={() => canEquip && handleEquip(item.id)}
-                        disabled={!canEquip || loading}
+                        disabled={!canEquip}
                         title={canEquip ? 'Equipar' : 'Repara el ítem antes de equiparlo'}
                       >
                         Equipar
@@ -496,7 +515,7 @@ export default function Equipo() {
                       <button
                         className="flex items-center justify-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors disabled:opacity-40"
                         onClick={() => handleDismantle(item)}
-                        disabled={loading}
+                        disabled={actionMutation.isPending}
                         title="Desmantelar"
                       >
                         <Trash2 size={11} strokeWidth={2} />

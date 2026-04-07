@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -64,7 +65,7 @@ function RankDots({ rank, max = 5, color }) {
   )
 }
 
-function CardSlot({ card, slotIndex, onUnequip, loading }) {
+function CardSlot({ card, slotIndex, onUnequip }) {
   if (!card) {
     return (
       <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface/50 aspect-[3/4] min-h-[160px]">
@@ -87,7 +88,6 @@ function CardSlot({ card, slotIndex, onUnequip, loading }) {
       className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] shadow-lg active:opacity-80 transition-opacity w-full text-left cursor-pointer disabled:opacity-40"
       style={{ background: meta.bg }}
       onClick={() => onUnequip(card.id)}
-      disabled={loading}
       title="Toca para desequipar"
     >
 
@@ -136,7 +136,7 @@ function CardSlot({ card, slotIndex, onUnequip, loading }) {
   )
 }
 
-function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, loading }) {
+function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading }) {
   const sc       = card.skill_cards
   const meta     = getMeta(sc)
   const rank     = Math.min(card.rank ?? 1, 5)
@@ -176,7 +176,7 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, loading }) 
           <button
             className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,transparent)] border border-[color-mix(in_srgb,#d97706_25%,transparent)] rounded-lg px-2 py-1 hover:bg-[color-mix(in_srgb,#d97706_18%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onFuse(card.id, fusePair.id)}
-            disabled={loading}
+            disabled={fuseLoading}
             title="Fusionar con carta idéntica → Rango superior"
           >
             <FlameKindling size={11} strokeWidth={2} />
@@ -190,7 +190,7 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, loading }) 
             : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface-2)', cursor: 'not-allowed' }
           }
           onClick={() => canEquip && onEquip(card.id)}
-          disabled={!canEquip || loading}
+          disabled={!canEquip}
           title={canEquip ? 'Equipar' : 'Slots llenos — desequipa una carta primero'}
         >
           Equipar
@@ -205,12 +205,32 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, loading }) 
 const CARD_SLOT_COUNT = 5
 
 export default function Cartas() {
+  const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
   const { hero }    = useHero(heroId)
   const { cards }   = useHeroCards(heroId)
   const queryClient = useQueryClient()
 
-  const cardMutation = useMutation({
+  // Equip / unequip: optimistic, nunca bloquea la UI
+  const equipMutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.heroCards(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(heroId), context.previous)
+      toast.error(err.message)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) }),
+  })
+
+  // Fusión: destructiva, bloquea solo el botón de fusionar
+  const fuseMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ optimisticUpdate }) => {
       if (!optimisticUpdate) return
@@ -226,6 +246,7 @@ export default function Cartas() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
   })
 
@@ -269,7 +290,6 @@ export default function Cartas() {
   }
 
   const equippedCount = equippedCards.filter(Boolean).length
-  const loading       = cardMutation.isPending
   const activeStats   = Object.entries(netTotals).filter(([, v]) => v !== 0)
 
   function handleEquip(cardId) {
@@ -277,7 +297,7 @@ export default function Cartas() {
       toast.error('Slots llenos. Desequipa una carta primero.')
       return
     }
-    cardMutation.mutate({
+    equipMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: true },
       optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: true } : c),
@@ -285,7 +305,7 @@ export default function Cartas() {
   }
 
   function handleUnequip(cardId) {
-    cardMutation.mutate({
+    equipMutation.mutate({
       endpoint: '/api/card-equip',
       body: { cardId, equip: false },
       optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: false } : c),
@@ -293,7 +313,7 @@ export default function Cartas() {
   }
 
   function handleFuse(id1, id2) {
-    cardMutation.mutate({
+    fuseMutation.mutate({
       endpoint: '/api/card-fuse',
       body: { cardId1: id1, cardId2: id2 },
       optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
@@ -325,7 +345,7 @@ export default function Cartas() {
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {equippedCards.map((card, i) => (
-              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} loading={loading} />
+              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} />
             ))}
           </div>
 
@@ -373,7 +393,7 @@ export default function Cartas() {
                     fusePair={card.rank < 5 ? fusePair : null}
                     onEquip={handleEquip}
                     onFuse={handleFuse}
-                    loading={loading}
+                    fuseLoading={fuseMutation.isPending}
                   />
                 )
               })}
