@@ -83,16 +83,13 @@ function CardSlot({ card, slotIndex, onUnequip, loading }) {
   const rankLabel = RANK_LABELS[rank] ?? rank
 
   return (
-    <div className="relative group flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] shadow-lg" style={{ background: meta.bg }}>
-      {/* Unequip overlay */}
-      <button
-        className="absolute inset-0 z-10 flex items-center justify-center bg-black/0 hover:bg-black/50 transition-colors duration-200 opacity-0 group-hover:opacity-100"
-        onClick={() => onUnequip(card.id)}
-        disabled={loading}
-        title="Desequipar"
-      >
-        <span className="text-[11px] font-bold text-white bg-black/60 rounded-lg px-3 py-1.5">Desequipar</span>
-      </button>
+    <button
+      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] shadow-lg active:opacity-80 transition-opacity w-full text-left cursor-pointer disabled:opacity-40"
+      style={{ background: meta.bg }}
+      onClick={() => onUnequip(card.id)}
+      disabled={loading}
+      title="Toca para desequipar"
+    >
 
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-1">
@@ -135,7 +132,7 @@ function CardSlot({ card, slotIndex, onUnequip, loading }) {
           </div>
         ))}
       </div>
-    </div>
+    </button>
   )
 }
 

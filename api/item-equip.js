@@ -29,62 +29,51 @@ export default async function handler(req, res) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Sin token' })
 
+  const { itemId, equip } = req.body
+  if (!itemId || equip === undefined) return res.status(400).json({ error: 'itemId y equip requeridos' })
+  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
+
   const supabase = createClient(
     process.env.VITE_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  // Stage 1: auth + item fetch en paralelo
+  const [authRes, itemRes] = await Promise.all([
+    supabase.auth.getUser(token),
+    supabase
+      .from('inventory_items')
+      .select('*, item_catalog(*), hero:heroes!hero_id(id, player_id)')
+      .eq('id', itemId)
+      .single(),
+  ])
+
+  const { data: { user }, error: authError } = authRes
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
-  const { itemId, equip } = req.body
-  if (!itemId || equip === undefined) return res.status(400).json({ error: 'itemId y equip requeridos' })
-  if (!isUUID(itemId)) return res.status(400).json({ error: 'itemId inválido' })
-
-  // Obtener item con datos del catálogo
-  const { data: item } = await supabase
-    .from('inventory_items')
-    .select('*, item_catalog(*)')
-    .eq('id', itemId)
-    .single()
-
+  const item = itemRes.data
   if (!item) return res.status(404).json({ error: 'Item no encontrado' })
+  if (item.hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Verificar que el item pertenece al héroe del usuario
-  const { data: hero } = await supabase
-    .from('heroes')
-    .select('id, player_id')
-    .eq('id', item.hero_id)
-    .single()
-
-  if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-
-  const heroId = hero.id
+  const heroId  = item.hero.id
   const catalog = item.item_catalog
-  const catalogSlot = catalog.slot
 
   // ── DESEQUIPAR ────────────────────────────────────────────────────────────
   if (!equip) {
     if (!item.equipped_slot) return res.status(409).json({ error: 'El item no está equipado' })
 
-    const bagCount = await getBagCount(supabase, heroId)
-    const limit = await getInventoryLimit(supabase, user.id)
+    // Stage 2: bag count + inventory limit en paralelo
+    const [bagCount, limit] = await Promise.all([
+      getBagCount(supabase, heroId),
+      getInventoryLimit(supabase, user.id),
+    ])
     if (bagCount >= limit) return res.status(409).json({ error: 'Mochila llena' })
 
     await supabase
       .from('inventory_items')
       .update({ equipped_slot: null })
       .eq('id', itemId)
-
-    // Si era un arma a dos manos, liberar también el off_hand
-    if (catalog.is_two_handed) {
-      await supabase
-        .from('inventory_items')
-        .update({ equipped_slot: null })
-        .eq('hero_id', heroId)
-        .eq('equipped_slot', 'off_hand_2h_blocker')
-    }
 
     return res.status(200).json({ ok: true })
   }
@@ -93,51 +82,45 @@ export default async function handler(req, res) {
   if (item.equipped_slot) return res.status(409).json({ error: 'El item ya está equipado' })
   if (item.current_durability <= 0) return res.status(409).json({ error: 'El item está roto. Repáralo antes de equiparlo.' })
 
-  // Para accesorios: buscar el primer slot libre entre accessory y accessory_2
-  let targetSlot = catalogSlot
-  if (catalogSlot === 'accessory') {
+  let targetSlot   = catalog.slot
+  const slotsToFree = [targetSlot]
+  if (catalog.is_two_handed) slotsToFree.push('off_hand')
+
+  // Para accesorios: resolver slot libre
+  if (catalog.slot === 'accessory') {
     const { data: occupied } = await supabase
       .from('inventory_items')
       .select('equipped_slot')
       .eq('hero_id', heroId)
       .in('equipped_slot', ['accessory', 'accessory_2'])
-    const occupiedSlots = new Set(occupied?.map(i => i.equipped_slot) ?? [])
-    if (!occupiedSlots.has('accessory'))       targetSlot = 'accessory'
-    else if (!occupiedSlots.has('accessory_2')) targetSlot = 'accessory_2'
-    else                                        targetSlot = 'accessory' // reemplaza el primero
+    const occupiedSet = new Set(occupied?.map(i => i.equipped_slot) ?? [])
+    targetSlot      = !occupiedSet.has('accessory') ? 'accessory' : !occupiedSet.has('accessory_2') ? 'accessory_2' : 'accessory'
+    slotsToFree[0] = targetSlot
   }
 
-  // Items que serán desplazados a la mochila
-  const slotsToFree = [targetSlot]
-  if (catalog.is_two_handed) slotsToFree.push('off_hand')
-
+  // Stage 2: buscar items desplazados
   const { data: toUnequip } = await supabase
     .from('inventory_items')
     .select('id')
     .eq('hero_id', heroId)
     .in('equipped_slot', slotsToFree)
 
-  // Calcular cambio neto en mochila: +unequipped -1 (el item que se equipa)
   const bagDelta = (toUnequip?.length ?? 0) - 1
   if (bagDelta > 0) {
-    const bagCount = await getBagCount(supabase, heroId)
-    const limit = await getInventoryLimit(supabase, user.id)
+    const [bagCount, limit] = await Promise.all([
+      getBagCount(supabase, heroId),
+      getInventoryLimit(supabase, user.id),
+    ])
     if (bagCount + bagDelta > limit) return res.status(409).json({ error: 'Mochila llena para hacer el cambio' })
   }
 
-  // Desequipar los items del slot objetivo
-  if (toUnequip?.length) {
-    await supabase
-      .from('inventory_items')
-      .update({ equipped_slot: null })
-      .in('id', toUnequip.map(i => i.id))
-  }
-
-  // Equipar el nuevo item
-  await supabase
-    .from('inventory_items')
-    .update({ equipped_slot: targetSlot })
-    .eq('id', itemId)
+  // Stage 3: desequipar desplazados + equipar nuevo en paralelo
+  await Promise.all([
+    toUnequip?.length
+      ? supabase.from('inventory_items').update({ equipped_slot: null }).in('id', toUnequip.map(i => i.id))
+      : Promise.resolve(),
+    supabase.from('inventory_items').update({ equipped_slot: targetSlot }).eq('id', itemId),
+  ])
 
   return res.status(200).json({ ok: true })
 }

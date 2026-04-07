@@ -148,7 +148,12 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
   const needsRepair = durPct < 100
 
   return (
-    <div className="relative group flex flex-col p-3 rounded-xl border border-border bg-surface transition-all duration-150 min-h-[64px] gap-0.5 overflow-hidden">
+    <button
+      className="relative flex flex-col p-3 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] active:bg-surface-2 transition-all duration-150 min-h-[64px] gap-0.5 w-full text-left cursor-pointer disabled:opacity-50"
+      onClick={() => onUnequip(item.id)}
+      disabled={loading}
+      title="Toca para desequipar"
+    >
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
@@ -168,27 +173,19 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
       </div>
       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
 
-      {/* Hover overlay — ligero para no ocultar el contenido */}
-      <div className="absolute inset-0 bg-bg/0 group-hover:bg-bg/70 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-        {needsRepair && (
-          <button
-            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-lg px-2.5 py-1.5 hover:bg-surface-2 transition-colors disabled:opacity-40 shadow-sm"
-            onClick={() => onRepair(item)}
-            disabled={loading}
-          >
-            <Wrench size={11} strokeWidth={2} />
-            Reparar
-          </button>
-        )}
+      {/* Repair button — siempre visible si hay daño */}
+      {needsRepair && (
         <button
-          className="text-[11px] font-bold text-text bg-surface border border-border rounded-lg px-3 py-1.5 hover:bg-surface-2 transition-colors disabled:opacity-40 shadow-sm"
-          onClick={() => onUnequip(item.id)}
+          className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
+          onClick={e => { e.stopPropagation(); onRepair(item) }}
           disabled={loading}
+          title="Reparar"
         >
-          Desequipar
+          <Wrench size={9} strokeWidth={2} />
+          Rep.
         </button>
-      </div>
-    </div>
+      )}
+    </button>
   )
 }
 
