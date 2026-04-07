@@ -70,17 +70,18 @@ export default async function handler(req, res) {
   // Verificar y descontar recursos (con interpolación idle)
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')
-    .select('gold, wood, mana, gold_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs   = Date.now()
-  const mins    = safeHours(resources.last_collected_at, nowMs)
-  const curGold = Math.floor(resources.gold + resources.gold_rate * hours)
-  const curWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const nowMs        = Date.now()
+  const hours        = safeHours(resources.last_collected_at, nowMs)
+  const curGold      = Math.floor(resources.gold + resources.gold_rate * hours)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const curWood      = Math.floor(resources.wood + resources.wood_rate * hours)
+  const curMana      = Math.floor(resources.mana + resources.mana_rate * hours)
 
   if (curGold < potion.recipe_gold) return res.status(402).json({ error: 'Oro insuficiente' })
   if (curWood < potion.recipe_wood) return res.status(402).json({ error: 'Madera insuficiente' })
@@ -91,6 +92,7 @@ export default async function handler(req, res) {
     .from('resources')
     .update({
       gold: curGold - potion.recipe_gold,
+      iron: snapshotIron,
       wood: curWood - potion.recipe_wood,
       mana: curMana - potion.recipe_mana,
       last_collected_at: new Date(nowMs).toISOString(),

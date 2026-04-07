@@ -45,19 +45,24 @@ export default async function handler(req, res) {
   // Obtener recursos actuales con interpolación
   const { data: resources } = await supabase
     .from('resources')
-    .select('mana, mana_rate, last_collected_at')
+    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
   const now = Date.now()
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeHours(resources.last_collected_at, now))
+  const hours = safeHours(resources.last_collected_at, now)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
   // Desmantelar item y añadir maná
   const [deleteResult, updateResult] = await Promise.all([
     supabase.from('inventory_items').delete().eq('id', itemId),
     supabase.from('resources').update({
+      iron: snapshotIron,
+      wood: snapshotWood,
       mana: currentMana + manaGained,
       last_collected_at: new Date(now).toISOString(),
     }).eq('player_id', user.id),

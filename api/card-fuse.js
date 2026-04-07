@@ -56,14 +56,17 @@ export default async function handler(req, res) {
 
   const { data: resources } = await supabase
     .from('resources')
-    .select('mana, mana_rate, last_collected_at')
+    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
   const now = Date.now()
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeHours(resources.last_collected_at, now))
+  const hours = safeHours(resources.last_collected_at, now)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
   if (currentMana < manaCost) {
     return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
 
   await supabase
     .from('resources')
-    .update({ mana: currentMana - manaCost, last_collected_at: new Date(now).toISOString() })
+    .update({ iron: snapshotIron, wood: snapshotWood, mana: currentMana - manaCost, last_collected_at: new Date(now).toISOString() })
     .eq('player_id', user.id)
 
   return res.status(200).json({ ok: true, newCard, manaCost })

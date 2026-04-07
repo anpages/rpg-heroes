@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
-import { isUUID } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -103,15 +103,23 @@ export default async function handler(req, res) {
 
     const { data: resources } = await supabase
       .from('resources')
-      .select('gold, last_collected_at')
+      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
       .eq('player_id', user.id)
       .single()
 
     if (resources) {
+      const hours = safeHours(resources.last_collected_at, nowMs)
+      const currentGold  = Math.floor(resources.gold + resources.gold_rate * hours)
+      const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+      const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+      const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
       await supabase
         .from('resources')
         .update({
-          gold: resources.gold + rewards.gold,
+          gold: currentGold + rewards.gold,
+          iron: snapshotIron,
+          wood: snapshotWood,
+          mana: snapshotMana,
           last_collected_at: new Date(nowMs).toISOString(),
         })
         .eq('player_id', user.id)

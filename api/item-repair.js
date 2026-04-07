@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   // Verificar recursos (con interpolación idle)
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, mana, gold_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -76,6 +76,8 @@ export default async function handler(req, res) {
   const now = Date.now()
   const hours = safeHours(resources.last_collected_at, now)
   const currentGold = Math.floor(resources.gold + resources.gold_rate * hours)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
   const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
   if (currentGold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
@@ -91,6 +93,8 @@ export default async function handler(req, res) {
     .from('resources')
     .update({
       gold: currentGold - goldCost,
+      iron: snapshotIron,
+      wood: snapshotWood,
       mana: currentMana - manaCost,
       last_collected_at: new Date(now).toISOString(),
     })

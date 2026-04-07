@@ -56,10 +56,11 @@ export default async function handler(req, res) {
 
   // Verificar oro — interpolar acumulado idle para no perder el gold generado
   const { data: resources } = await supabase
-    .from('resources').select('gold, gold_rate, last_collected_at').eq('player_id', user.id).single()
+    .from('resources').select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at').eq('player_id', user.id).single()
 
   const now = Date.now()
-  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * safeHours(resources.last_collected_at, now)) : 0
+  const hours = resources ? safeHours(resources.last_collected_at, now) : 0
+  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * hours) : 0
 
   if (currentGold < shopEntry.gold_price) {
     return res.status(409).json({ error: 'Oro insuficiente' })
@@ -80,10 +81,13 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 
-  // Descontar oro — guardar snapshot interpolado y actualizar last_collected_at
+  // Descontar oro — snapshot de todos los recursos pasivos antes de mover last_collected_at
+  const snapshotIron = resources ? Math.floor(resources.iron + resources.iron_rate * hours) : 0
+  const snapshotWood = resources ? Math.floor(resources.wood + resources.wood_rate * hours) : 0
+  const snapshotMana = resources ? Math.floor(resources.mana + resources.mana_rate * hours) : 0
   await supabase
     .from('resources')
-    .update({ gold: currentGold - shopEntry.gold_price, last_collected_at: new Date(now).toISOString() })
+    .update({ gold: currentGold - shopEntry.gold_price, iron: snapshotIron, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
     .eq('player_id', user.id)
 
   // Crear item

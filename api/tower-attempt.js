@@ -127,16 +127,20 @@ export default async function handler(req, res) {
     // Dar recompensas: oro — interpolar idle antes de sumar
     const { data: resources } = await supabase
       .from('resources')
-      .select('gold, gold_rate, last_collected_at')
+      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
       .eq('player_id', user.id)
       .single()
 
     if (resources) {
       const nowMs = Date.now()
-      const currentGold = Math.floor(resources.gold + resources.gold_rate * safeHours(resources.last_collected_at, nowMs))
+      const hours = safeHours(resources.last_collected_at, nowMs)
+      const currentGold  = Math.floor(resources.gold + resources.gold_rate * hours)
+      const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+      const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+      const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
       await supabase
         .from('resources')
-        .update({ gold: currentGold + rewards.gold, last_collected_at: new Date(nowMs).toISOString() })
+        .update({ gold: currentGold + rewards.gold, iron: snapshotIron, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(nowMs).toISOString() })
         .eq('player_id', user.id)
     }
 
