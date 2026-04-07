@@ -211,15 +211,17 @@ export default function Cartas() {
   const { cards }   = useHeroCards(heroId)
   const queryClient = useQueryClient()
 
-  // Equip / unequip: optimistic, nunca bloquea la UI
+  // Equip / unequip: optimistic desde el cache actual → sin race conditions
   const equipMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
-    onMutate: async ({ optimisticUpdate }) => {
-      if (!optimisticUpdate) return
+    onMutate: async ({ body }) => {
       const key = queryKeys.heroCards(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, optimisticUpdate)
+      const { cardId, equip } = body
+      queryClient.setQueryData(key, (previous ?? []).map(c =>
+        c.id === cardId ? { ...c, equipped: equip } : c
+      ))
       return { previous }
     },
     onError: (err, _vars, context) => {
@@ -232,12 +234,12 @@ export default function Cartas() {
   // Fusión: destructiva, bloquea solo el botón de fusionar
   const fuseMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
-    onMutate: async ({ optimisticUpdate }) => {
-      if (!optimisticUpdate) return
+    onMutate: async ({ body }) => {
       const key = queryKeys.heroCards(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, optimisticUpdate)
+      const { cardId1, cardId2 } = body
+      queryClient.setQueryData(key, (previous ?? []).filter(c => c.id !== cardId1 && c.id !== cardId2))
       return { previous }
     },
     onError: (err, _vars, context) => {
@@ -297,27 +299,15 @@ export default function Cartas() {
       toast.error('Slots llenos. Desequipa una carta primero.')
       return
     }
-    equipMutation.mutate({
-      endpoint: '/api/card-equip',
-      body: { cardId, equip: true },
-      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: true } : c),
-    })
+    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, equip: true } })
   }
 
   function handleUnequip(cardId) {
-    equipMutation.mutate({
-      endpoint: '/api/card-equip',
-      body: { cardId, equip: false },
-      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: false } : c),
-    })
+    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, equip: false } })
   }
 
   function handleFuse(id1, id2) {
-    fuseMutation.mutate({
-      endpoint: '/api/card-fuse',
-      body: { cardId1: id1, cardId2: id2 },
-      optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
-    })
+    fuseMutation.mutate({ endpoint: '/api/card-fuse', body: { cardId1: id1, cardId2: id2 } })
   }
 
   return (

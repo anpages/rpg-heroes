@@ -248,15 +248,32 @@ export default function Equipo() {
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState(null)
 
-  // Equip / unequip: optimistic, nunca bloquea la UI
+  // Equip / unequip: optimistic desde el cache actual (no del render) → sin race conditions
   const equipMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
-    onMutate: async ({ optimisticUpdate }) => {
-      if (!optimisticUpdate) return
+    onMutate: async ({ body }) => {
       const key = queryKeys.inventory(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, optimisticUpdate)
+      const current  = previous ?? []
+      const { itemId, equip } = body
+
+      if (equip) {
+        const item = current.find(i => i.id === itemId)
+        if (item) {
+          const targetSlot = item.item_catalog.slot
+          queryClient.setQueryData(key, current.map(i => {
+            if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
+            if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
+            if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
+            return i
+          }))
+        }
+      } else {
+        queryClient.setQueryData(key, current.map(i =>
+          i.id === itemId ? { ...i, equipped_slot: null } : i
+        ))
+      }
       return { previous }
     },
     onError: (err, _vars, context) => {
@@ -266,15 +283,18 @@ export default function Equipo() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }),
   })
 
-  // Repair / dismantle: bloquea solo el botón de confirmación
+  // Repair / dismantle: bloquea solo su botón de confirmación
   const actionMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
-    onMutate: async ({ optimisticUpdate }) => {
-      if (!optimisticUpdate) return
+    onMutate: async ({ body }) => {
+      if (!body.itemId) return
       const key = queryKeys.inventory(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, optimisticUpdate)
+      // dismantle: remove from cache immediately
+      if (body._dismantle) {
+        queryClient.setQueryData(key, (previous ?? []).filter(i => i.id !== body.itemId))
+      }
       return { previous }
     },
     onError: (err, _vars, context) => {
@@ -335,27 +355,11 @@ export default function Equipo() {
   const equippedCount = Object.keys(equippedBySlot).length
 
   function handleEquip(itemId) {
-    const item = items?.find(i => i.id === itemId)
-    if (!item) return
-    const targetSlot = item.item_catalog.slot
-    equipMutation.mutate({
-      endpoint: '/api/item-equip',
-      body: { itemId, equip: true },
-      optimisticUpdate: items?.map(i => {
-        if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
-        if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
-        if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
-        return i
-      }),
-    })
+    equipMutation.mutate({ endpoint: '/api/item-equip', body: { itemId, equip: true } })
   }
 
   function handleUnequip(itemId) {
-    equipMutation.mutate({
-      endpoint: '/api/item-equip',
-      body: { itemId, equip: false },
-      optimisticUpdate: items?.map(i => i.id === itemId ? { ...i, equipped_slot: null } : i),
-    })
+    equipMutation.mutate({ endpoint: '/api/item-equip', body: { itemId, equip: false } })
   }
 
   function handleRepair(item) {
@@ -380,11 +384,7 @@ export default function Equipo() {
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirm(null)
-        actionMutation.mutate({
-          endpoint: '/api/item-dismantle',
-          body: { itemId: item.id },
-          optimisticUpdate: items?.filter(i => i.id !== item.id),
-        })
+        actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
       },
     })
   }
