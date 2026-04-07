@@ -6,6 +6,7 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useTraining, xpThreshold, hasReadyPoint } from '../hooks/useTraining'
 import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { usePotions } from '../hooks/usePotions'
+import { useHeroRunes } from '../hooks/useHeroRunes'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useBuildings } from '../hooks/useBuildings'
@@ -28,6 +29,7 @@ import {
   manaRateForLevel,
   xpRateForLevel,
   TRAINING_XP_CAP_HOURS,
+  runeSlotsByForgeLevel,
 } from '../lib/gameConstants.js'
 import {
   Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock,
@@ -513,6 +515,101 @@ function LaboratorySection({ labLevel, potions, resources, onCraft }) {
         {availablePotions.length === 0 && (
           <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
             Sube el Laboratorio para desbloquear recetas
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Runas ──────────────────────────────────────────────────────────────────── */
+
+const RUNE_BONUS_LABELS = { attack: 'Atq', defense: 'Def', intelligence: 'Int', agility: 'Agi', max_hp: 'HP', strength: 'Fue' }
+const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
+
+function RunesSection({ labLevel, forgeLevel, catalog, inventory, resources, onCraft }) {
+  const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
+  const inventoryMap   = Object.fromEntries(inventory.map(ir => [ir.rune_id, ir.quantity]))
+  const maxSlots       = runeSlotsByForgeLevel(forgeLevel)
+
+  function canAfford(r) {
+    if (!resources) return false
+    return resources.gold >= r.recipe_gold
+      && resources.wood >= r.recipe_wood
+      && resources.mana >= r.recipe_mana
+  }
+
+  function bonusText(bonuses) {
+    return (bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Crafteo de Runas</p>
+        {maxSlots === 0 && (
+          <p className="text-[11px] text-text-3 mt-1 flex items-center gap-1">
+            <Lock size={10} strokeWidth={2.5} />
+            Sube la Herrería a Nv.2 para desbloquear slots de runa en tus ítems
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {availableRunes.map(r => {
+          const affordable = canAfford(r)
+          const qty        = inventoryMap[r.id] ?? 0
+          const mainBonus  = r.bonuses?.[0]
+          const color      = RUNE_BONUS_COLORS[mainBonus?.stat] ?? '#475569'
+
+          return (
+            <div
+              key={r.id}
+              className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3.5 hover:border-border-2 transition-[border-color] duration-150"
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px] font-extrabold"
+                style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
+              >
+                {qty > 0 ? qty : '✦'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-text truncate">{r.name}</p>
+                <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {r.recipe_gold > 0 && (
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-text-3' : 'text-error-text'}`}>
+                      <Coins size={10} strokeWidth={2} />{r.recipe_gold}
+                    </span>
+                  )}
+                  {r.recipe_wood > 0 && (
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-text-3' : 'text-error-text'}`}>
+                      <Axe size={10} strokeWidth={2} />{r.recipe_wood}
+                    </span>
+                  )}
+                  {r.recipe_mana > 0 && (
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-text-3' : 'text-error-text'}`}>
+                      <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <motion.button
+                className="btn btn--primary btn--sm flex-shrink-0"
+                onClick={() => onCraft(r.id)}
+                disabled={!affordable}
+                whileTap={!affordable ? {} : { scale: 0.96 }}
+                title={!affordable ? 'Recursos insuficientes' : undefined}
+              >
+                <Plus size={13} strokeWidth={2.5} />
+              </motion.button>
+            </div>
+          )
+        })}
+
+        {availableRunes.length === 0 && (
+          <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
+            Sube el Laboratorio a Nv.2 para desbloquear el crafteo de runas
           </p>
         )}
       </div>
@@ -1139,9 +1236,11 @@ function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId,
 
 // LAB_BASE_LEVEL_REQUIRED importado desde gameConstants
 
-function LaboratorioZone({ byType, effectiveResources, potions, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, onCraft }) {
+function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, runesInventory, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, onCraft, onRuneCraft }) {
   const lab       = byType['laboratory']
+  const forge     = byType['forge']
   const baseLevel = baseLevelFromMap(byType)
+  const forgeLevel = forge?.level ?? 1
 
   // Lab no existe en DB (no debería pasar en cuentas nuevas)
   if (!lab) return null
@@ -1192,13 +1291,26 @@ function LaboratorioZone({ byType, effectiveResources, potions, anyUpgrading, on
       />
 
       {lab.level >= 1 && !lab.upgrade_ends_at && (
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
-          <LaboratorySection
-            labLevel={lab.level}
-            potions={potions}
-            resources={effectiveResources}
-            onCraft={onCraft}
-          />
+        <div className="flex flex-col gap-4">
+          <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
+            <LaboratorySection
+              labLevel={lab.level}
+              potions={potions}
+              resources={effectiveResources}
+              onCraft={onCraft}
+            />
+          </div>
+
+          <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
+            <RunesSection
+              labLevel={lab.level}
+              forgeLevel={forgeLevel}
+              catalog={runesCatalog}
+              inventory={runesInventory}
+              resources={effectiveResources}
+              onCraft={onRuneCraft}
+            />
+          </div>
         </div>
       )}
     </motion.div>
@@ -1216,7 +1328,8 @@ function Base({ mainRef }) {
   const { resources }          = useResources(userId)
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
-  const { potions }            = usePotions(heroId)
+  const { potions }                        = usePotions(heroId)
+  const { catalog: runesCatalog, inventory: runesInventory } = useHeroRunes(heroId)
   const [activeZone,    setActiveZone]    = useState('inicio')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
@@ -1243,6 +1356,16 @@ function Base({ mainRef }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       toast.success('¡Poción creada!')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const runeCraftMutation = useMutation({
+    mutationFn: (runeId) => apiPost('/api/rune-craft', { heroId, runeId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      toast.success('¡Runa creada!')
     },
     onError: err => toast.error(err.message),
   })
@@ -1357,7 +1480,10 @@ function Base({ mainRef }) {
             key="laboratorio"
             byType={byType}
             potions={potions}
+            runesCatalog={runesCatalog}
+            runesInventory={runesInventory}
             onCraft={(potionId) => craftMutation.mutate(potionId)}
+            onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
             {...sharedBuildingProps}
           />
         )}

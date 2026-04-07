@@ -7,13 +7,15 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
+import { useBuildings } from '../hooks/useBuildings'
+import { useHeroRunes } from '../hooks/useHeroRunes'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, runeSlotsByForgeLevel } from '../lib/gameConstants'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
-  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package,
+  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -227,6 +229,70 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) 
   )
 }
 
+/* ─── Runas ──────────────────────────────────────────────────────────────────── */
+
+const RUNE_BONUS_LABELS = { attack: 'Atq', defense: 'Def', intelligence: 'Int', agility: 'Agi', max_hp: 'HP', strength: 'Fue' }
+const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
+
+function RuneInsertModal({ item, slotIndex, runeInventory, onInsert, onCancel }) {
+  const available = runeInventory.filter(ir => ir.quantity > 0)
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
+      <div
+        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
+        style={{ width: 'min(340px, 92vw)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-text">Insertar Runa — Slot {slotIndex + 1}</span>
+          <button className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors" onClick={onCancel}>
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        <p className="text-[12px] text-text-3">
+          <span className="font-semibold text-text">{item.item_catalog.name}</span>
+          {' · '}Las runas son permanentes una vez incrustadas.
+        </p>
+
+        {available.length === 0 ? (
+          <p className="text-[13px] text-text-3 text-center py-4">
+            No tienes runas en el inventario. Craftéalas en el Laboratorio.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {available.map(ir => {
+              const rc     = ir.rune_catalog
+              const main   = rc.bonuses?.[0]
+              const color  = RUNE_BONUS_COLORS[main?.stat] ?? '#475569'
+              const bonusText = (rc.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
+              return (
+                <button
+                  key={ir.rune_id}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-[color:var(--blue-400)] bg-surface hover:bg-surface-2 transition-all text-left"
+                  onClick={() => onInsert(ir.rune_id)}
+                >
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-extrabold" style={{ background: `color-mix(in srgb,${color} 12%,var(--surface-2))`, color }}>
+                    {ir.quantity}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold text-text truncate">{rc.name}</p>
+                    <p className="text-[11px] text-text-3">{bonusText}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <button className="btn btn--ghost btn--sm self-end" onClick={onCancel}>Cancelar</button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 /* ─── Componente principal ───────────────────────────────────────────────────── */
 
 export default function Equipo() {
@@ -235,8 +301,11 @@ export default function Equipo() {
   const { hero }    = useHero(heroId)
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
+  const { buildings }              = useBuildings(userId)
+  const { inventory: runeInventory } = useHeroRunes(heroId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
+  const [runePickerTarget, setRunePickerTarget] = useState(null) // { item, slotIndex }
   const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
 
   // Equip / unequip — optimistic desde el cache actual, invalida solo cuando
@@ -305,6 +374,20 @@ export default function Equipo() {
     },
   })
 
+  const runeMutation = useMutation({
+    mutationFn: ({ inventoryItemId, slotIndex, runeId }) =>
+      apiPost('/api/rune-insert', { heroId, inventoryItemId, slotIndex, runeId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(heroId) })
+      toast.success('¡Runa incrustada!')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const forgeLevel   = (buildings ?? []).find(b => b.type === 'forge')?.level ?? 1
+  const maxRuneSlots = runeSlotsByForgeLevel(forgeLevel)
+
   const equippedBySlot = useMemo(() => {
     if (!items) return {}
     return Object.fromEntries(
@@ -372,6 +455,16 @@ export default function Equipo() {
         actionMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
       },
     })
+  }
+
+  function handleRuneInsert(runeId) {
+    if (!runePickerTarget) return
+    runeMutation.mutate({
+      inventoryItemId: runePickerTarget.item.id,
+      slotIndex:       runePickerTarget.slotIndex,
+      runeId,
+    })
+    setRunePickerTarget(null)
   }
 
   function handleDismantle(item) {
@@ -453,6 +546,68 @@ export default function Equipo() {
 
       </div>
 
+      {/* Rune slots — solo si la Herrería es Nv.2+ */}
+      {maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Ranuras de Runa</p>
+            <span className="text-[10px] text-text-3 font-normal">(permanentes)</span>
+          </div>
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+            <div className="flex flex-col gap-3">
+              {ALL_SLOTS.map(slot => {
+                const item = equippedBySlot[slot]
+                if (!item) return null
+                const runesOnItem = item.item_runes ?? []
+                const rarColor = RARITY_COLORS[item.item_catalog.rarity] ?? '#6b7280'
+                return (
+                  <div key={slot} className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>
+                        {item.item_catalog.name}
+                      </span>
+                      <span className="text-[10px] text-text-3">{SLOT_META[slot]?.label}</span>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {Array.from({ length: maxRuneSlots }).map((_, idx) => {
+                        const inserted = runesOnItem.find(r => r.slot_index === idx)
+                        if (inserted) {
+                          const rc      = inserted.rune_catalog
+                          const main    = rc?.bonuses?.[0]
+                          const color   = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
+                          const bonusTxt = (rc?.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold"
+                              style={{ borderColor: `color-mix(in srgb,${color} 40%,var(--border))`, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, color }}
+                            >
+                              <Sparkles size={10} strokeWidth={2} />
+                              {rc?.name ?? 'Runa'} <span className="text-[10px] font-normal opacity-70">{bonusTxt}</span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <button
+                            key={idx}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[color:var(--blue-600)] transition-colors disabled:opacity-40"
+                            onClick={() => setRunePickerTarget({ item, slotIndex: idx })}
+                            disabled={runeMutation.isPending}
+                          >
+                            + Slot {idx + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inventory */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
@@ -527,6 +682,16 @@ export default function Equipo() {
           confirmLabel={confirm.confirmLabel}
           onConfirm={confirm.onConfirm}
           onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {runePickerTarget && (
+        <RuneInsertModal
+          item={runePickerTarget.item}
+          slotIndex={runePickerTarget.slotIndex}
+          runeInventory={runeInventory}
+          onInsert={handleRuneInsert}
+          onCancel={() => setRunePickerTarget(null)}
         />
       )}
 

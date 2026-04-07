@@ -8,7 +8,7 @@ export function useInventory(heroId) {
     queryFn: async () => {
       const { data } = await supabase
         .from('inventory_items')
-        .select('*, item_catalog(*)')
+        .select('*, item_catalog(*), item_runes(slot_index, rune_catalog(id, name, bonuses))')
         .eq('hero_id', heroId)
       return data ?? []
     },

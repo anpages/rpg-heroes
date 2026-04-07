@@ -228,6 +228,21 @@ export const CARD_SLOT_COUNT = 5
 /** Rango máximo de una carta de habilidad */
 export const CARD_MAX_RANK = 5
 
+// ── Runas ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Slots de runa disponibles por nivel de Herrería.
+ * Forja Nv.1 → 0 slots, Nv.2 → 1 slot, Nv.3+ → 2 slots por ítem equipado.
+ */
+export function runeSlotsByForgeLevel(forgeLevel) {
+  if (forgeLevel >= 3) return 2
+  if (forgeLevel >= 2) return 1
+  return 0
+}
+
+/** Nivel mínimo de Laboratorio para craftear cualquier runa */
+export const RUNE_MIN_LAB_LEVEL = 2
+
 // ── Reparación y desmantelamiento de ítems ────────────────────────────────────
 
 /**

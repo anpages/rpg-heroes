@@ -24,4 +24,5 @@ export const queryKeys = {
   training:        (heroId) => ['training', heroId],
   trainingRooms:   (userId) => ['training-rooms', userId],
   potions:         (heroId) => ['potions', heroId],
+  heroRunes:       (heroId) => ['hero-runes', heroId],
 }

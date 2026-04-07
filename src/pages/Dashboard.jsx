@@ -250,7 +250,7 @@ function Dashboard({ session }) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-bg overflow-hidden">
+    <div className="h-dvh flex flex-col bg-bg overflow-hidden">
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
@@ -347,7 +347,7 @@ function Dashboard({ session }) {
         </aside>
 
         {/* Main content */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-20 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-24 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
 
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
@@ -427,7 +427,7 @@ function Dashboard({ session }) {
       </div>
 
       {/* Bottom nav — mobile only */}
-      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]">
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: '4rem' }}>
         {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
           const badge = badgeState(id)
           const isActive = activeTab === id

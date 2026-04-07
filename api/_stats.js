@@ -11,7 +11,7 @@ export async function getEffectiveStats(supabase, heroId) {
       .single(),
     supabase
       .from('inventory_items')
-      .select('current_durability, equipped_slot, item_catalog(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)')
+      .select('current_durability, equipped_slot, item_catalog(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus), item_runes(rune_catalog(bonuses))')
       .eq('hero_id', heroId)
       .not('equipped_slot', 'is', null),
     supabase
@@ -25,6 +25,8 @@ export async function getEffectiveStats(supabase, heroId) {
   if (!hero) return null
 
   const stats = { ...hero }
+
+  const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
 
   // Acumular base de ataque de armas y defensa de armaduras para amplificación posterior
   let weaponAttackBase  = 0
@@ -41,9 +43,14 @@ export async function getEffectiveStats(supabase, heroId) {
     stats.intelligence += c.intelligence_bonus ?? 0
     weaponAttackBase  += c.attack_bonus  ?? 0
     armorDefenseBase  += c.defense_bonus ?? 0
-  }
 
-  const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
+    // Bonos de runas incrustadas
+    for (const ir of item.item_runes ?? []) {
+      for (const { stat, value } of ir.rune_catalog?.bonuses ?? []) {
+        if (stat in STAT_MAP) stats[STAT_MAP[stat]] += value
+      }
+    }
+  }
 
   // Stats especiales de cartas de equipo
   let weaponAttackAmp   = 0   // fracción, ej. 0.15 por rango
