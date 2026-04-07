@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
-import { getWeekStart, generateRivals } from './_tournament.js'
+import { getWeekStart, generateRivals, isRegistrationOpen } from './_tournament.js'
 import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -30,6 +30,10 @@ export default async function handler(req, res) {
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
+
+  if (!isRegistrationOpen()) {
+    return res.status(409).json({ error: 'Las inscripciones están cerradas. Vuelve el domingo o el lunes.' })
+  }
 
   const weekStart = getWeekStart()
 

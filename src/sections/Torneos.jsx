@@ -27,6 +27,12 @@ const WEEK_DAYS = [
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
+/** Inscripciones abiertas solo domingo y lunes (UTC) */
+function isRegistrationOpen() {
+  const day = new Date().getUTCDay()
+  return day === 0 || day === 1
+}
+
 function getRoundWindows(weekStart) {
   const base = new Date(weekStart + 'T00:00:00Z').getTime()
   const day  = n => new Date(base + n * 86_400_000)
@@ -384,7 +390,8 @@ export default function Torneos() {
             {/* Schedule */}
             <div className="w-full max-w-xs flex items-center justify-between gap-1 text-[11px]">
               {[
-                { label: 'Lun', type: 'grace', text: 'Inscripciones' },
+                { label: 'Dom', type: 'grace', text: 'Inscripción' },
+                { label: 'Lun', type: 'grace', text: 'Inscripción' },
                 { label: 'Mar', type: 'fight', round: 1, text: 'Cuartos'   },
                 { label: 'Jue', type: 'fight', round: 2, text: 'Semis'     },
                 { label: 'Sáb', type: 'fight', round: 3, text: 'Final'     },
@@ -419,18 +426,28 @@ export default function Torneos() {
               ))}
             </div>
 
-            <motion.button
-              className="btn btn--primary btn--lg min-w-[200px] mt-1"
-              style={{ background: '#dc2626', borderColor: '#dc2626' }}
-              onClick={() => registerMutation.mutate()}
-              disabled={registerMutation.isPending || !heroId}
-              whileTap={{ scale: 0.97 }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-            >
-              <Shield size={16} strokeWidth={2} />
-              {registerMutation.isPending ? 'Inscribiendo...' : 'Inscribirse al torneo'}
-            </motion.button>
+            {isRegistrationOpen() ? (
+              <motion.button
+                className="btn btn--primary btn--lg min-w-[200px] mt-1"
+                style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                onClick={() => registerMutation.mutate()}
+                disabled={registerMutation.isPending || !heroId}
+                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              >
+                <Shield size={16} strokeWidth={2} />
+                {registerMutation.isPending ? 'Inscribiendo...' : 'Inscribirse al torneo'}
+              </motion.button>
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 mt-1">
+                <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-3 text-[13px] font-semibold min-w-[200px] justify-center">
+                  <Clock size={14} strokeWidth={2} />
+                  Inscripciones cerradas
+                </div>
+                <p className="text-[11px] text-text-3">Vuelve el domingo o el lunes</p>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>

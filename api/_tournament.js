@@ -21,15 +21,26 @@ const RIVAL_NAMES = [
 const ROUND_SCALE = { 1: 0.85, 2: 1.0, 3: 1.2 }
 const ROUND_LABELS = { 1: 'Cuartos', 2: 'Semifinal', 3: 'Final' }
 
-/** Lunes de la semana actual (UTC) en formato 'YYYY-MM-DD' */
+/**
+ * Lunes de la semana del torneo (UTC) en formato 'YYYY-MM-DD'.
+ * El domingo es día de pre-inscripción para la semana SIGUIENTE,
+ * por eso en domingo devolvemos el lunes de mañana, no el de hace 6 días.
+ */
 export function getWeekStart() {
   const now = new Date()
   const day = now.getUTCDay()
-  const diff = day === 0 ? -6 : 1 - day
+  // Domingo (0) → próximo lunes (+1). Resto → lunes de esta semana (1-day).
+  const diff = day === 0 ? 1 : 1 - day
   const monday = new Date(now)
   monday.setUTCDate(now.getUTCDate() + diff)
   monday.setUTCHours(0, 0, 0, 0)
   return monday.toISOString().split('T')[0]
+}
+
+/** Las inscripciones solo están abiertas el domingo y el lunes (UTC). */
+export function isRegistrationOpen() {
+  const day = new Date().getUTCDay()
+  return day === 0 || day === 1
 }
 
 /**
