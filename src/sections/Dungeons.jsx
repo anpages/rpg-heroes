@@ -292,7 +292,6 @@ function Dungeons() {
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const { buildings } = useBuildings(userId)
-  const workshopLevel = buildings?.find(b => b.type === 'workshop')?.level ?? 1
   const [reward, setReward] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
@@ -349,17 +348,11 @@ function Dungeons() {
   const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
   const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
   const heroStrength   = hero?.strength ?? 0
-  const workshopBonus = Math.round((workshopLevel - 1) * 5)
-
-
   return (
     <div className="dungeons-section">
       <div className="section-header">
         <div className="section-title-row">
           <h2 className="section-title">Mazmorras</h2>
-          {workshopBonus > 0 && (
-            <span className="workshop-bonus-badge">+{workshopBonus}% botín</span>
-          )}
         </div>
         <p className="section-subtitle">Envía a tu héroe a explorar mazmorras para conseguir recursos, experiencia y equipo. El botín es aleatorio; cada tipo tiene sus especialidades.</p>
       </div>

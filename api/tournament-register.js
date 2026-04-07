@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
   if (existing) return res.status(409).json({ error: 'Ya estás inscrito en el torneo de esta semana' })
 
-  const heroStats = await getEffectiveStats(supabase, heroId)
+  const heroStats = await getEffectiveStats(supabase, heroId, user.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats del héroe' })
 
   const rivals = generateRivals(heroId, weekStart, heroStats)

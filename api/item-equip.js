@@ -1,15 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID } from './_validate.js'
-import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL } from './_constants.js'
+import { INVENTORY_BASE_LIMIT } from './_constants.js'
 
-async function getInventoryLimit(supabase, playerId) {
-  const { data: workshop } = await supabase
-    .from('buildings')
-    .select('level')
-    .eq('player_id', playerId)
-    .eq('type', 'workshop')
-    .maybeSingle()
-  return INVENTORY_BASE_LIMIT + ((workshop?.level ?? 1) - 1) * INVENTORY_PER_WORKSHOP_LEVEL
+function getInventoryLimit() {
+  return INVENTORY_BASE_LIMIT
 }
 
 async function getBagCount(supabase, heroId) {
@@ -64,7 +58,7 @@ export default async function handler(req, res) {
     // Stage 2: bag count + inventory limit en paralelo
     const [bagCount, limit] = await Promise.all([
       getBagCount(supabase, heroId),
-      getInventoryLimit(supabase, user.id),
+      getInventoryLimit(),
     ])
     if (bagCount >= limit) return res.status(409).json({ error: 'Mochila llena' })
 
@@ -107,7 +101,7 @@ export default async function handler(req, res) {
   if (bagDelta > 0) {
     const [bagCount, limit] = await Promise.all([
       getBagCount(supabase, heroId),
-      getInventoryLimit(supabase, user.id),
+      getInventoryLimit(),
     ])
     if (bagCount + bagDelta > limit) return res.status(409).json({ error: 'Mochila llena para hacer el cambio' })
   }

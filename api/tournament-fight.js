@@ -68,8 +68,8 @@ export default async function handler(req, res) {
 
   const rival = bracket.rivals[nextRound - 1]
 
-  // Stats efectivas actuales del héroe (sin coste de HP — torneo es competición pura)
-  const heroStats = await getEffectiveStats(supabase, hero.id)
+  // Stats efectivas actuales del héroe (con bonos de investigación, sin coste de HP)
+  const heroStats = await getEffectiveStats(supabase, hero.id, user.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
 
   // Aplicar boosts de pociones activas

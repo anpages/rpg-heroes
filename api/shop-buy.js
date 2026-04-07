@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL, SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
+import { INVENTORY_BASE_LIMIT, SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
 import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -73,10 +73,7 @@ export default async function handler(req, res) {
     .eq('hero_id', heroId)
     .is('equipped_slot', null)
 
-  const { data: workshop } = await supabase
-    .from('buildings').select('level').eq('player_id', user.id).eq('type', 'workshop').maybeSingle()
-
-  const limit = INVENTORY_BASE_LIMIT + ((workshop?.level ?? 1) - 1) * INVENTORY_PER_WORKSHOP_LEVEL
+  const limit = INVENTORY_BASE_LIMIT
   if ((bagCount ?? 0) >= limit) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }

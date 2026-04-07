@@ -12,8 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 const BUILDING_NAMES = {
   energy_nexus: 'Nexo Arcano', gold_mine: 'Mina de Oro', lumber_mill: 'Aserradero',
-  mana_well: 'Pozo de Maná', barracks: 'Cuartel', workshop: 'Taller',
-  forge: 'Herrería', library: 'Biblioteca',
+  mana_well: 'Pozo de Maná', forge: 'Herrería', library: 'Biblioteca',
 }
 
 const SLOT_UNLOCK = { 2: 2, 3: 3 } // slot → nivel mínimo de Base

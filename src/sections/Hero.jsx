@@ -766,7 +766,6 @@ function Hero() {
   const [confirmModal,   setConfirmModal]   = useState(null)
   const [itemDetail,     setItemDetail]     = useState(null)
   const [cardDetail,     setCardDetail]     = useState(null)
-  const [workshopLevel, setWorkshopLevel] = useState(1)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   const itemMutation = useMutation({
@@ -809,12 +808,6 @@ function Hero() {
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    if (!buildings) return
-    buildings.forEach(b => {
-      if (b.type === 'workshop') setWorkshopLevel(b.level)
-    })
-  }, [buildings])
 
   if (heroLoading || invLoading || cardsLoading) return null
   if (!hero) return (
@@ -876,7 +869,7 @@ function Hero() {
   // eslint-disable-next-line react-hooks/purity
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
-  const bagLimit = INVENTORY_BASE_LIMIT + (workshopLevel - 1) * 5
+  const bagLimit = INVENTORY_BASE_LIMIT
 
   function handleEquip(itemId) {
     const item = items?.find(i => i.id === itemId)

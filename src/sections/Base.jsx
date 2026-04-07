@@ -86,24 +86,6 @@ const BUILDING_META = {
     nextEffect: (level) => `${manaRateForLevel(level + 1)} maná/h`,
     energyPerLevel: 10,
   },
-  barracks: {
-    name: 'Cuartel',
-    description: 'Forja los atributos fundamentales de tu héroe a través del entrenamiento constante.',
-    icon: Swords,
-    color: '#dc2626',
-    effect: (level) => level === 1 ? 'Entrena FUE y AGI' : level === 2 ? 'Entrena FUE, AGI, ATQ y DEF' : 'Entrena todos los atributos',
-    nextEffect: (level) => level === 1 ? 'Desbloquea ATQ y DEF' : 'Desbloquea Inteligencia',
-    energyPerLevel: 5,
-  },
-  workshop: {
-    name: 'Taller',
-    description: 'Mejora el botín de las expediciones.',
-    icon: Wrench,
-    color: '#0369a1',
-    effect: (level) => `+${(level - 1) * 5}% botín`,
-    nextEffect: (level) => `+${level * 5}% botín`,
-    energyPerLevel: 5,
-  },
   forge: {
     name: 'Herrería',
     description: 'Repara el equipo dañado.',
@@ -189,10 +171,9 @@ function getBaseTier(level) {
 function BaseHeader({ byType, resources, research }) {
   const baseLevel = baseLevelFromMap(byType)
   const tier      = getBaseTier(baseLevel)
-  const now       = Date.now()
 
   const upgradingBuilding = Object.values(byType).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at).getTime() > now
+    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
   )
   const activeResearch = research?.active
 
@@ -288,11 +269,6 @@ function BaseHeader({ byType, resources, research }) {
   )
 }
 
-/* legacy — se sigue usando en InicioZone */
-function baseTitleFn(level) {
-  const tier = getBaseTier(level)
-  return tier.name
-}
 
 /* ─── Temporizador de mejora ─────────────────────────────────────────────────── */
 
@@ -774,7 +750,7 @@ function ZonePills({ active, onChange }) {
 
 /* ─── Zona: Inicio ───────────────────────────────────────────────────────────── */
 
-function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgress, potions, onGoTo }) {
+function InicioZone({ byType, nexusData, trainingRooms, trainingProgress, potions, onGoTo }) {
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const anyTrainReady  = trainingRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const builtCount     = trainingRooms.length
@@ -784,9 +760,8 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
   const potionCount    = potions.reduce((s, p) => s + (p.quantity ?? 0), 0)
 
   // Edificio en construcción/mejora
-  const now = Date.now()
   const upgradingBuilding = Object.values(byType).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at).getTime() > now
+    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
   )
   const upgradingMeta = upgradingBuilding
     ? BUILDING_META[upgradingBuilding.type]
@@ -1784,7 +1759,6 @@ function Base({ mainRef }) {
             key="inicio"
             byType={byType}
             nexusData={nexusData}
-            resources={effectiveResources}
             trainingRooms={trainingRooms}
             trainingProgress={trainingProgress}
             potions={potions}

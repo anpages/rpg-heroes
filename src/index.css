@@ -334,17 +334,6 @@ h1, h2, h3 {
   --accent-border: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
-.workshop-bonus-badge {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 3px 8px;
-  border-radius: 6px;
-  color: #b45309;
-  background: color-mix(in srgb, #b45309 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, #b45309 28%, var(--border));
-  align-self: center;
-}
 
 .section-subtitle {
   font-size: 15px;
