@@ -1,12 +1,17 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
-  Heart, Dumbbell, Wind, Brain, Backpack, Package,
+  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -32,6 +37,10 @@ const RARITY_COLORS = {
   legendary: '#d97706',
 }
 
+const RARITY_LABELS = {
+  common: 'Común', uncommon: 'Poco Común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario',
+}
+
 const STAT_CONFIG = [
   { key: 'attack',       label: 'Ataque',       bonusKey: 'attack_bonus',       color: '#d97706', Icon: Sword    },
   { key: 'defense',      label: 'Defensa',       bonusKey: 'defense_bonus',      color: '#6b7280', Icon: Shield   },
@@ -41,16 +50,33 @@ const STAT_CONFIG = [
   { key: 'max_hp',       label: 'HP Máximo',     bonusKey: 'hp_bonus',           color: '#dc2626', Icon: Heart    },
 ]
 
-/* ─── Sub-componentes ────────────────────────────────────────────────────────── */
+const REPAIR_COST_TABLE = {
+  common:    { gold: 2,  mana: 0  },
+  uncommon:  { gold: 3,  mana: 1  },
+  rare:      { gold: 5,  mana: 3  },
+  epic:      { gold: 8,  mana: 6  },
+  legendary: { gold: 12, mana: 10 },
+}
 
-function DurabilityBar({ current, max }) {
-  const pct   = max > 0 ? Math.round((current / max) * 100) : 0
-  const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-  return (
-    <div className="w-full h-[3px] bg-border rounded-full overflow-hidden mt-1.5">
-      <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${pct}%`, background: color }} />
-    </div>
-  )
+const DISMANTLE_MANA_TABLE = {
+  common: 3, uncommon: 8, rare: 20, epic: 50, legendary: 120,
+}
+
+/* ─── Helpers ────────────────────────────────────────────────────────────────── */
+
+function estimateRepairCost(item) {
+  const catalog = item.item_catalog
+  const missing = catalog.max_durability - item.current_durability
+  const costs   = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
+  return {
+    gold: Math.ceil(missing * costs.gold),
+    mana: Math.ceil(missing * costs.mana),
+  }
+}
+
+function estimateDismantleMana(item) {
+  const base = DISMANTLE_MANA_TABLE[item.item_catalog.rarity] ?? DISMANTLE_MANA_TABLE.common
+  return base * (item.item_catalog.tier ?? 1)
 }
 
 function mainStatForSlot(slotKey, cat) {
@@ -64,7 +90,44 @@ function mainStatForSlot(slotKey, cat) {
   return null
 }
 
-function EquipmentSlot({ slotKey, item }) {
+/* ─── Sub-componentes ────────────────────────────────────────────────────────── */
+
+function DurabilityBar({ current, max }) {
+  const pct   = max > 0 ? Math.round((current / max) * 100) : 0
+  const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+  return (
+    <div className="w-full h-[3px] bg-border rounded-full overflow-hidden mt-1.5">
+      <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  )
+}
+
+function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
+      <div
+        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
+        style={{ width: 'min(340px, 92vw)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-text">{title}</span>
+          <button className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors" onClick={onCancel}>
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+        <p className="text-[13px] text-text-2">{body}</p>
+        <div className="flex gap-2 justify-end">
+          <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
+          <button className="btn btn--primary btn--sm" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -81,9 +144,11 @@ function EquipmentSlot({ slotKey, item }) {
   const cat      = item.item_catalog
   const mainStat = mainStatForSlot(slotKey, cat)
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+  const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
+  const needsRepair = durPct < 100
 
   return (
-    <div className="flex flex-col p-3 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] hover:shadow-[0_0_0_1px_var(--blue-200)] transition-all duration-150 cursor-pointer group min-h-[64px] gap-0.5">
+    <div className="relative group flex flex-col p-3 rounded-xl border border-border bg-surface transition-all duration-150 min-h-[64px] gap-0.5 overflow-hidden">
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
@@ -102,6 +167,27 @@ function EquipmentSlot({ slotKey, item }) {
         </div>
       </div>
       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+        {needsRepair && (
+          <button
+            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-black/60 rounded-lg px-2.5 py-1.5 hover:bg-black/75 transition-colors disabled:opacity-40"
+            onClick={() => onRepair(item)}
+            disabled={loading}
+          >
+            <Wrench size={11} strokeWidth={2} />
+            Reparar
+          </button>
+        )}
+        <button
+          className="text-[11px] font-bold text-white bg-black/60 rounded-lg px-3 py-1.5 hover:bg-black/75 transition-colors disabled:opacity-40"
+          onClick={() => onUnequip(item.id)}
+          disabled={loading}
+        >
+          Desequipar
+        </button>
+      </div>
     </div>
   )
 }
@@ -115,7 +201,7 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) 
 
   return (
     <div className="flex flex-col gap-1">
-      {/* Mobile: compact row — icon + label + total only */}
+      {/* Mobile: compact row */}
       <div className="flex items-center justify-between sm:hidden">
         <div className="flex items-center gap-1.5">
           <StatIcon size={12} strokeWidth={2} style={{ color }} />
@@ -157,10 +243,32 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) 
 /* ─── Componente principal ───────────────────────────────────────────────────── */
 
 export default function Equipo() {
-  const heroId = useHeroId()
-  const { hero }  = useHero(heroId)
-  const { items } = useInventory(heroId)
-  const { cards } = useHeroCards(heroId)
+  const heroId      = useHeroId()
+  const { hero }    = useHero(heroId)
+  const { items }   = useInventory(heroId)
+  const { cards }   = useHeroCards(heroId)
+  const queryClient = useQueryClient()
+  const [confirm, setConfirm] = useState(null)
+
+  const mutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.inventory(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
+      toast.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(hero?.player_id) })
+    },
+  })
 
   const equippedBySlot = useMemo(() => {
     if (!items) return {}
@@ -191,17 +299,8 @@ export default function Equipo() {
     ;(cards ?? []).filter(c => c.equipped).forEach(c => {
       const sc   = c.skill_cards
       const rank = Math.min(c.rank, 5)
-      // v2 schema: bonuses/penalties as JSONB arrays
-      if (Array.isArray(sc.bonuses)) {
-        sc.bonuses.forEach(({ stat, value }) => {
-          if (stat in STAT_MAP) b[STAT_MAP[stat]] += value * rank
-        })
-      }
-      if (Array.isArray(sc.penalties)) {
-        sc.penalties.forEach(({ stat, value }) => {
-          if (stat in STAT_MAP) b[STAT_MAP[stat]] -= value * rank
-        })
-      }
+      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] += value * rank })
+      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] -= value * rank })
     })
     return b
   }, [cards])
@@ -214,8 +313,65 @@ export default function Equipo() {
     )
   }
 
-  const currentHp    = interpolateHp(hero, Date.now())
+  const loading       = mutation.isPending
+  // eslint-disable-next-line react-hooks/purity
+  const currentHp     = interpolateHp(hero, Date.now())
   const equippedCount = Object.keys(equippedBySlot).length
+
+  function handleEquip(itemId) {
+    const item = items?.find(i => i.id === itemId)
+    if (!item) return
+    const targetSlot = item.item_catalog.slot
+    mutation.mutate({
+      endpoint: '/api/item-equip',
+      body: { itemId, equip: true },
+      optimisticUpdate: items?.map(i => {
+        if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
+        if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
+        if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
+        return i
+      }),
+    })
+  }
+
+  function handleUnequip(itemId) {
+    mutation.mutate({
+      endpoint: '/api/item-equip',
+      body: { itemId, equip: false },
+      optimisticUpdate: items?.map(i => i.id === itemId ? { ...i, equipped_slot: null } : i),
+    })
+  }
+
+  function handleRepair(item) {
+    const cost     = estimateRepairCost(item)
+    const costText = cost.mana > 0 ? `${cost.gold} oro · ${cost.mana} maná` : `${cost.gold} oro`
+    setConfirm({
+      title: `Reparar ${item.item_catalog.name}`,
+      body: `Coste estimado: ${costText}`,
+      confirmLabel: 'Reparar',
+      onConfirm: () => {
+        setConfirm(null)
+        mutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
+      },
+    })
+  }
+
+  function handleDismantle(item) {
+    const mana = estimateDismantleMana(item)
+    setConfirm({
+      title: `Desmantelar ${item.item_catalog.name}`,
+      body: `El ítem se destruirá y recuperarás ${mana} maná.`,
+      confirmLabel: 'Desmantelar',
+      onConfirm: () => {
+        setConfirm(null)
+        mutation.mutate({
+          endpoint: '/api/item-dismantle',
+          body: { itemId: item.id },
+          optimisticUpdate: items?.filter(i => i.id !== item.id),
+        })
+      },
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -240,14 +396,13 @@ export default function Equipo() {
         </div>
       </div>
 
-      {/* Main grid — stats arriba en mobile, slots a la izquierda en desktop */}
+      {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
 
-        {/* Stats — order-1 mobile (arriba), order-2 desktop (derecha) */}
+        {/* Stats */}
         <div className="flex flex-col gap-2 order-1 lg:order-2">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Estadísticas</p>
 
-          {/* Mobile: compact 3-col grid */}
           <div className="grid grid-cols-3 gap-2 p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => {
               const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0)
@@ -261,7 +416,6 @@ export default function Equipo() {
             })}
           </div>
 
-          {/* Desktop: full breakdown with bars */}
           <div className="hidden sm:flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => (
               <StatRow key={key} label={label} color={color} Icon={Icon}
@@ -271,13 +425,20 @@ export default function Equipo() {
           </div>
         </div>
 
-        {/* Slots — order-2 mobile (abajo), order-1 desktop (izquierda) */}
+        {/* Equipment slots */}
         <div className="flex flex-col gap-2 order-2 lg:order-1">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ALL_SLOTS.map(slot => (
-                <EquipmentSlot key={slot} slotKey={slot} item={equippedBySlot[slot] ?? null} />
+                <EquipmentSlot
+                  key={slot}
+                  slotKey={slot}
+                  item={equippedBySlot[slot] ?? null}
+                  onUnequip={handleUnequip}
+                  onRepair={handleRepair}
+                  loading={loading}
+                />
               ))}
             </div>
           </div>
@@ -289,7 +450,7 @@ export default function Equipo() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Mochila</p>
-          {unequipped.length > 0 && <span className="text-[11px] text-text-3">{unequipped.length} items</span>}
+          {unequipped.length > 0 && <span className="text-[11px] text-text-3">{unequipped.length} ítems</span>}
         </div>
 
         {unequipped.length === 0 ? (
@@ -303,12 +464,15 @@ export default function Equipo() {
               {unequipped.map(item => {
                 const cat      = item.item_catalog
                 const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+                const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
+                const canEquip = durPct > 0
                 return (
-                  <div key={item.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border bg-surface-2 hover:border-[color:var(--blue-400)] transition-all duration-150 cursor-pointer">
+                  <div key={item.id} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border bg-surface-2 transition-all duration-150">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
                       <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
                     </div>
+                    <span className="text-[10px] font-medium" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                       {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
                       {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
@@ -318,6 +482,29 @@ export default function Equipo() {
                       {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
                     </div>
                     <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+                    {/* Actions */}
+                    <div className="flex gap-1.5 mt-0.5">
+                      <button
+                        className="flex-1 text-[11px] font-bold py-1 rounded-lg border transition-colors disabled:opacity-40"
+                        style={canEquip
+                          ? { color: 'var(--blue-600)', borderColor: 'var(--blue-400)', background: 'color-mix(in srgb, var(--blue-500) 8%, transparent)' }
+                          : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface)', cursor: 'not-allowed' }
+                        }
+                        onClick={() => canEquip && handleEquip(item.id)}
+                        disabled={!canEquip || loading}
+                        title={canEquip ? 'Equipar' : 'Repara el ítem antes de equiparlo'}
+                      >
+                        Equipar
+                      </button>
+                      <button
+                        className="flex items-center justify-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors disabled:opacity-40"
+                        onClick={() => handleDismantle(item)}
+                        disabled={loading}
+                        title="Desmantelar"
+                      >
+                        <Trash2 size={11} strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -325,6 +512,16 @@ export default function Equipo() {
           </div>
         )}
       </div>
+
+      {confirm && (
+        <ConfirmModal
+          title={confirm.title}
+          body={confirm.body}
+          confirmLabel={confirm.confirmLabel}
+          onConfirm={confirm.onConfirm}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
 
     </div>
   )
