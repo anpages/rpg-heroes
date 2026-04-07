@@ -123,53 +123,62 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-[1000] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-[1000]"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-[14px] p-5 sm:p-7 w-[min(100%,400px)] shadow-[var(--shadow-lg)] flex flex-col gap-4 sm:gap-6 max-h-[85dvh] overflow-y-auto"
+        className="bg-surface border border-border rounded-t-[14px] sm:rounded-[14px] w-full sm:w-[min(100%-2rem,400px)] shadow-[var(--shadow-lg)] flex flex-col overflow-hidden"
+        style={{ maxHeight: 'min(85dvh, 600px)' }}
         onClick={e => e.stopPropagation()}
       >
-        <h3 className="text-[1.1rem] font-bold text-text">Reclutar héroe</h3>
+        {/* Header — fijo, no hace scroll */}
+        <div className="px-5 pt-5 pb-3 shrink-0">
+          <h3 className="text-[1.1rem] font-bold text-text">Reclutar héroe</h3>
+        </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
-          {/* Nombre */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
-            <input
-              className="px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Nombre del héroe"
-              maxLength={20}
-              autoFocus
-              required
-            />
-          </div>
+        {/* form ocupa el resto, flex-col para separar body y footer */}
+        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden flex-1">
+          {/* Cuerpo scrollable */}
+          <div className="px-5 overflow-y-auto flex flex-col gap-4 flex-1">
+            {/* Nombre */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
+              <input
+                className="px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nombre del héroe"
+                maxLength={20}
+                autoFocus
+                required
+              />
+            </div>
 
-          {/* Clase */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[0.75rem] font-semibold text-text-2">Clase</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {classes?.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`px-3 py-[0.35rem] border rounded-lg text-[0.78rem] font-semibold cursor-pointer transition-all duration-150
-                    ${classId === c.id
-                      ? 'border-[var(--blue-500)] bg-info-bg text-[var(--blue-600)]'
-                      : 'border-border bg-surface-2 text-text-2 hover:border-border-2'
-                    }`}
-                  onClick={() => setClassId(c.id)}
-                >
-                  {c.name}
-                </button>
-              ))}
+            {/* Clase */}
+            <div className="flex flex-col gap-1.5 pb-2">
+              <label className="text-[0.75rem] font-semibold text-text-2">Clase</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {classes?.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`px-3 py-[0.35rem] border rounded-lg text-[0.78rem] font-semibold cursor-pointer transition-all duration-150
+                      ${classId === c.id
+                        ? 'border-[var(--blue-500)] bg-info-bg text-[var(--blue-600)]'
+                        : 'border-border bg-surface-2 text-text-2 hover:border-border-2'
+                      }`}
+                    onClick={() => setClassId(c.id)}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Acciones */}
-          <div className="flex gap-2.5 justify-end pt-1">
+          {/* Footer — shrink-0, SIEMPRE visible */}
+          <div className="px-5 py-4 shrink-0 flex gap-2.5 justify-end border-t border-border"
+               style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             <button type="button" className="btn btn--ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn--primary" disabled={recruitMutation.isPending}>
               {recruitMutation.isPending ? 'Reclutando...' : 'Reclutar'}
