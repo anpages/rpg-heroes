@@ -17,13 +17,19 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
-  const { cardId, equip } = req.body
-  if (!cardId || equip === undefined) return res.status(400).json({ error: 'cardId y equip requeridos' })
-  if (!isUUID(cardId)) return res.status(400).json({ error: 'cardId inválido' })
+  const { cardId, slotIndex } = req.body
+  if (!cardId)           return res.status(400).json({ error: 'cardId requerido' })
+  if (!isUUID(cardId))   return res.status(400).json({ error: 'cardId inválido' })
+
+  // slotIndex: null = desequipar, 0-4 = equipar en slot
+  const unequipping = slotIndex === null || slotIndex === undefined
+  if (!unequipping && (typeof slotIndex !== 'number' || slotIndex < 0 || slotIndex >= CARD_SLOT_COUNT || !Number.isInteger(slotIndex))) {
+    return res.status(400).json({ error: `slotIndex debe ser null o un entero entre 0 y ${CARD_SLOT_COUNT - 1}` })
+  }
 
   const { data: heroCard } = await supabase
     .from('hero_cards')
-    .select('id, hero_id, equipped, rank')
+    .select('id, hero_id, slot_index, rank')
     .eq('id', cardId)
     .single()
 
@@ -38,25 +44,38 @@ export default async function handler(req, res) {
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
   // ── DESEQUIPAR ────────────────────────────────────────────────────────────
-  if (!equip) {
-    if (!heroCard.equipped) return res.status(409).json({ error: 'La carta no está equipada' })
-    await supabase.from('hero_cards').update({ equipped: false }).eq('id', cardId)
+  if (unequipping) {
+    if (heroCard.slot_index === null) return res.status(409).json({ error: 'La carta no está equipada' })
+    await supabase.from('hero_cards').update({ slot_index: null }).eq('id', cardId)
     return res.status(200).json({ ok: true })
   }
 
   // ── EQUIPAR ───────────────────────────────────────────────────────────────
-  if (heroCard.equipped) return res.status(409).json({ error: 'La carta ya está equipada' })
+  if (heroCard.slot_index !== null) return res.status(409).json({ error: 'La carta ya está equipada' })
 
+  // Verificar que el slot destino está libre
+  const { data: slotOccupant } = await supabase
+    .from('hero_cards')
+    .select('id')
+    .eq('hero_id', hero.id)
+    .eq('slot_index', slotIndex)
+    .maybeSingle()
+
+  if (slotOccupant) {
+    return res.status(409).json({ error: `El slot ${slotIndex + 1} ya está ocupado` })
+  }
+
+  // Verificar que no se supera el máximo de slots
   const { count } = await supabase
     .from('hero_cards')
     .select('id', { count: 'exact', head: true })
     .eq('hero_id', hero.id)
-    .eq('equipped', true)
+    .not('slot_index', 'is', null)
 
   if ((count ?? 0) >= CARD_SLOT_COUNT) {
     return res.status(409).json({ error: `Slots llenos (máx ${CARD_SLOT_COUNT}). Desequipa una carta primero.` })
   }
 
-  await supabase.from('hero_cards').update({ equipped: true }).eq('id', cardId)
+  await supabase.from('hero_cards').update({ slot_index: slotIndex }).eq('id', cardId)
   return res.status(200).json({ ok: true })
 }

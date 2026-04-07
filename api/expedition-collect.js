@@ -67,10 +67,13 @@ export default async function handler(req, res) {
   const finalGold = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
   const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
 
-  // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa
-  // Peligro 1 → base 1, peligro 9 → base 5; defensa lo reduce (mín siempre 1)
+  // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa y cartas
+  // Peligro 1 → base 1, peligro 9 → base 5; defensa y carta Herrero reducen, Destrozador aumenta
   const dangerBase = dungeon ? 1 + Math.floor(dungeon.difficulty / 2) : 3
-  const durabilityLoss = stats ? Math.max(1, dangerBase - Math.floor(stats.defense / 15)) : dangerBase
+  const durabilityLoss = Math.max(0, (stats
+    ? dangerBase - Math.floor(stats.defense / 15)
+    : dangerBase
+  ) + (stats?.durabilityMod ?? 0))
 
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
@@ -124,7 +127,7 @@ export default async function handler(req, res) {
   // Reducir durabilidad del equipo equipado
   await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
 
-  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type }) : null
+  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0 }) : null
   const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus) : null
 
   // Progreso de misiones diarias

@@ -139,7 +139,7 @@ export default async function handler(req, res) {
 
     // Carta garantizada al ganar el torneo
     if (champion) {
-      const { data: cards } = await supabase.from('skill_cards').select('id').limit(20)
+      const { data: cards } = await supabase.from('skill_cards').select('id, name').limit(20)
       if (cards?.length) {
         const card = cards[Math.floor(Math.random() * cards.length)]
         const { data: existing } = await supabase

@@ -4,6 +4,7 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useMissions } from '../hooks/useMissions'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { computeBaseLevel } from '../lib/gameConstants'
 import { Map, Castle, ClipboardList, ChevronRight, Plus, Moon, Sword, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -15,7 +16,7 @@ const BUILDING_NAMES = {
   forge: 'Herrería', library: 'Biblioteca',
 }
 
-const SLOT_UNLOCK = { 2: 5, 3: 10 }
+const SLOT_UNLOCK = { 2: 2, 3: 3 } // slot → nivel mínimo de Base
 
 const URGENCY = {
   ready:     { border: '#16a34a', icon: '#16a34a', bg: 'color-mix(in srgb,#16a34a 7%,var(--surface))'  },
@@ -176,10 +177,10 @@ export default function Inicio() {
     return () => clearInterval(id)
   }, [])
 
-  const barrackLevel = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
+  const baseLevel    = computeBaseLevel(buildings ?? [])
   const usedSlots    = heroes.map(h => h.slot ?? 1)
   const nextSlot     = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit   = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
+  const canRecruit   = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || baseLevel >= SLOT_UNLOCK[nextSlot]))
 
   // Actividad: solo edificios y misiones (los héroes tienen su propio bloque)
   const activityItems = []

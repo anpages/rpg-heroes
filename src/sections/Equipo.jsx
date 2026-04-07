@@ -13,7 +13,7 @@ import { apiPost } from '../lib/api'
 import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '../lib/gameConstants'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
-  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X,
+  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -331,11 +331,11 @@ export default function Equipo() {
   const cardBonus = useMemo(() => {
     const b = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const STAT_MAP = { max_hp: 'max_hp', attack: 'attack', defense: 'defense', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
-    ;(cards ?? []).filter(c => c.equipped).forEach(c => {
+    ;(cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined).forEach(c => {
       const sc   = c.skill_cards
       const rank = Math.min(c.rank, 5)
-      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] += value * rank })
-      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] -= value * rank })
+      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] += Math.round(value * rank) })
+      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
     })
     return b
   }, [cards])
@@ -390,22 +390,15 @@ export default function Equipo() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Hero header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-border">
-        <div className="w-11 h-11 rounded-full bg-[var(--blue-100)] border-2 border-[var(--blue-300)] flex items-center justify-center flex-shrink-0 shadow-[0_0_12px_var(--blue-200)]">
-          <span className="text-[19px] font-black text-[var(--blue-700)]">
-            {(hero.name ?? '?')[0].toUpperCase()}
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[17px] font-bold text-text">{hero.name}</span>
-            <span className="text-[11px] font-semibold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
-              Nv. {hero.level}
-            </span>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-border">
+        <div>
+          <div className="flex items-center gap-2">
+            <Package size={16} strokeWidth={1.8} className="text-[var(--blue-600)]" />
+            <span className="text-[16px] font-bold text-text">Gestionar Equipo</span>
           </div>
           <span className="text-[12px] text-text-3">
-            {equippedCount}/8 piezas · {currentHp}/{hero.max_hp} HP
+            {hero.name} · {equippedCount}/8 piezas · {currentHp}/{hero.max_hp} HP
           </span>
         </div>
       </div>

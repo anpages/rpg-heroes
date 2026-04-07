@@ -47,17 +47,19 @@ function pickSlot(poolKey) {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+// categoryPool usa los valores reales de card_category en la BD:
+//   offense | defense | mobility | equipment | hybrid
 const CARD_DROP_BY_TYPE = {
-  magic:   { chance: 0.35, categoryPool: ['intelligence','intelligence','intelligence','strength','agility'],          weights: [50,30,15,4,1] },
-  ancient: { chance: 0.25, categoryPool: ['intelligence','strength','agility'],                                       weights: [40,30,20,8,2] },
-  combat:  { chance: 0.20, categoryPool: ['attack','attack','attack','strength','defense'],                           weights: [50,28,16,5,1] },
-  crypt:   { chance: 0.20, categoryPool: ['defense','defense','defense','intelligence','attack'],                     weights: [50,28,16,5,1] },
-  mine:    { chance: 0.15, categoryPool: ['attack','attack','defense','defense','strength'],                          weights: [45,30,18,6,1] },
+  magic:   { chance: 0.35, categoryPool: ['mobility','mobility','mobility','offense','defense'],   weights: [50,30,15,4,1] },
+  ancient: { chance: 0.25, categoryPool: ['mobility','mobility','offense','defense','hybrid'],     weights: [40,30,20,8,2] },
+  combat:  { chance: 0.20, categoryPool: ['offense','offense','offense','defense','equipment'],    weights: [50,28,16,5,1] },
+  crypt:   { chance: 0.20, categoryPool: ['defense','defense','defense','mobility','offense'],     weights: [50,28,16,5,1] },
+  mine:    { chance: 0.15, categoryPool: ['offense','offense','defense','defense','equipment'],    weights: [45,30,18,6,1] },
 }
 
-export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey }) {
+export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0 }) {
   const { chance, tiers, weights } = getDropConfig(difficulty)
-  if (Math.random() > chance) return null
+  if (Math.random() > chance + dropRateBonus) return null
 
   const total = weights.reduce((a, b) => a + b, 0)
   let roll = Math.random() * total
@@ -104,14 +106,14 @@ export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBo
   for (let i = 0; i < RARITIES.length; i++) { roll -= adjustedWeights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
 
   const { data: candidates } = await supabase
-    .from('skill_cards').select('id').eq('category', category).eq('rarity', rarity)
+    .from('skill_cards').select('id').eq('card_category', category).eq('rarity', rarity)
   if (!candidates?.length) return null
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
   const { data: newCard } = await supabase
     .from('hero_cards')
-    .insert({ hero_id: heroId, card_id: picked.id, rank: 1, equipped: false })
-    .select('*, skill_cards(name, category, rarity)')
+    .insert({ hero_id: heroId, card_id: picked.id, rank: 1, slot_index: null })
+    .select('*, skill_cards(name, card_category, rarity)')
     .single()
   return newCard
 }

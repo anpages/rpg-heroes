@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     .from('hero_cards')
     .select('*, skill_cards(name, base_mana_fuse)')
     .in('id', [cardId1, cardId2])
+    .is('slot_index', null)
 
   if (!cards || cards.length !== 2) return res.status(404).json({ error: 'Cartas no encontradas' })
 
@@ -36,9 +37,9 @@ export default async function handler(req, res) {
 
   // Validaciones
   if (c1.card_id !== c2.card_id)  return res.status(409).json({ error: 'Las cartas deben ser del mismo tipo' })
-  if (c1.rank    !== c2.rank)     return res.status(409).json({ error: 'Las cartas deben ser del mismo rango' })
-  if (c1.rank >= 5)               return res.status(409).json({ error: 'Rango máximo alcanzado (V)' })
-  if (c1.equipped || c2.equipped) return res.status(409).json({ error: 'Desequipa las cartas antes de fusionarlas' })
+  if (c1.rank    !== c2.rank)                   return res.status(409).json({ error: 'Las cartas deben ser del mismo rango' })
+  if (c1.rank >= 5)                             return res.status(409).json({ error: 'Rango máximo alcanzado (V)' })
+  if (c1.slot_index !== null || c2.slot_index !== null) return res.status(409).json({ error: 'Desequipa las cartas antes de fusionarlas' })
 
   // Verificar propiedad (ambas del mismo héroe del usuario)
   const { data: hero } = await supabase
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
 
   const { data: newCard } = await supabase
     .from('hero_cards')
-    .insert({ hero_id: hero.id, card_id: c1.card_id, rank: c1.rank + 1, equipped: false })
+    .insert({ hero_id: hero.id, card_id: c1.card_id, rank: c1.rank + 1, slot_index: null })
     .select('*, skill_cards(*)')
     .single()
 

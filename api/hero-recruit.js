@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { computeBaseLevel } from '../src/lib/gameConstants.js'
 
-const SLOT_REQUIREMENTS = { 2: 5, 3: 10 } // slot → nivel mínimo de Cuartel
+const SLOT_REQUIREMENTS = { 2: 2, 3: 3 } // slot → nivel mínimo de Base
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -35,19 +36,21 @@ export default async function handler(req, res) {
 
   if (!nextSlot) return res.status(409).json({ error: 'Ya tienes el máximo de héroes (3)' })
 
-  // Validar requisito de Cuartel
+  // Validar requisito de nivel de Base
   const required = SLOT_REQUIREMENTS[nextSlot]
   if (required) {
-    const { data: barracks } = await supabase
+    const { data: buildings } = await supabase
       .from('buildings')
-      .select('level')
+      .select('type, level, unlocked')
       .eq('player_id', user.id)
-      .eq('type', 'barracks')
-      .maybeSingle()
 
-    if (!barracks || barracks.level < required) {
+    const baseLevel = computeBaseLevel(buildings ?? [])
+    if (baseLevel < required) {
       return res.status(403).json({
-        error: `Necesitas el Cuartel en nivel ${required} para reclutar este héroe`,
+        error: `Necesitas la Base en nivel ${required} para reclutar este héroe`,
+        code: 'BASE_LEVEL_REQUIRED',
+        required,
+        current: baseLevel,
       })
     }
   }

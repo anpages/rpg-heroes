@@ -225,6 +225,9 @@ export const INVENTORY_PER_WORKSHOP_LEVEL = 5
 /** Número máximo de cartas equipadas simultáneamente */
 export const CARD_SLOT_COUNT = 5
 
+/** Rango máximo de una carta de habilidad */
+export const CARD_MAX_RANK = 5
+
 // ── Reparación y desmantelamiento de ítems ────────────────────────────────────
 
 /**

@@ -13,6 +13,7 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
+import { showItemDropToast, showCardDropToast } from '../lib/dropToast'
 import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -228,7 +229,6 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
 }
 
 function RewardModal({ reward, onClose }) {
-  const hasDrop = reward.drop?.item_catalog || reward.cardDrop?.skill_cards
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4"
@@ -271,46 +271,6 @@ function RewardModal({ reward, onClose }) {
             </div>
           </div>
         </div>
-
-        {/* Item / card drop */}
-        {hasDrop && (
-          <div className="flex flex-col gap-2 px-5 pb-4">
-            {reward.drop?.item_catalog && (
-              <div
-                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${RARITY_COLORS[reward.drop.item_catalog.rarity]} 8%, var(--bg))`,
-                  borderColor:     `color-mix(in srgb, ${RARITY_COLORS[reward.drop.item_catalog.rarity]} 30%, var(--border))`,
-                }}
-              >
-                <Sword size={16} strokeWidth={2} style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity], flexShrink: 0 }} />
-                <div className="min-w-0">
-                  <p className="text-[14px] font-bold truncate" style={{ color: RARITY_COLORS[reward.drop.item_catalog.rarity] }}>
-                    {reward.drop.item_catalog.name}
-                  </p>
-                  <p className="text-[11px] text-text-3 capitalize">{reward.drop.item_catalog.rarity} · {reward.drop.item_catalog.slot}</p>
-                </div>
-              </div>
-            )}
-            {reward.cardDrop?.skill_cards && (
-              <div
-                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${RARITY_COLORS[reward.cardDrop.skill_cards.rarity]} 8%, var(--bg))`,
-                  borderColor:     `color-mix(in srgb, ${RARITY_COLORS[reward.cardDrop.skill_cards.rarity]} 30%, var(--border))`,
-                }}
-              >
-                <Layers size={16} strokeWidth={2} style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity], flexShrink: 0 }} />
-                <div className="min-w-0">
-                  <p className="text-[14px] font-bold truncate" style={{ color: RARITY_COLORS[reward.cardDrop.skill_cards.rarity] }}>
-                    {reward.cardDrop.skill_cards.name}
-                  </p>
-                  <p className="text-[11px] text-text-3 capitalize">Carta · {reward.cardDrop.skill_cards.rarity}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Footer */}
         <div className="px-5 pb-5">
@@ -366,7 +326,9 @@ function Dungeons() {
   }
 
   function handleCollect(data) {
-    setReward({ ...data.rewards, drop: data.drop ?? null, cardDrop: data.cardDrop ?? null })
+    setReward(data.rewards ?? {})
+    if (data.drop?.item_catalog)      showItemDropToast(data.drop.item_catalog)
+    if (data.cardDrop?.skill_cards)   showCardDropToast(data.cardDrop.skill_cards)
     triggerResourceFlash()
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })

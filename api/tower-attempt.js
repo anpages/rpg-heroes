@@ -162,7 +162,7 @@ export default async function handler(req, res) {
     // Drop de item — probabilidad escala con el floor
     const difficulty = floorToDifficulty(targetFloor)
     const poolKey = targetFloor % 2 === 0 ? 'tower_even' : 'tower_odd'
-    const drop = await rollItemDrop(supabase, hero.id, user.id, { difficulty, poolKey })
+    const drop = await rollItemDrop(supabase, hero.id, user.id, { difficulty, poolKey, dropRateBonus: heroStats.itemDropRateBonus ?? 0 })
     rewards.drop = drop ?? null
   }
 

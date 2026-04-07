@@ -11,6 +11,7 @@ import { apiPost } from '../lib/api'
 import { useAppStore } from '../store/appStore'
 import { CombatReplay } from '../components/CombatReplay'
 import { PotionPanel } from '../components/PotionPanel'
+import { showCardDropToast } from '../lib/dropToast'
 
 const ROUND_LABELS = ['Cuartos', 'Semifinal', 'Final']
 const ROUND_COLORS = ['#2563eb', '#d97706', '#dc2626']
@@ -348,8 +349,10 @@ export default function Torneos() {
     mutationFn: () => apiPost('/api/tournament-fight', { heroId }),
     onSuccess: data => {
       if (data.rewards) triggerResourceFlash()
+      if (data.rewards?.card?.name) showCardDropToast(data.rewards.card)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
     onError: err => toast.error(err.message),

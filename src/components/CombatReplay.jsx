@@ -152,11 +152,6 @@ function ResultPanel({ won, rewards, knockedOut, onClose }) {
               <Zap size={13} strokeWidth={2} /> ¡Nivel!
             </span>
           )}
-          {rewards.drop?.item_catalog && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#7c3aed_10%,var(--surface-2))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] text-[#7c3aed] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              ⚔ {rewards.drop.item_catalog.name}
-            </span>
-          )}
         </div>
       )}
 

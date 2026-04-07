@@ -31,14 +31,15 @@ export const useAppStore = create((set) => ({
       activeTab: tab,
       mountedTabs: new Set([...state.mountedTabs, tab]),
     }
-    // Auto-mount el sub-tab activo al visitar heroes/mundo por primera vez
+    // Al navegar a heroes/mundo, reset al sub-tab por defecto salvo que se indique uno explícito.
+    // Si opts.heroTab / opts.worldTab está definido, se usa ese (navegación programática directa).
     if (tab === 'heroes') {
-      const heroTab = opts.heroTab ?? state.activeHeroTab
+      const heroTab = opts.heroTab ?? 'ficha'
       next.activeHeroTab = heroTab
       next.mountedTabs.add(`heroes:${heroTab}`)
     }
     if (tab === 'mundo') {
-      const worldTab = opts.worldTab ?? state.activeWorldTab
+      const worldTab = opts.worldTab ?? 'torre'
       next.activeWorldTab = worldTab
       next.mountedTabs.add(`mundo:${worldTab}`)
     }

@@ -7,8 +7,9 @@ import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { Lock, Plus } from 'lucide-react'
+import { computeBaseLevel } from '../lib/gameConstants'
 
-const SLOT_UNLOCK      = { 2: 5, 3: 10 }
+const SLOT_UNLOCK      = { 2: 2, 3: 3 } // slot → nivel mínimo de Base
 const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
 const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: '¡Recoger!' }
 
@@ -33,13 +34,13 @@ export function HeroSelector() {
   const { heroes }    = useHeroes(userId)
   const { buildings } = useBuildings(userId)
 
-  const barrackLevel  = (buildings ?? []).find(b => b.type === 'barracks')?.level ?? 1
+  const baseLevel     = computeBaseLevel(buildings ?? [])
   const usedSlots     = heroes.map(h => h.slot ?? 1)
   const nextSlot      = [1, 2, 3].find(s => !usedSlots.includes(s))
-  const canRecruit    = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || barrackLevel >= SLOT_UNLOCK[nextSlot]))
+  const canRecruit    = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || baseLevel >= SLOT_UNLOCK[nextSlot]))
   const lockedSlots   = [2, 3].filter(slot => {
     const filled   = heroes.some(h => h.slot === slot)
-    const unlocked = !SLOT_UNLOCK[slot] || barrackLevel >= SLOT_UNLOCK[slot]
+    const unlocked = !SLOT_UNLOCK[slot] || baseLevel >= SLOT_UNLOCK[slot]
     return !filled && !unlocked
   })
 
@@ -89,11 +90,11 @@ export function HeroSelector() {
         <div
           key={`locked-${slot}`}
           className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px]"
-          title={`Desbloquea con Cuartel Nv.${SLOT_UNLOCK[slot]}`}
+          title={`Desbloquea con Base Nv.${SLOT_UNLOCK[slot]}`}
         >
           <Lock size={11} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
           <span className="text-[12px] font-semibold text-text-3">Héroe {slot}</span>
-          <span className="hidden sm:inline text-[11px] text-text-3">· Cuartel Nv.{SLOT_UNLOCK[slot]}</span>
+          <span className="hidden sm:inline text-[11px] text-text-3">· Base Nv.{SLOT_UNLOCK[slot]}</span>
         </div>
       ))}
     </div>

@@ -8,6 +8,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { CARD_SLOT_COUNT } from '../lib/gameConstants'
+import { cardBonusAtRank, cardPenaltyAtRank } from '../lib/gameFormulas'
 import { Sword, Shield, Wind, Brain, Plus, Layers, Wrench, Shuffle, FlameKindling } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -49,8 +50,8 @@ function formatVal(stat, val) {
   if (stat === 'weapon_attack_amp' || stat === 'armor_defense_amp' || stat === 'item_drop_rate')
     return `${Math.round(val * 100)}%`
   if (stat === 'durability_loss')
-    return val > 0 ? `×${val}` : `${val}`
-  return Math.abs(val)
+    return Math.round(Math.abs(val))
+  return Math.round(Math.abs(val))
 }
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
@@ -123,13 +124,13 @@ function CardSlot({ card, slotIndex, onUnequip }) {
         {bonuses.slice(0, 2).map((b, i) => (
           <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
             <span className="text-white/60">{STAT_LABELS[b.stat] ?? b.stat}</span>
-            <span className="text-[#86efac] font-bold">+{formatVal(b.stat, b.value * rank)}</span>
+            <span className="text-[#86efac] font-bold">+{formatVal(b.stat, cardBonusAtRank(b.value, rank))}</span>
           </div>
         ))}
         {penalties.slice(0, 1).map((p, i) => (
           <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
             <span className="text-white/60">{STAT_LABELS[p.stat] ?? p.stat}</span>
-            <span className="text-[#fca5a5] font-bold">−{formatVal(p.stat, p.value * rank)}</span>
+            <span className="text-[#fca5a5] font-bold">−{formatVal(p.stat, cardPenaltyAtRank(p.value, rank))}</span>
           </div>
         ))}
       </div>
@@ -162,12 +163,12 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading
         <div className="flex items-center gap-2">
           {topBonus && (
             <span className="text-[10px] font-medium text-[#86efac]">
-              +{formatVal(topBonus.stat, topBonus.value * rank)} {STAT_LABELS[topBonus.stat] ?? topBonus.stat}
+              +{formatVal(topBonus.stat, cardBonusAtRank(topBonus.value, rank))} {STAT_LABELS[topBonus.stat] ?? topBonus.stat}
             </span>
           )}
           {topPenalty && (
             <span className="text-[10px] font-medium text-[#fca5a5]">
-              −{formatVal(topPenalty.stat, topPenalty.value * rank)} {STAT_LABELS[topPenalty.stat] ?? topPenalty.stat}
+              −{formatVal(topPenalty.stat, cardPenaltyAtRank(topPenalty.value, rank))} {STAT_LABELS[topPenalty.stat] ?? topPenalty.stat}
             </span>
           )}
         </div>
@@ -219,9 +220,9 @@ export default function Cartas() {
       const key = queryKeys.heroCards(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      const { cardId, equip } = body
+      const { cardId, slotIndex } = body
       queryClient.setQueryData(key, (previous ?? []).map(c =>
-        c.id === cardId ? { ...c, equipped: equip } : c
+        c.id === cardId ? { ...c, slot_index: slotIndex ?? null } : c
       ))
       return { previous }
     },
@@ -260,12 +261,16 @@ export default function Cartas() {
 
   const equippedCards = useMemo(() => {
     if (!cards) return []
-    const equipped = cards.filter(c => c.equipped).slice(0, CARD_SLOT_COUNT)
-    while (equipped.length < CARD_SLOT_COUNT) equipped.push(null)
-    return equipped
+    const arr = Array(CARD_SLOT_COUNT).fill(null)
+    cards.forEach(c => {
+      if (c.slot_index !== null && c.slot_index !== undefined && c.slot_index >= 0 && c.slot_index < CARD_SLOT_COUNT) {
+        arr[c.slot_index] = c
+      }
+    })
+    return arr
   }, [cards])
 
-  const collectionCards = useMemo(() => (cards ?? []).filter(c => !c.equipped), [cards])
+  const collectionCards = useMemo(() => (cards ?? []).filter(c => c.slot_index === null || c.slot_index === undefined), [cards])
 
   // Build fuse pairs: unequipped cards sharing card_id + rank
   const fuseMap = useMemo(() => {
@@ -283,8 +288,8 @@ export default function Cartas() {
     equippedCards.filter(Boolean).forEach(c => {
       const sc   = c.skill_cards
       const rank = Math.min(c.rank, 5)
-      getBonuses(sc).forEach(b => { if (b.stat in t) t[b.stat] += b.value * rank })
-      getPenalties(sc).forEach(p => { if (p.stat in t) t[p.stat] -= p.value * rank })
+      getBonuses(sc).forEach(b => { if (b.stat in t) t[b.stat] += cardBonusAtRank(b.value, rank) })
+      getPenalties(sc).forEach(p => { if (p.stat in t) t[p.stat] -= cardPenaltyAtRank(p.value, rank) })
     })
     return t
   }, [equippedCards])
@@ -301,15 +306,17 @@ export default function Cartas() {
   const activeStats   = Object.entries(netTotals).filter(([, v]) => v !== 0)
 
   function handleEquip(cardId) {
-    if (equippedCount >= CARD_SLOT_COUNT) {
+    const usedSlots = new Set(equippedCards.filter(Boolean).map(c => c.slot_index))
+    const freeSlot  = [0, 1, 2, 3, 4].find(i => !usedSlots.has(i))
+    if (freeSlot === undefined) {
       toast.error('Slots llenos. Desequipa una carta primero.')
       return
     }
-    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, equip: true } })
+    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, slotIndex: freeSlot } })
   }
 
   function handleUnequip(cardId) {
-    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, equip: false } })
+    equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, slotIndex: null } })
   }
 
   function handleFuse(id1, id2) {

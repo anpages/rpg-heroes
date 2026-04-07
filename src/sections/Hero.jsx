@@ -846,12 +846,12 @@ function Hero() {
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
   const cardBonuses = (cards ?? [])
-    .filter(c => c.equipped)
+    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
     .reduce((acc, c) => {
       const sc   = c.skill_cards
       const rank = Math.min(c.rank, 5)
-      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += value * rank })
-      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= value * rank })
+      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += Math.round(value * rank) })
+      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
@@ -1094,7 +1094,7 @@ function Hero() {
               </button>
             </div>
             {(() => {
-              const equippedCards = (cards ?? []).filter(c => c.equipped)
+              const equippedCards = (cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined)
               if (!equippedCards.length) {
                 return (
                   <button

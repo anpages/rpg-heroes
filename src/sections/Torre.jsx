@@ -15,6 +15,7 @@ import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { PotionPanel } from '../components/PotionPanel'
+import { showItemDropToast } from '../lib/dropToast'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -165,17 +166,14 @@ export default function Torre() {
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
 
   const cardBonuses = (cards ?? [])
-    .filter(c => c.equipped)
+    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
     .reduce((acc, c) => {
-      const sc = c.skill_cards
-      const r  = c.rank
-      acc.attack   += (sc.attack_bonus   ?? 0) * r
-      acc.defense  += (sc.defense_bonus  ?? 0) * r
-      acc.max_hp   += (sc.hp_bonus       ?? 0) * r
-      acc.strength += (sc.strength_bonus ?? 0) * r
-      acc.agility  += (sc.agility_bonus  ?? 0) * r
+      const sc   = c.skill_cards
+      const rank = Math.min(c.rank, 5)
+      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += Math.round(value * rank) })
+      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
       return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
   const effectiveHero = hero ? {
     max_hp:       hero.max_hp       + equipBonuses.max_hp    + cardBonuses.max_hp,
@@ -201,6 +199,7 @@ export default function Torre() {
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
+      if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
       setResult(data)
       if (data.won) {
         triggerResourceFlash()

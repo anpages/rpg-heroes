@@ -49,6 +49,26 @@ export function floorEnemyStats(floor) {
 }
 
 /**
+ * Bonus de una carta de habilidad en rango `rank`.
+ * Escala linealmente: baseValue × rank.
+ */
+export function cardBonusAtRank(baseValue, rank) {
+  return baseValue * rank
+}
+
+/**
+ * Penalización de una carta de habilidad en rango `rank`.
+ * Crece más despacio que el bonus: baseValue × (1 + (rank−1) × 0.5).
+ * Rango 1 → ×1.0, Rango 2 → ×1.5, Rango 3 → ×2.0, Rango 4 → ×2.5, Rango 5 → ×3.0.
+ *
+ * No incluye Math.round — el llamador redondea si trabaja con enteros.
+ * Para stats de porcentaje (ej. weapon_attack_amp = 0.15) no se redondea.
+ */
+export function cardPenaltyAtRank(baseValue, rank) {
+  return baseValue * (1 + (rank - 1) * 0.5)
+}
+
+/**
  * Recompensas por superar un piso de la torre.
  */
 export function floorRewards(floor) {
