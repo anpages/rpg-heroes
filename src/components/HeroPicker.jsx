@@ -123,16 +123,16 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] p-4"
+      className="fixed inset-0 bg-black/40 flex items-start justify-center z-[1000] p-4 pt-[max(1rem,env(safe-area-inset-top))] overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-[14px] p-7 w-[min(100%,400px)] shadow-[var(--shadow-lg)] flex flex-col gap-6"
+        className="bg-surface border border-border rounded-[14px] p-5 sm:p-7 w-[min(100%,400px)] shadow-[var(--shadow-lg)] flex flex-col gap-4 sm:gap-6 my-auto"
         onClick={e => e.stopPropagation()}
       >
         <h3 className="text-[1.1rem] font-bold text-text">Reclutar héroe</h3>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
           {/* Nombre */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
