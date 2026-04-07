@@ -576,7 +576,7 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
           : `Energía +${nexusData.balance} ⚡`
         : 'Gestiona tus edificios',
       detail:  upgradingBuilding
-        ? `${upgradingMeta?.name ?? 'Edificio'} en construcción…`
+        ? `${upgradingMeta?.name ?? 'Edificio'} ${upgradingBuilding.level === 0 ? 'en construcción' : 'mejorando'}…`
         : null,
     },
     {
