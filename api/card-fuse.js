@@ -37,6 +37,7 @@ export default async function handler(req, res) {
   // Validaciones
   if (c1.card_id !== c2.card_id)  return res.status(409).json({ error: 'Las cartas deben ser del mismo tipo' })
   if (c1.rank    !== c2.rank)     return res.status(409).json({ error: 'Las cartas deben ser del mismo rango' })
+  if (c1.rank >= 5)               return res.status(409).json({ error: 'Rango máximo alcanzado (V)' })
   if (c1.equipped || c2.equipped) return res.status(409).json({ error: 'Desequipa las cartas antes de fusionarlas' })
 
   // Verificar propiedad (ambas del mismo héroe del usuario)

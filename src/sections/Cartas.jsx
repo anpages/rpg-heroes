@@ -1,8 +1,12 @@
 import { useMemo } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useHeroCards } from '../hooks/useHeroCards'
-import { Sword, Shield, Heart, Dumbbell, Wind, Brain, Plus, Layers, Wrench, Shuffle } from 'lucide-react'
+import { queryKeys } from '../lib/queryKeys'
+import { apiPost } from '../lib/api'
+import { Sword, Shield, Wind, Brain, Plus, Layers, Wrench, Shuffle, FlameKindling } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
@@ -60,12 +64,12 @@ function RankDots({ rank, max = 5, color }) {
   )
 }
 
-function CardSlot({ card, slotIndex }) {
+function CardSlot({ card, slotIndex, onUnequip, loading }) {
   if (!card) {
     return (
-      <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface/50 aspect-[3/4] min-h-[160px] cursor-pointer hover:border-[color:var(--blue-400)] hover:bg-[var(--blue-50)] transition-all duration-200 group">
-        <Plus size={20} strokeWidth={1.5} className="text-text-3 group-hover:text-[var(--blue-600)] transition-colors" />
-        <span className="text-[11px] text-text-3 group-hover:text-[var(--blue-600)] mt-1 transition-colors">Slot libre</span>
+      <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface/50 aspect-[3/4] min-h-[160px]">
+        <Plus size={20} strokeWidth={1.5} className="text-text-3" />
+        <span className="text-[11px] text-text-3 mt-1">Slot libre</span>
         <span className="absolute bottom-2 right-2 text-[10px] text-text-3 font-bold opacity-40">{slotIndex + 1}</span>
       </div>
     )
@@ -79,10 +83,17 @@ function CardSlot({ card, slotIndex }) {
   const rankLabel = RANK_LABELS[rank] ?? rank
 
   return (
-    <div
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] cursor-pointer shadow-lg hover:scale-[1.03] hover:shadow-xl transition-all duration-200"
-      style={{ background: meta.bg }}
-    >
+    <div className="relative group flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] shadow-lg" style={{ background: meta.bg }}>
+      {/* Unequip overlay */}
+      <button
+        className="absolute inset-0 z-10 flex items-center justify-center bg-black/0 hover:bg-black/50 transition-colors duration-200 opacity-0 group-hover:opacity-100"
+        onClick={() => onUnequip(card.id)}
+        disabled={loading}
+        title="Desequipar"
+      >
+        <span className="text-[11px] font-bold text-white bg-black/60 rounded-lg px-3 py-1.5">Desequipar</span>
+      </button>
+
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-1">
         <div className="flex items-center gap-1.5">
@@ -128,7 +139,7 @@ function CardSlot({ card, slotIndex }) {
   )
 }
 
-function CollectionCard({ card, isEquipped }) {
+function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, loading }) {
   const sc       = card.skill_cards
   const meta     = getMeta(sc)
   const rank     = Math.min(card.rank ?? 1, 5)
@@ -138,10 +149,7 @@ function CollectionCard({ card, isEquipped }) {
   const topPenalty = penalties[0]
 
   return (
-    <div className="relative flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] transition-colors cursor-pointer">
-      {isEquipped && (
-        <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#16a34a]" title="Equipada" />
-      )}
+    <div className="relative flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] transition-colors">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
         style={{ background: meta.bg }}>
         <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
@@ -166,6 +174,31 @@ function CollectionCard({ card, isEquipped }) {
           )}
         </div>
       </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {fusePair && (
+          <button
+            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,transparent)] border border-[color-mix(in_srgb,#d97706_25%,transparent)] rounded-lg px-2 py-1 hover:bg-[color-mix(in_srgb,#d97706_18%,transparent)] transition-colors disabled:opacity-40"
+            onClick={() => onFuse(card.id, fusePair.id)}
+            disabled={loading}
+            title="Fusionar con carta idéntica → Rango superior"
+          >
+            <FlameKindling size={11} strokeWidth={2} />
+            Fusionar
+          </button>
+        )}
+        <button
+          className="text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-40"
+          style={canEquip
+            ? { color: 'var(--blue-600)', borderColor: 'var(--blue-400)', background: 'color-mix(in srgb, var(--blue-500) 8%, transparent)' }
+            : { color: 'var(--text-3)', borderColor: 'var(--border)', background: 'var(--surface-2)', cursor: 'not-allowed' }
+          }
+          onClick={() => canEquip && onEquip(card.id)}
+          disabled={!canEquip || loading}
+          title={canEquip ? 'Equipar' : 'Slots llenos — desequipa una carta primero'}
+        >
+          Equipar
+        </button>
+      </div>
     </div>
   )
 }
@@ -175,9 +208,29 @@ function CollectionCard({ card, isEquipped }) {
 const CARD_SLOT_COUNT = 5
 
 export default function Cartas() {
-  const heroId = useHeroId()
-  const { hero }  = useHero(heroId)
-  const { cards } = useHeroCards(heroId)
+  const heroId      = useHeroId()
+  const { hero }    = useHero(heroId)
+  const { cards }   = useHeroCards(heroId)
+  const queryClient = useQueryClient()
+
+  const cardMutation = useMutation({
+    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
+    onMutate: async ({ optimisticUpdate }) => {
+      if (!optimisticUpdate) return
+      const key = queryKeys.heroCards(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, optimisticUpdate)
+      return { previous }
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(heroId), context.previous)
+      toast.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+    },
+  })
 
   const equippedCards = useMemo(() => {
     if (!cards) return []
@@ -187,7 +240,17 @@ export default function Cartas() {
   }, [cards])
 
   const collectionCards = useMemo(() => (cards ?? []).filter(c => !c.equipped), [cards])
-  const equippedSet     = useMemo(() => new Set((cards ?? []).filter(c => c.equipped).map(c => c.id)), [cards])
+
+  // Build fuse pairs: unequipped cards sharing card_id + rank
+  const fuseMap = useMemo(() => {
+    const map = {}
+    collectionCards.forEach(c => {
+      const key = `${c.card_id}-${c.rank}`
+      if (!map[key]) map[key] = []
+      map[key].push(c)
+    })
+    return map
+  }, [collectionCards])
 
   const netTotals = useMemo(() => {
     const t = { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 }
@@ -209,8 +272,36 @@ export default function Cartas() {
   }
 
   const equippedCount = equippedCards.filter(Boolean).length
+  const loading       = cardMutation.isPending
+  const activeStats   = Object.entries(netTotals).filter(([, v]) => v !== 0)
 
-  const activeStats = Object.entries(netTotals).filter(([, v]) => v !== 0)
+  function handleEquip(cardId) {
+    if (equippedCount >= CARD_SLOT_COUNT) {
+      toast.error('Slots llenos. Desequipa una carta primero.')
+      return
+    }
+    cardMutation.mutate({
+      endpoint: '/api/card-equip',
+      body: { cardId, equip: true },
+      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: true } : c),
+    })
+  }
+
+  function handleUnequip(cardId) {
+    cardMutation.mutate({
+      endpoint: '/api/card-equip',
+      body: { cardId, equip: false },
+      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: false } : c),
+    })
+  }
+
+  function handleFuse(id1, id2) {
+    cardMutation.mutate({
+      endpoint: '/api/card-fuse',
+      body: { cardId1: id1, cardId2: id2 },
+      optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -237,7 +328,7 @@ export default function Cartas() {
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {equippedCards.map((card, i) => (
-              <CardSlot key={i} card={card} slotIndex={i} />
+              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} loading={loading} />
             ))}
           </div>
 
@@ -274,9 +365,21 @@ export default function Cartas() {
         ) : (
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {collectionCards.map(card => (
-                <CollectionCard key={card.id} card={card} isEquipped={equippedSet.has(card.id)} />
-              ))}
+              {collectionCards.map(card => {
+                const key      = `${card.card_id}-${card.rank}`
+                const fusePair = fuseMap[key]?.find(c => c.id !== card.id) ?? null
+                return (
+                  <CollectionCard
+                    key={card.id}
+                    card={card}
+                    canEquip={equippedCount < CARD_SLOT_COUNT}
+                    fusePair={card.rank < 5 ? fusePair : null}
+                    onEquip={handleEquip}
+                    onFuse={handleFuse}
+                    loading={loading}
+                  />
+                )
+              })}
             </div>
           </div>
         )}

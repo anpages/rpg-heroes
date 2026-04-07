@@ -15,7 +15,7 @@ import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, FlameKindling, Wrench, Plus,
+  BookOpen, Zap, Wrench, Plus,
 } from 'lucide-react'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -509,115 +509,6 @@ function CardChip({ card, onClick, loading, isOccupied }) {
   )
 }
 
-/* ─── Card item ───────────────────────────────────────────────────────────────── */
-
-function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading, isOccupied }) {
-  const sc   = card.skill_cards
-  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-  const Icon = meta.icon
-  const STAT_SHORT = { attack:'Atq', defense:'Def', max_hp:'HP', strength:'Fue', agility:'Agi', intelligence:'Int' }
-  const effects = (Array.isArray(sc.bonuses) ? sc.bonuses : [])
-    .map(b => `+${b.value * card.rank} ${STAT_SHORT[b.stat] ?? b.stat}`)
-
-  return (
-    <div
-      className={`flex flex-col gap-1.5 rounded-[10px] p-3 transition-[border-color] duration-150 border
-        ${card.equipped
-          ? 'border-[color-mix(in_srgb,var(--card-color)_40%,var(--border))] bg-[color-mix(in_srgb,var(--card-color)_3%,var(--surface))]'
-          : 'bg-surface border-border'
-        }`}
-      style={{ '--card-color': meta.color }}
-    >
-      <div className="flex items-start justify-between gap-1.5">
-        <span className="text-[13px] font-bold text-text flex-1 leading-[1.3]">{sc.name}</span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px">R{card.rank}</span>
-          {canFuseWith && <span className="flex items-center text-[#d97706]"><FlameKindling size={10} strokeWidth={2} /></span>}
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-1.5">
-        <span className="flex items-center gap-[3px] text-[13px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>
-          <Icon size={10} strokeWidth={2} /> {meta.label}
-        </span>
-        <span className="text-[13px] text-text-3 font-semibold">{sc.base_cost * card.rank} pts · {sc.rarity}</span>
-      </div>
-      {sc.description && <p className="text-[13px] text-text-3 leading-[1.4] italic">{sc.description}</p>}
-      {effects.length > 0 && (
-        <div className="flex flex-wrap gap-[3px]">
-          {effects.map(e => <span key={e} className="text-[13px] font-semibold text-[#16a34a] bg-success-bg border border-success-border rounded-[4px] px-[5px] py-px">{e}</span>)}
-        </div>
-      )}
-      <div className="flex flex-col gap-1 mt-0.5">
-        {canFuseWith && !card.equipped && (
-          <button className="btn btn--warning btn--sm" onClick={() => onFuse(card.id, canFuseWith.id)} disabled={loading || isOccupied}>
-            <FlameKindling size={12} strokeWidth={2} /> Fusionar · {sc.base_mana_fuse * Math.pow(2, card.rank - 1)} maná
-          </button>
-        )}
-        {card.equipped
-          ? <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(card.id)} disabled={loading || isOccupied}>Desequipar</button>
-          : <button className="btn btn--primary btn--sm" onClick={() => onEquip(card.id)} disabled={loading || !canEquip || isOccupied}>Equipar</button>
-        }
-      </div>
-    </div>
-  )
-}
-
-/* ─── Card modal ──────────────────────────────────────────────────────────────── */
-
-function CardModal({ cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, onClose, isOccupied }) {
-  const equippedCount = cards.filter(c => c.equipped).length
-
-  const fuseMap = {}
-  cards.filter(c => !c.equipped).forEach(c => {
-    const key = `${c.card_id}-${c.rank}`
-    if (!fuseMap[key]) fuseMap[key] = []
-    fuseMap[key].push(c)
-  })
-
-  const budgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
-  cards.filter(c => c.equipped).forEach(c => {
-    budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
-  })
-
-  const sv = sheetVariants()
-  return createPortal(
-    <ModalOverlay onClick={onClose}>
-      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
-        <ModalHeader icon={BookOpen} title="Colección de Cartas" subtitle={`${cards.length} cartas · ${equippedCount}/${cardSlots} equipadas`} onClose={onClose} />
-        {error      && <InvError msg={error} />}
-        {isOccupied && <LockedCardsNotice />}
-        {cards.length === 0
-          ? <BagEmpty>Sin cartas. Explora mazmorras mágicas o antiguas para conseguirlas.</BagEmpty>
-          : (
-            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-              {cards.map(card => {
-                const key      = `${card.card_id}-${card.rank}`
-                const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
-                const cat      = card.skill_cards.category
-                const cost     = card.skill_cards.base_cost * card.rank
-                const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
-                return (
-                  <CardItem
-                    key={card.id}
-                    card={card}
-                    canEquip={wouldFit}
-                    canFuseWith={!card.equipped ? fusePair : null}
-                    onEquip={onEquip}
-                    onUnequip={onUnequip}
-                    onFuse={onFuse}
-                    loading={loading}
-                    isOccupied={isOccupied}
-                  />
-                )
-              })}
-            </div>
-          )
-        }
-      </ModalPanel>
-    </ModalOverlay>,
-    document.body
-  )
-}
 
 /* ─── Slot picker sheet ───────────────────────────────────────────────────────── */
 
@@ -705,89 +596,6 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
   )
 }
 
-/* ─── Card picker sheet ───────────────────────────────────────────────────────── */
-
-function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequip, onFuse, loading, error, isOccupied, onClose }) {
-  const equippedCount = cards.filter(c => c.equipped).length
-
-  const fuseMap = {}
-  cards.filter(c => !c.equipped).forEach(c => {
-    const key = `${c.card_id}-${c.rank}`
-    if (!fuseMap[key]) fuseMap[key] = []
-    fuseMap[key].push(c)
-  })
-
-  const budgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
-  cards.filter(c => c.equipped).forEach(c => {
-    budgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
-  })
-
-  const sv         = sheetVariants()
-  const unequipped = cards.filter(c => !c.equipped)
-
-  return createPortal(
-    <ModalOverlay onClick={onClose}>
-      <ModalPanel sv={sv} onClick={e => e.stopPropagation()}>
-        <ModalHeader icon={BookOpen} title="Cartas de habilidad" onClose={onClose} />
-        {error      && <InvError msg={error} />}
-        {isOccupied && <LockedCardsNotice />}
-
-        {currentCard && (() => {
-          const sc   = currentCard.skill_cards
-          const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-          return (
-            <div className="bg-surface border border-border rounded-[10px] p-3 -mb-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: meta.color }}>{sc.name}</p>
-                  <div className="flex gap-1.5 mt-1">
-                    <span
-                      className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px"
-                      style={{ '--card-color': meta.color }}
-                    >R{currentCard.rank}</span>
-                    <span className="text-[13px] text-text-3 font-semibold">{sc.base_cost * currentCard.rank} pts</span>
-                  </div>
-                </div>
-                <button className="btn btn--ghost btn--sm" onClick={() => onUnequip(currentCard.id)} disabled={loading || isOccupied}>Desequipar</button>
-              </div>
-            </div>
-          )
-        })()}
-
-        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-text-3">Disponible</p>
-
-        {unequipped.length === 0
-          ? <BagEmpty>No hay cartas disponibles para equipar.</BagEmpty>
-          : (
-            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-              {unequipped.map(card => {
-                const key      = `${card.card_id}-${card.rank}`
-                const fusePair = fuseMap[key]?.find(c => c.id !== card.id)
-                const cat      = card.skill_cards.category
-                const cost     = card.skill_cards.base_cost * card.rank
-                const wouldFit = budgetUsed[cat] + cost <= hero[cat] && equippedCount < cardSlots
-                return (
-                  <CardItem
-                    key={card.id}
-                    card={card}
-                    canEquip={wouldFit}
-                    canFuseWith={fusePair ?? null}
-                    onEquip={onEquip}
-                    onUnequip={onUnequip}
-                    onFuse={onFuse}
-                    loading={loading}
-                    isOccupied={isOccupied}
-                  />
-                )
-              })}
-            </div>
-          )
-        }
-      </ModalPanel>
-    </ModalOverlay>,
-    document.body
-  )
-}
 
 /* ─── Item detail modal ───────────────────────────────────────────────────────── */
 
@@ -971,13 +779,10 @@ function Hero() {
   const { buildings } = useBuildings(userId)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
-  const [cardPickerOpen, setCardPickerOpen] = useState(false)
-  const [cardModalOpen,  setCardModalOpen]  = useState(false)
   const [confirmModal,   setConfirmModal]   = useState(null)
   const [itemDetail,     setItemDetail]     = useState(null)
   const [cardDetail,     setCardDetail]     = useState(null)
   const [workshopLevel, setWorkshopLevel] = useState(1)
-  const [libraryLevel,  setLibraryLevel]  = useState(1)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   const itemMutation = useMutation({
@@ -1000,25 +805,6 @@ function Hero() {
     },
   })
 
-  const cardMutation = useMutation({
-    mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
-    onMutate: async ({ optimisticUpdate }) => {
-      if (!optimisticUpdate) return
-      const key = queryKeys.heroCards(hero?.id)
-      await queryClient.cancelQueries({ queryKey: key })
-      const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, optimisticUpdate)
-      return { previous }
-    },
-    onError: (err, vars, context) => {
-      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(hero?.id), context.previous)
-      toast.error(err.message)
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(hero?.id) })
-    },
-  })
-
   const potionMutation = useMutation({
     mutationFn: (potionId) => apiPost('/api/potion-use', { heroId: hero?.id, potionId }),
     onSuccess: () => {
@@ -1032,7 +818,7 @@ function Hero() {
   const { potions } = usePotions(hero?.id)
   const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore')
 
-  const mutationPending = itemMutation.isPending || cardMutation.isPending
+  const mutationPending = itemMutation.isPending
 
   useEffect(() => {
     const id = setInterval(forceUpdate, 10000)
@@ -1043,7 +829,6 @@ function Hero() {
     if (!buildings) return
     buildings.forEach(b => {
       if (b.type === 'workshop') setWorkshopLevel(b.level)
-      if (b.type === 'library')  setLibraryLevel(b.level)
     })
   }, [buildings])
 
@@ -1104,12 +889,6 @@ function Hero() {
     intelligence: hero.intelligence + bonuses.intelligence,
   }
 
-  const cardBudgetUsed = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0 }
-  ;(cards ?? []).filter(c => c.equipped).forEach(c => {
-    cardBudgetUsed[c.skill_cards.category] += c.skill_cards.base_cost * c.rank
-  })
-  const cardSlotCount = 1 + libraryLevel * 2
-
   // eslint-disable-next-line react-hooks/purity
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
@@ -1167,30 +946,6 @@ function Hero() {
           optimisticUpdate: items?.filter(i => i.id !== item.id),
         })
       },
-    })
-  }
-
-  function handleCardEquip(cardId) {
-    cardMutation.mutate({
-      endpoint: '/api/card-equip',
-      body: { cardId, equip: true },
-      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: true } : c),
-    })
-  }
-
-  function handleCardUnequip(cardId) {
-    cardMutation.mutate({
-      endpoint: '/api/card-equip',
-      body: { cardId, equip: false },
-      optimisticUpdate: cards?.map(c => c.id === cardId ? { ...c, equipped: false } : c),
-    })
-  }
-
-  function handleCardFuse(id1, id2) {
-    cardMutation.mutate({
-      endpoint: '/api/card-fuse',
-      body: { cardId1: id1, cardId2: id2 },
-      optimisticUpdate: cards?.filter(c => c.id !== id1 && c.id !== id2),
     })
   }
 
@@ -1423,23 +1178,6 @@ function Hero() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {cardPickerOpen && (
-          <CardPickerSheet
-            currentCard={cardPickerOpen.currentCard ?? null}
-            cards={cards ?? []}
-            hero={hero}
-            cardSlots={cardSlotCount}
-            onEquip={(id) => { handleCardEquip(id); setCardPickerOpen(false) }}
-            onUnequip={(id) => { handleCardUnequip(id); setCardPickerOpen(false) }}
-            onFuse={handleCardFuse}
-            loading={mutationPending}
-            isOccupied={isOccupied}
-            onClose={() => setCardPickerOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {bagOpen && (
           <BagModal
             bag={bag}
@@ -1447,22 +1185,6 @@ function Hero() {
             onDiscard={handleDiscard}
             loading={mutationPending}
             onClose={() => setBagOpen(false)}
-            isOccupied={isOccupied}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {cardModalOpen && (
-          <CardModal
-            cards={cards ?? []}
-            hero={hero}
-            cardSlots={cardSlotCount}
-            onEquip={handleCardEquip}
-            onUnequip={handleCardUnequip}
-            onFuse={handleCardFuse}
-            loading={mutationPending}
-            onClose={() => setCardModalOpen(false)}
             isOccupied={isOccupied}
           />
         )}
