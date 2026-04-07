@@ -8,6 +8,8 @@ import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
+import Equipo from '../sections/Equipo'
+import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
@@ -15,7 +17,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -204,8 +206,10 @@ const NAV_ITEMS = [
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword },
-  { id: 'expediciones', label: 'Expediciones', icon: Map   },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword   },
+  { id: 'expediciones', label: 'Expediciones', icon: Map     },
+  { id: 'equipo',       label: 'Equipo',       icon: Shield  },
+  { id: 'cartas',       label: 'Cartas',       icon: Layers  },
 ]
 
 function fmt(n) {
@@ -398,6 +402,12 @@ function Dashboard({ session }) {
                 </div>
                 <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                </div>
+                <div className={activeHeroTab === 'equipo' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:equipo') && <ErrorBoundary><Equipo /></ErrorBoundary>}
+                </div>
+                <div className={activeHeroTab === 'cartas' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:cartas') && <ErrorBoundary><Cartas /></ErrorBoundary>}
                 </div>
               </div>
             )}
