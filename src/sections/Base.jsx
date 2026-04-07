@@ -570,13 +570,14 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
       icon:     Pickaxe,
       color:    '#64748b',
       alert:    !!upgradingBuilding,
-      summary:  upgradingBuilding
-        ? `${upgradingMeta?.name ?? 'Edificio'} en construcción…`
-        : nexusData
+      summary:  [
+        upgradingBuilding ? `${upgradingMeta?.name ?? 'Edificio'} en construcción` : null,
+        nexusData
           ? nexusData.deficit
             ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
-            : `Energía +${nexusData.balance} ⚡`
-          : 'Gestiona tus edificios',
+            : `+${nexusData.balance} ⚡`
+          : null,
+      ].filter(Boolean).join(' · ') || 'Gestiona tus edificios',
     },
     {
       id:       'entrenamiento',
