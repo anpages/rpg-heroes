@@ -106,7 +106,7 @@ function EquipmentSlot({ slotKey, item }) {
   )
 }
 
-function StatRow({ statKey, label, color, Icon: StatIcon, base, equipBonus, cardBonus }) {
+function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) {
   const total  = base + equipBonus + cardBonus
   const maxVal = Math.max(30, total * 1.6)
   const basePct  = Math.min(100, (base       / maxVal) * 100)
@@ -264,7 +264,7 @@ export default function Equipo() {
           {/* Desktop: full breakdown with bars */}
           <div className="hidden sm:flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => (
-              <StatRow key={key} statKey={key} label={label} color={color} Icon={Icon}
+              <StatRow key={key} label={label} color={color} Icon={Icon}
                 base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0} cardBonus={cardBonus[key] ?? 0}
               />
             ))}

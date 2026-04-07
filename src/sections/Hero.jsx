@@ -792,7 +792,6 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
 /* ─── Item detail modal ───────────────────────────────────────────────────────── */
 
 function ItemDetailModal({ item, onClose }) {
-  const sv      = sheetVariants()
   const catalog = item.item_catalog
   const rarity  = RARITY_META[catalog.rarity]
   const slot    = SLOT_META[catalog.slot]

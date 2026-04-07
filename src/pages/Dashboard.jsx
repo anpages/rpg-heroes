@@ -199,12 +199,7 @@ const HERO_SUB_TABS = [
   { id: 'expediciones', label: 'Expediciones', icon: Map   },
 ]
 
-function fmt(n) {
-  if (n === null || n === undefined) return '—'
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return n.toLocaleString('es-ES')
-}
+
 
 
 function Dashboard({ session }) {

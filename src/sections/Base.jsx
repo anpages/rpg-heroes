@@ -560,9 +560,6 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
   const baseLevel = baseLevelFromMap(byType)
   const baseTitle = baseTitleFn(baseLevel)
 
-  const ironRate  = byType['gold_mine']?.level   ? ironRateForLevel(byType['gold_mine'].level)   : 0
-  const woodRate  = byType['lumber_mill']?.level ? woodRateForLevel(byType['lumber_mill'].level)  : 0
-  const manaRate  = byType['mana_well']?.level   ? manaRateForLevel(byType['mana_well'].level)   : 0
 
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const anyTrainReady  = trainingRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
@@ -774,7 +771,6 @@ function ResourcesHeader({ resources }) {
       {RESOURCE_ITEMS.map((item, idx) => {
         const Icon  = item.icon
         const value = resources[item.key] ?? 0
-        const rate  = item.rateKey ? (resources[item.rateKey] ?? 0) : 0
         const isLast = idx === RESOURCE_ITEMS.length - 1
 
         return (
@@ -1069,7 +1065,7 @@ function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId,
 
   const buildCollectMutation = useMutation({
     mutationFn: (stat) => apiPost('/api/training-room-build-collect', { stat }),
-    onSuccess: (_, stat) => {
+    onSuccess: (_, _stat) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
       toast.success('¡Sala lista!')
     },
