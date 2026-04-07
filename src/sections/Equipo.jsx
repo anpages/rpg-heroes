@@ -142,9 +142,9 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
   const upgradeCost = ITEM_TIER_UPGRADE_COST[cat.tier]
 
   return (
-    <div className="flex flex-col p-3 rounded-xl border border-border bg-surface min-h-[64px] gap-1.5 w-full">
-      {/* Fila principal: icono + nombre + acciones */}
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col rounded-xl border border-border bg-surface w-full overflow-hidden">
+      {/* Info */}
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
         </div>
@@ -152,43 +152,43 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
           <span className="text-[12px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
           <span className="text-[10px] text-text-3 capitalize">{label}</span>
         </div>
-        {/* Badges + botones de acción agrupados a la derecha */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {mainStat && (
-            <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>
-          )}
+          {mainStat && <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>}
           <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
-          {needsRepair && (
-            <button
-              className="w-6 h-6 flex items-center justify-center rounded-md border border-[color-mix(in_srgb,#d97706_40%,var(--border))] text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_8%,transparent)] transition-colors disabled:opacity-40"
-              onClick={() => onRepair(item)}
-              disabled={repairLoading}
-              title="Reparar"
-            >
-              <Wrench size={11} strokeWidth={2} />
-            </button>
-          )}
-          {canUpgrade && (
-            <button
-              className="w-6 h-6 flex items-center justify-center rounded-md border border-[color-mix(in_srgb,#0f766e_40%,var(--border))] text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_8%,transparent)] transition-colors disabled:opacity-40"
-              onClick={() => onUpgradeTier(item, upgradeCost)}
-              disabled={upgradeLoading}
-              title={upgradeCost ? `T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : undefined}
-            >
-              <ArrowUp size={11} strokeWidth={2.5} />
-            </button>
-          )}
-          <button
-            className="w-6 h-6 flex items-center justify-center rounded-md border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors"
-            onClick={() => onUnequip(item.id)}
-            title="Desequipar"
-          >
-            <X size={11} strokeWidth={2.5} />
-          </button>
         </div>
       </div>
 
-      <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+      <div className="px-3 pb-2">
+        <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+      </div>
+
+      {/* Footer de acciones */}
+      <div className="flex border-t border-border divide-x divide-border">
+        {needsRepair && (
+          <button
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
+            onClick={() => onRepair(item)}
+            disabled={repairLoading}
+          >
+            <Wrench size={12} strokeWidth={2} /> Reparar
+          </button>
+        )}
+        {canUpgrade && (
+          <button
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
+            onClick={() => onUpgradeTier(item, upgradeCost)}
+            disabled={upgradeLoading}
+          >
+            <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
+          </button>
+        )}
+        <button
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+          onClick={() => onUnequip(item.id)}
+        >
+          <X size={12} strokeWidth={2.5} /> Quitar
+        </button>
+      </div>
     </div>
   )
 }
