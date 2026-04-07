@@ -10,6 +10,7 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '../lib/gameConstants'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
   Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X,
@@ -51,17 +52,6 @@ const STAT_CONFIG = [
   { key: 'max_hp',       label: 'HP Máximo',     bonusKey: 'hp_bonus',           color: '#dc2626', Icon: Heart    },
 ]
 
-const REPAIR_COST_TABLE = {
-  common:    { gold: 2,  mana: 0  },
-  uncommon:  { gold: 3,  mana: 1  },
-  rare:      { gold: 5,  mana: 3  },
-  epic:      { gold: 8,  mana: 6  },
-  legendary: { gold: 12, mana: 10 },
-}
-
-const DISMANTLE_MANA_TABLE = {
-  common: 3, uncommon: 8, rare: 20, epic: 50, legendary: 120,
-}
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 

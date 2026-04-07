@@ -7,6 +7,7 @@ import { useHero } from '../hooks/useHero'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { CARD_SLOT_COUNT } from '../lib/gameConstants'
 import { Sword, Shield, Wind, Brain, Plus, Layers, Wrench, Shuffle, FlameKindling } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -201,8 +202,6 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading
 }
 
 /* ─── Componente principal ───────────────────────────────────────────────────── */
-
-const CARD_SLOT_COUNT = 5
 
 export default function Cartas() {
   const userId      = useAppStore(s => s.userId)

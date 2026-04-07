@@ -16,7 +16,7 @@ export async function getEffectiveStats(supabase, heroId) {
       .not('equipped_slot', 'is', null),
     supabase
       .from('hero_cards')
-      .select('rank, skill_cards(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)')
+      .select('rank, skill_cards(bonuses, penalties)')
       .eq('hero_id', heroId)
       .eq('equipped', true),
   ])
@@ -37,15 +37,12 @@ export async function getEffectiveStats(supabase, heroId) {
     stats.intelligence += c.intelligence_bonus ?? 0
   }
 
+  const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
   for (const card of cardsRes.data ?? []) {
-    const sc = card.skill_cards
-    const r  = Math.min(card.rank, 20)
-    stats.attack       += (sc.attack_bonus       ?? 0) * r
-    stats.defense      += (sc.defense_bonus      ?? 0) * r
-    stats.max_hp       += (sc.hp_bonus           ?? 0) * r
-    stats.strength     += (sc.strength_bonus     ?? 0) * r
-    stats.agility      += (sc.agility_bonus      ?? 0) * r
-    stats.intelligence += (sc.intelligence_bonus ?? 0) * r
+    const sc   = card.skill_cards
+    const rank = Math.min(card.rank, 5)
+    for (const { stat, value } of sc.bonuses   ?? []) { if (stat in STAT_MAP) stats[STAT_MAP[stat]] += value * rank }
+    for (const { stat, value } of sc.penalties ?? []) { if (stat in STAT_MAP) stats[STAT_MAP[stat]] -= value * rank }
   }
 
   return stats

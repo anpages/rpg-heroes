@@ -1,10 +1,14 @@
 /** Constantes de la API. La lógica de juego vive en src/lib/gameConstants.js */
 
 // Re-exportar para que los endpoints no necesiten conocer la ruta completa
-export { UNLOCK_TRIGGERS } from '../src/lib/gameConstants.js'
-
-export const INVENTORY_BASE_LIMIT        = 20
-export const INVENTORY_PER_WORKSHOP_LEVEL = 5
+export {
+  UNLOCK_TRIGGERS,
+  INVENTORY_BASE_LIMIT,
+  INVENTORY_PER_WORKSHOP_LEVEL,
+  CARD_SLOT_COUNT,
+  REPAIR_COST_TABLE,
+  DISMANTLE_MANA_TABLE,
+} from '../src/lib/gameConstants.js'
 
 export const SHOP_SIZE      = 8
 export const SHOP_MAX_STOCK = 1   // unidades por item por héroe por día

@@ -1,14 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID, safeHours } from './_validate.js'
-
-// Maná recuperado al desmantelar, por rareza × tier del item
-const DISMANTLE_MANA = {
-  common:    3,
-  uncommon:  8,
-  rare:      20,
-  epic:      50,
-  legendary: 120,
-}
+import { DISMANTLE_MANA_TABLE as DISMANTLE_MANA } from './_constants.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()

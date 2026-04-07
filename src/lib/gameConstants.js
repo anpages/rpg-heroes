@@ -212,6 +212,46 @@ const TRIGGER_LOCKED = new Set(UNLOCK_TRIGGERS.flatMap(t => t.unlocks))
 export const INITIALLY_UNLOCKED_BUILDINGS = ALL_BUILDING_TYPES.filter(t => !TRIGGER_LOCKED.has(t))
 // Resultado: ['energy_nexus', 'lumber_mill', 'laboratory']
 
+// ── Inventario ───────────────────────────────────────────────────────────────
+
+/** Slots de mochila base sin mejoras de taller */
+export const INVENTORY_BASE_LIMIT = 20
+
+/** Slots adicionales de mochila por nivel de taller */
+export const INVENTORY_PER_WORKSHOP_LEVEL = 5
+
+// ── Cartas de habilidad ───────────────────────────────────────────────────────
+
+/** Número máximo de cartas equipadas simultáneamente */
+export const CARD_SLOT_COUNT = 5
+
+// ── Reparación y desmantelamiento de ítems ────────────────────────────────────
+
+/**
+ * Coste base por punto de durabilidad restaurado, según rareza del ítem.
+ * La API aplica además el descuento por nivel de herrería.
+ * El frontend usa estos valores como estimación para el diálogo de confirmación.
+ */
+export const REPAIR_COST_TABLE = {
+  common:    { gold: 2,  mana: 0  },
+  uncommon:  { gold: 3,  mana: 1  },
+  rare:      { gold: 5,  mana: 3  },
+  epic:      { gold: 8,  mana: 6  },
+  legendary: { gold: 12, mana: 10 },
+}
+
+/**
+ * Maná base recuperado al desmantelar un ítem, multiplicado por el tier.
+ * `maná = DISMANTLE_MANA_TABLE[rarity] * tier`
+ */
+export const DISMANTLE_MANA_TABLE = {
+  common:    3,
+  uncommon:  8,
+  rare:      20,
+  epic:      50,
+  legendary: 120,
+}
+
 // ── Entrenamiento: XP ─────────────────────────────────────────────────────────
 
 /** Horas máximas de XP acumulable sin recoger (cap anti-AFK) */

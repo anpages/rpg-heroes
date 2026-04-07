@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID } from './_validate.js'
-
-const INVENTORY_BASE_LIMIT = 20
-const INVENTORY_PER_WORKSHOP_LEVEL = 5
+import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL } from './_constants.js'
 
 async function getInventoryLimit(supabase, playerId) {
   const { data: workshop } = await supabase

@@ -1,14 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID, safeHours } from './_validate.js'
-
-// Coste base de reparación por rareza (oro + maná por punto de durabilidad restaurado)
-const REPAIR_COST = {
-  common:    { gold: 2,  mana: 0  },
-  uncommon:  { gold: 3,  mana: 1  },
-  rare:      { gold: 5,  mana: 3  },
-  epic:      { gold: 8,  mana: 6  },
-  legendary: { gold: 12, mana: 10 },
-}
+import { REPAIR_COST_TABLE as REPAIR_COST } from './_constants.js'
 
 // Descuento por nivel de herrería: -5% por nivel (máx 50%)
 function repairDiscount(forgeLevel) {

@@ -7,6 +7,7 @@ import { Layers } from 'lucide-react'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { INVENTORY_BASE_LIMIT, REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '../lib/gameConstants'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -125,24 +126,7 @@ const RARITY_META = {
   legendary: { label: 'Legendario', color: '#d97706' },
 }
 
-const EQUIPMENT_SLOTS   = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
-const INVENTORY_BASE_LIMIT = 20
-
-const REPAIR_COST_TABLE = {
-  common:    { gold: 2,  mana: 0  },
-  uncommon:  { gold: 3,  mana: 1  },
-  rare:      { gold: 5,  mana: 3  },
-  epic:      { gold: 8,  mana: 6  },
-  legendary: { gold: 12, mana: 10 },
-}
-
-const DISMANTLE_MANA_TABLE = {
-  common:    3,
-  uncommon:  8,
-  rare:      20,
-  epic:      50,
-  legendary: 120,
-}
+const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 
 function estimateDismantleMana(item) {
   const base = DISMANTLE_MANA_TABLE[item.item_catalog.rarity] ?? DISMANTLE_MANA_TABLE.common
