@@ -1208,9 +1208,6 @@ function Base({ mainRef }) {
     onError: err => toast.error(err.message),
   })
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setResourceDelta({ iron: 0, wood: 0, mana: 0 }) }, [resources])
-
   const effectiveResources = resources
     ? { ...resources, iron: (resources.iron ?? 0) - resourceDelta.iron, wood: resources.wood - resourceDelta.wood, mana: resources.mana - resourceDelta.mana }
     : null
@@ -1221,9 +1218,11 @@ function Base({ mainRef }) {
 
   async function handleUpgradeStart() {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) }),
+      queryClient.refetchQueries({ queryKey: queryKeys.buildings(userId) }),
+      queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
     ])
+    // Resetear delta DESPUÉS de recibir los datos frescos del servidor
+    setResourceDelta({ iron: 0, wood: 0, mana: 0 })
     setUpgradePending(false)
   }
 
