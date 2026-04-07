@@ -47,19 +47,21 @@ function Onboarding({ onComplete }) {
 
   return (
     <div className="min-h-screen flex items-start justify-center bg-bg px-5 pt-12 pb-16">
-      <button
-        type="button"
-        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-surface text-text-2 text-[13px] font-medium hover:text-text hover:border-border-2 transition-colors"
-        onClick={() => supabase.auth.signOut()}
-      >
-        <LogOut size={14} strokeWidth={2} />
-        Cambiar cuenta
-      </button>
       <form
         className="relative z-10 w-[min(900px,100%)] bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] px-5 py-7 sm:px-11 sm:pt-10 sm:pb-12"
         onSubmit={handleSubmit}
         noValidate
       >
+        {/* Cambiar cuenta */}
+        <button
+          type="button"
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-text-3 text-[12px] font-medium hover:text-text hover:border-border-2 transition-colors"
+          onClick={() => supabase.auth.signOut()}
+        >
+          <LogOut size={13} strokeWidth={2} />
+          Cambiar cuenta
+        </button>
+
         {/* Header */}
         <div className="text-center mb-5">
           <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[var(--blue-500)] mb-2">
