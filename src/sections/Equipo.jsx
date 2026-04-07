@@ -133,65 +133,67 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
     )
   }
 
-  const cat      = item.item_catalog
-  const mainStat = mainStatForSlot(slotKey, cat)
-  const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-  const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
-  const needsRepair  = durPct < 100
-  const canUpgrade   = cat.tier < 3 && durPct >= 100
-  const upgradeCost  = ITEM_TIER_UPGRADE_COST[cat.tier]
+  const cat         = item.item_catalog
+  const mainStat    = mainStatForSlot(slotKey, cat)
+  const rarColor    = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+  const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
+  const needsRepair = durPct < 100
+  const canUpgrade  = cat.tier < 3 && durPct >= 100
+  const upgradeCost = ITEM_TIER_UPGRADE_COST[cat.tier]
 
   return (
-    <button
-      className="relative flex flex-col p-3 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] active:bg-surface-2 transition-all duration-150 min-h-[64px] gap-0.5 w-full text-left cursor-pointer disabled:opacity-50"
-      onClick={() => onUnequip(item.id)}
-      title="Toca para desequipar"
-    >
+    <div className="flex flex-col p-3 rounded-xl border border-border bg-surface min-h-[64px] gap-1.5 w-full">
+      {/* Fila principal: icono + nombre + badges + X */}
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {mainStat && (
-                <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>
-              )}
-              <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
-            </div>
-          </div>
+          <span className="text-[12px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
           <span className="text-[10px] text-text-3 capitalize">{label}</span>
         </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {mainStat && (
+            <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>
+          )}
+          <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
+          <button
+            className="w-6 h-6 flex items-center justify-center rounded-md border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors"
+            onClick={() => onUnequip(item.id)}
+            title="Desequipar"
+          >
+            <X size={11} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
+
       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
 
-      {/* Repair button — siempre visible si hay daño */}
-      {needsRepair && (
-        <button
-          className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
-          onClick={e => { e.stopPropagation(); onRepair(item) }}
-          disabled={repairLoading}
-          title="Reparar"
-        >
-          <Wrench size={9} strokeWidth={2} />
-          Rep.
-        </button>
+      {/* Botones de acción inline */}
+      {(needsRepair || canUpgrade) && (
+        <div className="flex gap-1.5 mt-0.5">
+          {needsRepair && (
+            <button
+              className="flex items-center gap-1 text-[10px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
+              onClick={() => onRepair(item)}
+              disabled={repairLoading}
+            >
+              <Wrench size={9} strokeWidth={2} /> Reparar
+            </button>
+          )}
+          {canUpgrade && (
+            <button
+              className="flex items-center gap-1 text-[10px] font-bold text-[#0f766e] bg-surface border border-[color-mix(in_srgb,#0f766e_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
+              onClick={() => onUpgradeTier(item, upgradeCost)}
+              disabled={upgradeLoading}
+              title={upgradeCost ? `T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : undefined}
+            >
+              <ArrowUp size={9} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
+            </button>
+          )}
+        </div>
       )}
-
-      {/* Tier upgrade button — visible cuando Forja Nv.3+, tier < 3, durabilidad 100% */}
-      {canUpgrade && (
-        <button
-          className="absolute top-1.5 right-1.5 flex items-center gap-1 text-[10px] font-bold text-[#0f766e] bg-surface border border-[color-mix(in_srgb,#0f766e_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
-          onClick={e => { e.stopPropagation(); onUpgradeTier(item, upgradeCost) }}
-          disabled={upgradeLoading}
-          title={upgradeCost ? `Mejorar a T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : 'Mejorar tier'}
-        >
-          <ArrowUp size={9} strokeWidth={2.5} />
-          T{cat.tier}→T{cat.tier + 1}
-        </button>
-      )}
-    </button>
+    </div>
   )
 }
 
