@@ -1,33 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { UNLOCK_TRIGGERS } from './_constants.js'
-import { isUUID, safeMinutes } from './_validate.js'
-
-function computeRates(buildings) {
-  // Solo edificios desbloqueados contribuyen a producción y consumo energético
-  const unlockedLevel = (type) => {
-    const b = buildings.find(b => b.type === type)
-    return (b && b.unlocked !== false) ? b.level : 0
-  }
-
-  const goldMine  = unlockedLevel('gold_mine')
-  const lumber    = unlockedLevel('lumber_mill')
-  const mana      = unlockedLevel('mana_well')
-  const nexus     = unlockedLevel('energy_nexus')
-  const barracks  = unlockedLevel('barracks')
-  const workshop  = unlockedLevel('workshop')
-  const forge     = unlockedLevel('forge')
-  const library   = unlockedLevel('library')
-
-  const energyProduced = nexus * 30
-  const energyConsumed = (goldMine + lumber + mana) * 10 + (barracks + workshop + forge + library) * 5
-  const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
-
-  return {
-    gold_rate: goldMine > 0 ? Math.max(1, Math.floor((2 + (goldMine - 1)) * ratio)) : 0,
-    wood_rate: lumber   > 0 ? Math.max(1, Math.floor((1 + (lumber   - 1)) * ratio)) : 0,
-    mana_rate: mana     > 0 ? Math.max(1, Math.floor((1 + (mana     - 1)) * ratio)) : 0,
-  }
-}
+import { isUUID, safeHours } from './_validate.js'
+import { computeProductionRates } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -103,24 +77,24 @@ export default async function handler(req, res) {
     .select('type, level, unlocked')
     .eq('player_id', user.id)
 
-  const rates = computeRates(allBuildings ?? [])
+  const rates = computeProductionRates(allBuildings ?? [])
 
   // Hacer snapshot de recursos acumulados antes de cambiar las tasas
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, wood, mana, gold_rate, wood_rate, mana_rate, last_collected_at')
+    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   const now = Date.now()
   if (resources) {
-    const mins = safeMinutes(resources.last_collected_at, now)
-    const snapshotGold = Math.floor(resources.gold + resources.gold_rate * mins)
-    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * mins)
-    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * mins)
+    const hours = safeHours(resources.last_collected_at, now)
+    const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
     await supabase
       .from('resources')
-      .update({ ...rates, gold: snapshotGold, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
+      .update({ ...rates, iron: snapshotIron, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
       .eq('player_id', user.id)
   } else {
     await supabase

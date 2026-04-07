@@ -7,13 +7,15 @@ function interpolate(resources) {
   if (!resources) return null
   const now = Date.now()
   const lastCollected = new Date(resources.last_collected_at).getTime()
-  const minutesElapsed = (now - lastCollected) / 60000
+  const hoursElapsed = (now - lastCollected) / 3_600_000  // tasas almacenadas en unidades/hora
 
   return {
-    gold:      Math.floor(resources.gold + resources.gold_rate * minutesElapsed),
-    wood:      Math.floor(resources.wood + resources.wood_rate * minutesElapsed),
-    mana:      Math.floor(resources.mana + resources.mana_rate * minutesElapsed),
-    gold_rate: resources.gold_rate,
+    gold:      resources.gold,  // Oro: no tiene producción pasiva, se obtiene en combate
+    iron:      Math.floor(resources.iron + resources.iron_rate * hoursElapsed),
+    wood:      Math.floor(resources.wood + resources.wood_rate * hoursElapsed),
+    mana:      Math.floor(resources.mana + resources.mana_rate * hoursElapsed),
+    gold_rate: 0,
+    iron_rate: resources.iron_rate,
     wood_rate: resources.wood_rate,
     mana_rate: resources.mana_rate,
   }
@@ -32,7 +34,7 @@ export function useResources(userId) {
     queryFn: async () => {
       const { data } = await supabase
         .from('resources')
-        .select('*')
+        .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
         .eq('player_id', userId)
         .single()
       return data

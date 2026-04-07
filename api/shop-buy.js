@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL, SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     .from('resources').select('gold, gold_rate, last_collected_at').eq('player_id', user.id).single()
 
   const now = Date.now()
-  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * safeMinutes(resources.last_collected_at, now)) : 0
+  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * safeHours(resources.last_collected_at, now)) : 0
 
   if (currentGold < shopEntry.gold_price) {
     return res.status(409).json({ error: 'Oro insuficiente' })

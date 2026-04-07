@@ -6,10 +6,15 @@ export function isUUID(s) {
 }
 
 /**
- * Clamps elapsed minutes to at most 24 h to prevent absurd resource
- * accumulation from clock skew or very stale last_collected_at values.
+ * Elapsed time in HOURS, capped at 24 h to prevent absurd resource accumulation.
+ * Use this for resource interpolation — rates are stored as units/hour.
  */
+export function safeHours(lastCollectedAt, nowMs = Date.now()) {
+  const elapsed = (nowMs - new Date(lastCollectedAt).getTime()) / 3_600_000
+  return Math.max(0, Math.min(elapsed, 24))
+}
+
+/** @deprecated Use safeHours. Kept only for callers not yet migrated. */
 export function safeMinutes(lastCollectedAt, nowMs = Date.now()) {
-  const elapsed = (nowMs - new Date(lastCollectedAt).getTime()) / 60000
-  return Math.max(0, Math.min(elapsed, 1440)) // cap at 24 h
+  return safeHours(lastCollectedAt, nowMs) * 60
 }

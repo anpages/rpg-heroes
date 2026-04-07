@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { STARTING_RESOURCES, ALL_BUILDING_TYPES, INITIALLY_UNLOCKED_BUILDINGS } from '../src/lib/gameConstants.js'
 
 
 export default async function handler(req, res) {
@@ -51,32 +52,23 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: playerError.message })
   }
 
-  // Create resources — valores explícitos (no depender de defaults de la BD)
-  // wood_rate y mana_rate = 0 porque Aserradero y Pozo de Maná empiezan bloqueados
+  // Create resources — valores definidos en gameConstants.js (fuente de verdad)
   const { error: resourcesError } = await supabase
     .from('resources')
-    .insert({
-      player_id: user.id,
-      gold:      200,
-      wood:      120,
-      mana:      0,
-      gold_rate: 2,
-      wood_rate: 0,
-      mana_rate: 0,
-    })
+    .insert({ player_id: user.id, ...STARTING_RESOURCES })
 
   if (resourcesError) return res.status(500).json({ error: resourcesError.message })
 
-  // Create buildings — barracks, gold_mine y energy_nexus desbloqueados desde el inicio
-  const INITIALLY_UNLOCKED = ['barracks', 'gold_mine', 'energy_nexus']
-  const ALL_BUILDING_TYPES = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'barracks', 'workshop', 'forge', 'library']
+  // Create buildings — el lab empieza en nivel 0 (sin construir).
+  // Los edificios bloqueados se derivan automáticamente de UNLOCK_TRIGGERS en gameConstants.
   const { error: buildingsError } = await supabase
     .from('buildings')
     .insert(
       ALL_BUILDING_TYPES.map(type => ({
         player_id: user.id,
         type,
-        unlocked: INITIALLY_UNLOCKED.includes(type),
+        level:    type === 'laboratory' ? 0 : 1,
+        unlocked: INITIALLY_UNLOCKED_BUILDINGS.includes(type),
       }))
     )
 

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollCardDrop } from './_loot.js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -37,17 +37,17 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al usuario
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
-    .select('id, player_id, experience, level')
+    .select('id, player_id, experience, level, active_effects')
     .eq('id', expedition.hero_id)
     .single()
 
   if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Obtener recursos actuales (con rates para interpolar el idle acumulado)
+  // Obtener recursos actuales (solo gold — madera/hierro/maná no se ganan en expediciones)
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')
-    .select('gold, wood, mana, gold_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -62,8 +62,9 @@ export default async function handler(req, res) {
 
   // Ataque escala oro y XP (hasta +100%)
   const attackMultiplier = stats ? 1 + Math.min(1.0, stats.attack * 0.008) : 1
+  const xpBoost  = hero.active_effects?.xp_boost ?? 0
   const finalGold = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
-  const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier)
+  const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
 
   // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa
   // Peligro 1 → base 1, peligro 9 → base 5; defensa lo reduce (mín siempre 1)
@@ -73,19 +74,12 @@ export default async function handler(req, res) {
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
-  // Añadir recursos — interpolar idle acumulado antes de sumar recompensa
+  // Añadir oro — las expediciones solo dan oro (madera/hierro/maná son de edificios)
   const nowMs = Date.now()
-  const mins = safeMinutes(resources.last_collected_at, nowMs)
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
-  const currentWood = Math.floor(resources.wood + resources.wood_rate * mins)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
-
   const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
-      gold: currentGold + finalGold,
-      wood: currentWood + (expedition.wood_earned ?? 0),
-      mana: currentMana + (expedition.mana_earned ?? 0),
+      gold: resources.gold + finalGold,
       last_collected_at: new Date(nowMs).toISOString(),
     })
     .eq('player_id', user.id)
@@ -97,12 +91,17 @@ export default async function handler(req, res) {
   const xpForLevel = hero.level * 150
   const levelUp = newXp >= xpForLevel
 
+  // Consumir xp_boost si se usó
+  const newEffects = { ...(hero.active_effects ?? {}) }
+  if (xpBoost) delete newEffects.xp_boost
+
   const { error: updateHeroError } = await supabase
     .from('heroes')
     .update({
       status: 'idle',
-      experience: levelUp ? newXp - xpForLevel : newXp,
-      level: levelUp ? hero.level + 1 : hero.level,
+      experience:     levelUp ? newXp - xpForLevel : newXp,
+      level:          levelUp ? hero.level + 1 : hero.level,
+      active_effects: newEffects,
     })
     .eq('id', hero.id)
 
@@ -133,8 +132,6 @@ export default async function handler(req, res) {
     ok: true,
     rewards: {
       gold: finalGold,
-      wood: expedition.wood_earned,
-      mana: expedition.mana_earned,
       experience: finalXp,
     },
     levelUp,

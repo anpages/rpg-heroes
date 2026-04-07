@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 // Maná recuperado al desmantelar, por rareza × tier del item
 const DISMANTLE_MANA = {
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
   if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
   const now = Date.now()
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeMinutes(resources.last_collected_at, now))
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeHours(resources.last_collected_at, now))
 
   // Desmantelar item y añadir maná
   const [deleteResult, updateResult] = await Promise.all([

@@ -146,11 +146,11 @@ export function generateRivals(heroId, weekStart, heroStats) {
   })
 }
 
-/** Recompensas por ganar una ronda del torneo */
+/** Recompensas por ganar una ronda del torneo — solo oro y XP (maná es de edificios) */
 export function tournamentRoundRewards(round, champion) {
   if (champion) {
-    return { gold: 500, experience: 200, mana: 50, cardGuaranteed: true }
+    return { gold: 500, experience: 200, cardGuaranteed: true }
   }
-  if (round === 2) return { gold: 200, experience: 100, mana: 20 }
+  if (round === 2) return { gold: 200, experience: 100 }
   return { gold: 100, experience: 50 }
 }

@@ -13,7 +13,7 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor } from '../lib/gameFormulas'
-import { Coins, Axe, Sparkles, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
+import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const listVariants = {
@@ -26,8 +26,8 @@ const cardVariants = {
 
 function fmtTime(seconds) {
   if (seconds <= 0) return '0s'
-  const h = Math.floor(seconds / 3300)
-  const m = Math.floor((seconds % 3300) / 60)
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
   if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
   if (m > 0) return s > 0 ? `${m}m ${s}s` : `${m}m`
@@ -167,9 +167,9 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
         {/* Info izquierda */}
         {isActive ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex-1 h-1.5 bg-[var(--blue-100)] dark:bg-[color-mix(in_srgb,var(--blue-300)_20%,var(--surface))] rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-[var(--blue-100)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-[linear-gradient(90deg,var(--blue-400),var(--blue-300))] rounded-full"
+                className="h-full bg-[var(--blue-400)] rounded-full"
                 style={{ width: `${timer.pct}%`, transition: timer.isMounted ? 'width 1s linear' : 'none' }}
               />
             </div>
@@ -253,7 +253,7 @@ function RewardModal({ reward, onClose }) {
           </button>
         </div>
 
-        {/* Resources */}
+        {/* Resources — las expediciones solo dan oro + XP + items */}
         <div className="grid grid-cols-2 gap-3 px-5 py-4">
           <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#d97706_8%,var(--bg))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-xl px-3.5 py-3">
             <Coins size={18} color="#d97706" strokeWidth={2} />
@@ -262,22 +262,6 @@ function RewardModal({ reward, onClose }) {
               <p className="text-[11px] text-text-3 mt-0.5">Oro</p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#16a34a_8%,var(--bg))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))] rounded-xl px-3.5 py-3">
-            <Axe size={18} color="#16a34a" strokeWidth={2} />
-            <div>
-              <p className="text-[18px] font-bold text-text leading-none">{reward.wood}</p>
-              <p className="text-[11px] text-text-3 mt-0.5">Madera</p>
-            </div>
-          </div>
-          {reward.mana > 0 && (
-            <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#7c3aed_8%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))] rounded-xl px-3.5 py-3">
-              <Sparkles size={18} color="#7c3aed" strokeWidth={2} />
-              <div>
-                <p className="text-[18px] font-bold text-text leading-none">{reward.mana}</p>
-                <p className="text-[11px] text-text-3 mt-0.5">Maná</p>
-              </div>
-            </div>
-          )}
           <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#0369a1_8%,var(--bg))] border border-[color-mix(in_srgb,#0369a1_25%,var(--border))] rounded-xl px-3.5 py-3">
             <Star size={18} color="#0369a1" strokeWidth={2} />
             <div>
@@ -339,8 +323,9 @@ function RewardModal({ reward, onClose }) {
 }
 
 function Dungeons() {
-  const userId      = useAppStore(s => s.userId)
-  const heroId      = useHeroId()
+  const userId                = useAppStore(s => s.userId)
+  const triggerResourceFlash  = useAppStore(s => s.triggerResourceFlash)
+  const heroId                = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
@@ -381,6 +366,7 @@ function Dungeons() {
 
   function handleCollect(data) {
     setReward({ ...data.rewards, drop: data.drop ?? null, cardDrop: data.cardDrop ?? null })
+    triggerResourceFlash()
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })

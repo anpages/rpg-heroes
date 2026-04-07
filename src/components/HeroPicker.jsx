@@ -10,7 +10,7 @@ import { Lock, Plus } from 'lucide-react'
 
 const SLOT_UNLOCK      = { 2: 5, 3: 10 }
 const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
-const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: 'Lista ✓' }
+const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: '¡Recoger!' }
 
 function getDerivedStatus(hero) {
   if (hero.status === 'exploring') {
@@ -59,7 +59,7 @@ export function HeroSelector() {
             key={hero.id}
             className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
               ${isReady
-                ? 'bg-[color-mix(in_srgb,#16a34a_10%,var(--surface-2))] border-[color-mix(in_srgb,#16a34a_35%,var(--border))] text-[#15803d]'
+                ? 'bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border-[#16a34a] text-[#15803d]'
                 : isActive
                   ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
                   : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
@@ -67,12 +67,12 @@ export function HeroSelector() {
             onClick={() => setSelectedHeroId(hero.id)}
           >
             <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}
               style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
             />
             {hero.name}
             <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
-            <span className="hidden sm:inline text-[11px] font-normal opacity-60 border-l border-current/20 pl-1.5 ml-0.5">
+            <span className={`hidden sm:inline text-[11px] border-l border-current/20 pl-1.5 ml-0.5 ${isReady ? 'font-bold opacity-90' : 'font-normal opacity-60'}`}>
               {STATUS_LABEL[status] ?? 'Reposo'}
             </span>
           </button>

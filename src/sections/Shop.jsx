@@ -211,9 +211,17 @@ export default function Shop() {
             <span className="text-[12px] text-text-3 font-medium pl-0.5">Inventario de {heroName}</span>
           )}
         </div>
-        <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
-          <Clock size={13} strokeWidth={2} />
-          Renueva en {renewsIn}
+        <div className="flex items-center gap-3">
+          {gold !== undefined && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]">
+              <Coins size={14} strokeWidth={2} color="#d97706" />
+              <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
+            <Clock size={13} strokeWidth={2} />
+            Renueva en {renewsIn}
+          </div>
         </div>
       </div>
 

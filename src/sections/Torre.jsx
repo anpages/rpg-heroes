@@ -14,6 +14,7 @@ import { floorEnemyStats, floorRewards } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
+import { PotionPanel } from '../components/PotionPanel'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -131,8 +132,9 @@ function estimateDamageTaken(hero, enemy) {
 
 
 export default function Torre() {
-  const userId      = useAppStore(s => s.userId)
-  const heroId      = useHeroId()
+  const userId               = useAppStore(s => s.userId)
+  const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const heroId               = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items } = useInventory(hero?.id)
@@ -201,6 +203,7 @@ export default function Torre() {
     onSuccess: (data) => {
       setResult(data)
       if (data.won) {
+        triggerResourceFlash()
         queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       }
@@ -264,9 +267,9 @@ export default function Torre() {
 
         {/* Combatants + stat headers fusionados */}
         <div className="grid items-center gap-x-3 px-3" style={{ gridTemplateColumns: '1fr 48px 1fr' }}>
-          <span className="text-[13px] font-extrabold text-[var(--blue-500)] truncate">{hero?.name ?? '—'}</span>
+          <span className="text-[16px] font-extrabold text-[var(--blue-500)] truncate">{hero?.name ?? '—'}</span>
           <span className="text-[10px] font-extrabold text-text-3 tracking-[0.1em] text-center">VS</span>
-          <span className="text-[13px] font-extrabold text-[#ef4444] truncate text-right">{enemyName(targetFloor)}</span>
+          <span className="text-[16px] font-extrabold text-[#ef4444] truncate text-right">{enemyName(targetFloor)}</span>
         </div>
 
         {/* Stats */}
@@ -297,6 +300,8 @@ export default function Torre() {
             <span className="ml-auto text-[11px] font-bold text-[#d97706]">×2 recompensas</span>
           )}
         </div>
+
+        <PotionPanel heroId={heroId} activeEffects={hero?.active_effects ?? {}} />
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"

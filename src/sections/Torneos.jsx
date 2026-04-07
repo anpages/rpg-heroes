@@ -8,7 +8,9 @@ import { useHero } from '../hooks/useHero'
 import { useTournament } from '../hooks/useTournament'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
+import { useAppStore } from '../store/appStore'
 import { CombatReplay } from '../components/CombatReplay'
+import { PotionPanel } from '../components/PotionPanel'
 
 const ROUND_LABELS = ['Cuartos', 'Semifinal', 'Final']
 const ROUND_COLORS = ['#2563eb', '#d97706', '#dc2626']
@@ -54,6 +56,13 @@ function getTodayOffset(weekStart) {
 
 function fmtDate(d) {
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
+
+function fmtWeekRange(weekStart) {
+  const base = new Date(weekStart + 'T00:00:00Z')
+  const end  = new Date(base.getTime() + 6 * 86_400_000)
+  const opts = { day: 'numeric', month: 'short', timeZone: 'UTC' }
+  return `Semana del ${base.toLocaleDateString('es-ES', opts)} al ${end.toLocaleDateString('es-ES', opts)}`
 }
 
 /* ── WeekBracket — calendario + estado de rondas fusionados ────────────────── */
@@ -118,7 +127,7 @@ function WeekBracket({ todayOffset, matchByRound, nextRound, eliminated, champio
 const STAT_KEYS   = ['max_hp', 'attack', 'defense', 'strength', 'agility']
 const STAT_LABELS = { max_hp: 'HP', attack: 'ATQ', defense: 'DEF', strength: 'FUE', agility: 'AGI' }
 
-function VSCard({ hero, rival, round, onFight, isPending, heroExploring }) {
+function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId, activeEffects }) {
   const color = ROUND_COLORS[round - 1]
 
   return (
@@ -203,6 +212,11 @@ function VSCard({ hero, rival, round, onFight, isPending, heroExploring }) {
             </div>
           )
         })}
+      </div>
+
+      {/* Pociones de combate */}
+      <div className="px-4 pb-2">
+        <PotionPanel heroId={heroId} activeEffects={activeEffects} />
       </div>
 
       {/* CTA */}
@@ -303,11 +317,12 @@ function MatchResult({ match, rival, onReplay, index = 0 }) {
 /* ── Main ───────────────────────────────────────────────────────────────────── */
 
 export default function Torneos() {
-  const heroId      = useHeroId()
-  const { data: hero } = useHero(heroId)
-  const { data, isLoading } = useTournament(heroId)
-  const queryClient = useQueryClient()
-  const [replay, setReplay] = useState(null)
+  const heroId               = useHeroId()
+  const { hero }             = useHero(heroId)
+  const { data, isLoading }  = useTournament(heroId)
+  const queryClient          = useQueryClient()
+  const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const [replay, setReplay]  = useState(null)
 
   const weekStart      = data?.weekStart ?? null
   const availableRound = useMemo(() => getAvailableRound(weekStart), [weekStart])
@@ -326,6 +341,7 @@ export default function Torneos() {
   const fightMutation = useMutation({
     mutationFn: () => apiPost('/api/tournament-fight', { heroId }),
     onSuccess: data => {
+      if (data.rewards) triggerResourceFlash()
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
@@ -425,8 +441,61 @@ export default function Torneos() {
   const nextRound  = bracket.current_round + 1
   const canFight   = !bracket.eliminated && !bracket.champion && availableRound === nextRound
 
+  const PRIZES = [
+    { icon: Coins,    color: '#d97706', text: '100 oro + 50 XP',         label: 'Cuartos',   round: 1 },
+    { icon: Sparkles, color: '#7c3aed', text: '200 oro + 20 maná',        label: 'Semifinal', round: 2 },
+    { icon: Trophy,   color: '#d97706', text: '500 oro + carta garantizada', label: 'Final',  round: 3 },
+  ]
+
   return (
     <div className="flex flex-col gap-4">
+
+      {/* Cabecera del torneo */}
+      <div className="bg-surface border border-border rounded-xl px-5 py-4 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">
+        {/* Título + estado */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Trophy size={20} color="#d97706" strokeWidth={1.8} className="flex-shrink-0 mt-px" />
+            <div>
+              <p className="text-[17px] font-extrabold text-text leading-tight">Torneo Semanal</p>
+              {weekStart && (
+                <p className="text-[12px] text-text-3 mt-0.5">{fmtWeekRange(weekStart)}</p>
+              )}
+            </div>
+          </div>
+          {bracket.champion ? (
+            <span className="text-[11px] font-bold bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] text-[#b45309] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2.5 py-1 rounded-full flex-shrink-0">
+              Campeón 🏆
+            </span>
+          ) : bracket.eliminated ? (
+            <span className="text-[11px] font-bold bg-[color-mix(in_srgb,#dc2626_8%,var(--surface))] text-[#dc2626] border border-[color-mix(in_srgb,#dc2626_25%,var(--border))] px-2.5 py-1 rounded-full flex-shrink-0">
+              Eliminado
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2.5 py-1 rounded-full flex-shrink-0">
+              Ronda {bracket.current_round + 1} / 3
+            </span>
+          )}
+        </div>
+
+        {/* Premios */}
+        <div className="border-t border-border pt-3 flex flex-col gap-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-3 mb-0.5">Premios por ronda</p>
+          {PRIZES.map(({ icon: Icon, color, text, label, round }) => {
+            const won  = matchByRound[round]?.won === true
+            const lost = matchByRound[round]?.won === false
+            return (
+              <div key={round} className={`flex items-center gap-2 text-[12px] ${won ? 'opacity-50' : 'text-text-2'}`}>
+                <Icon size={12} color={won ? '#94a3b8' : color} strokeWidth={2} className="flex-shrink-0" />
+                <span className={`font-semibold ${won ? 'line-through text-text-3' : ''}`} style={{ color: won ? undefined : ROUND_COLORS[round - 1] }}>{label}</span>
+                <span className={won ? 'line-through text-text-3' : 'text-text-2'}>— {text}</span>
+                {won && <span className="text-[#16a34a] font-bold ml-auto">✓ Cobrado</span>}
+                {lost && round === (bracket.current_round) && <span className="text-[#dc2626] font-bold ml-auto text-[11px]">Eliminado</span>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Champion */}
       {bracket.champion && (
@@ -486,6 +555,8 @@ export default function Torneos() {
           onFight={() => fightMutation.mutate()}
           isPending={fightMutation.isPending}
           heroExploring={hero?.status === 'exploring'}
+          heroId={heroId}
+          activeEffects={hero?.active_effects ?? {}}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -51,9 +51,9 @@ export default async function handler(req, res) {
 
   // Interpolar idle antes de sumar recompensa
   const nowMs = Date.now()
-  const mins = safeMinutes(resources.last_collected_at, nowMs)
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
+  const hours = safeHours(resources.last_collected_at, nowMs)
+  const currentGold = Math.floor(resources.gold + resources.gold_rate * hours)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
   // Aplicar recompensas
   await Promise.all([

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { useResources } from '../hooks/useResources'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useClasses } from '../hooks/useClasses'
@@ -16,7 +15,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, Coins, Axe, Sparkles, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -216,27 +215,6 @@ function fmt(n) {
   return n.toLocaleString('es-ES')
 }
 
-function ResourceChip({ icon: Icon, color, value, rate, className }) {
-  const display = fmt(value)
-  return (
-    <div className={`flex items-center gap-[5px] bg-surface-2 border border-border rounded-lg py-[5px] px-[10px] text-[13px] font-semibold text-text whitespace-nowrap${className ? ' ' + className : ''}`}>
-      <Icon size={15} color={color} strokeWidth={2} />
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={display}
-          className="min-w-[36px] text-right"
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 5 }}
-          transition={{ duration: 0.18 }}
-        >
-          {display}
-        </motion.span>
-      </AnimatePresence>
-      <span className="text-[11px] font-medium text-text-3 border-l border-border pl-1.5 ml-0.5">+{rate}/min</span>
-    </div>
-  )
-}
 
 function Dashboard({ session }) {
   const activeTab         = useAppStore(s => s.activeTab)
@@ -248,7 +226,6 @@ function Dashboard({ session }) {
   const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
-  const { resources }               = useResources(session.user.id)
   const { heroes }                  = useHeroes(session.user.id)
   const { buildings }               = useBuildings(session.user.id)
   const { classes: recruitClasses } = useClasses()
@@ -292,12 +269,7 @@ function Dashboard({ session }) {
       <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
         <span className="font-display text-[22px] tracking-[0.08em] text-[var(--blue-700)] flex-shrink-0">RPG Heroes</span>
 
-        {/* Resources — desktop only */}
-        <div className="hidden md:flex items-center gap-1.5 flex-1 justify-center">
-          <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} />
-          <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} />
-          <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} />
-        </div>
+        <div className="flex-1" />
 
         <div className="flex items-center gap-2.5">
           <button
@@ -329,13 +301,6 @@ function Dashboard({ session }) {
           </button>
         </div>
       </header>
-
-      {/* Resource bar — mobile only */}
-      <div className="flex md:hidden items-center justify-around gap-2 px-3 py-2 bg-surface border-b border-border overflow-x-auto flex-shrink-0">
-        <ResourceChip icon={Coins}    color="#d97706" value={resources?.gold} rate={resources?.gold_rate ?? '—'} className="flex-1 justify-center min-w-0" />
-        <ResourceChip icon={Axe}      color="#16a34a" value={resources?.wood} rate={resources?.wood_rate ?? '—'} className="flex-1 justify-center min-w-0" />
-        <ResourceChip icon={Sparkles} color="#7c3aed" value={resources?.mana} rate={resources?.mana_rate ?? '—'} className="flex-1 justify-center min-w-0" />
-      </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
@@ -407,10 +372,11 @@ function Dashboard({ session }) {
                 <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
+                    const hasAlert = id === 'expediciones' && anyHeroReady
                     return (
                       <button
                         key={id}
-                        className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit]
+                        className={`relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit]
                           ${isActive
                             ? 'border-b-[var(--blue-600)] text-[var(--blue-700)]'
                             : 'border-b-transparent text-text-3 hover:text-text'
@@ -419,6 +385,9 @@ function Dashboard({ session }) {
                       >
                         <Icon size={14} strokeWidth={2} />
                         {label}
+                        {hasAlert && (
+                          <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse flex-shrink-0" />
+                        )}
                       </button>
                     )
                   })}
@@ -436,7 +405,7 @@ function Dashboard({ session }) {
 
           {/* Base */}
           <div className={activeTab === 'base' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('base') && <ErrorBoundary><Base /></ErrorBoundary>}
+            {mountedTabs.has('base') && <ErrorBoundary><Base mainRef={mainRef} /></ErrorBoundary>}
           </div>
 
           {/* Mundo */}

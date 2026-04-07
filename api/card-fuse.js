@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
   const now = Date.now()
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeMinutes(resources.last_collected_at, now))
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * safeHours(resources.last_collected_at, now))
 
   if (currentMana < manaCost) {
     return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })

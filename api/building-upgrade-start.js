@@ -1,20 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeMinutes } from './_validate.js'
-
-function upgradeCost(type, level) {
-  switch (type) {
-    case 'barracks':
-      return { gold: Math.round(100 * Math.pow(level, 1.8)), wood: Math.round(55 * Math.pow(level, 1.5)) }
-    case 'workshop':
-      return { gold: Math.round(80  * Math.pow(level, 1.7)), wood: Math.round(50 * Math.pow(level, 1.5)) }
-    case 'forge':
-      return { gold: Math.round(70  * Math.pow(level, 1.6)), wood: Math.round(35 * Math.pow(level, 1.4)), mana: Math.round(25 * Math.pow(level, 1.3)) }
-    case 'library':
-      return { gold: Math.round(70  * Math.pow(level, 1.6)), mana: Math.round(45 * Math.pow(level, 1.5)) }
-    default:
-      return { gold: Math.round(60  * Math.pow(level, 1.6)), wood: Math.round(36 * Math.pow(level, 1.4)) }
-  }
-}
+import { isUUID, safeHours } from './_validate.js'
+import {
+  computeBaseLevel,
+  buildingUpgradeCost,
+  buildingUpgradeDurationMs,
+  LAB_BASE_LEVEL_REQUIRED,
+} from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -59,12 +50,22 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Ya hay un edificio en construcción. Espera a que termine.' })
   }
 
-  const cost = upgradeCost(building.type, building.level)
-  const durationMs = building.level * building.level * 10 * 60 * 1000
+  // Laboratorio: requiere nivel de base ≥ 2
+  if (building.type === 'laboratory') {
+    const { data: allBuildings } = await supabase
+      .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
+    const baseLevel = computeBaseLevel(allBuildings ?? [])
+    if (baseLevel < LAB_BASE_LEVEL_REQUIRED) {
+      return res.status(403).json({ error: `Necesitas base nivel ${LAB_BASE_LEVEL_REQUIRED} para construir el Laboratorio` })
+    }
+  }
+
+  const cost       = buildingUpgradeCost(building.type, building.level)
+  const durationMs = buildingUpgradeDurationMs(building.level)
 
   const { data: resources } = await supabase
     .from('resources')
-    .select('*')
+    .select('wood, iron, mana, wood_rate, iron_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -72,13 +73,13 @@ export default async function handler(req, res) {
 
   // Calcular recursos actuales con interpolación
   const now = Date.now()
-  const mins = safeMinutes(resources.last_collected_at, now)
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * mins)
-  const currentWood = Math.floor(resources.wood + resources.wood_rate * mins)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * mins)
+  const hours = safeHours(resources.last_collected_at, now)
+  const currentWood = Math.floor(resources.wood + resources.wood_rate * hours)
+  const currentIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
-  if (currentGold < cost.gold) return res.status(409).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
   if (cost.wood && currentWood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
+  if (cost.iron && currentIron < cost.iron) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
   if (cost.mana && currentMana < cost.mana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
 
   const nowIso = new Date(now).toISOString()
@@ -88,8 +89,8 @@ export default async function handler(req, res) {
   const { error: resourcesError } = await supabase
     .from('resources')
     .update({
-      gold: currentGold - cost.gold,
       wood: currentWood - (cost.wood ?? 0),
+      iron: currentIron - (cost.iron ?? 0),
       mana: currentMana - (cost.mana ?? 0),
       last_collected_at: nowIso,
     })

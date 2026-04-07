@@ -10,6 +10,7 @@ import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { useBuildings } from '../hooks/useBuildings'
+import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
@@ -845,6 +846,19 @@ function Hero() {
     },
   })
 
+  const potionMutation = useMutation({
+    mutationFn: (potionId) => apiPost('/api/potion-use', { heroId: hero?.id, potionId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.potions(hero?.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      toast.success('¡Poción usada!')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const { potions } = usePotions(hero?.id)
+  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore')
+
   const mutationPending = itemMutation.isPending || cardMutation.isPending
 
   useEffect(() => {
@@ -1048,6 +1062,35 @@ function Hero() {
 
             <XpBar level={hero.level} experience={hero.experience} />
             <HpBar current={hpNow ?? hero.current_hp} max={effective.max_hp} recovering={hero.status === 'idle'} />
+
+            {hpPotions.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {hpPotions.map(p => {
+                  const empty    = p.quantity <= 0
+                  const full     = hpNow >= effective.max_hp
+                  const disabled = empty || full || potionMutation.isPending
+                  return (
+                    <motion.button
+                      key={p.id}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
+                      style={{
+                        color:       'var(--text-2)',
+                        borderColor: 'var(--border)',
+                        background:  'var(--surface-2)',
+                      }}
+                      onClick={() => !disabled && potionMutation.mutate(p.id)}
+                      disabled={disabled}
+                      whileTap={disabled ? {} : { scale: 0.95 }}
+                    >
+                      <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
+                      {p.name}
+                      <span className="opacity-60">×{p.quantity}</span>
+                    </motion.button>
+                  )
+                })}
+              </div>
+            )}
+
             <StatBars
               effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
               base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}

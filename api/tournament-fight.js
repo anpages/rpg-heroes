@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, experience, level')
+    .select('id, name, player_id, experience, level, active_effects')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -72,6 +72,15 @@ export default async function handler(req, res) {
   const heroStats = await getEffectiveStats(supabase, hero.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
 
+  // Aplicar boosts de pociones activas
+  const effects = hero.active_effects ?? {}
+  if (effects.atk_boost) heroStats.attack  = Math.round(heroStats.attack  * (1 + effects.atk_boost))
+  if (effects.def_boost) heroStats.defense = Math.round(heroStats.defense * (1 + effects.def_boost))
+  const newEffects = { ...effects }
+  delete newEffects.atk_boost
+  delete newEffects.def_boost
+  await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', heroId)
+
   const result   = simulateCombat(heroStats, rival.stats)
   const won      = result.winner === 'a'
   const champion = won && nextRound === 3
@@ -94,18 +103,15 @@ export default async function handler(req, res) {
 
     const { data: resources } = await supabase
       .from('resources')
-      .select('gold, gold_rate, last_collected_at, mana, mana_rate')
+      .select('gold, last_collected_at')
       .eq('player_id', user.id)
       .single()
 
     if (resources) {
-      const goldNow = Math.floor(resources.gold + resources.gold_rate * safeMinutes(resources.last_collected_at, nowMs))
-      const manaNow = Math.floor(resources.mana + resources.mana_rate * safeMinutes(resources.last_collected_at, nowMs))
       await supabase
         .from('resources')
         .update({
-          gold: goldNow + rewards.gold,
-          mana: manaNow + (rewards.mana ?? 0),
+          gold: resources.gold + rewards.gold,
           last_collected_at: new Date(nowMs).toISOString(),
         })
         .eq('player_id', user.id)

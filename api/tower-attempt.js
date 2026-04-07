@@ -4,7 +4,7 @@ import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
 import { interpolateHP, canPlay } from './_hp.js'
-import { isUUID, safeMinutes } from './_validate.js'
+import { isUUID, safeHours } from './_validate.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -64,6 +64,14 @@ export default async function handler(req, res) {
   const heroStats = await getEffectiveStats(supabase, hero.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats del héroe' })
 
+  // Aplicar boosts de pociones activas (atk_boost / def_boost)
+  const effects = hero.active_effects ?? {}
+  if (effects.atk_boost) heroStats.attack  = Math.round(heroStats.attack  * (1 + effects.atk_boost))
+  if (effects.def_boost) heroStats.defense = Math.round(heroStats.defense * (1 + effects.def_boost))
+  const usedBoosts = Object.fromEntries(
+    ['atk_boost', 'def_boost'].filter(k => effects[k]).map(k => [k, effects[k]])
+  )
+
   // Stats del enemigo
   const enemyStats = floorEnemyStats(targetFloor)
 
@@ -90,11 +98,17 @@ export default async function handler(req, res) {
   const damageTaken = heroStats.max_hp - result.hpLeftA
   const hpAfterCombat = Math.max(0, currentHp - damageTaken)
   const heroKnockedOut = hpAfterCombat === 0
+
+  // Limpiar boosts usados de active_effects
+  const newEffects = { ...effects }
+  Object.keys(usedBoosts).forEach(k => delete newEffects[k])
+
   await supabase
     .from('heroes')
     .update({
       current_hp:          hpAfterCombat,
       hp_last_updated_at:  new Date(nowMs).toISOString(),
+      active_effects:      newEffects,
       ...(heroKnockedOut && { status: 'idle' }),
     })
     .eq('id', hero.id)
@@ -119,7 +133,7 @@ export default async function handler(req, res) {
 
     if (resources) {
       const nowMs = Date.now()
-      const currentGold = Math.floor(resources.gold + resources.gold_rate * safeMinutes(resources.last_collected_at, nowMs))
+      const currentGold = Math.floor(resources.gold + resources.gold_rate * safeHours(resources.last_collected_at, nowMs))
       await supabase
         .from('resources')
         .update({ gold: currentGold + rewards.gold, last_collected_at: new Date(nowMs).toISOString() })

@@ -17,8 +17,8 @@ export const useAppStore = create((set) => ({
 
   // ── Navegación principal ──────────────────────────────────────
   // Tabs: inicio | heroes | base | mundo
-  activeTab: 'heroes',
-  mountedTabs: new Set(['heroes', 'heroes:ficha']),
+  activeTab: 'base',
+  mountedTabs: new Set(['base', 'heroes', 'heroes:ficha']),
 
   // Sub-tab de Héroes: ficha | expediciones
   activeHeroTab: 'ficha',
@@ -66,4 +66,8 @@ export const useAppStore = create((set) => ({
 
   shopOpen: false,
   setShopOpen: (open) => set({ shopOpen: open }),
+
+  // ── Flash de recursos (expedición/torre/torneo) ───────────────
+  resourceFlashAt: 0,
+  triggerResourceFlash: () => set({ resourceFlashAt: Date.now() }),
 }))
