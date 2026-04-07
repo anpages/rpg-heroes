@@ -168,11 +168,11 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
       </div>
       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
 
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+      {/* Hover overlay — ligero para no ocultar el contenido */}
+      <div className="absolute inset-0 bg-bg/0 group-hover:bg-bg/70 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
         {needsRepair && (
           <button
-            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-black/60 rounded-lg px-2.5 py-1.5 hover:bg-black/75 transition-colors disabled:opacity-40"
+            className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-lg px-2.5 py-1.5 hover:bg-surface-2 transition-colors disabled:opacity-40 shadow-sm"
             onClick={() => onRepair(item)}
             disabled={loading}
           >
@@ -181,7 +181,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, loading }) {
           </button>
         )}
         <button
-          className="text-[11px] font-bold text-white bg-black/60 rounded-lg px-3 py-1.5 hover:bg-black/75 transition-colors disabled:opacity-40"
+          className="text-[11px] font-bold text-text bg-surface border border-border rounded-lg px-3 py-1.5 hover:bg-surface-2 transition-colors disabled:opacity-40 shadow-sm"
           onClick={() => onUnequip(item.id)}
           disabled={loading}
         >
