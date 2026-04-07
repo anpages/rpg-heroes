@@ -449,11 +449,17 @@ function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupie
 /* ─── Card constants ──────────────────────────────────────────────────────────── */
 
 const CATEGORY_META = {
-  attack:       { label: 'Ataque',   short: 'Atq', color: '#d97706', icon: Sword    },
-  defense:      { label: 'Defensa',  short: 'Def', color: '#475569', icon: Shield   },
-  strength:     { label: 'Fuerza',   short: 'Fue', color: '#dc2626', icon: Dumbbell },
-  agility:      { label: 'Agilidad', short: 'Agi', color: '#0369a1', icon: Wind     },
-  intelligence: { label: 'Int.',     short: 'Int', color: '#7c3aed', icon: Brain    },
+  // v2
+  offense:   { label: 'Ofensa',      short: 'Off', color: '#f97316', icon: Sword,    bg: 'linear-gradient(135deg, #431407 0%, #7c2d12 100%)' },
+  defense:   { label: 'Resistencia', short: 'Def', color: '#94a3b8', icon: Shield,   bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' },
+  mobility:  { label: 'Movilidad',   short: 'Mob', color: '#60a5fa', icon: Wind,     bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)' },
+  equipment: { label: 'Equipo',      short: 'Eqp', color: '#fbbf24', icon: Wrench,   bg: 'linear-gradient(135deg, #1c1003 0%, #422006 100%)' },
+  hybrid:    { label: 'Híbrida',     short: 'Hyb', color: '#c084fc', icon: Brain,    bg: 'linear-gradient(135deg, #1a0533 0%, #3b0764 100%)' },
+  // legacy fallbacks
+  attack:       { label: 'Ataque',   short: 'Atq', color: '#f97316', icon: Sword,    bg: 'linear-gradient(135deg, #431407 0%, #7c2d12 100%)' },
+  strength:     { label: 'Fuerza',   short: 'Fue', color: '#f87171', icon: Dumbbell, bg: 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)' },
+  agility:      { label: 'Agilidad', short: 'Agi', color: '#60a5fa', icon: Wind,     bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)' },
+  intelligence: { label: 'Int.',     short: 'Int', color: '#c084fc', icon: Brain,    bg: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 100%)' },
 }
 
 /* ─── Card budget bar ─────────────────────────────────────────────────────────── */
@@ -482,7 +488,7 @@ function CardBudgetBar({ category, used, total }) {
 
 function CardChip({ card, onClick, loading, isOccupied }) {
   const sc   = card.skill_cards
-  const meta = CATEGORY_META[sc.category]
+  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
   return (
     <button
       className="bg-surface-2 border border-[color-mix(in_srgb,var(--card-color)_25%,var(--border))] rounded-lg px-[10px] py-2 flex flex-col gap-[3px] cursor-pointer transition-[border-color] duration-150 w-full text-left hover:border-text-2"
@@ -507,16 +513,11 @@ function CardChip({ card, onClick, loading, isOccupied }) {
 
 function CardItem({ card, canEquip, canFuseWith, onEquip, onUnequip, onFuse, loading, isOccupied }) {
   const sc   = card.skill_cards
-  const meta = CATEGORY_META[sc.category]
+  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
   const Icon = meta.icon
-  const effects = [
-    sc.attack_bonus       > 0 && `+${sc.attack_bonus       * card.rank} Atq`,
-    sc.defense_bonus      > 0 && `+${sc.defense_bonus      * card.rank} Def`,
-    sc.hp_bonus           > 0 && `+${sc.hp_bonus           * card.rank} HP`,
-    sc.strength_bonus     > 0 && `+${sc.strength_bonus     * card.rank} Fue`,
-    sc.agility_bonus      > 0 && `+${sc.agility_bonus      * card.rank} Agi`,
-    sc.intelligence_bonus > 0 && `+${sc.intelligence_bonus * card.rank} Int`,
-  ].filter(Boolean)
+  const STAT_SHORT = { attack:'Atq', defense:'Def', max_hp:'HP', strength:'Fue', agility:'Agi', intelligence:'Int' }
+  const effects = (Array.isArray(sc.bonuses) ? sc.bonuses : [])
+    .map(b => `+${b.value * card.rank} ${STAT_SHORT[b.stat] ?? b.stat}`)
 
   return (
     <div
@@ -733,7 +734,7 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
 
         {currentCard && (() => {
           const sc   = currentCard.skill_cards
-          const meta = CATEGORY_META[sc.category]
+          const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
           return (
             <div className="bg-surface border border-border rounded-[10px] p-3 -mb-1">
               <div className="flex items-start justify-between gap-2">
@@ -788,6 +789,175 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
   )
 }
 
+/* ─── Item detail modal ───────────────────────────────────────────────────────── */
+
+function ItemDetailModal({ item, onClose }) {
+  const sv      = sheetVariants()
+  const catalog = item.item_catalog
+  const rarity  = RARITY_META[catalog.rarity]
+  const slot    = SLOT_META[catalog.slot]
+  const SlotIcon = slot?.icon ?? Sword
+  const durPct  = Math.round((item.current_durability / catalog.max_durability) * 100)
+  const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
+  const statLines = [
+    { label: 'Ataque',       val: catalog.attack_bonus       },
+    { label: 'Defensa',      val: catalog.defense_bonus      },
+    { label: 'HP',           val: catalog.hp_bonus           },
+    { label: 'Fuerza',       val: catalog.strength_bonus     },
+    { label: 'Agilidad',     val: catalog.agility_bonus      },
+    { label: 'Inteligencia', val: catalog.intelligence_bonus },
+  ].filter(s => s.val > 0)
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+      onClick={onClose}
+    >
+      <motion.div
+        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 overflow-hidden"
+        style={{ width: 'min(400px, 92vw)' }}
+        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5">
+          <div className="flex items-center gap-2">
+            <SlotIcon size={16} strokeWidth={1.8} className="text-text-3" />
+            <span className="text-[16px] font-bold text-text">{catalog.name}</span>
+          </div>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={16} strokeWidth={2} /></button>
+        </div>
+
+        <div className="flex flex-col gap-4 px-5 pb-5">
+          {/* Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+              style={{ color: rarity.color, borderColor: `color-mix(in srgb, ${rarity.color} 30%, var(--border))`, background: `color-mix(in srgb, ${rarity.color} 8%, var(--surface))` }}>
+              {rarity.label}
+            </span>
+            <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
+            <span className="text-[11px] text-text-3">{slot?.label}</span>
+            {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+          </div>
+
+          {/* Description */}
+          {catalog.description && (
+            <p className="text-[14px] text-text-2 italic leading-relaxed">{catalog.description}</p>
+          )}
+
+          {/* Stats */}
+          {statLines.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {statLines.map(s => (
+                <span key={s.label} className="text-[13px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-lg px-3 py-1.5">
+                  +{s.val} {s.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Durability */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between text-[12px] text-text-3">
+              <span>Durabilidad</span>
+              <span style={{ color: durColor }}>{item.current_durability} / {catalog.max_durability} ({durPct}%)</span>
+            </div>
+            <div className="h-2 bg-border rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${durPct}%`, background: durColor }} />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
+
+/* ─── Card detail modal ───────────────────────────────────────────────────────── */
+
+function CardDetailModal({ card, onClose }) {
+  const sc   = card.skill_cards
+  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
+  const Icon = meta.icon
+  const rank = Math.min(card.rank ?? 1, 5)
+  const RANK_LABELS_MODAL = ['', 'I', 'II', 'III', 'IV', 'V']
+  const STAT_LABELS_MODAL = {
+    attack:'Ataque', defense:'Defensa', max_hp:'HP', strength:'Fuerza',
+    agility:'Agilidad', intelligence:'Inteligencia',
+    weapon_attack_amp:'Amp. arma', armor_defense_amp:'Amp. armadura',
+    durability_loss:'Durabilidad', item_drop_rate:'Drop rate',
+  }
+  const bonuses   = Array.isArray(sc.bonuses)   ? sc.bonuses   : []
+  const penalties = Array.isArray(sc.penalties) ? sc.penalties : []
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 bg-black/65 z-[200] flex items-center justify-center p-8"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
+        style={{ background: meta.bg, width: 'min(240px, 72vw)', aspectRatio: '3/4' }}
+        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors z-10"
+          onClick={onClose}
+        >
+          <X size={12} strokeWidth={2.5} className="text-white/70" />
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-1.5 px-4 pt-4 pb-1">
+          <Icon size={13} strokeWidth={2} style={{ color: meta.color }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
+        </div>
+
+        {/* Name */}
+        <div className="flex-1 flex flex-col justify-center px-4">
+          <span className="text-[22px] font-black text-white leading-tight tracking-tight">{sc.name}</span>
+        </div>
+
+        {/* Rank dots */}
+        <div className="flex items-center gap-2 px-4 pb-3">
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="w-2.5 h-2.5 rounded-full border"
+                style={{ background: i < rank ? meta.color : 'transparent', borderColor: i < rank ? meta.color : 'rgba(255,255,255,0.2)' }} />
+            ))}
+          </div>
+          <span className="text-[13px] font-black" style={{ color: meta.color }}>Rango {RANK_LABELS_MODAL[rank] ?? rank}</span>
+        </div>
+
+        {/* Stats */}
+        {(bonuses.length > 0 || penalties.length > 0) && (
+          <div className="flex flex-col gap-1.5 px-4 pb-4 border-t border-white/10 pt-3">
+            {bonuses.map((b, i) => (
+              <div key={i} className="flex items-center justify-between text-[13px] font-semibold">
+                <span className="text-white/50">{STAT_LABELS_MODAL[b.stat] ?? b.stat}</span>
+                <span className="text-[#86efac] font-bold">+{b.value * rank}</span>
+              </div>
+            ))}
+            {penalties.map((p, i) => (
+              <div key={i} className="flex items-center justify-between text-[13px] font-semibold">
+                <span className="text-white/50">{STAT_LABELS_MODAL[p.stat] ?? p.stat}</span>
+                <span className="text-[#fca5a5] font-bold">−{p.value * rank}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
+
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
 
@@ -800,11 +970,13 @@ function Hero() {
   const { items, loading: invLoading  } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
   const { buildings } = useBuildings(userId)
-  const [bagOpen,       setBagOpen]       = useState(false)
-  const [slotPicker,    setSlotPicker]    = useState(null)
+  const [bagOpen,        setBagOpen]        = useState(false)
+  const [slotPicker,     setSlotPicker]     = useState(null)
   const [cardPickerOpen, setCardPickerOpen] = useState(false)
-  const [cardModalOpen, setCardModalOpen] = useState(false)
-  const [confirmModal,  setConfirmModal]  = useState(null)
+  const [cardModalOpen,  setCardModalOpen]  = useState(false)
+  const [confirmModal,   setConfirmModal]   = useState(null)
+  const [itemDetail,     setItemDetail]     = useState(null)
+  const [cardDetail,     setCardDetail]     = useState(null)
   const [workshopLevel, setWorkshopLevel] = useState(1)
   const [libraryLevel,  setLibraryLevel]  = useState(1)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
@@ -908,14 +1080,10 @@ function Hero() {
   const cardBonuses = (cards ?? [])
     .filter(c => c.equipped)
     .reduce((acc, c) => {
-      const sc = c.skill_cards
-      const r  = c.rank
-      acc.attack       += (sc.attack_bonus       ?? 0) * r
-      acc.defense      += (sc.defense_bonus      ?? 0) * r
-      acc.max_hp       += (sc.hp_bonus           ?? 0) * r
-      acc.strength     += (sc.strength_bonus     ?? 0) * r
-      acc.agility      += (sc.agility_bonus      ?? 0) * r
-      acc.intelligence += (sc.intelligence_bonus ?? 0) * r
+      const sc   = c.skill_cards
+      const rank = Math.min(c.rank, 5)
+      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += value * rank })
+      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= value * rank })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
@@ -1113,27 +1281,66 @@ function Hero() {
                 Gestionar
               </button>
             </div>
-            <button
-              className="w-full text-left grid grid-cols-2 gap-1.5 hover:opacity-80 transition-opacity"
-              onClick={() => navigateToHeroTab('equipo')}
-            >
+            <div className="grid grid-cols-2 gap-1.5">
               {EQUIPMENT_SLOTS.map(slot => {
                 const item     = equipped[slot]
                 const meta     = SLOT_META[slot]
                 const Icon     = meta.icon
                 const cat      = item?.item_catalog
                 const rarColor = cat ? (RARITY_META[cat.rarity]?.color ?? '#6b7280') : null
+                if (item) {
+                  const durPct   = Math.round((item.current_durability / cat.max_durability) * 100)
+                  const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
+                  const mainStat = (() => {
+                    if (cat.attack_bonus  > 0) return { label: 'Atq', val: cat.attack_bonus,  color: '#d97706' }
+                    if (cat.defense_bonus > 0) return { label: 'Def', val: cat.defense_bonus, color: '#94a3b8' }
+                    if (cat.hp_bonus      > 0) return { label: 'HP',  val: cat.hp_bonus,      color: '#f87171' }
+                    if (cat.strength_bonus > 0) return { label: 'Fue', val: cat.strength_bonus, color: '#f87171' }
+                    if (cat.agility_bonus > 0) return { label: 'Agi', val: cat.agility_bonus, color: '#60a5fa' }
+                    if (cat.intelligence_bonus > 0) return { label: 'Int', val: cat.intelligence_bonus, color: '#c084fc' }
+                    return null
+                  })()
+                  return (
+                    <button
+                      key={slot}
+                      className="flex flex-col gap-1.5 p-2.5 rounded-lg border border-border bg-surface-2 min-w-0 text-left hover:border-[color:var(--blue-400)] transition-colors"
+                      onClick={() => setItemDetail(item)}
+                    >
+                      {/* Row 1: slot label + tier */}
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Icon size={10} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                          <span className="text-[9px] font-semibold text-text-3 truncate">{meta.label}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                      </div>
+                      {/* Row 2: item name */}
+                      <span className="text-[12px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
+                      {/* Row 3: main stat + durability */}
+                      <div className="flex items-center justify-between gap-1">
+                        {mainStat
+                          ? <span className="text-[10px] font-bold" style={{ color: mainStat.color }}>+{mainStat.val} {mainStat.label}</span>
+                          : <span />
+                        }
+                        <span className="text-[9px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
+                      </div>
+                      <div className="w-full h-[3px] bg-border rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${durPct}%`, background: durColor }} />
+                      </div>
+                    </button>
+                  )
+                }
                 return (
-                  <div key={slot} className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-border bg-surface-2 min-w-0">
-                    <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
-                    {item
-                      ? <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                      : <span className="text-[11px] text-text-3 italic">Vacío</span>
-                    }
+                  <div key={slot} className="flex flex-col gap-1 p-2.5 rounded-lg border border-dashed border-border bg-surface-2/50 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <Icon size={10} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                      <span className="text-[9px] font-semibold text-text-3 truncate">{meta.label}</span>
+                    </div>
+                    <span className="text-[11px] text-text-3 italic">Vacío</span>
                   </div>
                 )
               })}
-            </button>
+            </div>
           </div>
 
           {/* Cards preview → links to Cartas tab */}
@@ -1162,19 +1369,36 @@ function Hero() {
                 )
               }
               return (
-                <button className="flex flex-wrap gap-1.5 text-left w-full hover:opacity-80 transition-opacity" onClick={() => navigateToHeroTab('cartas')}>
+                <div className="grid grid-cols-5 gap-1.5">
                   {equippedCards.map(card => {
                     const sc   = card.skill_cards
-                    const meta = CATEGORY_META[sc.category]
+                    const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
+                    const Icon = meta.icon
+                    const topBonus = Array.isArray(sc.bonuses) ? sc.bonuses[0] : null
                     return (
-                      <span key={card.id} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border"
-                        style={{ color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 30%, var(--border))`, background: `color-mix(in srgb, ${meta.color} 8%, var(--surface))` }}
+                      <button
+                        key={card.id}
+                        className="flex flex-col rounded-xl border border-white/10 overflow-hidden hover:scale-[1.04] hover:shadow-lg transition-all duration-200 text-left"
+                        style={{ background: meta.bg, aspectRatio: '3/4' }}
+                        onClick={() => setCardDetail(card)}
                       >
-                        R{card.rank} {sc.name}
-                      </span>
+                        <div className="flex items-center gap-1 px-2 pt-2 pb-0.5">
+                          <Icon size={9} strokeWidth={2} style={{ color: meta.color }} />
+                          <span className="text-[8px] font-black uppercase tracking-wider truncate" style={{ color: meta.color }}>{meta.short}</span>
+                        </div>
+                        <div className="flex-1 flex items-center px-2">
+                          <span className="text-[11px] font-black text-white leading-tight line-clamp-3">{sc.name}</span>
+                        </div>
+                        <div className="px-2 pb-1.5">
+                          <span className="text-[9px] font-black" style={{ color: meta.color }}>R{card.rank}</span>
+                          {topBonus && (
+                            <div className="text-[8px] font-bold text-[#86efac]">+{topBonus.value * card.rank}</div>
+                          )}
+                        </div>
+                      </button>
                     )
                   })}
-                </button>
+                </div>
               )
             })()}
           </div>
@@ -1255,6 +1479,14 @@ function Hero() {
             onCancel={() => setConfirmModal(null)}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {cardDetail && <CardDetailModal card={cardDetail} onClose={() => setCardDetail(null)} />}
       </AnimatePresence>
     </motion.div>
   )

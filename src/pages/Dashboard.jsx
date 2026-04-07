@@ -102,9 +102,9 @@ function CatalogDebug() {
 
 /* ─── DEV ONLY: Catálogo de cartas ─────────────────────────────────────────── */
 
-const CATEGORY_COLORS = { attack: '#d97706', defense: '#475569', strength: '#dc2626', agility: '#0369a1', intelligence: '#7c3aed' }
-const CATEGORY_LABELS = { attack: 'Ataque', defense: 'Defensa', strength: 'Fuerza', agility: 'Agilidad', intelligence: 'Inteligencia' }
-const CATEGORIES = ['attack', 'defense', 'strength', 'agility', 'intelligence']
+const CATEGORY_COLORS = { offense: '#f97316', defense: '#94a3b8', mobility: '#60a5fa', equipment: '#fbbf24', hybrid: '#c084fc' }
+const CATEGORY_LABELS = { offense: 'Ofensa', defense: 'Resistencia', mobility: 'Movilidad', equipment: 'Equipo', hybrid: 'Híbrida' }
+const CATEGORIES = ['offense', 'defense', 'mobility', 'equipment', 'hybrid']
 
 function CardCatalogDebug() {
   const [cards, setCards] = useState(null)
@@ -119,18 +119,9 @@ function CardCatalogDebug() {
 
   const cats = filter === 'all' ? CATEGORIES : [filter]
   const grouped = cats.reduce((acc, cat) => {
-    acc[cat] = cards.filter(c => c.category === cat)
+    acc[cat] = cards.filter(c => c.card_category === cat)
     return acc
   }, {})
-
-  const statCols = [
-    { key: 'attack_bonus', label: 'Atq' },
-    { key: 'defense_bonus', label: 'Def' },
-    { key: 'hp_bonus', label: 'HP' },
-    { key: 'strength_bonus', label: 'Fue' },
-    { key: 'agility_bonus', label: 'Agi' },
-    { key: 'intelligence_bonus', label: 'Int' },
-  ]
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
@@ -160,7 +151,7 @@ function CardCatalogDebug() {
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ background: '#f8fafc', fontSize: 11 }}>
-                {['Nombre', 'Rareza', 'Coste', 'Maná fusión', 'Descripción', ...statCols.map(s => s.label)].map(h => (
+                {['Nombre', 'Descripción', 'Bonus (R1)', 'Penalización (R1)'].map(h => (
                   <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700, borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -168,16 +159,14 @@ function CardCatalogDebug() {
             <tbody>
               {grouped[cat].map(card => (
                 <tr key={card.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '6px 10px', fontWeight: 700, color: RARITY_COLORS[card.rarity] }}>{card.name}</td>
-                  <td style={{ padding: '6px 10px', color: RARITY_COLORS[card.rarity] }}>{card.rarity}</td>
-                  <td style={{ padding: '6px 10px', color: '#475569' }}>{card.base_cost}</td>
-                  <td style={{ padding: '6px 10px', color: '#7c3aed' }}>{card.base_mana_fuse}</td>
-                  <td style={{ padding: '6px 10px', color: '#64748b', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.description}</td>
-                  {statCols.map(s => (
-                    <td key={s.key} style={{ padding: '6px 10px', color: card[s.key] > 0 ? '#16a34a' : '#94a3b8' }}>
-                      {card[s.key] > 0 ? `+${card[s.key]}` : '—'}
-                    </td>
-                  ))}
+                  <td style={{ padding: '6px 10px', fontWeight: 700, color: CATEGORY_COLORS[card.card_category] ?? '#475569' }}>{card.name}</td>
+                  <td style={{ padding: '6px 10px', color: '#64748b', maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.description}</td>
+                  <td style={{ padding: '6px 10px', color: '#16a34a', fontWeight: 600 }}>
+                    {(card.bonuses ?? []).map(b => `+${b.value} ${b.stat}`).join(', ') || '—'}
+                  </td>
+                  <td style={{ padding: '6px 10px', color: '#dc2626', fontWeight: 600 }}>
+                    {(card.penalties ?? []).map(p => `−${p.value} ${p.stat}`).join(', ') || '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

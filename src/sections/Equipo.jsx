@@ -115,29 +115,41 @@ function StatRow({ statKey, label, color, Icon: StatIcon, base, equipBonus, card
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
+      {/* Mobile: compact row — icon + label + total only */}
+      <div className="flex items-center justify-between sm:hidden">
         <div className="flex items-center gap-1.5">
-          <StatIcon size={11} strokeWidth={2} style={{ color }} />
-          <span className="text-[11px] font-semibold text-text-2">{label}</span>
+          <StatIcon size={12} strokeWidth={2} style={{ color }} />
+          <span className="text-[12px] font-semibold text-text-2">{label}</span>
         </div>
-        <div className="flex items-center gap-1">
-          {(equipBonus > 0 || cardBonus > 0) && (
-            <span className="text-[10px] text-text-3">{base} →</span>
-          )}
-          <span className="text-[13px] font-bold text-text">{total}</span>
-        </div>
+        <span className="text-[14px] font-bold text-text">{total}</span>
       </div>
-      <div className="h-[5px] bg-surface-2 border border-border rounded-full overflow-hidden flex">
-        <div className="h-full" style={{ width: `${basePct}%`, background: color, opacity: 0.4 }} />
-        <div className="h-full" style={{ width: `${eqPct}%`,   background: color, opacity: 0.75 }} />
-        <div className="h-full" style={{ width: `${cardPct}%`, background: color }} />
-      </div>
-      {(equipBonus > 0 || cardBonus > 0) && (
-        <div className="flex gap-2">
-          {equipBonus > 0 && <span className="text-[10px] text-text-3">⚔ equipo <span style={{ color }}>+{equipBonus}</span></span>}
-          {cardBonus  > 0 && <span className="text-[10px] text-text-3">✦ cartas <span style={{ color }}>+{cardBonus}</span></span>}
+
+      {/* Desktop: full breakdown with bars */}
+      <div className="hidden sm:flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <StatIcon size={11} strokeWidth={2} style={{ color }} />
+            <span className="text-[11px] font-semibold text-text-2">{label}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {(equipBonus > 0 || cardBonus > 0) && (
+              <span className="text-[10px] text-text-3">{base} →</span>
+            )}
+            <span className="text-[13px] font-bold text-text">{total}</span>
+          </div>
         </div>
-      )}
+        <div className="h-[5px] bg-surface-2 border border-border rounded-full overflow-hidden flex">
+          <div className="h-full" style={{ width: `${basePct}%`, background: color, opacity: 0.4 }} />
+          <div className="h-full" style={{ width: `${eqPct}%`,   background: color, opacity: 0.75 }} />
+          <div className="h-full" style={{ width: `${cardPct}%`, background: color }} />
+        </div>
+        {(equipBonus > 0 || cardBonus > 0) && (
+          <div className="flex gap-2">
+            {equipBonus > 0 && <span className="text-[10px] text-text-3">⚔ equipo <span style={{ color }}>+{equipBonus}</span></span>}
+            {cardBonus  > 0 && <span className="text-[10px] text-text-3">✦ cartas <span style={{ color }}>+{cardBonus}</span></span>}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -175,15 +187,21 @@ export default function Equipo() {
 
   const cardBonus = useMemo(() => {
     const b = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
+    const STAT_MAP = { max_hp: 'max_hp', attack: 'attack', defense: 'defense', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
     ;(cards ?? []).filter(c => c.equipped).forEach(c => {
-      const sc = c.skill_cards
-      const r  = Math.min(c.rank, 20)
-      b.attack       += (sc.attack_bonus       ?? 0) * r
-      b.defense      += (sc.defense_bonus      ?? 0) * r
-      b.strength     += (sc.strength_bonus     ?? 0) * r
-      b.agility      += (sc.agility_bonus      ?? 0) * r
-      b.intelligence += (sc.intelligence_bonus ?? 0) * r
-      b.max_hp       += (sc.hp_bonus           ?? 0) * r
+      const sc   = c.skill_cards
+      const rank = Math.min(c.rank, 5)
+      // v2 schema: bonuses/penalties as JSONB arrays
+      if (Array.isArray(sc.bonuses)) {
+        sc.bonuses.forEach(({ stat, value }) => {
+          if (stat in STAT_MAP) b[STAT_MAP[stat]] += value * rank
+        })
+      }
+      if (Array.isArray(sc.penalties)) {
+        sc.penalties.forEach(({ stat, value }) => {
+          if (stat in STAT_MAP) b[STAT_MAP[stat]] -= value * rank
+        })
+      }
     })
     return b
   }, [cards])
@@ -228,7 +246,23 @@ export default function Equipo() {
         {/* Stats — order-1 mobile (arriba), order-2 desktop (derecha) */}
         <div className="flex flex-col gap-2 order-1 lg:order-2">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Estadísticas</p>
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+
+          {/* Mobile: compact 3-col grid */}
+          <div className="grid grid-cols-3 gap-2 p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
+            {STAT_CONFIG.map(({ key, label, color, Icon }) => {
+              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0)
+              return (
+                <div key={key} className="flex flex-col items-center gap-0.5 py-1.5">
+                  <Icon size={14} strokeWidth={2} style={{ color }} />
+                  <span className="text-[15px] font-black text-text">{total}</span>
+                  <span className="text-[9px] font-semibold text-text-3 text-center leading-tight">{label}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Desktop: full breakdown with bars */}
+          <div className="hidden sm:flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => (
               <StatRow key={key} statKey={key} label={label} color={color} Icon={Icon}
                 base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0} cardBonus={cardBonus[key] ?? 0}

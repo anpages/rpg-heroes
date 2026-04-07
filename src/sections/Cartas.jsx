@@ -2,24 +2,50 @@ import { useMemo } from 'react'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useHeroCards } from '../hooks/useHeroCards'
-import { Sword, Shield, Heart, Dumbbell, Wind, Brain, Plus, Layers } from 'lucide-react'
+import { Sword, Shield, Heart, Dumbbell, Wind, Brain, Plus, Layers, Wrench, Shuffle } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
 const CATEGORY_META = {
-  attack:       { label: 'Ataque',       color: '#d97706', bg: 'linear-gradient(135deg, #451a03 0%, #78350f 100%)', Icon: Sword    },
-  defense:      { label: 'Defensa',      color: '#94a3b8', bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', Icon: Shield   },
-  strength:     { label: 'Fuerza',       color: '#f87171', bg: 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)', Icon: Dumbbell },
-  agility:      { label: 'Agilidad',     color: '#60a5fa', bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)', Icon: Wind     },
-  intelligence: { label: 'Inteligencia', color: '#c084fc', bg: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 100%)', Icon: Brain    },
+  offense:   { label: 'Ofensa',      color: '#f97316', bg: 'linear-gradient(135deg, #431407 0%, #7c2d12 100%)', Icon: Sword    },
+  defense:   { label: 'Resistencia', color: '#94a3b8', bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', Icon: Shield   },
+  mobility:  { label: 'Movilidad',   color: '#60a5fa', bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)', Icon: Wind     },
+  equipment: { label: 'Equipo',      color: '#fbbf24', bg: 'linear-gradient(135deg, #1c1003 0%, #422006 100%)', Icon: Wrench   },
+  hybrid:    { label: 'Híbrida',     color: '#c084fc', bg: 'linear-gradient(135deg, #1a0533 0%, #3b0764 100%)', Icon: Shuffle  },
 }
 
+const FALLBACK_META = CATEGORY_META.offense
+
 const STAT_LABELS = {
-  attack: 'Ataque', defense: 'Defensa', hp: 'HP', strength: 'Fuerza',
+  attack: 'Ataque', defense: 'Defensa', max_hp: 'HP', strength: 'Fuerza',
   agility: 'Agilidad', intelligence: 'Inteligencia',
+  weapon_attack_amp: 'Amp. arma', armor_defense_amp: 'Amp. armadura',
+  durability_loss: 'Durabilidad', item_drop_rate: 'Drop rate',
 }
 
 const RANK_LABELS = ['', 'I', 'II', 'III', 'IV', 'V']
+
+/* ─── Helpers ────────────────────────────────────────────────────────────────── */
+
+function getMeta(sc) {
+  return CATEGORY_META[sc.card_category] ?? FALLBACK_META
+}
+
+function getBonuses(sc) {
+  return Array.isArray(sc.bonuses) ? sc.bonuses : []
+}
+
+function getPenalties(sc) {
+  return Array.isArray(sc.penalties) ? sc.penalties : []
+}
+
+function formatVal(stat, val) {
+  if (stat === 'weapon_attack_amp' || stat === 'armor_defense_amp' || stat === 'item_drop_rate')
+    return `${Math.round(val * 100)}%`
+  if (stat === 'durability_loss')
+    return val > 0 ? `×${val}` : `${val}`
+  return Math.abs(val)
+}
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
@@ -27,26 +53,9 @@ function RankDots({ rank, max = 5, color }) {
   return (
     <div className="flex items-center gap-0.5">
       {Array.from({ length: max }).map((_, i) => (
-        <div
-          key={i}
-          className="w-2 h-2 rounded-full border"
-          style={{
-            background:   i < rank ? color : 'transparent',
-            borderColor:  i < rank ? color : 'rgba(255,255,255,0.2)',
-          }}
-        />
+        <div key={i} className="w-2 h-2 rounded-full border"
+          style={{ background: i < rank ? color : 'transparent', borderColor: i < rank ? color : 'rgba(255,255,255,0.2)' }} />
       ))}
-    </div>
-  )
-}
-
-function CardStatLine({ label, value, isBonus }) {
-  if (!value) return null
-  return (
-    <div className="flex items-center justify-between text-[11px] font-semibold">
-      <span style={{ color: isBonus ? '#86efac' : '#fca5a5' }}>
-        {isBonus ? '+' : '−'}{Math.abs(value)} {label}
-      </span>
     </div>
   )
 }
@@ -63,20 +72,10 @@ function CardSlot({ card, slotIndex }) {
   }
 
   const sc       = card.skill_cards
-  const category = sc.category ?? 'attack'
-  const meta     = CATEGORY_META[category] ?? CATEGORY_META.attack
+  const meta     = getMeta(sc)
   const rank     = Math.min(card.rank ?? 1, 5)
-
-  // Positive stat bonuses
-  const bonuses = [
-    { key: 'attack',       val: sc.attack_bonus       },
-    { key: 'defense',      val: sc.defense_bonus      },
-    { key: 'hp',           val: sc.hp_bonus           },
-    { key: 'strength',     val: sc.strength_bonus     },
-    { key: 'agility',      val: sc.agility_bonus      },
-    { key: 'intelligence', val: sc.intelligence_bonus },
-  ].filter(s => s.val > 0)
-
+  const bonuses  = getBonuses(sc)
+  const penalties = getPenalties(sc)
   const rankLabel = RANK_LABELS[rank] ?? rank
 
   return (
@@ -112,15 +111,18 @@ function CardSlot({ card, slotIndex }) {
 
       {/* Stats */}
       <div className="flex flex-col gap-0.5 px-3 pb-3 border-t border-white/10 pt-2">
-        {bonuses.slice(0, 3).map(b => (
-          <CardStatLine
-            key={b.key}
-            label={STAT_LABELS[b.key]}
-            value={b.val * rank}
-            isBonus={true}
-          />
+        {bonuses.slice(0, 2).map((b, i) => (
+          <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
+            <span className="text-white/60">{STAT_LABELS[b.stat] ?? b.stat}</span>
+            <span className="text-[#86efac] font-bold">+{formatVal(b.stat, b.value * rank)}</span>
+          </div>
         ))}
-        {/* v2: penalties will appear here */}
+        {penalties.slice(0, 1).map((p, i) => (
+          <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
+            <span className="text-white/60">{STAT_LABELS[p.stat] ?? p.stat}</span>
+            <span className="text-[#fca5a5] font-bold">−{formatVal(p.stat, p.value * rank)}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -128,25 +130,20 @@ function CardSlot({ card, slotIndex }) {
 
 function CollectionCard({ card, isEquipped }) {
   const sc       = card.skill_cards
-  const category = sc.category ?? 'attack'
-  const meta     = CATEGORY_META[category] ?? CATEGORY_META.attack
+  const meta     = getMeta(sc)
   const rank     = Math.min(card.rank ?? 1, 5)
-
-  const topBonus = [
-    { key: 'attack', val: sc.attack_bonus }, { key: 'defense', val: sc.defense_bonus },
-    { key: 'hp', val: sc.hp_bonus }, { key: 'strength', val: sc.strength_bonus },
-    { key: 'agility', val: sc.agility_bonus }, { key: 'intelligence', val: sc.intelligence_bonus },
-  ].filter(s => s.val > 0)[0]
+  const bonuses  = getBonuses(sc)
+  const penalties = getPenalties(sc)
+  const topBonus = bonuses[0]
+  const topPenalty = penalties[0]
 
   return (
     <div className="relative flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-surface hover:border-[color:var(--blue-400)] transition-colors cursor-pointer">
       {isEquipped && (
         <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#16a34a]" title="Equipada" />
       )}
-      <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
-        style={{ background: meta.bg }}
-      >
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
+        style={{ background: meta.bg }}>
         <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
       </div>
       <div className="flex-1 min-w-0">
@@ -156,11 +153,18 @@ function CollectionCard({ card, isEquipped }) {
             {RANK_LABELS[rank] ?? rank}
           </span>
         </div>
-        {topBonus && (
-          <span className="text-[10px] font-medium text-[#86efac]">
-            +{topBonus.val * rank} {STAT_LABELS[topBonus.key]}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {topBonus && (
+            <span className="text-[10px] font-medium text-[#86efac]">
+              +{formatVal(topBonus.stat, topBonus.value * rank)} {STAT_LABELS[topBonus.stat] ?? topBonus.stat}
+            </span>
+          )}
+          {topPenalty && (
+            <span className="text-[10px] font-medium text-[#fca5a5]">
+              −{formatVal(topPenalty.stat, topPenalty.value * rank)} {STAT_LABELS[topPenalty.stat] ?? topPenalty.stat}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -178,13 +182,23 @@ export default function Cartas() {
   const equippedCards = useMemo(() => {
     if (!cards) return []
     const equipped = cards.filter(c => c.equipped).slice(0, CARD_SLOT_COUNT)
-    // Pad to 5 slots
     while (equipped.length < CARD_SLOT_COUNT) equipped.push(null)
     return equipped
   }, [cards])
 
   const collectionCards = useMemo(() => (cards ?? []).filter(c => !c.equipped), [cards])
   const equippedSet     = useMemo(() => new Set((cards ?? []).filter(c => c.equipped).map(c => c.id)), [cards])
+
+  const netTotals = useMemo(() => {
+    const t = { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 }
+    equippedCards.filter(Boolean).forEach(c => {
+      const sc   = c.skill_cards
+      const rank = Math.min(c.rank, 5)
+      getBonuses(sc).forEach(b => { if (b.stat in t) t[b.stat] += b.value * rank })
+      getPenalties(sc).forEach(p => { if (p.stat in t) t[p.stat] -= p.value * rank })
+    })
+    return t
+  }, [equippedCards])
 
   if (!hero) {
     return (
@@ -195,6 +209,8 @@ export default function Cartas() {
   }
 
   const equippedCount = equippedCards.filter(Boolean).length
+
+  const activeStats = Object.entries(netTotals).filter(([, v]) => v !== 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -225,32 +241,19 @@ export default function Cartas() {
             ))}
           </div>
 
-          {/* Stat summary inline */}
-          {equippedCount > 0 && (() => {
-            const totals = { attack: 0, defense: 0, hp: 0, strength: 0, agility: 0, intelligence: 0 }
-            equippedCards.filter(Boolean).forEach(c => {
-              const sc = c.skill_cards
-              const r  = Math.min(c.rank, 20)
-              totals.attack       += (sc.attack_bonus       ?? 0) * r
-              totals.defense      += (sc.defense_bonus      ?? 0) * r
-              totals.hp           += (sc.hp_bonus           ?? 0) * r
-              totals.strength     += (sc.strength_bonus     ?? 0) * r
-              totals.agility      += (sc.agility_bonus      ?? 0) * r
-              totals.intelligence += (sc.intelligence_bonus ?? 0) * r
-            })
-            const active = Object.entries(totals).filter(([, v]) => v > 0)
-            if (!active.length) return null
-            return (
-              <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-border">
-                <span className="text-[10px] font-bold text-text-3 w-full uppercase tracking-wider">Bonus activos</span>
-                {active.map(([key, val]) => (
-                  <span key={key} className="text-[11px] font-bold text-[#86efac] bg-surface-2 border border-border rounded-lg px-2 py-0.5">
-                    +{val} {STAT_LABELS[key]}
-                  </span>
-                ))}
-              </div>
-            )
-          })()}
+          {/* Net stat summary */}
+          {activeStats.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-border">
+              <span className="text-[10px] font-bold text-text-3 w-full uppercase tracking-wider">Efecto neto</span>
+              {activeStats.map(([key, val]) => (
+                <span key={key}
+                  className="text-[11px] font-bold bg-surface-2 border border-border rounded-lg px-2 py-0.5"
+                  style={{ color: val > 0 ? '#86efac' : '#fca5a5' }}>
+                  {val > 0 ? '+' : ''}{val} {STAT_LABELS[key] ?? key}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -277,12 +280,6 @@ export default function Cartas() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* v2 note */}
-      <div className="flex items-start gap-2 p-3 rounded-xl bg-[var(--blue-50)] border border-[var(--blue-200)] text-[11px] text-[var(--blue-700)]">
-        <span className="font-bold flex-shrink-0">Sistema v2:</span>
-        <span>Las cartas tendrán pros Y contras, 5 slots libres, fusión por ranking, e interacción con equipo y encantamientos del laboratorio.</span>
       </div>
 
     </div>
