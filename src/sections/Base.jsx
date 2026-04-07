@@ -672,9 +672,13 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
               </div>
               <div>
                 <p className="text-[13px] font-bold text-text">{z.label}</p>
-                <p className="text-[12px] mt-0.5 text-text-3">{z.summary}</p>
+                <p className={`text-[13px] font-bold mt-1 ${
+                  z.id === 'recursos' && nexusData?.deficit ? 'text-[#dc2626]' :
+                  z.id === 'recursos' && nexusData ? 'text-[#0891b2]' :
+                  z.alert ? 'text-[#16a34a]' : 'text-text-2'
+                }`}>{z.summary}</p>
                 {z.detail && (
-                  <p className="text-[11px] mt-0.5 font-semibold text-[#d97706]">{z.detail}</p>
+                  <p className="text-[11px] mt-1 text-text-3">{z.detail}</p>
                 )}
               </div>
               <span className="text-[11px] font-semibold text-text-3 flex items-center gap-1">
