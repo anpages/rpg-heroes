@@ -22,6 +22,14 @@ export function agilityDurationFactor(agility) {
 }
 
 /**
+ * Multiplicador de oro y XP por ataque (hasta +100%).
+ * Usado en expedition-collect y en el display de DungeonCard.
+ */
+export function attackMultiplier(attack) {
+  return 1 + Math.min(1.0, (attack ?? 0) * 0.008)
+}
+
+/**
  * Stats del enemigo de un piso de la torre.
  */
 export function floorEnemyStats(floor) {

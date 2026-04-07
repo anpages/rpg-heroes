@@ -12,7 +12,7 @@ import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { expeditionHpCost, agilityDurationFactor } from '../lib/gameFormulas'
+import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
 import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -88,7 +88,7 @@ function useExpeditionTimer(expedition) {
 }
 
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor }) {
+function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1 }) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
@@ -180,7 +180,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
         ) : (
           <div className="flex gap-3 flex-wrap">
             <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
-              <Star size={13} strokeWidth={2} color="#0369a1" />{dungeon.experience_reward} XP
+              <Star size={13} strokeWidth={2} color="#0369a1" />{Math.round(dungeon.experience_reward * atkMultiplier)} XP
             </span>
             <span className="flex items-center gap-1 text-[13px] font-semibold text-[#dc2626]">
               −{hpCost} HP
@@ -383,7 +383,8 @@ function Dungeons() {
   // eslint-disable-next-line react-hooks/purity
   const heroHpNow  = interpolateHp(hero, Date.now())
 
-  const agilityFactor = hero ? agilityDurationFactor(hero.agility) : 1
+  const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
+  const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
   const workshopBonus = Math.round((workshopLevel - 1) * 5)
 
 
@@ -425,6 +426,7 @@ function Dungeons() {
               heroHpNow={heroHpNow}
               heroMaxHp={hero?.max_hp ?? 100}
               agilityFactor={agilityFactor}
+              atkMultiplier={atkMultiplier}
             />
           </motion.div>
         ))}

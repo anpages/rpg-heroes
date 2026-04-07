@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getEffectiveStats } from './_stats.js'
+import { attackMultiplier as calcAttackMultiplier } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollCardDrop } from './_loot.js'
 import { isUUID, safeHours } from './_validate.js'
@@ -61,7 +62,7 @@ export default async function handler(req, res) {
   const stats = await getEffectiveStats(supabase, hero.id)
 
   // Ataque escala oro y XP (hasta +100%)
-  const attackMultiplier = stats ? 1 + Math.min(1.0, stats.attack * 0.008) : 1
+  const attackMultiplier = calcAttackMultiplier(stats?.attack)
   const xpBoost  = hero.active_effects?.xp_boost ?? 0
   const finalGold = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
   const finalXp   = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
