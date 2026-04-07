@@ -1631,6 +1631,7 @@ function Base({ mainRef }) {
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   // Al volver a la Base desde otra sección, resetear siempre a Inicio
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (activeTab === 'base') setActiveZone('inicio')
   }, [activeTab])

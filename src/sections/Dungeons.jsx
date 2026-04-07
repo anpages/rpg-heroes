@@ -7,7 +7,6 @@ import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
-import { useBuildings } from '../hooks/useBuildings'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -77,6 +76,7 @@ function useExpeditionTimer(expedition) {
     requestAnimationFrame(() => setIsMounted(true))
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expedition?.ends_at, expedition?.id])
 
   const totalSeconds = expedition
@@ -291,7 +291,6 @@ function Dungeons() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
-  const { buildings } = useBuildings(userId)
   const [reward, setReward] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 

@@ -346,9 +346,11 @@ export default function Cartas() {
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Slots Equipados</p>
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          <div className="flex flex-wrap justify-center gap-3 sm:grid sm:grid-cols-5">
             {equippedCards.map((card, i) => (
-              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} />
+              <div key={card?.id ?? `empty-${i}`} className="w-[calc((100%-24px)/3)] sm:contents">
+                <CardSlot card={card} slotIndex={i} onUnequip={handleUnequip} />
+              </div>
             ))}
           </div>
 

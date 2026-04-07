@@ -11,7 +11,6 @@ import { INVENTORY_BASE_LIMIT, REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '.
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
-import { useBuildings } from '../hooks/useBuildings'
 import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
@@ -760,7 +759,6 @@ function Hero() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading  } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
-  const { buildings } = useBuildings(userId)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
   const [confirmModal,   setConfirmModal]   = useState(null)
