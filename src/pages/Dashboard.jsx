@@ -17,7 +17,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -206,10 +206,8 @@ const NAV_ITEMS = [
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword   },
-  { id: 'expediciones', label: 'Expediciones', icon: Map     },
-  { id: 'equipo',       label: 'Equipo',       icon: Shield  },
-  { id: 'cartas',       label: 'Cartas',       icon: Layers  },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword },
+  { id: 'expediciones', label: 'Expediciones', icon: Map   },
 ]
 
 function fmt(n) {
