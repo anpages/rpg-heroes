@@ -391,10 +391,10 @@ export default function Torneos() {
             </div>
 
             {/* Schedule */}
-            <div className="w-full max-w-xs flex items-end justify-between gap-1 text-[11px]">
-              {/* Inscripción — Dom + Lun agrupados */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="h-8 w-[calc(4rem+4px)] flex items-center justify-center gap-2 rounded-full border font-bold text-[12px]"
+            <div className="w-full max-w-xs grid grid-cols-5 gap-1 text-[11px]">
+              {/* Inscripción — ocupa 2 columnas */}
+              <div className="col-span-2 flex flex-col items-center gap-1">
+                <div className="h-8 w-full flex items-center justify-center gap-2 rounded-full border font-bold text-[12px]"
                   style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--text-3)' }}>
                   <span>Dom</span>
                   <span className="opacity-40">·</span>
@@ -403,14 +403,14 @@ export default function Torneos() {
                 <span className="text-text-3 font-medium">Inscripción</span>
               </div>
 
-              {/* Rondas */}
+              {/* Rondas — 1 columna cada una */}
               {[
                 { label: 'Mar', round: 1, text: 'Cuartos' },
                 { label: 'Jue', round: 2, text: 'Semis'   },
                 { label: 'Sáb', round: 3, text: 'Final'   },
               ].map((d, i) => (
                 <div key={i} className="flex flex-col items-center gap-1">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]"
+                  <div className="h-8 w-full rounded-full flex items-center justify-center font-bold text-[12px]"
                     style={{ background: ROUND_COLORS[d.round - 1], color: '#fff' }}>
                     {d.label}
                   </div>

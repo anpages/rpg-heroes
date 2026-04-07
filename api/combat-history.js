@@ -29,13 +29,13 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
 
-  // Fetch Torre + Torneo en paralelo
+  // Fetch Torre + brackets del héroe en paralelo
   const [towerRes, bracketRes] = await Promise.all([
     supabase
       .from('tower_attempts')
-      .select('id, floor, won, rounds, log, hero_name, enemy_name, hero_max_hp, enemy_max_hp, created_at')
+      .select('id, floor, won, rounds, log, hero_name, enemy_name, hero_max_hp, enemy_max_hp, attempted_at')
       .eq('hero_id', heroId)
-      .order('created_at', { ascending: false })
+      .order('attempted_at', { ascending: false })
       .limit(25),
 
     supabase
@@ -44,9 +44,13 @@ export default async function handler(req, res) {
       .eq('hero_id', heroId),
   ])
 
-  const towerCombats = (towerRes.data ?? []).map(c => ({ ...c, source: 'torre' }))
+  const towerCombats = (towerRes.data ?? []).map(c => ({
+    ...c,
+    source:     'torre',
+    created_at: c.attempted_at,
+  }))
 
-  // Obtener combates de torneo usando los bracket IDs del héroe
+  // Combates de torneo
   const bracketIds = (bracketRes.data ?? []).map(b => b.id)
   const bracketMap = Object.fromEntries((bracketRes.data ?? []).map(b => [b.id, b]))
 
@@ -54,9 +58,9 @@ export default async function handler(req, res) {
   if (bracketIds.length) {
     const { data: matches } = await supabase
       .from('tournament_matches')
-      .select('id, bracket_id, round, won, log, hero_max_hp, rival_max_hp, created_at')
+      .select('id, bracket_id, round, won, log, hero_max_hp, rival_max_hp, played_at')
       .in('bracket_id', bracketIds)
-      .order('created_at', { ascending: false })
+      .order('played_at', { ascending: false })
       .limit(25)
 
     tournamentCombats = (matches ?? []).map(m => {
@@ -72,12 +76,11 @@ export default async function handler(req, res) {
         enemy_name:   rival?.name ?? `Rival R${m.round}`,
         hero_max_hp:  m.hero_max_hp,
         enemy_max_hp: m.rival_max_hp,
-        created_at:   m.created_at,
+        created_at:   m.played_at,
       }
     })
   }
 
-  // Mezclar y ordenar por fecha desc
   const combats = [...towerCombats, ...tournamentCombats]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 40)
