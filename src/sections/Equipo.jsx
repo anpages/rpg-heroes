@@ -712,8 +712,11 @@ export default function Equipo() {
                     {/* Footer */}
                     <div className="flex border-t border-border divide-x divide-border">
                       <button
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40"
-                        style={canEquip ? { color: 'var(--blue-600)' } : { color: 'var(--text-3)', cursor: 'not-allowed' }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40
+                          ${canEquip
+                            ? 'text-[var(--blue-600)] hover:bg-[color-mix(in_srgb,var(--blue-500)_6%,transparent)]'
+                            : 'text-text-3 cursor-not-allowed'
+                          }`}
                         onClick={() => canEquip && handleEquip(item.id)}
                         disabled={!canEquip}
                         title={canEquip ? undefined : 'Repara el ítem antes de equiparlo'}
