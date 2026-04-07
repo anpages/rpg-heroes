@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { useAppStore } from './store/appStore'
+import { queryClient } from './lib/queryClient'
 import LoginPage from './pages/LoginPage'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
@@ -37,7 +38,7 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUserId(session?.user?.id ?? null)
-      if (!session) setPlayerExists(null)
+      if (!session) { setPlayerExists(null); queryClient.clear() }
     })
 
     return () => subscription.unsubscribe()
@@ -69,7 +70,7 @@ function App() {
   } else if (!playerExists) {
     pageContent = (
       <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ minHeight: '100vh' }}>
-        <Onboarding onComplete={() => setPlayerExists(true)} />
+        <Onboarding onComplete={() => { queryClient.clear(); setPlayerExists(true) }} />
       </motion.div>
     )
   } else {
