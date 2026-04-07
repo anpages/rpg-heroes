@@ -15,7 +15,7 @@ import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, Wrench, Plus,
+  BookOpen, Zap, Wrench, Plus, ChevronRight,
 } from 'lucide-react'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -1104,32 +1104,47 @@ function Hero() {
                 )
               }
               return (
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className="flex flex-col gap-2">
                   {equippedCards.map(card => {
-                    const sc   = card.skill_cards
-                    const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-                    const Icon = meta.icon
-                    const topBonus = Array.isArray(sc.bonuses) ? sc.bonuses[0] : null
+                    const sc       = card.skill_cards
+                    const meta     = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
+                    const Icon     = meta.icon
+                    const rank     = Math.min(card.rank ?? 1, 5)
+                    const RANK_LBL = ['', 'I', 'II', 'III', 'IV', 'V']
+                    const bonuses  = Array.isArray(sc.bonuses)   ? sc.bonuses   : []
+                    const penalties = Array.isArray(sc.penalties) ? sc.penalties : []
                     return (
                       <button
                         key={card.id}
-                        className="flex flex-col rounded-xl border border-white/10 overflow-hidden hover:scale-[1.04] hover:shadow-lg transition-all duration-200 text-left"
-                        style={{ background: meta.bg, aspectRatio: '3/4' }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-surface/50 hover:bg-surface transition-colors text-left w-full"
+                        style={{ borderColor: `color-mix(in srgb, ${meta.color} 28%, var(--border))` }}
                         onClick={() => setCardDetail(card)}
                       >
-                        <div className="flex items-center gap-1 px-2 pt-2 pb-0.5">
-                          <Icon size={9} strokeWidth={2} style={{ color: meta.color }} />
-                          <span className="text-[8px] font-black uppercase tracking-wider truncate" style={{ color: meta.color }}>{meta.short}</span>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
+                          style={{ background: meta.bg }}>
+                          <Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
                         </div>
-                        <div className="flex-1 flex items-center px-2">
-                          <span className="text-[11px] font-black text-white leading-tight line-clamp-3">{sc.name}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[13px] font-bold text-text truncate">{sc.name}</span>
+                            <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
+                              {RANK_LBL[rank] ?? rank}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            {bonuses.slice(0, 2).map((b, i) => (
+                              <span key={i} className="text-[11px] font-semibold text-[#86efac]">
+                                +{Math.round(b.value * rank)} {b.stat}
+                              </span>
+                            ))}
+                            {penalties.slice(0, 1).map((p, i) => (
+                              <span key={i} className="text-[11px] font-semibold text-[#fca5a5]">
+                                −{Math.round(Math.abs(p.value) * rank)} {p.stat}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <div className="px-2 pb-1.5">
-                          <span className="text-[9px] font-black" style={{ color: meta.color }}>R{card.rank}</span>
-                          {topBonus && (
-                            <div className="text-[8px] font-bold text-[#86efac]">+{topBonus.value * card.rank}</div>
-                          )}
-                        </div>
+                        <ChevronRight size={14} strokeWidth={2} className="text-text-3 flex-shrink-0" />
                       </button>
                     )
                   })}
