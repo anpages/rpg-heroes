@@ -9,7 +9,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { CARD_SLOT_COUNT } from '../lib/gameConstants'
 import { cardBonusAtRank, cardPenaltyAtRank } from '../lib/gameFormulas'
-import { Sword, Shield, Wind, Brain, Plus, Layers, Wrench, Shuffle, FlameKindling } from 'lucide-react'
+import { Sword, Shield, Wind, Brain, Layers, Wrench, Shuffle, FlameKindling, X } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
@@ -56,24 +56,15 @@ function formatVal(stat, val) {
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
-function RankDots({ rank, max = 5, color }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: max }).map((_, i) => (
-        <div key={i} className="w-2 h-2 rounded-full border"
-          style={{ background: i < rank ? color : 'transparent', borderColor: i < rank ? color : 'rgba(255,255,255,0.2)' }} />
-      ))}
-    </div>
-  )
-}
 
 function CardSlot({ card, slotIndex, onUnequip }) {
   if (!card) {
     return (
-      <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface/50 aspect-[3/4] min-h-[160px]">
-        <Plus size={20} strokeWidth={1.5} className="text-text-3" />
-        <span className="text-[11px] text-text-3 mt-1">Slot libre</span>
-        <span className="absolute bottom-2 right-2 text-[10px] text-text-3 font-bold opacity-40">{slotIndex + 1}</span>
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-border bg-surface/50">
+        <div className="w-8 h-8 rounded-lg border border-dashed border-border flex items-center justify-center flex-shrink-0">
+          <span className="text-[11px] font-black text-text-3">{slotIndex + 1}</span>
+        </div>
+        <span className="text-[13px] text-text-3 flex-1">Slot libre</span>
       </div>
     )
   }
@@ -86,55 +77,42 @@ function CardSlot({ card, slotIndex, onUnequip }) {
   const rankLabel = RANK_LABELS[rank] ?? rank
 
   return (
-    <button
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden aspect-[3/4] min-h-[160px] shadow-lg active:opacity-80 transition-opacity w-full text-left cursor-pointer disabled:opacity-40"
-      style={{ background: meta.bg }}
-      onClick={() => onUnequip(card.id)}
-      title="Toca para desequipar"
-    >
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-1">
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-surface transition-colors"
+      style={{ borderColor: `color-mix(in srgb, ${meta.color} 28%, var(--border))` }}>
+      {/* Icono */}
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
+        style={{ background: meta.bg }}>
+        <meta.Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
+      </div>
+      {/* Info */}
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <meta.Icon size={11} strokeWidth={2} style={{ color: meta.color }} />
-          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>
-            {meta.label}
+          <span className="text-[13px] font-bold text-text truncate">{sc.name}</span>
+          <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
+            {rankLabel}
           </span>
         </div>
-        <span className="text-[10px] font-black text-white/40">#{slotIndex + 1}</span>
+        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          {bonuses.slice(0, 2).map((b, i) => (
+            <span key={i} className="text-[11px] font-semibold text-[#86efac]">
+              +{formatVal(b.stat, cardBonusAtRank(b.value, rank))} {STAT_LABELS[b.stat] ?? b.stat}
+            </span>
+          ))}
+          {penalties.slice(0, 1).map((p, i) => (
+            <span key={i} className="text-[11px] font-semibold text-[#fca5a5]">
+              −{formatVal(p.stat, cardPenaltyAtRank(p.value, rank))} {STAT_LABELS[p.stat] ?? p.stat}
+            </span>
+          ))}
+        </div>
       </div>
-
-      {/* Card name */}
-      <div className="flex-1 flex flex-col justify-center px-3">
-        <span className="text-[14px] font-black text-white leading-tight tracking-tight">
-          {sc.name}
-        </span>
+      {/* Slot # + quitar */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-[10px] font-black text-text-3 opacity-50">#{slotIndex + 1}</span>
+        <button className="btn btn--ghost btn--icon" onClick={() => onUnequip(card.id)} title="Desequipar">
+          <X size={13} strokeWidth={2.5} />
+        </button>
       </div>
-
-      {/* Rank */}
-      <div className="flex items-center gap-2 px-3 pb-2">
-        <RankDots rank={rank} color={meta.color} />
-        <span className="text-[11px] font-black" style={{ color: meta.color }}>
-          Rango {rankLabel}
-        </span>
-      </div>
-
-      {/* Stats */}
-      <div className="flex flex-col gap-0.5 px-3 pb-3 border-t border-white/10 pt-2">
-        {bonuses.slice(0, 2).map((b, i) => (
-          <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
-            <span className="text-white/60">{STAT_LABELS[b.stat] ?? b.stat}</span>
-            <span className="text-[#86efac] font-bold">+{formatVal(b.stat, cardBonusAtRank(b.value, rank))}</span>
-          </div>
-        ))}
-        {penalties.slice(0, 1).map((p, i) => (
-          <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
-            <span className="text-white/60">{STAT_LABELS[p.stat] ?? p.stat}</span>
-            <span className="text-[#fca5a5] font-bold">−{formatVal(p.stat, cardPenaltyAtRank(p.value, rank))}</span>
-          </div>
-        ))}
-      </div>
-    </button>
+    </div>
   )
 }
 
@@ -346,12 +324,9 @@ export default function Cartas() {
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Slots Equipados</p>
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-          <div className="grid grid-cols-6 sm:grid-cols-5 gap-3">
+          <div className="flex flex-col gap-2">
             {equippedCards.map((card, i) => (
-              <div key={card?.id ?? `empty-${i}`}
-                className={`col-span-2 sm:col-span-1${i === 3 ? ' col-start-2 sm:col-start-auto' : i === 4 ? ' col-start-4 sm:col-start-auto' : ''}`}>
-                <CardSlot card={card} slotIndex={i} onUnequip={handleUnequip} />
-              </div>
+              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} />
             ))}
           </div>
 
