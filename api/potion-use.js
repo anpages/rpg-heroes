@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID } from './_validate.js'
-import { interpolateHp } from '../src/lib/hpInterpolation.js'
+import { interpolateHP } from './_hp.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -22,10 +22,10 @@ export default async function handler(req, res) {
   if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
-  // Verificar héroe
+  // Verificar héroe (columnas correctas: current_hp, hp_last_updated_at)
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
-    .select('id, player_id, max_hp, hp_current, hp_updated_at, active_effects')
+    .select('id, player_id, max_hp, current_hp, hp_last_updated_at, status, active_effects')
     .eq('id', heroId)
     .single()
 
@@ -62,14 +62,13 @@ export default async function handler(req, res) {
   let result = {}
 
   if (potion.effect_type === 'hp_restore') {
-    // HP interpolado actual
-    const hpNow   = interpolateHp(hero, Date.now())
+    const hpNow   = interpolateHP(hero, Date.now())
     const maxHp   = hero.max_hp ?? 100
     const restored = Math.round(maxHp * potion.effect_value)
     const newHp    = Math.min(maxHp, hpNow + restored)
     heroUpdate = {
-      hp_current:    newHp,
-      hp_updated_at: new Date().toISOString(),
+      current_hp:         newHp,
+      hp_last_updated_at: new Date().toISOString(),
     }
     result = { restored, newHp }
   } else {

@@ -397,31 +397,54 @@ export default function Equipo() {
 
   const unequipped = useMemo(() => (items ?? []).filter(i => !i.equipped_slot), [items])
 
-  const equipBonus = useMemo(() => {
-    const b = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
+  const { equipBonus, runeBonus } = useMemo(() => {
+    const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
+    const ru = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
+    const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
     ;(items ?? []).filter(i => i.equipped_slot && i.current_durability > 0).forEach(i => {
       const c = i.item_catalog
-      b.attack       += c.attack_bonus       ?? 0
-      b.defense      += c.defense_bonus      ?? 0
-      b.strength     += c.strength_bonus     ?? 0
-      b.agility      += c.agility_bonus      ?? 0
-      b.intelligence += c.intelligence_bonus ?? 0
-      b.max_hp       += c.hp_bonus           ?? 0
+      eq.attack       += c.attack_bonus       ?? 0
+      eq.defense      += c.defense_bonus      ?? 0
+      eq.strength     += c.strength_bonus     ?? 0
+      eq.agility      += c.agility_bonus      ?? 0
+      eq.intelligence += c.intelligence_bonus ?? 0
+      eq.max_hp       += c.hp_bonus           ?? 0
+      // Runas incrustadas en este ítem
+      ;(i.item_runes ?? []).forEach(ir => {
+        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
+          if (stat in STAT_MAP) ru[STAT_MAP[stat]] += value
+        })
+      })
     })
-    return b
+    // equipBonus incluye tanto ítems como runas
+    const combined = {}
+    for (const k of Object.keys(eq)) combined[k] = eq[k] + ru[k]
+    return { equipBonus: combined, runeBonus: ru }
   }, [items])
 
   const cardBonus = useMemo(() => {
     const b = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const STAT_MAP = { max_hp: 'max_hp', attack: 'attack', defense: 'defense', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
+    let enchantmentAmp = 0
     ;(cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined).forEach(c => {
       const sc   = c.skill_cards
       const rank = Math.min(c.rank, 5)
-      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] += Math.round(value * rank) })
-      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => { if (stat in STAT_MAP) b[STAT_MAP[stat]] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
+      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => {
+        if      (stat in STAT_MAP)          b[STAT_MAP[stat]] += Math.round(value * rank)
+        else if (stat === 'enchantment_amp') enchantmentAmp   += value * rank
+      })
+      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => {
+        if (stat in STAT_MAP) b[STAT_MAP[stat]] -= Math.round(value * (1 + (rank - 1) * 0.5))
+      })
     })
+    // Aplicar enchantment_amp sobre los bonos de runas
+    if (enchantmentAmp > 0) {
+      for (const [stat, val] of Object.entries(runeBonus)) {
+        if (val > 0) b[stat] = (b[stat] ?? 0) + Math.round(val * enchantmentAmp)
+      }
+    }
     return b
-  }, [cards])
+  }, [cards, runeBonus])
 
   if (!hero) {
     return (
