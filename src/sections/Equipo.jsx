@@ -143,7 +143,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
 
   return (
     <div className="flex flex-col p-3 rounded-xl border border-border bg-surface min-h-[64px] gap-1.5 w-full">
-      {/* Fila principal: icono + nombre + badges + X */}
+      {/* Fila principal: icono + nombre + acciones */}
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
@@ -152,11 +152,32 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
           <span className="text-[12px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
           <span className="text-[10px] text-text-3 capitalize">{label}</span>
         </div>
+        {/* Badges + botones de acción agrupados a la derecha */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {mainStat && (
             <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>
           )}
           <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
+          {needsRepair && (
+            <button
+              className="w-6 h-6 flex items-center justify-center rounded-md border border-[color-mix(in_srgb,#d97706_40%,var(--border))] text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_8%,transparent)] transition-colors disabled:opacity-40"
+              onClick={() => onRepair(item)}
+              disabled={repairLoading}
+              title="Reparar"
+            >
+              <Wrench size={11} strokeWidth={2} />
+            </button>
+          )}
+          {canUpgrade && (
+            <button
+              className="w-6 h-6 flex items-center justify-center rounded-md border border-[color-mix(in_srgb,#0f766e_40%,var(--border))] text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_8%,transparent)] transition-colors disabled:opacity-40"
+              onClick={() => onUpgradeTier(item, upgradeCost)}
+              disabled={upgradeLoading}
+              title={upgradeCost ? `T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : undefined}
+            >
+              <ArrowUp size={11} strokeWidth={2.5} />
+            </button>
+          )}
           <button
             className="w-6 h-6 flex items-center justify-center rounded-md border border-border text-text-3 hover:text-[#dc2626] hover:border-[color-mix(in_srgb,#dc2626_30%,var(--border))] hover:bg-[color-mix(in_srgb,#dc2626_6%,transparent)] transition-colors"
             onClick={() => onUnequip(item.id)}
@@ -168,31 +189,6 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
       </div>
 
       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-
-      {/* Botones de acción inline */}
-      {(needsRepair || canUpgrade) && (
-        <div className="flex gap-1.5 mt-0.5">
-          {needsRepair && (
-            <button
-              className="flex items-center gap-1 text-[10px] font-bold text-[#d97706] bg-surface border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
-              onClick={() => onRepair(item)}
-              disabled={repairLoading}
-            >
-              <Wrench size={9} strokeWidth={2} /> Reparar
-            </button>
-          )}
-          {canUpgrade && (
-            <button
-              className="flex items-center gap-1 text-[10px] font-bold text-[#0f766e] bg-surface border border-[color-mix(in_srgb,#0f766e_30%,var(--border))] rounded-md px-1.5 py-0.5 hover:bg-surface-2 transition-colors disabled:opacity-40"
-              onClick={() => onUpgradeTier(item, upgradeCost)}
-              disabled={upgradeLoading}
-              title={upgradeCost ? `T${cat.tier + 1}: ${upgradeCost.gold}g · ${upgradeCost.iron}h · ${upgradeCost.mana}m` : undefined}
-            >
-              <ArrowUp size={9} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
-            </button>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -589,7 +585,7 @@ export default function Equipo() {
           </div>
         </div>
 
-        {/* Equipment slots */}
+        {/* Equipment slots + Rune slots */}
         <div className="flex flex-col gap-2 order-2 lg:order-1">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
@@ -608,71 +604,71 @@ export default function Equipo() {
               ))}
             </div>
           </div>
+
+          {/* Rune slots — justo debajo del equipamiento */}
+          {maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
+                <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Ranuras de Runa</p>
+                <span className="text-[10px] text-text-3 font-normal">(permanentes)</span>
+              </div>
+              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
+                <div className="flex flex-col gap-3">
+                  {ALL_SLOTS.map(slot => {
+                    const item = equippedBySlot[slot]
+                    if (!item) return null
+                    const runesOnItem = item.item_runes ?? []
+                    const rarColor = RARITY_COLORS[item.item_catalog.rarity] ?? '#6b7280'
+                    return (
+                      <div key={slot} className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>
+                            {item.item_catalog.name}
+                          </span>
+                          <span className="text-[10px] text-text-3">{SLOT_META[slot]?.label}</span>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {Array.from({ length: maxRuneSlots }).map((_, idx) => {
+                            const inserted = runesOnItem.find(r => r.slot_index === idx)
+                            if (inserted) {
+                              const rc       = inserted.rune_catalog
+                              const main     = rc?.bonuses?.[0]
+                              const color    = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
+                              const bonusTxt = (rc?.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold"
+                                  style={{ borderColor: `color-mix(in srgb,${color} 40%,var(--border))`, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, color }}
+                                >
+                                  <Sparkles size={10} strokeWidth={2} />
+                                  {rc?.name ?? 'Runa'} <span className="text-[10px] font-normal opacity-70">{bonusTxt}</span>
+                                </div>
+                              )
+                            }
+                            return (
+                              <button
+                                key={idx}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[color:var(--blue-600)] transition-colors disabled:opacity-40"
+                                onClick={() => setRunePickerTarget({ item, slotIndex: idx })}
+                                disabled={runeMutation.isPending}
+                              >
+                                + Slot {idx + 1}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
-
-      {/* Rune slots */}
-      {maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5">
-            <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
-            <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Ranuras de Runa</p>
-            <span className="text-[10px] text-text-3 font-normal">(permanentes)</span>
-          </div>
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-            <div className="flex flex-col gap-3">
-              {ALL_SLOTS.map(slot => {
-                const item = equippedBySlot[slot]
-                if (!item) return null
-                const runesOnItem = item.item_runes ?? []
-                const rarColor = RARITY_COLORS[item.item_catalog.rarity] ?? '#6b7280'
-                return (
-                  <div key={slot} className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>
-                        {item.item_catalog.name}
-                      </span>
-                      <span className="text-[10px] text-text-3">{SLOT_META[slot]?.label}</span>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {Array.from({ length: maxRuneSlots }).map((_, idx) => {
-                        const inserted = runesOnItem.find(r => r.slot_index === idx)
-                        if (inserted) {
-                          const rc      = inserted.rune_catalog
-                          const main    = rc?.bonuses?.[0]
-                          const color   = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
-                          const bonusTxt = (rc?.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold"
-                              style={{ borderColor: `color-mix(in srgb,${color} 40%,var(--border))`, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, color }}
-                            >
-                              <Sparkles size={10} strokeWidth={2} />
-                              {rc?.name ?? 'Runa'} <span className="text-[10px] font-normal opacity-70">{bonusTxt}</span>
-                            </div>
-                          )
-                        }
-                        return (
-                          <button
-                            key={idx}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[color:var(--blue-600)] transition-colors disabled:opacity-40"
-                            onClick={() => setRunePickerTarget({ item, slotIndex: idx })}
-                            disabled={runeMutation.isPending}
-                          >
-                            + Slot {idx + 1}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Inventory */}
       <div className="flex flex-col gap-2">
