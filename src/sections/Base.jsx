@@ -118,8 +118,8 @@ const BUILDING_META = {
     description: 'Custodia las cartas y alberga el árbol de investigación.',
     icon: BookOpen,
     color: '#0f766e',
-    effect: (level) => `${1 + level * 2} cartas equipables`,
-    nextEffect: (level) => `${1 + (level + 1) * 2} cartas equipables`,
+    effect: (level) => level === 0 ? 'Sin construir' : 'Árbol de investigación activo',
+    nextEffect: (level) => level === 0 ? 'Árbol de investigación' : 'Mayor capacidad arcana',
     energyPerLevel: 5,
   },
   laboratory: {
@@ -1292,6 +1292,20 @@ function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, ru
         onOptimisticDeduct={onOptimisticDeduct}
         onUpgradePending={onUpgradePending}
       />
+
+      {/* Herrería */}
+      {forge && (forge.unlocked
+        ? <BuildingCard
+            building={forge}
+            resources={effectiveResources}
+            anyUpgrading={anyUpgrading}
+            onUpgradeStart={onUpgradeStart}
+            onUpgradeCollect={onUpgradeCollect}
+            onOptimisticDeduct={onOptimisticDeduct}
+            onUpgradePending={onUpgradePending}
+          />
+        : <LockedBuildingCard type="forge" />
+      )}
 
       {lab.level >= 1 && !lab.upgrade_ends_at && (
         <div className="flex flex-col gap-4">

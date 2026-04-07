@@ -38,6 +38,8 @@ export function computeBaseLevel(buildings) {
  */
 export const UNLOCK_TRIGGERS = [
   { type: 'energy_nexus', level: 2, unlocks: ['gold_mine', 'mana_well'] },
+  { type: 'laboratory',   level: 1, unlocks: ['forge']   },
+  { type: 'laboratory',   level: 2, unlocks: ['library'] },
 ]
 
 // ── Recursos iniciales ────────────────────────────────────────────────────────
@@ -148,6 +150,18 @@ export function buildingUpgradeCost(type, currentLevel) {
     case 'laboratory':
       if (currentLevel === 0) return { wood: 80, iron: 50 }  // construcción inicial
       return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(50 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
+    case 'forge':
+      if (currentLevel === 0) return { wood: 80,  iron: 50  }
+      if (currentLevel === 1) return { wood: 100, iron: 70  }
+      if (currentLevel === 2) return { wood: 220, iron: 150, mana: 40  }
+      if (currentLevel === 3) return { wood: 380, iron: 260, mana: 100 }
+      return                          { wood: 580, iron: 400, mana: 190 }
+    case 'library':
+      if (currentLevel === 0) return { wood: 100, iron: 60,  mana: 30  }
+      if (currentLevel === 1) return { wood: 180, iron: 110, mana: 70  }
+      if (currentLevel === 2) return { wood: 340, iron: 210, mana: 150 }
+      if (currentLevel === 3) return { wood: 560, iron: 360, mana: 270 }
+      return                          { wood: 850, iron: 550, mana: 420 }
     default:
       return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(40 * Math.pow(currentLevel, 1.4)) }
   }
@@ -199,9 +213,9 @@ export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
 
 /**
  * Lista completa de tipos de edificio que se crean al registrar un jugador.
- * Idéntica a BASE_BUILDING_TYPES — exportada con nombre semántico para onboarding.
+ * Incluye los edificios de base más forge y library, que arrancan bloqueados.
  */
-export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES]
+export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'forge', 'library']
 
 /**
  * Edificios desbloqueados desde el inicio.

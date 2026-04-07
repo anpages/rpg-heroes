@@ -35,6 +35,7 @@ export default async function handler(req, res) {
 
   if (!building) return res.status(404).json({ error: 'Edificio no encontrado' })
   if (building.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (!building.unlocked) return res.status(403).json({ error: 'Este edificio no está desbloqueado todavía' })
   if (building.level >= BUILDING_MAX_LEVEL) return res.status(409).json({ error: `Nivel máximo alcanzado (${BUILDING_MAX_LEVEL})` })
   if (building.upgrade_ends_at && new Date(building.upgrade_ends_at) > new Date()) {
     return res.status(409).json({ error: 'El edificio ya está mejorando' })
