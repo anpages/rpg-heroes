@@ -344,7 +344,7 @@ function Dungeons() {
 
   async function handleStart(dungeon) {
     const now = Date.now()
-    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 30000
+    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 60_000
     setExpedition({
       id: '__optimistic__',
       dungeon_id: dungeon.id,
