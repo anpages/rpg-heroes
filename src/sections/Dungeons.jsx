@@ -88,11 +88,11 @@ function useExpeditionTimer(expedition) {
 }
 
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1 }) {
+function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1, heroStrength = 0 }) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
-  const hpCost   = expeditionHpCost(heroMaxHp, dungeon.duration_minutes)
+  const hpCost   = expeditionHpCost(heroMaxHp, dungeon.duration_minutes, dungeon.difficulty, heroStrength)
   const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
   const disabled = locked || busy || lowHp
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
@@ -385,6 +385,7 @@ function Dungeons() {
 
   const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
   const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
+  const heroStrength   = hero?.strength ?? 0
   const workshopBonus = Math.round((workshopLevel - 1) * 5)
 
 
@@ -427,6 +428,7 @@ function Dungeons() {
               heroMaxHp={hero?.max_hp ?? 100}
               agilityFactor={agilityFactor}
               atkMultiplier={atkMultiplier}
+              heroStrength={heroStrength}
             />
           </motion.div>
         ))}

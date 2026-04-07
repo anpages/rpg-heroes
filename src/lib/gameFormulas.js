@@ -8,10 +8,15 @@
 
 /**
  * Coste de HP de una expedición.
- * Tasa: 20% del max_hp por hora (proporcional a la duración).
+ * - Base: 20% del max_hp por hora (proporcional a la duración).
+ * - Peligro escala el coste (hasta +45% en dificultad 9).
+ * - Fuerza lo reduce (hasta −40% con fuerza 100).
  */
-export function expeditionHpCost(maxHp, durationMinutes) {
-  return Math.max(1, Math.floor((maxHp ?? 100) * durationMinutes / 300))
+export function expeditionHpCost(maxHp, durationMinutes, difficulty = 0, strength = 0) {
+  const base             = (maxHp ?? 100) * durationMinutes / 300
+  const dangerMult       = 1 + (difficulty ?? 0) * 0.05
+  const strengthReduct   = Math.max(0.6, 1 - (strength ?? 0) * 0.004)
+  return Math.max(1, Math.floor(base * dangerMult * strengthReduct))
 }
 
 /**
