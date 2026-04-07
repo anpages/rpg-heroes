@@ -391,22 +391,27 @@ export default function Torneos() {
             </div>
 
             {/* Schedule */}
-            <div className="w-full max-w-xs flex items-center justify-between gap-1 text-[11px]">
+            <div className="w-full max-w-xs flex items-end justify-between gap-1 text-[11px]">
+              {/* Inscripción — Dom + Lun agrupados */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border"
+                  style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
+                  <span className="font-bold text-text-3">Dom</span>
+                  <span className="text-text-3 opacity-40">·</span>
+                  <span className="font-bold text-text-3">Lun</span>
+                </div>
+                <span className="text-text-3 font-medium">Inscripción</span>
+              </div>
+
+              {/* Rondas */}
               {[
-                { label: 'Dom', type: 'grace', text: 'Inscripción' },
-                { label: 'Lun', type: 'grace', text: 'Inscripción' },
-                { label: 'Mar', type: 'fight', round: 1, text: 'Cuartos'   },
-                { label: 'Jue', type: 'fight', round: 2, text: 'Semis'     },
-                { label: 'Sáb', type: 'fight', round: 3, text: 'Final'     },
+                { label: 'Mar', round: 1, text: 'Cuartos' },
+                { label: 'Jue', round: 2, text: 'Semis'   },
+                { label: 'Sáb', round: 3, text: 'Final'   },
               ].map((d, i) => (
                 <div key={i} className="flex flex-col items-center gap-1">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]"
-                    style={d.round
-                      ? { background: ROUND_COLORS[d.round - 1], color: '#fff' }
-                      : { background: 'var(--surface-2)', color: 'var(--text-3)' }
-                    }
-                  >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px]"
+                    style={{ background: ROUND_COLORS[d.round - 1], color: '#fff' }}>
                     {d.label}
                   </div>
                   <span className="text-text-3 font-medium">{d.text}</span>
