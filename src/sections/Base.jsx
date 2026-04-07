@@ -617,7 +617,6 @@ const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence:
 function RunesSection({ labLevel, catalog, inventory, resources, onCraft }) {
   const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
   const inventoryMap   = Object.fromEntries(inventory.map(ir => [ir.rune_id, ir.quantity]))
-  const maxSlots       = BASE_RUNE_SLOTS
 
   function canAfford(r) {
     if (!resources) return false
@@ -1599,7 +1598,7 @@ function Base({ mainRef }) {
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   // Al volver a la Base desde otra sección, resetear siempre a Inicio
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab === 'base') setActiveZone('inicio')
   }, [activeTab])
