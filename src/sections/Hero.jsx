@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
+import { Layers } from 'lucide-react'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
@@ -791,8 +792,9 @@ function CardPickerSheet({ currentCard, cards, hero, cardSlots, onEquip, onUnequ
 
 
 function Hero() {
-  const userId      = useAppStore(s => s.userId)
-  const heroId      = useHeroId()
+  const userId             = useAppStore(s => s.userId)
+  const navigateToHeroTab  = useAppStore(s => s.navigateToHeroTab)
+  const heroId             = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading  } = useInventory(hero?.id)
@@ -1097,100 +1099,95 @@ function Hero() {
             />
           </div>
 
-          {/* Cards section */}
+          {/* Cards preview → links to Cartas tab */}
           <div className="flex flex-col gap-3 p-4 md:p-5 bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between">
               <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
                 <BookOpen size={14} strokeWidth={2} />
-                Cartas de Habilidad
+                Cartas
               </p>
-              <button className="btn btn--ghost btn--sm" onClick={() => setCardModalOpen(true)}>
-                <Zap size={13} strokeWidth={2} />
-                Colección {(cards ?? []).length}
+              <button className="btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('cartas')}>
+                <Layers size={13} strokeWidth={2} />
+                Gestionar
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-2 md:gap-1.5">
-              {['attack', 'defense', 'strength', 'agility', 'intelligence'].map(cat => (
-                <CardBudgetBar key={cat} category={cat} used={cardBudgetUsed[cat]} total={hero[cat]} />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
-              {Array.from({ length: cardSlotCount }).map((_, idx) => {
-                const card = (cards ?? []).filter(c => c.equipped)[idx] ?? null
-                return card ? (
-                  <CardChip
-                    key={card.id}
-                    card={card}
-                    onClick={() => setCardPickerOpen({ currentCard: card })}
-                    loading={mutationPending}
-                    isOccupied={isOccupied}
-                  />
-                ) : (
+            {(() => {
+              const equippedCards = (cards ?? []).filter(c => c.equipped)
+              if (!equippedCards.length) {
+                return (
                   <button
-                    key={`empty-card-${idx}`}
-                    className="flex items-center justify-center gap-1.5 p-[10px] border border-dashed border-border-2 rounded-[10px] bg-transparent text-text-3 text-[13px] font-medium cursor-pointer w-full transition-[border-color,color] duration-150 hover:border-text-2 hover:text-text"
-                    onClick={() => setCardPickerOpen({ currentCard: null })}
+                    className="flex items-center justify-center gap-1.5 h-16 border border-dashed border-border rounded-xl text-[13px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[var(--blue-600)] transition-colors w-full"
+                    onClick={() => navigateToHeroTab('cartas')}
                   >
-                    <Plus size={13} strokeWidth={2} />
-                    Equipar carta
+                    <Plus size={14} strokeWidth={1.8} />
+                    Equipar cartas de habilidad
                   </button>
                 )
-              })}
-            </div>
+              }
+              return (
+                <button
+                  className="flex flex-wrap gap-1.5 text-left w-full hover:opacity-80 transition-opacity"
+                  onClick={() => navigateToHeroTab('cartas')}
+                >
+                  {equippedCards.map(card => {
+                    const sc   = card.skill_cards
+                    const meta = CATEGORY_META[sc.category]
+                    return (
+                      <span
+                        key={card.id}
+                        className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border"
+                        style={{
+                          color:       meta.color,
+                          borderColor: `color-mix(in srgb, ${meta.color} 30%, var(--border))`,
+                          background:  `color-mix(in srgb, ${meta.color} 8%, var(--surface))`,
+                        }}
+                      >
+                        R{card.rank} {sc.name}
+                      </span>
+                    )
+                  })}
+                </button>
+              )
+            })()}
           </div>
 
         </div>
 
-        {/* Right column: equipment */}
+        {/* Right column: equipment preview → links to Equipo tab */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
-            <button className="btn btn--ghost btn--sm" onClick={() => setBagOpen(true)}>
-              <Backpack size={13} strokeWidth={2} />
-              Mochila {bag.length}/{bagLimit}
+            <button className="btn btn--ghost btn--sm" onClick={() => navigateToHeroTab('equipo')}>
+              <Shield size={13} strokeWidth={2} />
+              Gestionar
             </button>
           </div>
 
-          {/* Armadura */}
-          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#3b82f6', borderLeftColor: '#3b82f6', background: 'color-mix(in srgb, #3b82f6 4%, transparent)' }}>
-            <div className="flex items-center gap-[5px]">
-              <Shield size={11} strokeWidth={2.5} style={{ color: '#3b82f6', opacity: 0.85 }} />
-              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#3b82f6' }}>Armadura</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
-              {['helmet', 'chest', 'arms', 'legs'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
-              ))}
-            </div>
-          </div>
-
-          {/* Armas */}
-          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#d97706', borderLeftColor: '#d97706', background: 'color-mix(in srgb, #d97706 4%, transparent)' }}>
-            <div className="flex items-center gap-[5px]">
-              <Sword size={11} strokeWidth={2.5} style={{ color: '#d97706', opacity: 0.85 }} />
-              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#d97706' }}>Armas</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
-              {['main_hand', 'off_hand'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
-              ))}
-            </div>
-          </div>
-
-          {/* Complemento */}
-          <div className="flex flex-col gap-2.5 py-2.5 px-[10px] pl-3 border-l-2 rounded-r-lg" style={{ '--eq-color': '#7c3aed', borderLeftColor: '#7c3aed', background: 'color-mix(in srgb, #7c3aed 4%, transparent)' }}>
-            <div className="flex items-center gap-[5px]">
-              <Gem size={11} strokeWidth={2.5} style={{ color: '#7c3aed', opacity: 0.85 }} />
-              <span className="text-[13px] font-bold uppercase tracking-[0.1em]" style={{ color: '#7c3aed' }}>Complemento</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-[5px]">
-              {['accessory', 'accessory_2'].map(slot => (
-                <EquipmentSlot key={slot} slot={slot} item={equipped[slot]} onSlotClick={s => setSlotPicker(s)} onRepair={handleRepair} loading={mutationPending} isOccupied={isOccupied} />
-              ))}
-            </div>
-          </div>
+          <button
+            className="w-full text-left grid grid-cols-2 gap-1.5 hover:opacity-80 transition-opacity"
+            onClick={() => navigateToHeroTab('equipo')}
+          >
+            {EQUIPMENT_SLOTS.map(slot => {
+              const item     = equipped[slot]
+              const meta     = SLOT_META[slot]
+              const Icon     = meta.icon
+              const cat      = item?.item_catalog
+              const rarColor = cat ? (RARITY_META[cat.rarity]?.color ?? '#6b7280') : null
+              return (
+                <div
+                  key={slot}
+                  className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-border bg-surface-2 min-w-0"
+                >
+                  <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                  {item
+                    ? <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
+                    : <span className="text-[11px] text-text-3 italic">Vacío</span>
+                  }
+                </div>
+              )
+            })}
+          </button>
         </div>
 
       </div>
