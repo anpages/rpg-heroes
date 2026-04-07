@@ -72,7 +72,9 @@ export default function CombatHistorial() {
                   <span className="text-[12px] font-semibold text-text-2">{sublabel}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] text-text-3 truncate">{c.hero_name} vs {c.enemy_name}</span>
+                  <span className="text-[11px] text-text-3 truncate">
+                    {c.source === 'torneo' ? `${c.hero_name} vs ${c.enemy_name}` : c.hero_name}
+                  </span>
                   <span className="text-[11px] text-text-3 ml-auto flex-shrink-0">{timeAgo(c.created_at)}</span>
                 </div>
               </div>

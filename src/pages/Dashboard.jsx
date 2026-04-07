@@ -349,7 +349,7 @@ function Dashboard({ session }) {
         </aside>
 
         {/* Main content */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-[max(6rem,calc(4.5rem+env(safe-area-inset-bottom,0px)))] md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-0 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
 
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
@@ -424,6 +424,9 @@ function Dashboard({ session }) {
               </div>
             </>
           )}
+
+          {/* Spacer: compensates for fixed bottom nav on mobile (including iPhone safe area) */}
+          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }} aria-hidden="true" />
 
         </main>
       </div>
