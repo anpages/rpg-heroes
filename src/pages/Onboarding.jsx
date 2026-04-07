@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useClasses } from '../hooks/useClasses'
 import { apiPost } from '../lib/api'
+import { supabase } from '../lib/supabase'
+import { LogOut } from 'lucide-react'
 
 const MAX_STAT = 18
 
@@ -45,6 +47,14 @@ function Onboarding({ onComplete }) {
 
   return (
     <div className="min-h-screen flex items-start justify-center bg-bg px-5 pt-12 pb-16">
+      <button
+        type="button"
+        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-surface text-text-2 text-[13px] font-medium hover:text-text hover:border-border-2 transition-colors"
+        onClick={() => supabase.auth.signOut()}
+      >
+        <LogOut size={14} strokeWidth={2} />
+        Cambiar cuenta
+      </button>
       <form
         className="relative z-10 w-[min(900px,100%)] bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] px-5 py-7 sm:px-11 sm:pt-10 sm:pb-12"
         onSubmit={handleSubmit}
@@ -101,7 +111,7 @@ function Onboarding({ onComplete }) {
                   <button
                     key={cls.id}
                     type="button"
-                    className={`relative flex flex-col items-start px-3.5 py-4 border-[1.5px] rounded-[10px] text-text text-left cursor-pointer transition-[border-color,background,box-shadow] duration-200
+                    className={`relative flex flex-col items-start px-3.5 py-3 border-[1.5px] rounded-[10px] text-text text-left cursor-pointer transition-[border-color,background,box-shadow] duration-200
                       ${selected
                         ? 'border-[var(--blue-500)] bg-[var(--blue-50)] shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
                         : 'bg-surface-2 border-border hover:border-[var(--blue-400)] hover:bg-[var(--blue-50)]'
@@ -111,10 +121,9 @@ function Onboarding({ onComplete }) {
                     {selected && (
                       <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[var(--blue-500)]" />
                     )}
-                    <span className={`text-[14px] font-bold mb-1.5 block ${selected ? 'text-[var(--blue-700)]' : 'text-text'}`}>
+                    <span className={`text-[14px] font-bold mb-2 block ${selected ? 'text-[var(--blue-700)]' : 'text-text'}`}>
                       {cls.name}
                     </span>
-                    <p className="text-[12.5px] leading-[1.5] text-text-3 mb-3.5 flex-1">{cls.description}</p>
                     <div className="w-full flex flex-col gap-[5px]">
                       <StatBar label="FUE" value={cls.strength}     selected={selected} />
                       <StatBar label="AGI" value={cls.agility}      selected={selected} />
