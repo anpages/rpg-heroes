@@ -30,7 +30,7 @@ import {
   manaRateForLevel,
   xpRateForLevel,
   TRAINING_XP_CAP_HOURS,
-  runeSlotsByForgeLevel,
+  BASE_RUNE_SLOTS,
   RESEARCH_NODES,
 } from '../lib/gameConstants.js'
 import {
@@ -85,15 +85,6 @@ const BUILDING_META = {
     effect: (level) => `${manaRateForLevel(level)} maná/h`,
     nextEffect: (level) => `${manaRateForLevel(level + 1)} maná/h`,
     energyPerLevel: 10,
-  },
-  forge: {
-    name: 'Herrería',
-    description: 'Repara el equipo dañado.',
-    icon: Hammer,
-    color: '#b45309',
-    effect: (level) => `-${(level - 1) * 5}% coste reparación`,
-    nextEffect: (level) => `-${level * 5}% coste reparación`,
-    energyPerLevel: 5,
   },
   library: {
     name: 'Biblioteca',
@@ -623,10 +614,10 @@ function LaboratorySection({ labLevel, potions, resources, onCraft }) {
 const RUNE_BONUS_LABELS = { attack: 'Atq', defense: 'Def', intelligence: 'Int', agility: 'Agi', max_hp: 'HP', strength: 'Fue' }
 const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
 
-function RunesSection({ labLevel, forgeLevel, catalog, inventory, resources, onCraft }) {
+function RunesSection({ labLevel, catalog, inventory, resources, onCraft }) {
   const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
   const inventoryMap   = Object.fromEntries(inventory.map(ir => [ir.rune_id, ir.quantity]))
-  const maxSlots       = runeSlotsByForgeLevel(forgeLevel)
+  const maxSlots       = BASE_RUNE_SLOTS
 
   function canAfford(r) {
     if (!resources) return false
@@ -643,12 +634,6 @@ function RunesSection({ labLevel, forgeLevel, catalog, inventory, resources, onC
     <div className="flex flex-col gap-3">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Crafteo de Runas</p>
-        {maxSlots === 0 && (
-          <p className="text-[11px] text-text-3 mt-1 flex items-center gap-1">
-            <Lock size={10} strokeWidth={2.5} />
-            Sube la Herrería a Nv.2 para desbloquear slots de runa en tus ítems
-          </p>
-        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1281,9 +1266,7 @@ function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId,
 
 function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, runesInventory, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, onCraft, onRuneCraft }) {
   const lab       = byType['laboratory']
-  const forge     = byType['forge']
   const baseLevel = baseLevelFromMap(byType)
-  const forgeLevel = forge?.level ?? 1
 
   // Lab no existe en DB (no debería pasar en cuentas nuevas)
   if (!lab) return null
@@ -1333,20 +1316,6 @@ function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, ru
         onUpgradePending={onUpgradePending}
       />
 
-      {/* Herrería */}
-      {forge && (forge.unlocked
-        ? <BuildingCard
-            building={forge}
-            resources={effectiveResources}
-            anyUpgrading={anyUpgrading}
-            onUpgradeStart={onUpgradeStart}
-            onUpgradeCollect={onUpgradeCollect}
-            onOptimisticDeduct={onOptimisticDeduct}
-            onUpgradePending={onUpgradePending}
-          />
-        : <LockedBuildingCard type="forge" />
-      )}
-
       {lab.level >= 1 && !lab.upgrade_ends_at && (
         <div className="flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
@@ -1361,7 +1330,6 @@ function LaboratorioZone({ byType, effectiveResources, potions, runesCatalog, ru
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
             <RunesSection
               labLevel={lab.level}
-              forgeLevel={forgeLevel}
               catalog={runesCatalog}
               inventory={runesInventory}
               resources={effectiveResources}

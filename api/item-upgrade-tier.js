@@ -33,19 +33,6 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
 
-  // Verificar nivel de Herrería
-  const { data: forge } = await supabase
-    .from('buildings')
-    .select('level')
-    .eq('player_id', user.id)
-    .eq('type', 'forge')
-    .maybeSingle()
-
-  const forgeLevel = forge?.level ?? 1
-  if (forgeLevel < 3) {
-    return res.status(403).json({ error: 'Se necesita Herrería Nv.3 para mejorar el tier de un ítem' })
-  }
-
   // Obtener item con catálogo
   const { data: item } = await supabase
     .from('inventory_items')

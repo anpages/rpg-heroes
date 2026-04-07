@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isUUID } from './_validate.js'
-import { runeSlotsByForgeLevel } from '../src/lib/gameConstants.js'
+import { BASE_RUNE_SLOTS } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -21,29 +21,20 @@ export default async function handler(req, res) {
   if (!heroId || !isUUID(heroId))               return res.status(400).json({ error: 'heroId inválido' })
   if (!inventoryItemId || !isUUID(inventoryItemId)) return res.status(400).json({ error: 'inventoryItemId inválido' })
   if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2) return res.status(400).json({ error: 'slotIndex debe ser 0, 1 o 2' })
-  if (!runeId)                                  return res.status(400).json({ error: 'runeId requerido' })
+  if (!runeId) return res.status(400).json({ error: 'runeId requerido' })
 
   // Verificar héroe
   const { data: hero } = await supabase
     .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).maybeSingle()
   if (!hero) return res.status(403).json({ error: 'Forbidden' })
 
-  // Verificar nivel de Herrería
-  const { data: forge } = await supabase
-    .from('buildings').select('level').eq('player_id', user.id).eq('type', 'forge').maybeSingle()
-  const forgeLevel = forge?.level ?? 1
-
-  // Investigación: rune_slot_bonus puede añadir un slot extra
+  // Slots disponibles: base fija + bonus de investigación
   const { getResearchBonuses } = await import('./_research.js')
-  const rb = await getResearchBonuses(supabase, user.id)
-  const maxSlots = runeSlotsByForgeLevel(forgeLevel) + rb.rune_slot_bonus
+  const rb       = await getResearchBonuses(supabase, user.id)
+  const maxSlots = BASE_RUNE_SLOTS + rb.rune_slot_bonus
 
   if (slotIndex >= maxSlots) {
-    if (rb.rune_slot_bonus > 0 && slotIndex === 2) {
-      return res.status(400).json({ error: 'Se necesita Herrería Nv.3 para ese slot' })
-    }
-    const needed = slotIndex === 0 ? 2 : 3
-    return res.status(400).json({ error: `Se necesita Herrería Nv.${needed} para ese slot` })
+    return res.status(400).json({ error: 'Slot de runa no disponible' })
   }
 
   // Verificar que el ítem pertenece al héroe y está equipado
@@ -75,7 +66,6 @@ export default async function handler(req, res) {
     .from('item_runes').insert({ inventory_item_id: inventoryItemId, slot_index: slotIndex, rune_id: runeId })
 
   if (iErr) {
-    // Revertir el decremento si la inserción falla
     await supabase.from('hero_runes').update({ quantity: heroRune.quantity }).eq('id', heroRune.id)
     return res.status(500).json({ error: iErr.message })
   }

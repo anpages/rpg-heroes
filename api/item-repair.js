@@ -2,11 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import { isUUID, safeHours } from './_validate.js'
 import { REPAIR_COST_TABLE as REPAIR_COST } from './_constants.js'
 
-// Descuento por nivel de herrería: -5% por nivel (máx 50%)
-function repairDiscount(forgeLevel) {
-  return Math.min(0.5, (forgeLevel - 1) * 0.05)
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
@@ -49,24 +44,13 @@ export default async function handler(req, res) {
 
   if (missing === 0) return res.status(409).json({ error: 'El item ya está en perfecto estado' })
 
-  // Nivel de la herrería del jugador
-  const { data: forge } = await supabase
-    .from('buildings')
-    .select('level')
-    .eq('player_id', user.id)
-    .eq('type', 'forge')
-    .maybeSingle()
+  const costs = REPAIR_COST[catalog.rarity] ?? REPAIR_COST.common
 
-  const forgeLevel = forge?.level ?? 1
-  const discount   = repairDiscount(forgeLevel)
-  const costs      = REPAIR_COST[catalog.rarity] ?? REPAIR_COST.common
-
-  // Investigación: repair_cost_pct reduce el coste adicionalmente (valor negativo = descuento)
+  // Investigación: repair_cost_pct reduce el coste (valor negativo = descuento)
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  const researchDiscount = -rb.repair_cost_pct  // convierte el valor negativo en positivo
-  const totalDiscount    = Math.min(0.9, discount + researchDiscount)
+  const totalDiscount = Math.min(0.9, -rb.repair_cost_pct)
 
   const goldCost = Math.ceil(missing * costs.gold * (1 - totalDiscount))
   const manaCost = Math.ceil(missing * costs.mana * (1 - totalDiscount))

@@ -7,12 +7,11 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
-import { useBuildings } from '../hooks/useBuildings'
 import { useHeroRunes } from '../hooks/useHeroRunes'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, runeSlotsByForgeLevel, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
   Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles, ArrowUp,
@@ -120,7 +119,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repairLoading, upgradeLoading, forgeLevel }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repairLoading, upgradeLoading }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -139,7 +138,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
   const needsRepair  = durPct < 100
-  const canUpgrade   = forgeLevel >= 3 && cat.tier < 3 && durPct >= 100
+  const canUpgrade   = cat.tier < 3 && durPct >= 100
   const upgradeCost  = ITEM_TIER_UPGRADE_COST[cat.tier]
 
   return (
@@ -316,7 +315,6 @@ export default function Equipo() {
   const { hero }    = useHero(heroId)
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
-  const { buildings }              = useBuildings(userId)
   const { inventory: runeInventory } = useHeroRunes(heroId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
@@ -410,8 +408,7 @@ export default function Equipo() {
     onError: err => toast.error(err.message),
   })
 
-  const forgeLevel   = (buildings ?? []).find(b => b.type === 'forge')?.level ?? 1
-  const maxRuneSlots = runeSlotsByForgeLevel(forgeLevel)
+  const maxRuneSlots = BASE_RUNE_SLOTS
 
   const equippedBySlot = useMemo(() => {
     if (!items) return {}
@@ -605,7 +602,6 @@ export default function Equipo() {
                   onUpgradeTier={handleUpgradeTier}
                   repairLoading={actionMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
-                  forgeLevel={forgeLevel}
                 />
               ))}
             </div>
@@ -614,7 +610,7 @@ export default function Equipo() {
 
       </div>
 
-      {/* Rune slots — solo si la Herrería es Nv.2+ */}
+      {/* Rune slots */}
       {maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5">
