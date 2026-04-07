@@ -554,17 +554,29 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
   const labUnlocked    = byType['laboratory']?.unlocked !== false && labLevel > 0
   const potionCount    = potions.reduce((s, p) => s + (p.quantity ?? 0), 0)
 
+  // Edificio en construcción/mejora
+  const now = Date.now()
+  const upgradingBuilding = Object.values(byType).find(
+    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at).getTime() > now
+  )
+  const upgradingMeta = upgradingBuilding
+    ? BUILDING_META[upgradingBuilding.type]
+    : null
+
   const zoneCards = [
     {
       id:       'recursos',
       label:    'Recursos',
       icon:     Pickaxe,
       color:    '#64748b',
-      summary:  nexusData
-        ? nexusData.deficit
-          ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
-          : `Energía +${nexusData.balance} ⚡`
-        : 'Gestiona tus edificios',
+      alert:    !!upgradingBuilding,
+      summary:  upgradingBuilding
+        ? `${upgradingMeta?.name ?? 'Edificio'} en construcción…`
+        : nexusData
+          ? nexusData.deficit
+            ? `Déficit −${Math.abs(nexusData.balance)} ⚡`
+            : `Energía +${nexusData.balance} ⚡`
+          : 'Gestiona tus edificios',
     },
     {
       id:       'entrenamiento',
