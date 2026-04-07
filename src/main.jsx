@@ -9,22 +9,28 @@ import './index.css'
 import App from './App.jsx'
 
 // ── Auto-update PWA ──────────────────────────────────────────────────────────
-// Cuando el nuevo SW activa (skipWaiting ya está en autoUpdate), recarga la
-// página para que el usuario reciba el código actualizado sin hacer nada.
+// Cuando el SW detecta una actualización NO recargamos inmediatamente
+// (provoca layout glitches en iOS PWA con safe-area-inset).
+// En su lugar marcamos que hay una versión nueva y recargamos la próxima vez
+// que el usuario vuelva a la app desde background (visibilitychange).
 if ('serviceWorker' in navigator) {
-  // Reload al activar el nuevo SW
-  let reloading = false
+  let needsReload = false
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!reloading) {
-      reloading = true
-      window.location.reload()
-    }
+    needsReload = true
+    // Si la página está en background, recargamos ya (no hay UI visible)
+    if (document.hidden) window.location.reload()
   })
 
-  // Al volver a primer plano, comprobar si hay una versión nueva disponible
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      navigator.serviceWorker.getRegistration().then(reg => reg?.update())
+      if (needsReload) {
+        // Volver al primer plano con versión nueva pendiente → recarga limpia
+        window.location.reload()
+      } else {
+        // Sin actualización pendiente: comprobar si hay nueva versión disponible
+        navigator.serviceWorker.getRegistration().then(reg => reg?.update())
+      }
     }
   })
 }
