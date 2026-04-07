@@ -36,7 +36,7 @@ import {
 import {
   Coins, Axe, Sparkles, Swords, Wrench, Clock, ChevronRight, Zap, Hammer, BookOpen, Lock,
   Dumbbell, FlaskConical, ShieldCheck, Zap as ZapIcon, Brain, Plus, PackageOpen,
-  Home, Shield, Pickaxe, Telescope, Sword, Map, CheckCircle2, Timer, AlertCircle,
+  Home, Shield, Pickaxe, Telescope, Sword, Map, CheckCircle2, Timer, AlertCircle, Castle,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -168,12 +168,130 @@ function baseLevelFromMap(byType) {
   return computeBaseLevel(Object.values(byType))
 }
 
+/* ─── BaseHeader ─────────────────────────────────────────────────────────────── */
+
+const BASE_TIERS = [
+  { minLevel: 1,  color: '#64748b', name: 'Asentamiento',          subtitle: 'Una chispa en la oscuridad.' },
+  { minLevel: 2,  color: '#b45309', name: 'Campamento',            subtitle: 'Las primeras murallas se alzan.' },
+  { minLevel: 3,  color: '#0369a1', name: 'Fortaleza Incipiente',  subtitle: 'Tu nombre empieza a resonar.' },
+  { minLevel: 4,  color: '#1d4ed8', name: 'Bastión',               subtitle: 'Los rivales te toman en serio.' },
+  { minLevel: 5,  color: '#6d28d9', name: 'Ciudadela',             subtitle: 'Una potencia que no se puede ignorar.' },
+  { minLevel: 7,  color: '#be185d', name: 'Fortaleza Épica',       subtitle: 'Tu leyenda precede a tus héroes.' },
+  { minLevel: 10, color: '#7f1d1d', name: 'Ciudadela Legendaria',  subtitle: 'Solo los dioses saben tu nombre.' },
+]
+
+function getBaseTier(level) {
+  let tier = BASE_TIERS[0]
+  for (const t of BASE_TIERS) { if (level >= t.minLevel) tier = t }
+  return tier
+}
+
+function BaseHeader({ byType, resources, research }) {
+  const baseLevel = baseLevelFromMap(byType)
+  const tier      = getBaseTier(baseLevel)
+  const now       = Date.now()
+
+  const upgradingBuilding = Object.values(byType).find(
+    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at).getTime() > now
+  )
+  const activeResearch = research?.active
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl border"
+      style={{
+        background:  `linear-gradient(135deg, color-mix(in srgb, ${tier.color} 16%, var(--surface)) 0%, var(--surface) 60%)`,
+        borderColor: `color-mix(in srgb, ${tier.color} 28%, var(--border))`,
+      }}
+    >
+      {/* accent top bar */}
+      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: tier.color }} />
+
+      <div className="px-5 pt-6 pb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Castle size={12} strokeWidth={2.5} style={{ color: tier.color }} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: tier.color }}>
+                Tu Base
+              </span>
+            </div>
+            <h1 style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 38,
+              lineHeight: 1,
+              letterSpacing: '0.04em',
+              color: 'var(--text)',
+              marginBottom: 4,
+            }}>
+              {tier.name}
+            </h1>
+            <p className="text-[13px] text-text-3 leading-snug">{tier.subtitle}</p>
+          </div>
+
+          {/* level badge */}
+          <div
+            className="flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[52px] rounded-2xl border"
+            style={{
+              background:  `color-mix(in srgb, ${tier.color} 10%, var(--surface-2))`,
+              borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
+            }}
+          >
+            <span className="text-[22px] font-extrabold leading-none" style={{ color: tier.color }}>{baseLevel}</span>
+            <span className="text-[9px] font-bold text-text-3 uppercase tracking-wide">nv.</span>
+          </div>
+        </div>
+
+        {/* status strip */}
+        <div
+          className="mt-4 pt-3 border-t flex flex-wrap items-center gap-x-4 gap-y-1"
+          style={{ borderColor: `color-mix(in srgb, ${tier.color} 20%, var(--border))` }}
+        >
+          {upgradingBuilding && (
+            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-text-2">
+              <Wrench size={11} strokeWidth={2.5} style={{ color: tier.color }} />
+              {BUILDING_META[upgradingBuilding.type]?.name ?? 'Edificio'}
+              {upgradingBuilding.level === 0 ? ' en construcción' : ' mejorando'}…
+            </span>
+          )}
+          {activeResearch && !upgradingBuilding && (
+            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-text-2">
+              <Telescope size={11} strokeWidth={2.5} style={{ color: tier.color }} />
+              Investigando…
+            </span>
+          )}
+          {resources && (
+            <>
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2">
+                <Coins size={11} strokeWidth={2} color="#d97706" />{fmt(resources.gold)}
+              </span>
+              {(resources.wood ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2">
+                  <Axe size={11} strokeWidth={2} color="#16a34a" />{fmt(resources.wood)}
+                </span>
+              )}
+              {(resources.iron ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2">
+                  <Pickaxe size={11} strokeWidth={2} color="#64748b" />{fmt(resources.iron)}
+                </span>
+              )}
+              {(resources.mana ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2">
+                  <Sparkles size={11} strokeWidth={2} color="#7c3aed" />{fmt(resources.mana)}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* legacy — se sigue usando en InicioZone */
 function baseTitleFn(level) {
-  if (level >= 10) return 'Ciudadela Legendaria'
-  if (level >= 7)  return 'Fortaleza Épica'
-  if (level >= 5)  return 'Bastión Consolidado'
-  if (level >= 3)  return 'Campamento Establecido'
-  return 'Asentamiento'
+  const tier = getBaseTier(level)
+  return tier.name
 }
 
 /* ─── Temporizador de mejora ─────────────────────────────────────────────────── */
@@ -657,10 +775,6 @@ function ZonePills({ active, onChange }) {
 /* ─── Zona: Inicio ───────────────────────────────────────────────────────────── */
 
 function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgress, potions, onGoTo }) {
-  const baseLevel = baseLevelFromMap(byType)
-  const baseTitle = baseTitleFn(baseLevel)
-
-
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const anyTrainReady  = trainingRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const builtCount     = trainingRooms.length
@@ -718,55 +832,6 @@ function InicioZone({ byType, nexusData, resources, trainingRooms, trainingProgr
 
   return (
     <motion.div className="flex flex-col gap-5" variants={cardVariants} initial="initial" animate="animate">
-      {/* Base level card */}
-      <div className="relative overflow-hidden rounded-xl border border-border bg-[linear-gradient(135deg,var(--surface-2)_0%,var(--surface)_60%)] p-5 shadow-[var(--shadow-sm)]">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Shield size={14} strokeWidth={2} className="text-text-3" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Tu Base</span>
-            </div>
-            <h2 className="text-[26px] font-extrabold text-text leading-tight">{baseTitle}</h2>
-            <p className="text-[13px] text-text-3 mt-0.5">Tus héroes luchan bajo tu estandarte</p>
-          </div>
-          <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-surface border border-border shadow-[var(--shadow-sm)]">
-            <span className="text-[22px] font-extrabold text-text leading-none">{baseLevel}</span>
-            <span className="text-[9px] font-bold text-text-3 uppercase tracking-wide">nivel</span>
-          </div>
-        </div>
-
-        {/* Gold destacado + recursos de edificios */}
-        {resources && (
-          <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
-            {/* Oro — moneda de combate */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'color-mix(in srgb,#d97706 14%,var(--surface-2))' }}>
-                <Coins size={16} strokeWidth={2} color="#d97706" />
-              </div>
-              <div>
-                <p className="text-[22px] font-extrabold text-text leading-none tabular-nums">{fmt(resources.gold)}</p>
-                <p className="text-[10px] font-semibold text-text-3 mt-0.5">Oro · moneda de combate</p>
-              </div>
-            </div>
-            {/* Recursos de edificios */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-text-2">
-                <Axe size={12} strokeWidth={2} color="#16a34a" />{fmt(resources.wood)}
-              </span>
-              <span className="text-border select-none">·</span>
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-text-2">
-                <Pickaxe size={12} strokeWidth={2} color="#64748b" />{fmt(resources.iron ?? 0)}
-              </span>
-              <span className="text-border select-none">·</span>
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-text-2">
-                <Sparkles size={12} strokeWidth={2} color="#7c3aed" />{fmt(resources.mana)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Zone cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {zoneCards.map(z => {
@@ -1709,10 +1774,7 @@ function Base({ mainRef }) {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <div className="section-header">
-        <h2 className="section-title">Base</h2>
-        <p className="section-subtitle">El cuartel general de tus héroes. Aquí crece su leyenda.</p>
-      </div>
+      <BaseHeader byType={byType} resources={effectiveResources} research={research} />
 
       <ZonePills active={activeZone} onChange={setActiveZone} />
 
