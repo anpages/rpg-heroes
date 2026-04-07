@@ -6,7 +6,7 @@ import { useMissions } from '../hooks/useMissions'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { MISSION_POOL } from '../lib/missionPool.js'
-import { Coins, Sparkles, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
+import { Coins, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const listVariants = {
@@ -109,13 +109,7 @@ function MissionCard({ mission }) {
               {mission.reward_gold}
             </span>
           )}
-          {mission.reward_mana > 0 && (
-            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
-              <Sparkles size={11} color="#7c3aed" strokeWidth={2} />
-              {mission.reward_mana}
-            </span>
-          )}
-          {mission.reward_xp > 0 && (
+{mission.reward_xp > 0 && (
             <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
               <Star size={11} color="#0369a1" strokeWidth={2} />
               {mission.reward_xp} XP

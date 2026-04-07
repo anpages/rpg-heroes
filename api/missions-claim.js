@@ -40,28 +40,32 @@ export default async function handler(req, res) {
     .order('slot')
   const hero = heroes?.[0]
 
-  // Obtener recursos (con rates para interpolar el idle acumulado)
+  // Obtener recursos (con rates para interpolar el idle acumulado y hacer snapshot)
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, mana, gold_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (!hero || !resources) return res.status(500).json({ error: 'Error al obtener datos' })
 
-  // Interpolar idle antes de sumar recompensa
+  // Snapshot de todos los recursos antes de mover last_collected_at
   const nowMs = Date.now()
   const hours = safeHours(resources.last_collected_at, nowMs)
   const currentGold = Math.floor(resources.gold + resources.gold_rate * hours)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
+  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
+  const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
 
-  // Aplicar recompensas
+  // Aplicar recompensas — misiones solo dan oro y XP
   await Promise.all([
     supabase
       .from('resources')
       .update({
         gold: currentGold + mission.reward_gold,
-        mana: currentMana + mission.reward_mana,
+        iron: snapshotIron,
+        wood: snapshotWood,
+        mana: snapshotMana,
         last_collected_at: new Date(nowMs).toISOString(),
       })
       .eq('player_id', user.id),
@@ -89,7 +93,6 @@ export default async function handler(req, res) {
     ok: true,
     rewards: {
       gold: mission.reward_gold,
-      mana: mission.reward_mana,
       xp:   mission.reward_xp,
     },
   })
