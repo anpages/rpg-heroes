@@ -276,7 +276,7 @@ function RewardModal({ reward, onClose }) {
           </button>
         </div>
 
-        {/* Resources — las expediciones solo dan oro + XP + items */}
+        {/* Resources */}
         <div className="grid grid-cols-2 gap-3 px-5 py-4">
           <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#d97706_8%,var(--bg))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-xl px-3.5 py-3">
             <Coins size={18} color="#d97706" strokeWidth={2} />
@@ -292,6 +292,24 @@ function RewardModal({ reward, onClose }) {
               <p className="text-[11px] text-text-3 mt-0.5">XP</p>
             </div>
           </div>
+          {reward.materialDrop && (() => {
+            const mat  = MATERIAL_META[reward.materialDrop.resource]
+            if (!mat) return null
+            const Icon = mat.Icon
+            return (
+              <div className="col-span-2 flex items-center gap-2.5 rounded-xl px-3.5 py-3 border"
+                style={{
+                  background:   `color-mix(in srgb, ${mat.color} 8%, var(--bg))`,
+                  borderColor:  `color-mix(in srgb, ${mat.color} 25%, var(--border))`,
+                }}>
+                <Icon size={18} color={mat.color} strokeWidth={2} />
+                <div>
+                  <p className="text-[18px] font-bold text-text leading-none">+{reward.materialDrop.qty}</p>
+                  <p className="text-[11px] text-text-3 mt-0.5">{mat.label}</p>
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Footer */}
@@ -346,7 +364,7 @@ function Dungeons() {
   }
 
   function handleCollect(data) {
-    setReward(data.rewards ?? {})
+    setReward({ ...(data.rewards ?? {}), materialDrop: data.materialDrop ?? null })
     if (data.drop?.item_catalog)      showItemDropToast(data.drop.item_catalog)
     if (data.cardDrop?.skill_cards)   showCardDropToast(data.cardDrop.skill_cards)
     triggerResourceFlash()
