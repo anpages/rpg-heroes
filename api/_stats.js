@@ -41,22 +41,32 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
 
   for (const item of itemsRes.data ?? []) {
     if (item.current_durability <= 0) continue
-    const c = item.item_catalog
-    stats.attack       += c.attack_bonus       ?? 0
-    stats.defense      += c.defense_bonus      ?? 0
-    stats.max_hp       += c.hp_bonus           ?? 0
-    stats.strength     += c.strength_bonus     ?? 0
-    stats.agility      += c.agility_bonus      ?? 0
-    stats.intelligence += c.intelligence_bonus ?? 0
-    weaponAttackBase  += c.attack_bonus  ?? 0
-    armorDefenseBase  += c.defense_bonus ?? 0
+    const c      = item.item_catalog
+    const durPct = c.max_durability > 0 ? item.current_durability / c.max_durability : 1
 
-    // Bonos de runas incrustadas
+    const attack       = Math.round((c.attack_bonus       ?? 0) * durPct)
+    const defense      = Math.round((c.defense_bonus      ?? 0) * durPct)
+    const hp           = Math.round((c.hp_bonus           ?? 0) * durPct)
+    const strength     = Math.round((c.strength_bonus     ?? 0) * durPct)
+    const agility      = Math.round((c.agility_bonus      ?? 0) * durPct)
+    const intelligence = Math.round((c.intelligence_bonus ?? 0) * durPct)
+
+    stats.attack       += attack
+    stats.defense      += defense
+    stats.max_hp       += hp
+    stats.strength     += strength
+    stats.agility      += agility
+    stats.intelligence += intelligence
+    weaponAttackBase  += attack
+    armorDefenseBase  += defense
+
+    // Bonos de runas incrustadas — también escalan con durabilidad
     for (const ir of item.item_runes ?? []) {
       for (const { stat, value } of ir.rune_catalog?.bonuses ?? []) {
         if (stat in STAT_MAP) {
-          stats[STAT_MAP[stat]] += value
-          runeStatBonuses[stat] = (runeStatBonuses[stat] ?? 0) + value
+          const runeVal = Math.round(value * durPct)
+          stats[STAT_MAP[stat]] += runeVal
+          runeStatBonuses[stat] = (runeStatBonuses[stat] ?? 0) + runeVal
         }
       }
     }

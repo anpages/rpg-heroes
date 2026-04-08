@@ -104,6 +104,10 @@ export default async function handler(req, res) {
     })
     .eq('id', hero.id)
 
+  // Reducir durabilidad del equipo — escala con el piso, siempre (gane o pierda)
+  const durLossFloor = targetFloor <= 10 ? 1 : targetFloor <= 25 ? 2 : targetFloor <= 40 ? 3 : 4
+  await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLossFloor })
+
   let rewards = null
 
   if (won) {
