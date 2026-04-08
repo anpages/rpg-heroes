@@ -143,7 +143,6 @@ export default function Torre() {
     return () => clearInterval(id)
   }, [])
 
-  // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now()
 
   // Bonos de equipo (durabilidad > 0) + cartas equipadas — necesario antes del render

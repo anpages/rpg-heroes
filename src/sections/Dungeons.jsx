@@ -363,7 +363,6 @@ function Dungeons() {
   }
 
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
-  // eslint-disable-next-line react-hooks/purity
   const heroHpNow  = interpolateHp(hero, Date.now())
 
   const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1

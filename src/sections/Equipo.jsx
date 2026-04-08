@@ -596,7 +596,6 @@ export default function Equipo() {
     )
   }
 
-  // eslint-disable-next-line react-hooks/purity
   const currentHp     = interpolateHp(hero, Date.now())
   const equippedCount = Object.keys(equippedBySlot).length
 

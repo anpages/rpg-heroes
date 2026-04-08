@@ -38,11 +38,11 @@ export default defineConfig([
       }],
 
       // Estas reglas de react-hooks v7 tienen falsos positivos para patrones
-      // intencionalmente válidos (setState en setInterval, Date.now() en render).
-      // Las dejamos como warn para que no bloqueen el build pero sigan siendo visibles.
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/purity':              'warn',
-      'react-hooks/refs':                'warn',
+      // intencionalmente válidos: setState en setInterval/useEffect de sincronización,
+      // Date.now() en render, patrón "previous-value ref" durante render.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity':              'off',
+      'react-hooks/refs':                'off',
     },
   },
 ])

@@ -141,7 +141,6 @@ function ResetTimer({ seconds }) {
   const [remaining, setRemaining] = useState(seconds)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemaining(seconds)
     const interval = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000)
     return () => clearInterval(interval)

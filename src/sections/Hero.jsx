@@ -871,7 +871,6 @@ function Hero() {
     intelligence: hero.intelligence + bonuses.intelligence,
   }
 
-  // eslint-disable-next-line react-hooks/purity
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
   const bagLimit = INVENTORY_BASE_LIMIT

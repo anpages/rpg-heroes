@@ -92,7 +92,6 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
   const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
-    // eslint-disable-next-line react-hooks/purity
     setOptimisticEndsAt(new Date(Date.now() + buildingUpgradeDurationMs(building.level)).toISOString())
     onOptimisticDeduct(cost)
     onUpgradePending(true)
