@@ -76,6 +76,26 @@
   18%  { background-color: color-mix(in srgb, #16a34a 13%, var(--surface-2)); }
   100% { background-color: var(--surface-2); }
 }
+@keyframes login-orb-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(40px, -60px) scale(1.15); }
+  66%       { transform: translate(-30px, 30px) scale(0.9); }
+}
+@keyframes login-orb-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-50px, 40px) scale(1.1); }
+  70%       { transform: translate(20px, -30px) scale(0.95); }
+}
+@keyframes login-orb-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(30px, 50px) scale(1.2); }
+}
+@keyframes login-particle {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-100vh) translateX(var(--drift)); opacity: 0; }
+}
 @theme {
   --animate-pulse-dot:        pulse-dot 1.6s ease-in-out infinite;
   --animate-install-slide-up: install-slide-up 0.3s ease;
