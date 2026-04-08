@@ -137,7 +137,7 @@ function LoginPage() {
           <span style={{
             display: 'block',
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 'clamp(52px, 16vw, 120px)',
+            fontSize: 'clamp(42px, 13vw, 100px)',
             lineHeight: 0.9,
             letterSpacing: '0.06em',
             color: '#fff',
@@ -148,7 +148,7 @@ function LoginPage() {
           <span style={{
             display: 'block',
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 'clamp(52px, 16vw, 120px)',
+            fontSize: 'clamp(42px, 13vw, 100px)',
             lineHeight: 0.9,
             letterSpacing: '0.06em',
             color: '#3b82f6',
