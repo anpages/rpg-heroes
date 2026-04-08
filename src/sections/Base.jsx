@@ -41,7 +41,6 @@ export default function Base({ mainRef }) {
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   // Al volver a la Base desde otra sección, resetear siempre a Inicio
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab === 'base') setActiveZone('inicio')
   }, [activeTab])
@@ -171,7 +170,6 @@ export default function Base({ mainRef }) {
             trainingRooms={trainingRooms}
             trainingProgress={trainingProgress}
             potions={potions}
-            resources={effectiveResources}
             research={research}
             onGoTo={setActiveZone}
           />

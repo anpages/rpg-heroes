@@ -9,7 +9,7 @@ import { fmt, fmtTime } from './helpers.js'
 
 /* ─── useUpgradeTimer ────────────────────────────────────────────────────────── */
 
-export function useUpgradeTimer(building, onUpgradeCollect) {
+function useUpgradeTimer(building, onUpgradeCollect) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [loading, setLoading]         = useState(false)
   const mountedRef     = useRef(false)
@@ -243,4 +243,3 @@ export function LockedBuildingCard({ type }) {
   )
 }
 
-export { PRODUCTION_TYPES }

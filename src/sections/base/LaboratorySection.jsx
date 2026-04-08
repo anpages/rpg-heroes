@@ -1,7 +1,6 @@
 import { Coins, Axe, Sparkles, Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
-import { fmt } from './helpers.js'
 
 export function LaboratorySection({ labLevel, potions, resources, onCraft }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)

@@ -249,7 +249,6 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
   const needsRepair = durPct < 100
   const canUpgrade  = cat.tier < 3 && durPct >= 100
-  const upgradeCost = ITEM_TIER_UPGRADE_COST[cat.tier]
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-surface w-full overflow-hidden">

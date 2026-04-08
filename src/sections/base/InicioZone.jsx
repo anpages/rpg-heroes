@@ -5,7 +5,7 @@ import { RESEARCH_NODES } from '../../lib/gameConstants.js'
 import { cardVariants, BUILDING_META } from './constants.js'
 import { fmtCountdown } from './helpers.js'
 
-export default function InicioZone({ byType, nexusData, trainingRooms, trainingProgress, potions, resources, research, onGoTo }) {
+export default function InicioZone({ byType, nexusData, trainingRooms, trainingProgress, potions, research, onGoTo }) {
   const progressByStat   = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const builtRooms       = trainingRooms.filter(r => r.built_at !== null)
   const readyRooms       = builtRooms.filter(r => hasReadyPoint(progressByStat[r.stat], r.level))
