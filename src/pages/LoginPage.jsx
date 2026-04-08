@@ -54,7 +54,7 @@ function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-x-hidden overflow-y-auto"
       style={{ background: '#06030f' }}
     >
       {/* ── Orbes de fondo animados ── */}
@@ -132,12 +132,12 @@ function LoginPage() {
           variants={fadeUp}
           transition={{ duration: 0.7 }}
           className="text-center"
-          style={{ marginBottom: 8 }}
+          style={{ marginBottom: 4 }}
         >
           <span style={{
             display: 'block',
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 'clamp(72px, 22vw, 120px)',
+            fontSize: 'clamp(52px, 16vw, 120px)',
             lineHeight: 0.9,
             letterSpacing: '0.06em',
             color: '#fff',
@@ -148,7 +148,7 @@ function LoginPage() {
           <span style={{
             display: 'block',
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 'clamp(72px, 22vw, 120px)',
+            fontSize: 'clamp(52px, 16vw, 120px)',
             lineHeight: 0.9,
             letterSpacing: '0.06em',
             color: '#3b82f6',
@@ -167,8 +167,8 @@ function LoginPage() {
             color: 'rgba(203,213,225,0.75)',
             textAlign: 'center',
             lineHeight: 1.6,
-            marginBottom: 36,
-            marginTop: 20,
+            marginBottom: 20,
+            marginTop: 12,
           }}
         >
           Construye tu base. Entrena a tus héroes.<br />
@@ -184,7 +184,7 @@ function LoginPage() {
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 10,
             width: '100%',
-            marginBottom: 36,
+            marginBottom: 20,
           }}
         >
           {FEATURES.map(({ Icon, label, color }) => (
