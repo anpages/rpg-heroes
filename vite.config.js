@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-pwa.svg'],
       manifest: {
-        name: 'RPG Heroes',
-        short_name: 'RPG Heroes',
+        name: 'RPG Legends',
+        short_name: 'RPG Legends',
         description: 'Idle RPG — Gestiona tu héroe y conquista mazmorras',
         theme_color: '#0f0a1e',
         background_color: '#0f0a1e',

@@ -284,7 +284,7 @@ function Dashboard({ session }) {
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
-        <span className="font-display text-[22px] tracking-[0.08em] text-[var(--blue-700)] flex-shrink-0">RPG Heroes</span>
+        <span className="font-display text-[22px] tracking-[0.08em] text-[var(--blue-700)] flex-shrink-0">RPG Legends</span>
 
         <div className="flex-1" />
 

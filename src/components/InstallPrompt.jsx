@@ -31,7 +31,7 @@ export default function InstallPrompt() {
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] w-[min(92vw,400px)] animate-install-slide-up">
       <div className="flex items-center gap-3 px-4 py-3 bg-surface border border-border rounded-xl shadow-[var(--shadow-lg)]">
         <div className="flex-1 flex flex-col gap-px min-w-0">
-          <span className="text-[0.8rem] font-semibold text-text">Instalar RPG Heroes</span>
+          <span className="text-[0.8rem] font-semibold text-text">Instalar RPG Legends</span>
           <span className="text-[0.7rem] text-text-3">Accede más rápido desde tu pantalla de inicio</span>
         </div>
         <button
