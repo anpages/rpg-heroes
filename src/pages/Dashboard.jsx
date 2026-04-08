@@ -377,7 +377,7 @@ function Dashboard({ session }) {
         </aside>
 
         {/* Main content */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-5 pb-0 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto px-2 pt-3 pb-0 md:p-8 md:pb-8 min-h-0 relative overflow-x-hidden [scrollbar-width:none] md:[scrollbar-width:auto] [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:auto">
 
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>

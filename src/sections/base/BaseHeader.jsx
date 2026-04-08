@@ -17,8 +17,11 @@ export default function BaseHeader({ byType, resources }) {
       {/* accent top bar */}
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: tier.color }} />
 
-      {/* Título + badge */}
-      <div className="px-5 pt-6 pb-4">
+      {/* Título */}
+      <div className="px-5 pt-4 pb-3">
+
+        {/* Mobile: título a ancho completo, badges debajo en 2 cols */}
+        {/* Desktop (sm+): título + badges a la derecha en fila */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
@@ -40,8 +43,8 @@ export default function BaseHeader({ byType, resources }) {
             <p className="text-[13px] text-text-3 leading-snug">{tier.subtitle}</p>
           </div>
 
-          {/* level badge + gold en fila */}
-          <div className="flex-shrink-0 flex items-center gap-2">
+          {/* Badges — solo visibles en sm+ */}
+          <div className="hidden sm:flex flex-shrink-0 items-center gap-2">
             <div
               className="flex flex-col items-center justify-center w-[52px] h-[52px] rounded-2xl border"
               style={{
@@ -66,6 +69,33 @@ export default function BaseHeader({ byType, resources }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Mobile: nivel + oro en 2 columnas, bajo el título */}
+        <div className="sm:hidden grid grid-cols-2 gap-2 mt-3">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+            style={{
+              background:  `color-mix(in srgb, ${tier.color} 10%, var(--surface-2))`,
+              borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
+            }}
+          >
+            <span className="text-[22px] font-extrabold leading-none" style={{ color: tier.color }}>{baseLevel}</span>
+            <span className="text-[11px] font-bold text-text-3 uppercase tracking-wide">Nivel</span>
+          </div>
+          {resources && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+              style={{
+                background:  'color-mix(in srgb,#d97706 8%,var(--surface-2))',
+                borderColor: 'color-mix(in srgb,#d97706 25%,var(--border))',
+              }}
+            >
+              <Coins size={15} strokeWidth={2} color="#d97706" />
+              <span className="text-[15px] font-extrabold leading-none tabular-nums text-text">{fmt(resources.gold)}</span>
+              <span className="text-[11px] font-bold text-text-3 uppercase tracking-wide">Oro</span>
+            </div>
+          )}
         </div>
       </div>
 

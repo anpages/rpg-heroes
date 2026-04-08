@@ -5,6 +5,7 @@ import {
   buildingUpgradeCost,
   buildingUpgradeDurationMs,
   LAB_BASE_LEVEL_REQUIRED,
+  LIBRARY_BASE_LEVEL_REQUIRED,
   BUILDING_MAX_LEVEL,
 } from '../src/lib/gameConstants.js'
 
@@ -44,12 +45,16 @@ export default async function handler(req, res) {
   }
 
   // Laboratorio: requiere nivel de base ≥ 2
-  if (building.type === 'laboratory') {
+  // Biblioteca: requiere nivel de base ≥ 3
+  if (building.type === 'laboratory' || building.type === 'library') {
     const { data: allBuildings } = await supabase
       .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
     const baseLevel = computeBaseLevel(allBuildings ?? [])
-    if (baseLevel < LAB_BASE_LEVEL_REQUIRED) {
+    if (building.type === 'laboratory' && baseLevel < LAB_BASE_LEVEL_REQUIRED) {
       return res.status(403).json({ error: `Necesitas base nivel ${LAB_BASE_LEVEL_REQUIRED} para construir el Laboratorio` })
+    }
+    if (building.type === 'library' && baseLevel < LIBRARY_BASE_LEVEL_REQUIRED) {
+      return res.status(403).json({ error: `Necesitas base nivel ${LIBRARY_BASE_LEVEL_REQUIRED} para construir la Biblioteca` })
     }
   }
 

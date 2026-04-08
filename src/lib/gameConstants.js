@@ -163,7 +163,10 @@ export function buildingUpgradeCost(type, currentLevel) {
 }
 
 /** Nivel de base mínimo requerido para construir el Laboratorio */
-export const LAB_BASE_LEVEL_REQUIRED = 2
+export const LAB_BASE_LEVEL_REQUIRED = 3
+
+/** Nivel de base mínimo requerido para construir la Biblioteca (además de Lab Nv2) */
+export const LIBRARY_BASE_LEVEL_REQUIRED = 3
 
 /** Nivel máximo de cualquier edificio de base */
 export const BUILDING_MAX_LEVEL = 5
