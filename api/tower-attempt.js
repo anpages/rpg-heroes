@@ -5,7 +5,7 @@ import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
 import { interpolateHP, canPlay } from './_hp.js'
-import { isUUID, safeHours } from './_validate.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)

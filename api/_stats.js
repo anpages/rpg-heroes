@@ -1,3 +1,5 @@
+import { getResearchBonuses } from './_research.js'
+
 /**
  * Calcula las stats efectivas del héroe:
  * base + bonos del equipo equipado (durabilidad > 0) + bonos de cartas equipadas (× rango)
@@ -95,7 +97,6 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
 
   // Aplicar bonos de investigación completada
   if (playerId) {
-    const { getResearchBonuses } = await import('./_research.js')
     const rb = await getResearchBonuses(supabase, playerId)
 
     if (rb.attack_pct > 0)       stats.attack        = Math.round(stats.attack        * (1 + rb.attack_pct))
