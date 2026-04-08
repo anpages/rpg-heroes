@@ -106,6 +106,7 @@ function LoginPage() {
       {/* ── Contenido ── */}
       <motion.div
         className="relative z-10 flex flex-col items-center px-6 w-full max-w-[480px]"
+      style={{ paddingTop: 'max(32px, env(safe-area-inset-top, 16px))', paddingBottom: 'max(32px, env(safe-area-inset-bottom, 16px))' }}
         variants={stagger}
         initial="hidden"
         animate="visible"
