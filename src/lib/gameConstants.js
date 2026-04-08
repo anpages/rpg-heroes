@@ -327,7 +327,7 @@ export const ITEM_TIER_UPGRADE_COST = {
 // ── Héroes ────────────────────────────────────────────────────────────────────
 
 /** Nivel mínimo de Base requerido para cada slot de héroe adicional. */
-export const HERO_SLOT_REQUIREMENTS = { 2: 2, 3: 3 }
+export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
 
 // ── Pociones ─────────────────────────────────────────────────────────────────
 

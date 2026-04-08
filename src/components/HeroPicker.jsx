@@ -7,9 +7,9 @@ import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { Lock, Plus, ChevronDown } from 'lucide-react'
-import { computeBaseLevel } from '../lib/gameConstants'
+import { computeBaseLevel, HERO_SLOT_REQUIREMENTS } from '../lib/gameConstants'
 
-const SLOT_UNLOCK      = { 2: 2, 3: 3 } // slot → nivel mínimo de Base
+const SLOT_UNLOCK      = HERO_SLOT_REQUIREMENTS
 const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
 const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: '¡Recoger!' }
 

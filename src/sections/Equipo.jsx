@@ -794,7 +794,7 @@ export default function Equipo() {
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {unequipped.map(item => {
                 const cat      = item.item_catalog
                 const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
