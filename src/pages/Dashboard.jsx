@@ -22,6 +22,15 @@ import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
 import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers } from 'lucide-react'
+
+function RedditIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="#FF4500"/>
+      <path fill="white" d="M16.67 10a1.46 1.46 0 0 0-2.47-1 7.12 7.12 0 0 0-3.85-1.23l.65-3.07 2.13.45a1 1 0 1 0 .86-.49 1 1 0 0 0-.89.54l-2.37-.5a.16.16 0 0 0-.19.12l-.73 3.44a7.14 7.14 0 0 0-3.89 1.23 1.46 1.46 0 1 0-1.61 2.39 2.87 2.87 0 0 0 0 .44c0 2.24 2.61 4.06 5.83 4.06s5.83-1.82 5.83-4.06a2.87 2.87 0 0 0 0-.44 1.46 1.46 0 0 0 .7-1.33zM7.27 11a1 1 0 1 1 1 1 1 1 0 0 1-1-1zm5.58 2.71a3.58 3.58 0 0 1-2.85.87 3.58 3.58 0 0 1-2.85-.87.23.23 0 0 1 .33-.33 3.15 3.15 0 0 0 2.52.71 3.15 3.15 0 0 0 2.52-.71.23.23 0 0 1 .33.33zm-.22-1.71a1 1 0 1 1 1-1 1 1 0 0 1-1 1z"/>
+    </svg>
+  )
+}
 import { AnimatePresence, motion } from 'framer-motion'
 
 
@@ -355,6 +364,18 @@ function Dashboard({ session }) {
                 </button>
               )
             })}
+            <a
+              href="https://www.reddit.com/r/RPGLegendsnet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-3 py-[10px] rounded-lg text-[14px] font-medium text-text-2 hover:bg-bg hover:text-text transition-[background,color] duration-150 mt-auto"
+            >
+              <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                <RedditIcon size={18} />
+              </span>
+              <span className="leading-none">Reddit</span>
+            </a>
+
             {import.meta.env.DEV && (
               <>
                 <button
@@ -482,6 +503,17 @@ function Dashboard({ session }) {
             </button>
           )
         })}
+        <a
+          href="https://www.reddit.com/r/RPGLegendsnet"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium text-text-3 hover:bg-bg transition-[color,background] duration-150 py-2 px-1"
+        >
+          <span className="w-[22px] h-[22px] flex items-center justify-center">
+            <RedditIcon size={20} />
+          </span>
+          <span className="leading-none">Reddit</span>
+        </a>
       </nav>
 
       {/* Missions drawer */}
