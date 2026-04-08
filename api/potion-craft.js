@@ -1,23 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID } from './_validate.js'
-import { safeHours } from './_validate.js'
-
-const MAX_POTION_STACK = 5
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
+import { MAX_POTION_STACK } from './_constants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { heroId, potionId } = req.body
   if (!heroId)   return res.status(400).json({ error: 'heroId requerido' })
@@ -76,26 +64,20 @@ export default async function handler(req, res) {
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs        = Date.now()
-  const hours        = safeHours(resources.last_collected_at, nowMs)
-  const curGold      = Math.floor(resources.gold + resources.gold_rate * hours)
-  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const curWood      = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana      = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (curGold < potion.recipe_gold) return res.status(402).json({ error: 'Oro insuficiente' })
-  if (curWood < potion.recipe_wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (curMana < potion.recipe_mana) return res.status(402).json({ error: 'Maná insuficiente' })
+  if (snap.gold < potion.recipe_gold) return res.status(402).json({ error: 'Oro insuficiente' })
+  if (snap.wood < potion.recipe_wood) return res.status(402).json({ error: 'Madera insuficiente' })
+  if (snap.mana < potion.recipe_mana) return res.status(402).json({ error: 'Maná insuficiente' })
 
-  // Descontar recursos
   const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
-      gold: curGold - potion.recipe_gold,
-      iron: snapshotIron,
-      wood: curWood - potion.recipe_wood,
-      mana: curMana - potion.recipe_mana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      gold: snap.gold - potion.recipe_gold,
+      iron: snap.iron,
+      wood: snap.wood - potion.recipe_wood,
+      mana: snap.mana - potion.recipe_mana,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 

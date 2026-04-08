@@ -83,53 +83,47 @@ function ProgressStrip({ maxFloor }) {
   )
 }
 
-/* ─── Stat comparison row ────────────────────────────────────────────────────── */
+/* ─── Threat indicator ───────────────────────────────────────────────────────── */
 
-function StatCompareRow({ label, heroVal, enemyVal, heroDisplay }) {
-  const heroWins  = heroVal > enemyVal
-  const enemyWins = enemyVal > heroVal
+const THREAT_META = [
+  { label: 'Débil',      color: '#16a34a', dots: 1 },
+  { label: 'Moderado',   color: '#65a30d', dots: 2 },
+  { label: 'Equilibrado',color: '#d97706', dots: 3 },
+  { label: 'Peligroso',  color: '#ea580c', dots: 4 },
+  { label: 'Letal',      color: '#dc2626', dots: 5 },
+]
 
+function threatLevel(hero, enemy) {
+  if (!hero || !enemy) return 3
+  const heroScore  = hero.attack + hero.defense + hero.max_hp * 0.04 + hero.strength * 0.5 + hero.agility * 0.3
+  const enemyScore = enemy.attack + enemy.defense + enemy.max_hp * 0.04 + enemy.strength * 0.5 + enemy.agility * 0.3
+  const ratio = enemyScore / Math.max(1, heroScore)
+  if (ratio < 0.7)  return 1
+  if (ratio < 0.9)  return 2
+  if (ratio < 1.15) return 3
+  if (ratio < 1.4)  return 4
+  return 5
+}
+
+function ThreatIndicator({ level }) {
+  const meta = THREAT_META[level - 1] ?? THREAT_META[2]
   return (
-    <div
-      className="grid items-center gap-x-3 px-3 py-1.5 rounded-lg"
-      style={{
-        gridTemplateColumns: '1fr 48px 1fr',
-        background: heroWins
-          ? 'rgba(59,130,246,0.07)'
-          : enemyWins
-            ? 'rgba(239,68,68,0.07)'
-            : 'transparent',
-      }}
-    >
-      <span className="text-[15px] font-extrabold tabular-nums whitespace-nowrap text-right text-[var(--blue-500)]">
-        {heroDisplay ?? heroVal}
-      </span>
-      <span className="text-[10px] font-bold text-text-3 text-center uppercase tracking-[0.1em] leading-none">
-        {label}
-      </span>
-      <span className="text-[15px] font-extrabold tabular-nums text-[#ef4444]">
-        {enemyVal}
-      </span>
+    <div className="flex items-center gap-3">
+      <div className="flex gap-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="w-4 h-4 rounded-sm transition-colors"
+            style={{ background: i < meta.dots ? meta.color : 'var(--border)' }}
+          />
+        ))}
+      </div>
+      <span className="text-[13px] font-bold" style={{ color: meta.color }}>{meta.label}</span>
     </div>
   )
 }
 
 /* ─── Main component ─────────────────────────────────────────────────────────── */
-
-function estimateDamageTaken(hero, enemy) {
-  if (!hero || !enemy) return null
-  const physDmg = (atk, str, def) => Math.max(1, Math.round((atk + Math.floor(str * 0.3)) * (1 - def / (def + 60))))
-  const dmgA = physDmg(hero.attack ?? 0, hero.strength ?? 0, enemy.defense) + Math.floor((hero.intelligence ?? 0) * 0.04)
-  const dmgB = physDmg(enemy.attack, enemy.strength, hero.defense ?? 0) + Math.floor(enemy.intelligence * 0.04)
-  let hpA = hero.max_hp, hpB = enemy.max_hp
-  const aFirst = (hero.agility ?? 0) >= enemy.agility
-  for (let r = 1; r <= 30 && hpA > 0 && hpB > 0; r++) {
-    if (aFirst) { hpB = Math.max(0, hpB - dmgA); if (hpB > 0) hpA = Math.max(0, hpA - dmgB) }
-    else        { hpA = Math.max(0, hpA - dmgB); if (hpA > 0) hpB = Math.max(0, hpB - dmgA) }
-    if (hpA <= 0 || hpB <= 0) break
-  }
-  return hero.max_hp - Math.max(0, hpA)
-}
 
 
 export default function Torre() {
@@ -194,7 +188,7 @@ export default function Torre() {
   const enemy       = floorEnemyStats(targetFloor)
   const rewards     = floorRewards(targetFloor)
   const isBusy      = hero?.status !== 'idle'
-  const estDamage   = estimateDamageTaken(effectiveHero, enemy)
+  const threat      = threatLevel(effectiveHero, enemy)
 
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
@@ -215,16 +209,6 @@ export default function Torre() {
   })
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
-
-  const guaranteedKo = estDamage !== null && hpNow <= estDamage
-
-  const HERO_STATS = [
-    { label: 'HP',  heroVal: hpNow,                        enemyVal: enemy.max_hp   },
-    { label: 'Atq', heroVal: effectiveHero?.attack   ?? 0, enemyVal: enemy.attack   },
-    { label: 'Def', heroVal: effectiveHero?.defense  ?? 0, enemyVal: enemy.defense  },
-    { label: 'Fue', heroVal: effectiveHero?.strength ?? 0, enemyVal: enemy.strength },
-    { label: 'Agi', heroVal: effectiveHero?.agility  ?? 0, enemyVal: enemy.agility  },
-  ]
 
   return (
     <div className="flex flex-col gap-4 pb-8">
@@ -250,8 +234,9 @@ export default function Torre() {
       )}
 
       {/* Battle panel */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-3.5 shadow-[var(--shadow-sm)]">
-        {/* Header */}
+      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
+
+        {/* Floor + milestone */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-[13px] font-bold text-text bg-surface-2 border border-border rounded-full px-2.5 py-1">
             <ChevronUp size={13} strokeWidth={2.5} />
@@ -259,35 +244,24 @@ export default function Torre() {
           </div>
           {rewards.milestone && (
             <span className="flex items-center gap-1 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_12%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] px-2 py-0.5 rounded-full">
-              <Star size={10} strokeWidth={2} /> Hito
+              <Star size={10} strokeWidth={2} /> Hito — recompensa ×2
             </span>
           )}
         </div>
 
-        {/* Combatants + stat headers fusionados */}
-        <div className="grid items-center gap-x-3 px-3" style={{ gridTemplateColumns: '1fr 48px 1fr' }}>
-          <span className="text-[16px] font-extrabold text-[var(--blue-500)] truncate">{hero?.name ?? '—'}</span>
-          <span className="text-[10px] font-extrabold text-text-3 tracking-[0.1em] text-center">VS</span>
-          <span className="text-[16px] font-extrabold text-[#ef4444] truncate text-right">{enemyName(targetFloor)}</span>
-        </div>
-
-        {/* Stats */}
-        <div className="flex flex-col gap-0.5">
-          {HERO_STATS.map(s => <StatCompareRow key={s.label} {...s} />)}
-        </div>
-        <p className="text-[11px] text-text-3 px-1 -mt-0.5">HP actual · stats con equipo y cartas incluidos</p>
-
-        {/* Advertencia KO asegurado */}
-        {guaranteedKo && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,#dc2626_10%,var(--surface))] border border-[color-mix(in_srgb,#dc2626_30%,var(--border))]">
-            <span className="text-[15px] leading-none">⚠️</span>
-            <p className="text-[12px] font-semibold text-[#dc2626]">
-              Tu HP no aguantará este combate. Espera a regenerar o asume la derrota.
-            </p>
+        {/* Enemy */}
+        <div className="flex items-center justify-between gap-4 px-1">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
+            <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{enemyName(targetFloor)}</span>
           </div>
-        )}
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Nivel de amenaza</span>
+            <ThreatIndicator level={threat} />
+          </div>
+        </div>
 
-        {/* Rewards preview */}
+        {/* Rewards */}
         <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
           <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
             <Coins size={13} color="#d97706" strokeWidth={2} />{rewards.gold} oro
@@ -295,9 +269,6 @@ export default function Torre() {
           <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
             <Star size={13} color="#0369a1" strokeWidth={2} />{rewards.experience} XP
           </span>
-          {rewards.milestone && (
-            <span className="ml-auto text-[11px] font-bold text-[#d97706]">×2 recompensas</span>
-          )}
         </div>
 
         <PotionPanel heroId={heroId} activeEffects={hero?.active_effects ?? {}} />
@@ -311,7 +282,7 @@ export default function Torre() {
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >
           <Swords size={16} strokeWidth={2} />
-          {attemptMutation.isPending ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : !hasEnoughHp ? 'HP insuficiente' : `Intentar piso ${targetFloor}`}
+          {attemptMutation.isPending ? 'Combatiendo...' : isBusy ? 'Héroe ocupado' : !hasEnoughHp ? 'HP insuficiente (20% mín.)' : `Combatir piso ${targetFloor}`}
         </motion.button>
       </div>
     </div>

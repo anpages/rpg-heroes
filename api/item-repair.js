@@ -1,21 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
 import { REPAIR_COST_TABLE as REPAIR_COST } from './_constants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { itemId } = req.body
   if (!itemId) return res.status(400).json({ error: 'itemId requerido' })
@@ -64,15 +54,10 @@ export default async function handler(req, res) {
 
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
-  const now = Date.now()
-  const hours = safeHours(resources.last_collected_at, now)
-  const currentGold = Math.floor(resources.gold + resources.gold_rate * hours)
-  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (currentGold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
-  if (currentMana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
+  if (snap.gold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
+  if (snap.mana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
 
   // Reparar
   await supabase
@@ -83,11 +68,11 @@ export default async function handler(req, res) {
   await supabase
     .from('resources')
     .update({
-      gold: currentGold - goldCost,
-      iron: snapshotIron,
-      wood: snapshotWood,
-      mana: currentMana - manaCost,
-      last_collected_at: new Date(now).toISOString(),
+      gold: snap.gold - goldCost,
+      iron: snap.iron,
+      wood: snap.wood,
+      mana: snap.mana - manaCost,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 

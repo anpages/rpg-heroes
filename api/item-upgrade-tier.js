@@ -1,21 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
 import { ITEM_TIER_UPGRADE_COST } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { heroId, inventoryItemId } = req.body
   if (!heroId)           return res.status(400).json({ error: 'heroId requerido' })
@@ -57,48 +47,53 @@ export default async function handler(req, res) {
   if (!cost) return res.status(500).json({ error: 'Coste de mejora de tier no definido' })
 
   // Buscar el siguiente tier en el catálogo (mismo slot, rareza, is_two_handed y tier+1)
-  const { data: nextCatalog } = await supabase
+  // is_two_handed puede ser true, false o null — tratamos null y false como "no es doble mano"
+  let catalogQuery = supabase
     .from('item_catalog')
     .select('id, max_durability, name')
     .eq('slot', cat.slot)
     .eq('rarity', cat.rarity)
-    .eq('is_two_handed', cat.is_two_handed ?? false)
     .eq('tier', cat.tier + 1)
-    .maybeSingle()
+
+  if (cat.is_two_handed === true) {
+    catalogQuery = catalogQuery.eq('is_two_handed', true)
+  } else {
+    catalogQuery = catalogQuery.or('is_two_handed.is.null,is_two_handed.eq.false')
+  }
+
+  const { data: nextCatalog } = await catalogQuery.maybeSingle()
 
   if (!nextCatalog) {
-    return res.status(404).json({ error: 'No hay versión de tier superior para este ítem' })
+    return res.status(404).json({ error: 'No existe una versión T' + (cat.tier + 1) + ' de este ítem en el catálogo' })
   }
 
   // Snapshot de recursos y verificar costes
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs    = Date.now()
-  const hours    = safeHours(resources.last_collected_at, nowMs)
-  const curGold  = Math.floor(resources.gold + resources.gold_rate * hours)
-  const curIron  = Math.floor(resources.iron + resources.iron_rate * hours)
-  const curWood  = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana  = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap        = snapshotResources(resources)
+  const curFragments = resources.fragments ?? 0
+  const curEssence   = resources.essence   ?? 0
 
-  if (curGold < cost.gold) return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (curIron < cost.iron) return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (curMana < cost.mana) return res.status(402).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
+  if (snap.gold    < cost.gold)      return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
+  if (curFragments < cost.fragments) return res.status(402).json({ error: `Fragmentos insuficientes (necesitas ${cost.fragments})` })
+  if (curEssence   < cost.essence)   return res.status(402).json({ error: `Esencia insuficiente (necesitas ${cost.essence})` })
 
-  // Descontar recursos
   const { error: resourceUpdateError } = await supabase
     .from('resources')
     .update({
-      gold: curGold - cost.gold,
-      iron: curIron - cost.iron,
-      wood: curWood,
-      mana: curMana - cost.mana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      gold:      snap.gold      - cost.gold,
+      iron:      snap.iron,
+      wood:      snap.wood,
+      mana:      snap.mana,
+      fragments: curFragments - cost.fragments,
+      essence:   curEssence   - cost.essence,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 

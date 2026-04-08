@@ -14,6 +14,8 @@ function interpolate(resources) {
     iron:      Math.floor(resources.iron + resources.iron_rate * hoursElapsed),
     wood:      Math.floor(resources.wood + resources.wood_rate * hoursElapsed),
     mana:      Math.floor(resources.mana + resources.mana_rate * hoursElapsed),
+    fragments: resources.fragments ?? 0,  // No tienen producción pasiva, solo drops
+    essence:   resources.essence   ?? 0,
     gold_rate: 0,
     iron_rate: resources.iron_rate,
     wood_rate: resources.wood_rate,
@@ -34,7 +36,7 @@ export function useResources(userId) {
     queryFn: async () => {
       const { data } = await supabase
         .from('resources')
-        .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
+        .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
         .eq('player_id', userId)
         .single()
       return data

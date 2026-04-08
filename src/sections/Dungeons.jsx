@@ -13,7 +13,7 @@ import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
 import { showItemDropToast, showCardDropToast } from '../lib/dropToast'
-import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers } from 'lucide-react'
+import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const listVariants = {
@@ -39,12 +39,17 @@ const RARITY_COLORS = {
 }
 
 const DUNGEON_TYPE_META = {
-  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas'                 },
-  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura · Accesorios' },
-  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas'   },
-  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura'     },
-  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura'       },
-  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza · Cartas'   },
+  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas',                 material: 'fragments' },
+  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura · Accesorios', material: null        },
+  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas',   material: 'essence'   },
+  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura',     material: 'fragments' },
+  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura',       material: 'fragments' },
+  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza · Cartas',   material: 'essence'   },
+}
+
+const MATERIAL_META = {
+  fragments: { label: 'Fragmentos', Icon: Layers,   color: '#b45309' },
+  essence:   { label: 'Esencia',    Icon: Sparkles, color: '#7c3aed' },
 }
 
 function DifficultyDots({ value }) {
@@ -153,6 +158,23 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
                 {meta.loot}
               </span>
             )}
+            {meta?.material && (() => {
+              const mat = MATERIAL_META[meta.material]
+              const MatIcon = mat.Icon
+              return (
+                <span
+                  className="flex items-center gap-1 text-[12px] font-bold px-1.5 py-0.5 rounded-md border"
+                  style={{
+                    color: mat.color,
+                    background: `color-mix(in srgb, ${mat.color} 10%, transparent)`,
+                    borderColor: `color-mix(in srgb, ${mat.color} 30%, transparent)`,
+                  }}
+                >
+                  <MatIcon size={11} strokeWidth={2.5} />
+                  {mat.label}
+                </span>
+              )
+            })()}
           </div>
         </div>
 

@@ -1,22 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 import { UNLOCK_TRIGGERS } from './_constants.js'
-import { isUUID, safeHours } from './_validate.js'
+import { isUUID, snapshotResources } from './_validate.js'
 import { computeProductionRates } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { buildingId } = req.body
   if (!buildingId) return res.status(400).json({ error: 'buildingId requerido' })
@@ -68,15 +58,11 @@ export default async function handler(req, res) {
     .eq('player_id', user.id)
     .single()
 
-  const now = Date.now()
   if (resources) {
-    const hours = safeHours(resources.last_collected_at, now)
-    const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-    const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-    const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
+    const snap = snapshotResources(resources)
     await supabase
       .from('resources')
-      .update({ ...rates, iron: snapshotIron, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
+      .update({ ...rates, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
       .eq('player_id', user.id)
   } else {
     await supabase

@@ -1,19 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res, 'GET')
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { data, error } = await supabase
     .from('player_research')

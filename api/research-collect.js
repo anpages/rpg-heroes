@@ -1,21 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import { safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { snapshotResources } from './_validate.js'
 import { RESEARCH_NODES, computeProductionRates } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { nodeId } = req.body
   if (!nodeId) return res.status(400).json({ error: 'nodeId requerido' })
@@ -75,21 +65,15 @@ export default async function handler(req, res) {
 
       const newManaRate = Math.round(baseRates.mana_rate * (1 + totalManaRatePct))
 
-      // Snapshot antes de cambiar la tasa
-      const nowMs        = Date.now()
-      const hours        = safeHours(resources.last_collected_at, nowMs)
-      const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-      const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-      const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
-
+      const snap = snapshotResources(resources)
       await supabase
         .from('resources')
         .update({
           mana_rate: newManaRate,
-          iron:      snapshotIron,
-          wood:      snapshotWood,
-          mana:      snapshotMana,
-          last_collected_at: new Date(nowMs).toISOString(),
+          iron:      snap.iron,
+          wood:      snap.wood,
+          mana:      snap.mana,
+          last_collected_at: snap.nowIso,
         })
         .eq('player_id', user.id)
     }

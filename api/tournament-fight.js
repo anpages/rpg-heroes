@@ -1,23 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
+import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
-import { isUUID, safeHours } from './_validate.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { heroId } = req.body
   if (!heroId)         return res.status(400).json({ error: 'heroId requerido' })
@@ -99,8 +90,6 @@ export default async function handler(req, res) {
   let rewards = null
   if (won) {
     rewards = tournamentRoundRewards(nextRound, champion)
-    const nowMs = Date.now()
-
     const { data: resources } = await supabase
       .from('resources')
       .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
@@ -108,25 +97,15 @@ export default async function handler(req, res) {
       .single()
 
     if (resources) {
-      const hours = safeHours(resources.last_collected_at, nowMs)
-      const currentGold  = Math.floor(resources.gold + resources.gold_rate * hours)
-      const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-      const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-      const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
+      const snap = snapshotResources(resources)
       await supabase
         .from('resources')
-        .update({
-          gold: currentGold + rewards.gold,
-          iron: snapshotIron,
-          wood: snapshotWood,
-          mana: snapshotMana,
-          last_collected_at: new Date(nowMs).toISOString(),
-        })
+        .update({ gold: snap.gold + rewards.gold, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
         .eq('player_id', user.id)
     }
 
     const newXp      = hero.experience + rewards.experience
-    const xpForLevel = hero.level * 150
+    const xpForLevel = xpRequiredForLevel(hero.level)
     const levelUp    = newXp >= xpForLevel
     await supabase
       .from('heroes')

@@ -1,20 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { heroId, runeId } = req.body
   if (!heroId || !isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
@@ -49,27 +39,20 @@ export default async function handler(req, res) {
   const resources = resourcesRes.data
   if (!resources) return res.status(500).json({ error: 'Sin recursos' })
 
-  // Snapshot de recursos pasivos antes de modificar
-  const nowMs = Date.now()
-  const hours = safeHours(resources.last_collected_at, nowMs)
-  const iron  = Math.floor((resources.iron ?? 0) + (resources.iron_rate ?? 0) * hours)
-  const wood  = Math.floor((resources.wood ?? 0) + (resources.wood_rate ?? 0) * hours)
-  const mana  = Math.floor((resources.mana ?? 0) + (resources.mana_rate ?? 0) * hours)
-  const gold  = resources.gold ?? 0
+  const snap = snapshotResources(resources)
 
-  if (gold < rune.recipe_gold || wood < rune.recipe_wood || mana < rune.recipe_mana) {
+  if (snap.gold < rune.recipe_gold || snap.wood < rune.recipe_wood || snap.mana < rune.recipe_mana) {
     return res.status(400).json({ error: 'Recursos insuficientes' })
   }
 
-  // Descontar recursos con snapshot
   const { error: rErr } = await supabase
     .from('resources')
     .update({
-      gold: gold - rune.recipe_gold,
-      wood: wood - rune.recipe_wood,
-      mana: mana - rune.recipe_mana,
-      iron,
-      last_collected_at: new Date(nowMs).toISOString(),
+      gold: snap.gold - rune.recipe_gold,
+      wood: snap.wood - rune.recipe_wood,
+      mana: snap.mana - rune.recipe_mana,
+      iron: snap.iron,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 

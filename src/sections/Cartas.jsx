@@ -9,7 +9,9 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { CARD_SLOT_COUNT } from '../lib/gameConstants'
 import { cardBonusAtRank, cardPenaltyAtRank } from '../lib/gameFormulas'
-import { Sword, Shield, Wind, Brain, Layers, Wrench, Shuffle, FlameKindling, X } from 'lucide-react'
+import { useState } from 'react'
+import { Sword, Shield, Wind, Brain, Layers, Wrench, Shuffle, FlameKindling, X, Info } from 'lucide-react'
+import { CardDetailModal } from '../components/CardDetailModal'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
@@ -57,7 +59,7 @@ function formatVal(stat, val) {
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
 
-function CardSlot({ card, slotIndex, onUnequip }) {
+function CardSlot({ card, slotIndex, onUnequip, onViewDetail }) {
   if (!card) {
     return (
       <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-border bg-surface/50">
@@ -107,9 +109,16 @@ function CardSlot({ card, slotIndex, onUnequip }) {
         <span className="text-[10px] font-black text-text-3 opacity-40 flex-shrink-0">#{slotIndex + 1}</span>
       </div>
       {/* Footer */}
-      <div className="border-t border-border">
+      <div className="flex border-t border-border divide-x divide-border">
         <button
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+          className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+          onClick={() => onViewDetail(card)}
+          title="Ver detalles"
+        >
+          <Info size={13} strokeWidth={2} />
+        </button>
+        <button
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
           onClick={() => onUnequip(card.id)}
         >
           <X size={12} strokeWidth={2.5} /> Quitar
@@ -119,7 +128,7 @@ function CardSlot({ card, slotIndex, onUnequip }) {
   )
 }
 
-function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading }) {
+function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading, onViewDetail }) {
   const sc         = card.skill_cards
   const meta       = getMeta(sc)
   const rank       = Math.min(card.rank ?? 1, 5)
@@ -159,6 +168,13 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading
       </div>
       {/* Footer */}
       <div className="flex border-t border-border divide-x divide-border">
+        <button
+          className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+          onClick={() => onViewDetail(card)}
+          title="Ver detalles"
+        >
+          <Info size={13} strokeWidth={2} />
+        </button>
         {fusePair && (
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
@@ -194,6 +210,7 @@ export default function Cartas() {
   const { cards }   = useHeroCards(heroId)
   const queryClient  = useQueryClient()
   const equipPending = useRef(0)
+  const [cardDetail, setCardDetail] = useState(null)
 
   // Equip / unequip: optimistic desde el cache actual, invalida solo al terminar todas
   const equipMutation = useMutation({
@@ -331,7 +348,7 @@ export default function Cartas() {
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
           <div className="flex flex-col gap-2">
             {equippedCards.map((card, i) => (
-              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} />
+              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} onViewDetail={setCardDetail} />
             ))}
           </div>
 
@@ -380,6 +397,7 @@ export default function Cartas() {
                     onEquip={handleEquip}
                     onFuse={handleFuse}
                     fuseLoading={fuseMutation.isPending}
+                    onViewDetail={setCardDetail}
                   />
                 )
               })}
@@ -387,6 +405,8 @@ export default function Cartas() {
           </div>
         )}
       </div>
+
+      {cardDetail && <CardDetailModal card={cardDetail} onClose={() => setCardDetail(null)} />}
 
     </div>
   )

@@ -1,31 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
-import { safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { snapshotResources } from './_validate.js'
 import {
   computeBaseLevel,
   TRAINING_ROOM_BUILD_COST,
   TRAINING_ROOM_BUILD_TIME_MS,
   TRAINING_ROOM_BASE_LEVEL_REQUIRED,
 } from '../src/lib/gameConstants.js'
-
-const VALID_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']
+import { TRAINING_ROOM_STATS } from './_constants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { stat } = req.body
-  if (!stat || !VALID_STATS.includes(stat)) return res.status(400).json({ error: 'Stat inválido' })
+  if (!stat || !TRAINING_ROOM_STATS.includes(stat)) return res.status(400).json({ error: 'Stat inválido' })
 
   // Verificar nivel de base requerido
   const requiredLevel = TRAINING_ROOM_BASE_LEVEL_REQUIRED[stat] ?? 1
@@ -59,28 +48,24 @@ export default async function handler(req, res) {
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs   = Date.now()
-  const hours   = safeHours(resources.last_collected_at, nowMs)
-  const curIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const curWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (curWood < TRAINING_ROOM_BUILD_COST.wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (curIron < TRAINING_ROOM_BUILD_COST.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
+  if (snap.wood < TRAINING_ROOM_BUILD_COST.wood) return res.status(402).json({ error: 'Madera insuficiente' })
+  if (snap.iron < TRAINING_ROOM_BUILD_COST.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
 
   const { error: updateErr } = await supabase
     .from('resources')
     .update({
-      wood: curWood - TRAINING_ROOM_BUILD_COST.wood,
-      iron: curIron - TRAINING_ROOM_BUILD_COST.iron,
-      mana: curMana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      wood: snap.wood - TRAINING_ROOM_BUILD_COST.wood,
+      iron: snap.iron - TRAINING_ROOM_BUILD_COST.iron,
+      mana: snap.mana,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 
   if (updateErr) return res.status(500).json({ error: updateErr.message })
 
-  const endsAt = new Date(nowMs + TRAINING_ROOM_BUILD_TIME_MS).toISOString()
+  const endsAt = new Date(snap.nowMs + TRAINING_ROOM_BUILD_TIME_MS).toISOString()
 
   const { error: insertErr } = await supabase
     .from('training_rooms')

@@ -38,13 +38,18 @@ export function attackMultiplier(attack) {
  * Stats del enemigo de un piso de la torre.
  */
 export function floorEnemyStats(floor) {
+  // Pisos 1-25: crecimiento lineal normal.
+  // Pisos 26+: crecimiento a mitad de ritmo para que el late-game sea alcanzable.
+  const cap = 25
+  const slow = Math.max(0, floor - cap)
+  const fast = Math.min(floor, cap)
   return {
-    max_hp:       80  + floor * 15,
-    attack:        5  + floor * 2,
-    defense:       2  + floor * 1,
-    strength:      2  + Math.floor(floor * 0.5),
-    agility:       2  + Math.floor(floor * 0.3),
-    intelligence:  1  + Math.floor(floor * 0.3),
+    max_hp:      80  + fast * 15 + slow * 8,
+    attack:       5  + fast * 2  + slow * 1,
+    defense:      2  + fast * 1  + Math.floor(slow * 0.5),
+    strength:     2  + Math.floor(fast * 0.5) + Math.floor(slow * 0.25),
+    agility:      2  + Math.floor(fast * 0.3) + Math.floor(slow * 0.15),
+    intelligence: 1  + Math.floor(fast * 0.3) + Math.floor(slow * 0.15),
   }
 }
 
@@ -66,6 +71,14 @@ export function cardBonusAtRank(baseValue, rank) {
  */
 export function cardPenaltyAtRank(baseValue, rank) {
   return baseValue * (1 + (rank - 1) * 0.5)
+}
+
+/**
+ * XP necesaria para subir del nivel `level` al `level + 1`.
+ * Fuente de verdad única — usada en frontend y en todos los endpoints de API.
+ */
+export function xpRequiredForLevel(level) {
+  return level * 150
 }
 
 /**

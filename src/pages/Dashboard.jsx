@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
+import { useTraining, hasReadyPoint } from '../hooks/useTraining'
+import { useTrainingRooms } from '../hooks/useTrainingRooms'
+import { useResearch } from '../hooks/useResearch'
+import { useHeroId } from '../hooks/useHeroId'
 import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
 import { useAppStore } from '../store/appStore'
@@ -214,14 +218,24 @@ function Dashboard({ session }) {
   const setMissionsOpen   = useAppStore(s => s.setMissionsOpen)
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
-  const { heroes }                  = useHeroes(session.user.id)
-  const { buildings }               = useBuildings(session.user.id)
+  const { heroes }                   = useHeroes(session.user.id)
+  const { buildings }                = useBuildings(session.user.id)
+  const heroId                       = useHeroId()
+  const { rooms: trainingRooms }     = useTrainingRooms(session.user.id)
+  const { rows: trainingProgress }   = useTraining(heroId)
+  const { research }                 = useResearch(session.user.id)
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
   const [now, setNow] = useState(() => new Date())
+  const mundoKey = useRef(0)
+  const prevTab  = useRef(activeTab)
+  if (prevTab.current !== activeTab) {
+    if (activeTab === 'mundo') mundoKey.current++
+    prevTab.current = activeTab
+  }
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 10000)
@@ -239,6 +253,16 @@ function Dashboard({ session }) {
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
 
+  const progressByStat = Object.fromEntries((trainingProgress ?? []).map(r => [r.stat, r]))
+  const trainingReady  = (trainingRooms ?? []).some(r => hasReadyPoint(progressByStat[r.stat], r.level))
+
+  const researchActive = research?.active
+  const researchReady  = researchActive && new Date(researchActive.ends_at) <= now
+  const researchInProgress = researchActive && !researchReady
+
+  const trainingRoomsInProgress = (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
+  const trainingRoomsDone       = (trainingRooms ?? []).some(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
+
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
@@ -247,7 +271,11 @@ function Dashboard({ session }) {
 
   function badgeState(id) {
     if (id === 'heroes') return anyHeroReady ? 'ready' : anyHeroExploring ? 'active' : null
-    if (id === 'base')   return buildingUpgradingReady ? 'ready' : buildingUpgradingInProgress ? 'active' : null
+    if (id === 'base') {
+      const isReady  = buildingUpgradingReady || trainingReady || trainingRoomsDone || researchReady
+      const isActive = !isReady && (buildingUpgradingInProgress || researchInProgress || trainingRoomsInProgress)
+      return isReady ? 'ready' : isActive ? 'active' : null
+    }
     return null
   }
 
@@ -405,7 +433,7 @@ function Dashboard({ session }) {
 
           {/* Mundo */}
           <div className={activeTab === 'mundo' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('mundo') && <ErrorBoundary><Combates /></ErrorBoundary>}
+            {mountedTabs.has('mundo') && <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>}
           </div>
 
           {/* Tienda */}

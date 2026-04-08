@@ -1,21 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import { safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { snapshotResources } from './_validate.js'
 import { RESEARCH_NODES } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { nodeId } = req.body
   if (!nodeId) return res.status(400).json({ error: 'nodeId requerido' })
@@ -84,34 +74,28 @@ export default async function handler(req, res) {
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs        = Date.now()
-  const hours        = safeHours(resources.last_collected_at, nowMs)
-  const curGold      = Math.floor(resources.gold + resources.gold_rate * hours)
-  const curIron      = Math.floor(resources.iron + resources.iron_rate * hours)
-  const curWood      = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana      = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
   const { cost } = node
-  if (curGold < cost.gold) return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (curIron < cost.iron) return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (curMana < cost.mana) return res.status(402).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
+  if (snap.gold < cost.gold) return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
+  if (snap.iron < cost.iron) return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
+  if (snap.mana < cost.mana) return res.status(402).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
 
-  // Descontar recursos
   const { error: updateError } = await supabase
     .from('resources')
     .update({
-      gold: curGold - cost.gold,
-      iron: curIron - cost.iron,
-      wood: curWood,
-      mana: curMana - cost.mana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      gold: snap.gold - cost.gold,
+      iron: snap.iron - cost.iron,
+      wood: snap.wood,
+      mana: snap.mana - cost.mana,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 
   if (updateError) return res.status(500).json({ error: updateError.message })
 
   // Calcular ends_at
-  const endsAt = new Date(nowMs + node.duration_hours * 3_600_000)
+  const endsAt = new Date(snap.nowMs + node.duration_hours * 3_600_000)
 
   // Upsert (si había una fila activa expirada o nueva)
   const { error: insertError } = await supabase
@@ -121,7 +105,7 @@ export default async function handler(req, res) {
         player_id:  user.id,
         node_id:    nodeId,
         status:     'active',
-        started_at: new Date(nowMs).toISOString(),
+        started_at: snap.nowIso,
         ends_at:    endsAt.toISOString(),
       },
       { onConflict: 'player_id,node_id' }

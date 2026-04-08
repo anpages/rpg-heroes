@@ -2,19 +2,24 @@ import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { motion } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { useHeroRunes } from '../hooks/useHeroRunes'
+import { useBuildings } from '../hooks/useBuildings'
+import { useResources } from '../hooks/useResources'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
+import { ItemDetailModal } from '../components/ItemDetailModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
   Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles, ArrowUp,
+  Coins, Layers, Info,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -94,6 +99,111 @@ function DurabilityBar({ current, max }) {
   )
 }
 
+function CostRow({ Icon: RowIcon, label, need, have, color }) {
+  const ok = have >= need
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <RowIcon size={14} strokeWidth={2} style={{ color }} />
+        <span className="text-[13px] text-text-2">{label}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`text-[13px] font-bold tabular-nums ${ok ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{have}</span>
+        <span className="text-[11px] text-text-3">/</span>
+        <span className="text-[13px] font-semibold text-text-3 tabular-nums">{need}</span>
+      </div>
+    </div>
+  )
+}
+
+function TierUpgradeModal({ item, resources, onConfirm, onCancel, isPending, errorMsg }) {
+  const cat      = item.item_catalog
+  const cost     = ITEM_TIER_UPGRADE_COST[cat.tier] ?? {}
+  const nextTier = cat.tier + 1
+
+  const canAffordGold      = (resources?.gold      ?? 0) >= (cost.gold      ?? 0)
+  const canAffordFragments = (resources?.fragments ?? 0) >= (cost.fragments ?? 0)
+  const canAffordEssence   = (resources?.essence   ?? 0) >= (cost.essence   ?? 0)
+  const canAfford          = canAffordGold && canAffordFragments && canAffordEssence
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-5"
+      onClick={onCancel}
+    >
+      <motion.div
+        className="bg-surface border border-border rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden"
+        style={{ width: 'min(360px, 92vw)' }}
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1,    y: 0  }}
+        exit={   { opacity: 0, scale: 0.97, y: 6  }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-border">
+          <div className="flex flex-col gap-2">
+            <p className="text-[15px] font-bold text-text leading-none">{cat.name}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{cat.tier}</span>
+              <ArrowUp size={13} strokeWidth={2.5} className="text-[#0f766e]" />
+              <span
+                className="text-[12px] font-bold px-2 py-0.5 rounded border"
+                style={{ color: '#0f766e', background: 'color-mix(in srgb,#0f766e 10%,transparent)', borderColor: 'color-mix(in srgb,#0f766e 30%,transparent)' }}
+              >
+                T{nextTier}
+              </span>
+            </div>
+          </div>
+          <button
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 transition-colors mt-0.5"
+            onClick={onCancel}
+          >
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Costes */}
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Coste</p>
+          <div className="flex flex-col gap-2.5">
+            {(cost.gold      ?? 0) > 0 && <CostRow Icon={Coins}    label="Oro"         need={cost.gold}      have={resources?.gold      ?? 0} color="#d97706" />}
+            {(cost.fragments ?? 0) > 0 && <CostRow Icon={Layers}   label="Fragmentos"  need={cost.fragments} have={resources?.fragments ?? 0} color="#b45309" />}
+            {(cost.essence   ?? 0) > 0 && <CostRow Icon={Sparkles} label="Esencia"     need={cost.essence}   have={resources?.essence   ?? 0} color="#7c3aed" />}
+          </div>
+        </div>
+
+        {/* Aviso */}
+        <p className="text-[11px] text-text-3 italic px-5 pb-3">
+          Durabilidad al 100% requerida · Esta mejora es irreversible
+        </p>
+
+        {/* Error inline */}
+        {errorMsg && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,#dc2626_8%,transparent)] border border-[color-mix(in_srgb,#dc2626_25%,transparent)]">
+            <p className="text-[12px] font-semibold text-[#dc2626]">{errorMsg}</p>
+          </div>
+        )}
+
+        {/* Acciones */}
+        <div className="flex gap-2 px-5 pb-5">
+          <button className="btn btn--ghost btn--sm flex-1" onClick={onCancel} disabled={isPending}>
+            Cancelar
+          </button>
+          <button
+            className="btn btn--primary btn--sm flex-1"
+            onClick={onConfirm}
+            disabled={isPending || !canAfford}
+          >
+            {isPending ? 'Mejorando…' : !canAfford ? 'Sin recursos' : 'Mejorar tier'}
+          </button>
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  )
+}
+
 function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   return createPortal(
     <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
@@ -119,7 +229,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repairLoading, upgradeLoading }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -164,6 +274,13 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
 
       {/* Footer de acciones */}
       <div className="flex border-t border-border divide-x divide-border">
+        <button
+          className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+          onClick={() => onViewDetail(item)}
+          title="Ver detalles"
+        >
+          <Info size={13} strokeWidth={2} />
+        </button>
         {needsRepair && (
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
@@ -176,7 +293,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, repa
         {canUpgrade && (
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
-            onClick={() => onUpgradeTier(item, upgradeCost)}
+            onClick={() => onUpgradeTier(item)}
             disabled={upgradeLoading}
           >
             <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
@@ -310,12 +427,17 @@ function RuneInsertModal({ item, slotIndex, runeInventory, onInsert, onCancel })
 export default function Equipo() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
+  const { buildings } = useBuildings(userId)
+  const hasLab      = (buildings ?? []).some(b => b.type === 'laboratory' && b.level >= 1)
   const { hero }    = useHero(heroId)
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
   const { inventory: runeInventory } = useHeroRunes(heroId)
+  const { resources } = useResources(userId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
+  const [tierUpgradeTarget, setTierUpgradeTarget] = useState(null)
+  const [itemDetail, setItemDetail] = useState(null)
   const [runePickerTarget, setRunePickerTarget] = useState(null) // { item, slotIndex }
   const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
 
@@ -401,9 +523,10 @@ export default function Equipo() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      setTierUpgradeTarget(null)
       toast.success(`¡Ítem mejorado a ${data.newItemName ?? `T${data.newTier}`}!`)
     },
-    onError: err => toast.error(err.message),
+    // El error se muestra inline en TierUpgradeModal, no como toast
   })
 
   const maxRuneSlots = BASE_RUNE_SLOTS
@@ -510,21 +633,9 @@ export default function Equipo() {
     setRunePickerTarget(null)
   }
 
-  function handleUpgradeTier(item, cost) {
-    const costText = [
-      cost?.gold > 0 ? `${cost.gold} oro` : null,
-      cost?.iron > 0 ? `${cost.iron} hierro` : null,
-      cost?.mana > 0 ? `${cost.mana} maná` : null,
-    ].filter(Boolean).join(' · ')
-    setConfirm({
-      title: `Mejorar ${item.item_catalog.name} a T${item.item_catalog.tier + 1}`,
-      body: `Coste: ${costText}. El ítem debe estar al 100% de durabilidad. Esta acción es irreversible.`,
-      confirmLabel: 'Mejorar tier',
-      onConfirm: () => {
-        setConfirm(null)
-        tierUpgradeMutation.mutate({ inventoryItemId: item.id })
-      },
-    })
+  function handleUpgradeTier(item) {
+    tierUpgradeMutation.reset()
+    setTierUpgradeTarget(item)
   }
 
   function handleDismantle(item) {
@@ -598,6 +709,7 @@ export default function Equipo() {
                   onUnequip={handleUnequip}
                   onRepair={handleRepair}
                   onUpgradeTier={handleUpgradeTier}
+                  onViewDetail={setItemDetail}
                   repairLoading={actionMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
                 />
@@ -605,8 +717,8 @@ export default function Equipo() {
             </div>
           </div>
 
-          {/* Rune slots — justo debajo del equipamiento */}
-          {maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
+          {/* Rune slots — solo si el laboratorio está construido */}
+          {hasLab && maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
             <div className="flex flex-col gap-2 mt-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
@@ -712,6 +824,13 @@ export default function Equipo() {
                     {/* Footer */}
                     <div className="flex border-t border-border divide-x divide-border">
                       <button
+                        className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+                        onClick={() => setItemDetail(item)}
+                        title="Ver detalles"
+                      >
+                        <Info size={13} strokeWidth={2} />
+                      </button>
+                      <button
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40
                           ${canEquip
                             ? 'text-[var(--blue-600)] hover:bg-[color-mix(in_srgb,var(--blue-500)_6%,transparent)]'
@@ -739,6 +858,10 @@ export default function Equipo() {
         )}
       </div>
 
+      {itemDetail && (
+        <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} />
+      )}
+
       {confirm && (
         <ConfirmModal
           title={confirm.title}
@@ -746,6 +869,17 @@ export default function Equipo() {
           confirmLabel={confirm.confirmLabel}
           onConfirm={confirm.onConfirm}
           onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {tierUpgradeTarget && (
+        <TierUpgradeModal
+          item={tierUpgradeTarget}
+          resources={resources}
+          isPending={tierUpgradeMutation.isPending}
+          errorMsg={tierUpgradeMutation.error?.message ?? null}
+          onConfirm={() => tierUpgradeMutation.mutate({ inventoryItemId: tierUpgradeTarget.id })}
+          onCancel={() => { tierUpgradeMutation.reset(); setTierUpgradeTarget(null) }}
         />
       )}
 

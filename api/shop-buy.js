@@ -1,26 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 import { INVENTORY_BASE_LIMIT, SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
-import { isUUID, safeHours } from './_validate.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { heroId, catalogId } = req.body
   if (!heroId || !catalogId) return res.status(400).json({ error: 'heroId y catalogId requeridos' })
   if (!isUUID(heroId))    return res.status(400).json({ error: 'heroId inválido' })
   if (!isUUID(catalogId)) return res.status(400).json({ error: 'catalogId inválido' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
 
   const { data: hero } = await supabase
     .from('heroes').select('id, player_id, level').eq('id', heroId).eq('player_id', user.id).single()
@@ -58,11 +48,9 @@ export default async function handler(req, res) {
   const { data: resources } = await supabase
     .from('resources').select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at').eq('player_id', user.id).single()
 
-  const now = Date.now()
-  const hours = resources ? safeHours(resources.last_collected_at, now) : 0
-  const currentGold = resources ? Math.floor(resources.gold + resources.gold_rate * hours) : 0
+  const snap = resources ? snapshotResources(resources) : { gold: 0, iron: 0, wood: 0, mana: 0, nowIso: new Date().toISOString() }
 
-  if (currentGold < shopEntry.gold_price) {
+  if (snap.gold < shopEntry.gold_price) {
     return res.status(409).json({ error: 'Oro insuficiente' })
   }
 
@@ -73,18 +61,13 @@ export default async function handler(req, res) {
     .eq('hero_id', heroId)
     .is('equipped_slot', null)
 
-  const limit = INVENTORY_BASE_LIMIT
-  if ((bagCount ?? 0) >= limit) {
+  if ((bagCount ?? 0) >= INVENTORY_BASE_LIMIT) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 
-  // Descontar oro — snapshot de todos los recursos pasivos antes de mover last_collected_at
-  const snapshotIron = resources ? Math.floor(resources.iron + resources.iron_rate * hours) : 0
-  const snapshotWood = resources ? Math.floor(resources.wood + resources.wood_rate * hours) : 0
-  const snapshotMana = resources ? Math.floor(resources.mana + resources.mana_rate * hours) : 0
   await supabase
     .from('resources')
-    .update({ gold: currentGold - shopEntry.gold_price, iron: snapshotIron, wood: snapshotWood, mana: snapshotMana, last_collected_at: new Date(now).toISOString() })
+    .update({ gold: snap.gold - shopEntry.gold_price, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
     .eq('player_id', user.id)
 
   // Crear item

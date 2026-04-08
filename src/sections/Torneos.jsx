@@ -329,6 +329,7 @@ export default function Torneos() {
   const { data, isLoading }  = useTournament(heroId)
   const queryClient          = useQueryClient()
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const userId               = useAppStore(s => s.userId)
   const [replay, setReplay]  = useState(null)
 
   const weekStart      = data?.weekStart ?? null
@@ -353,6 +354,7 @@ export default function Torneos() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
     onError: err => toast.error(err.message),

@@ -14,10 +14,13 @@ import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, Wrench, Plus, ChevronRight,
+  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check,
 } from 'lucide-react'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { xpRequiredForLevel } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ItemDetailModal } from '../components/ItemDetailModal'
+import { CardDetailModal } from '../components/CardDetailModal'
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -47,6 +50,170 @@ function sheetVariants() {
 
 const sheetTransition   = { type: 'spring', stiffness: 260, damping: 26 }
 const overlayTransition = { duration: 0.25, ease: 'easeOut' }
+
+/* ─── Stats detail modal ─────────────────────────────────────────────────────── */
+
+const ALL_STATS = [
+  { key: 'attack',       label: 'Ataque',       Icon: Sword,    color: '#d97706' },
+  { key: 'defense',      label: 'Defensa',      Icon: Shield,   color: '#475569' },
+  { key: 'max_hp',       label: 'HP Máximo',    Icon: Heart,    color: '#dc2626' },
+  { key: 'strength',     label: 'Fuerza',       Icon: Dumbbell, color: '#dc2626' },
+  { key: 'agility',      label: 'Agilidad',     Icon: Wind,     color: '#2563eb' },
+  { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
+]
+
+function StatsDetailModal({ hero, items, cards, onClose }) {
+  const STAT_KEYS = ALL_STATS.map(s => s.key)
+
+  const equippedItems = (items ?? [])
+    .filter(i => i.equipped_slot && i.current_durability > 0)
+    .map(i => ({
+      name: i.item_catalog.name,
+      tier: i.item_catalog.tier,
+      contributions: {
+        attack:       i.item_catalog.attack_bonus       ?? 0,
+        defense:      i.item_catalog.defense_bonus      ?? 0,
+        max_hp:       i.item_catalog.hp_bonus           ?? 0,
+        strength:     i.item_catalog.strength_bonus     ?? 0,
+        agility:      i.item_catalog.agility_bonus      ?? 0,
+        intelligence: i.item_catalog.intelligence_bonus ?? 0,
+      },
+    }))
+    .filter(i => STAT_KEYS.some(k => i.contributions[k] !== 0))
+
+  const equippedCards = (cards ?? [])
+    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
+    .map(c => {
+      const sc   = c.skill_cards
+      const rank = Math.min(c.rank, 5)
+      const bonuses   = {}
+      const penalties = {}
+      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => {
+        if (STAT_KEYS.includes(stat)) bonuses[stat]   = Math.round(value * rank)
+      })
+      ;(sc.penalties ?? []).forEach(({ stat, value }) => {
+        if (STAT_KEYS.includes(stat)) penalties[stat] = -Math.round(Math.abs(value) * (1 + (rank - 1) * 0.5))
+      })
+      return { name: sc.name, rank, bonuses, penalties }
+    })
+
+  const totalEquipBonus = equippedItems.reduce((sum, item) =>
+    sum + STAT_KEYS.reduce((s, k) => s + Math.max(0, item.contributions[k]), 0), 0)
+  const totalCardNet = equippedCards.reduce((sum, card) =>
+    sum + STAT_KEYS.reduce((s, k) => s + (card.bonuses[k] ?? 0) + (card.penalties[k] ?? 0), 0), 0)
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+        transition={overlayTransition}
+        style={{ background: 'rgba(0,0,0,0.6)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="w-full sm:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden max-h-[92dvh]"
+          variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[16px] font-bold text-text leading-none">Estadísticas</p>
+              <p className="text-[12px] text-text-3">{hero.name}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 transition-colors">
+              <X size={16} strokeWidth={2} />
+            </button>
+          </div>
+
+          {/* Summary strip */}
+          {(totalEquipBonus > 0 || totalCardNet !== 0) && (
+            <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border flex-shrink-0 flex-wrap">
+              {totalEquipBonus > 0 && (
+                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
+                  style={{ color: '#d97706', background: 'color-mix(in srgb,#d97706 10%,transparent)', borderColor: 'color-mix(in srgb,#d97706 28%,transparent)' }}>
+                  <Sword size={11} strokeWidth={2.5} />
+                  +{totalEquipBonus} de equipo
+                </span>
+              )}
+              {totalCardNet !== 0 && (
+                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
+                  style={{
+                    color: totalCardNet > 0 ? '#7c3aed' : '#dc2626',
+                    background: `color-mix(in srgb,${totalCardNet > 0 ? '#7c3aed' : '#dc2626'} 10%,transparent)`,
+                    borderColor: `color-mix(in srgb,${totalCardNet > 0 ? '#7c3aed' : '#dc2626'} 28%,transparent)`,
+                  }}>
+                  <BookOpen size={11} strokeWidth={2.5} />
+                  {totalCardNet > 0 ? '+' : ''}{totalCardNet} de cartas
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Stats grid */}
+          <div className="overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ALL_STATS.map(({ key, label, Icon, color }) => {
+              const base = hero[key] ?? 0
+              const rows = []
+
+              equippedItems.forEach(item => {
+                const v = item.contributions[key]
+                if (v !== 0) rows.push({ label: `${item.name} T${item.tier}`, value: v, source: 'equip' })
+              })
+              equippedCards.forEach(card => {
+                const b = card.bonuses[key]   ?? 0
+                const p = card.penalties[key] ?? 0
+                if (b !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: b, source: 'card' })
+                if (p !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: p, source: 'card' })
+              })
+
+              const total = base + rows.reduce((s, r) => s + r.value, 0)
+
+              return (
+                <div key={key} className="flex flex-col bg-surface-2 rounded-xl border border-border overflow-hidden">
+                  {/* Color accent bar */}
+                  <div style={{ height: '3px', background: color, flexShrink: 0 }} />
+
+                  <div className="p-3.5 flex flex-col gap-2.5">
+                    {/* Stat name + total */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Icon size={13} strokeWidth={2} style={{ color }} />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">{label}</span>
+                      </div>
+                      <span className="text-[26px] font-black text-text tabular-nums leading-none">{total}</span>
+                    </div>
+
+                    {/* Breakdown */}
+                    <div className="flex flex-col gap-1 border-t border-border pt-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-text-3">Base</span>
+                        <span className="text-[12px] font-semibold text-text-2 tabular-nums">{base}</span>
+                      </div>
+                      {rows.length === 0 && (
+                        <span className="text-[11px] text-text-3 italic mt-0.5">Sin modificadores</span>
+                      )}
+                      {rows.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-text-2 truncate min-w-0">{r.label}</span>
+                          <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                            {r.value > 0 ? '+' : ''}{r.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  )
+}
 
 /* ─── Stat bars ───────────────────────────────────────────────────────────────── */
 
@@ -80,14 +247,7 @@ function StatBars({ effective, base }) {
               <div className="h-full rounded-l-full transition-[width] duration-[400ms]" style={{ width: `${basePct}%`,  background: color, opacity: 0.55 }} />
               <div className="h-full rounded-r-full transition-[width] duration-[400ms]" style={{ width: `${bonusPct}%`, background: color }} />
             </div>
-            {bonus > 0
-              ? <span className="text-[12px] font-bold text-right whitespace-nowrap">
-                  <span className="text-text-3">{baseV}</span>
-                  <span className="text-text-3 mx-[3px]">→</span>
-                  <span className="text-text">{total}</span>
-                </span>
-              : <span className="text-[13px] font-bold text-text text-right">{total}</span>
-            }
+            <span className="text-[13px] font-bold text-text text-right">{total}</span>
           </div>
         )
       })}
@@ -144,7 +304,7 @@ function estimateRepairCost(item) {
 /* ─── Shared sub-components ───────────────────────────────────────────────────── */
 
 function XpBar({ level, experience }) {
-  const needed = level * 150
+  const needed = xpRequiredForLevel(level)
   const pct    = Math.min(100, Math.round((experience / needed) * 100))
   return (
     <div className="flex flex-col gap-1.5">
@@ -581,171 +741,6 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
 
 /* ─── Item detail modal ───────────────────────────────────────────────────────── */
 
-function ItemDetailModal({ item, onClose }) {
-  const catalog = item.item_catalog
-  const rarity  = RARITY_META[catalog.rarity]
-  const slot    = SLOT_META[catalog.slot]
-  const SlotIcon = slot?.icon ?? Sword
-  const durPct  = Math.round((item.current_durability / catalog.max_durability) * 100)
-  const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-  const statLines = [
-    { label: 'Ataque',       val: catalog.attack_bonus       },
-    { label: 'Defensa',      val: catalog.defense_bonus      },
-    { label: 'HP',           val: catalog.hp_bonus           },
-    { label: 'Fuerza',       val: catalog.strength_bonus     },
-    { label: 'Agilidad',     val: catalog.agility_bonus      },
-    { label: 'Inteligencia', val: catalog.intelligence_bonus },
-  ].filter(s => s.val > 0)
-
-  return createPortal(
-    <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-      onClick={onClose}
-    >
-      <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 overflow-hidden"
-        style={{ width: 'min(400px, 92vw)' }}
-        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5">
-          <div className="flex items-center gap-2">
-            <SlotIcon size={16} strokeWidth={1.8} className="text-text-3" />
-            <span className="text-[16px] font-bold text-text">{catalog.name}</span>
-          </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={16} strokeWidth={2} /></button>
-        </div>
-
-        <div className="flex flex-col gap-4 px-5 pb-5">
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
-              style={{ color: rarity.color, borderColor: `color-mix(in srgb, ${rarity.color} 30%, var(--border))`, background: `color-mix(in srgb, ${rarity.color} 8%, var(--surface))` }}>
-              {rarity.label}
-            </span>
-            <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
-            <span className="text-[11px] text-text-3">{slot?.label}</span>
-            {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
-          </div>
-
-          {/* Description */}
-          {catalog.description && (
-            <p className="text-[14px] text-text-2 italic leading-relaxed">{catalog.description}</p>
-          )}
-
-          {/* Stats */}
-          {statLines.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {statLines.map(s => (
-                <span key={s.label} className="text-[13px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-lg px-3 py-1.5">
-                  +{s.val} {s.label}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Durability */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-[12px] text-text-3">
-              <span>Durabilidad</span>
-              <span style={{ color: durColor }}>{item.current_durability} / {catalog.max_durability} ({durPct}%)</span>
-            </div>
-            <div className="h-2 bg-border rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${durPct}%`, background: durColor }} />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>,
-    document.body
-  )
-}
-
-/* ─── Card detail modal ───────────────────────────────────────────────────────── */
-
-function CardDetailModal({ card, onClose }) {
-  const sc   = card.skill_cards
-  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-  const Icon = meta.icon
-  const rank = Math.min(card.rank ?? 1, 5)
-  const RANK_LABELS_MODAL = ['', 'I', 'II', 'III', 'IV', 'V']
-  const STAT_LABELS_MODAL = {
-    attack:'Ataque', defense:'Defensa', max_hp:'HP', strength:'Fuerza',
-    agility:'Agilidad', intelligence:'Inteligencia',
-    weapon_attack_amp:'Amp. arma', armor_defense_amp:'Amp. armadura',
-    durability_loss:'Durabilidad', item_drop_rate:'Drop rate',
-  }
-  const bonuses   = Array.isArray(sc.bonuses)   ? sc.bonuses   : []
-  const penalties = Array.isArray(sc.penalties) ? sc.penalties : []
-
-  return createPortal(
-    <motion.div
-      className="fixed inset-0 bg-black/65 z-[200] flex items-center justify-center p-8"
-      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={overlayTransition}
-      onClick={onClose}
-    >
-      <motion.div
-        className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
-        style={{ background: meta.bg, width: 'min(240px, 72vw)', aspectRatio: '3/4' }}
-        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Close */}
-        <button
-          className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors z-10"
-          onClick={onClose}
-        >
-          <X size={12} strokeWidth={2.5} className="text-white/70" />
-        </button>
-
-        {/* Header */}
-        <div className="flex items-center gap-1.5 px-4 pt-4 pb-1">
-          <Icon size={13} strokeWidth={2} style={{ color: meta.color }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
-        </div>
-
-        {/* Name */}
-        <div className="flex-1 flex flex-col justify-center px-4">
-          <span className="text-[22px] font-black text-white leading-tight tracking-tight">{sc.name}</span>
-        </div>
-
-        {/* Rank dots */}
-        <div className="flex items-center gap-2 px-4 pb-3">
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="w-2.5 h-2.5 rounded-full border"
-                style={{ background: i < rank ? meta.color : 'transparent', borderColor: i < rank ? meta.color : 'rgba(255,255,255,0.2)' }} />
-            ))}
-          </div>
-          <span className="text-[13px] font-black" style={{ color: meta.color }}>Rango {RANK_LABELS_MODAL[rank] ?? rank}</span>
-        </div>
-
-        {/* Stats */}
-        {(bonuses.length > 0 || penalties.length > 0) && (
-          <div className="flex flex-col gap-1.5 px-4 pb-4 border-t border-white/10 pt-3">
-            {bonuses.map((b, i) => (
-              <div key={i} className="flex items-center justify-between text-[13px] font-semibold">
-                <span className="text-white/50">{STAT_LABELS_MODAL[b.stat] ?? b.stat}</span>
-                <span className="text-[#86efac] font-bold">+{b.value * rank}</span>
-              </div>
-            ))}
-            {penalties.map((p, i) => (
-              <div key={i} className="flex items-center justify-between text-[13px] font-semibold">
-                <span className="text-white/50">{STAT_LABELS_MODAL[p.stat] ?? p.stat}</span>
-                <span className="text-[#fca5a5] font-bold">−{p.value * rank}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>,
-    document.body
-  )
-}
 
 /* ─── Main component ──────────────────────────────────────────────────────────── */
 
@@ -763,7 +758,20 @@ function Hero() {
   const [confirmModal,   setConfirmModal]   = useState(null)
   const [itemDetail,     setItemDetail]     = useState(null)
   const [cardDetail,     setCardDetail]     = useState(null)
+  const [statsDetailOpen, setStatsDetailOpen] = useState(false)
+  const [renameOpen,  setRenameOpen]  = useState(false)
+  const [renameDraft, setRenameDraft] = useState('')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
+
+  const renameMutation = useMutation({
+    mutationFn: (name) => apiPost('/api/hero-rename', { heroId: hero?.id, name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+      setRenameOpen(false)
+    },
+    onError: (err) => toast.error(err.message),
+  })
 
   const itemMutation = useMutation({
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
@@ -937,8 +945,47 @@ function Hero() {
               <div className="w-16 h-16 rounded-xl bg-surface-2 border border-border flex items-center justify-center flex-shrink-0">
                 <Sword size={32} strokeWidth={1.5} color={cls?.color} />
               </div>
-              <div className="flex flex-col gap-2">
-                <h3 className="font-hero text-[20px] md:text-[24px] font-bold tracking-[0.02em] text-text leading-none">{hero.name}</h3>
+              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                {renameOpen ? (
+                  <form
+                    className="flex items-center gap-1.5"
+                    onSubmit={e => { e.preventDefault(); renameMutation.mutate(renameDraft) }}
+                  >
+                    <input
+                      autoFocus
+                      className="font-hero text-[18px] font-bold text-text bg-surface-2 border border-border rounded-lg px-2 py-0.5 min-w-0 flex-1 outline-none focus:border-[var(--blue-400)] transition-colors"
+                      value={renameDraft}
+                      maxLength={20}
+                      onChange={e => setRenameDraft(e.target.value)}
+                      onKeyDown={e => e.key === 'Escape' && setRenameOpen(false)}
+                    />
+                    <button
+                      type="submit"
+                      disabled={renameMutation.isPending || renameDraft.trim().length < 2}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-[var(--blue-400)] text-white disabled:opacity-40 flex-shrink-0 transition-opacity"
+                    >
+                      <Check size={13} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      type="button"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 flex-shrink-0 transition-colors"
+                      onClick={() => setRenameOpen(false)}
+                    >
+                      <X size={13} strokeWidth={2} />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    <h3 className="font-hero text-[20px] md:text-[24px] font-bold tracking-[0.02em] text-text leading-none truncate">{hero.name}</h3>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-2 text-text-3 flex-shrink-0 transition-[opacity,background] duration-150"
+                      onClick={() => { setRenameDraft(hero.name); setRenameOpen(true) }}
+                      title="Cambiar nombre"
+                    >
+                      <Pencil size={12} strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className="text-[10px] font-bold tracking-[0.06em] uppercase px-2 py-0.5 rounded-[6px]"
@@ -956,6 +1003,13 @@ function Hero() {
                   </span>
                 </div>
               </div>
+              <button
+                className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 hover:text-text-2 border border-transparent hover:border-border transition-colors"
+                onClick={() => setStatsDetailOpen(true)}
+                title="Desglose de estadísticas"
+              >
+                <Info size={16} strokeWidth={2} />
+              </button>
             </div>
 
             <XpBar level={hero.level} experience={hero.experience} />
@@ -993,7 +1047,17 @@ function Hero() {
               effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
               base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
             />
+
           </div>
+
+          {statsDetailOpen && (
+            <StatsDetailModal
+              hero={hero}
+              items={items}
+              cards={cards}
+              onClose={() => setStatsDetailOpen(false)}
+            />
+          )}
 
         </div>
 

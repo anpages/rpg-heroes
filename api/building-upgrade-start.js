@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
 import {
   computeBaseLevel,
   buildingUpgradeCost,
@@ -9,19 +9,9 @@ import {
 } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { buildingId } = req.body
   if (!buildingId) return res.status(400).json({ error: 'buildingId requerido' })
@@ -74,28 +64,22 @@ export default async function handler(req, res) {
 
   if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  // Calcular recursos actuales con interpolación
-  const now = Date.now()
-  const hours = safeHours(resources.last_collected_at, now)
-  const currentWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const currentIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (cost.wood && currentWood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
-  if (cost.iron && currentIron < cost.iron) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (cost.mana && currentMana < cost.mana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
+  if (cost.wood && snap.wood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
+  if (cost.iron && snap.iron < cost.iron) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
+  if (cost.mana && snap.mana < cost.mana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
 
-  const nowIso = new Date(now).toISOString()
-  const endsAt = new Date(now + durationMs).toISOString()
+  const endsAt = new Date(snap.nowMs + durationMs).toISOString()
 
   // Descontar recursos (snapshot en este momento)
   const { error: resourcesError } = await supabase
     .from('resources')
     .update({
-      wood: currentWood - (cost.wood ?? 0),
-      iron: currentIron - (cost.iron ?? 0),
-      mana: currentMana - (cost.mana ?? 0),
-      last_collected_at: nowIso,
+      wood: snap.wood - (cost.wood ?? 0),
+      iron: snap.iron - (cost.iron ?? 0),
+      mana: snap.mana - (cost.mana ?? 0),
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 
@@ -104,7 +88,7 @@ export default async function handler(req, res) {
   // Iniciar mejora
   const { error: buildingError } = await supabase
     .from('buildings')
-    .update({ upgrade_started_at: nowIso, upgrade_ends_at: endsAt })
+    .update({ upgrade_started_at: snap.nowIso, upgrade_ends_at: endsAt })
     .eq('id', buildingId)
 
   if (buildingError) return res.status(500).json({ error: buildingError.message })

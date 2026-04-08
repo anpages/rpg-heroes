@@ -63,18 +63,20 @@ export const STARTING_RESOURCES = {
 
 /**
  * Tasa BASE de hierro por nivel de Mina de Hierro, en unidades por HORA.
- * Nivel 1 → 30/h, nivel 2 → 48/h, nivel 3 → 66/h …
+ * Recurso escaso y valioso — siempre inferior a madera al mismo nivel.
+ * Nivel 1 → 18/h, nivel 2 → 30/h, nivel 3 → 42/h …
  */
 export function ironRateForLevel(level) {
-  return level > 0 ? Math.round((0.5 + (level - 1) * 0.3) * 60) : 0
+  return level > 0 ? Math.round((0.3 + (level - 1) * 0.2) * 60) : 0
 }
 
 /**
  * Tasa BASE de madera por nivel de Aserradero, en unidades por HORA.
- * Nivel 1 → 18/h, nivel 2 → 30/h, nivel 3 → 42/h …
+ * Recurso abundante — siempre superior a hierro al mismo nivel.
+ * Nivel 1 → 30/h, nivel 2 → 48/h, nivel 3 → 66/h …
  */
 export function woodRateForLevel(level) {
-  return level > 0 ? Math.round((0.3 + (level - 1) * 0.2) * 60) : 0
+  return level > 0 ? Math.round((0.5 + (level - 1) * 0.3) * 60) : 0
 }
 
 /**
@@ -137,26 +139,26 @@ export function buildingUpgradeCost(type, currentLevel) {
       // 1→2: solo madera (desbloquea la mina, no puede pedir hierro que aún no existe)
       if (currentLevel === 1) return { wood: 80 }
       // 2→5: mismos exponentes que el resto pero base mayor (es el edificio clave)
-      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(45 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(17 * Math.pow(currentLevel, 1.4)) }
     case 'lumber_mill':
-      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(30 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(12 * Math.pow(currentLevel, 1.4)) }
     case 'gold_mine':
-      if (currentLevel === 0) return { wood: 60, iron: 30 }  // construcción inicial (hierro del stock inicial)
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(40 * Math.pow(currentLevel, 1.4)) }
+      if (currentLevel === 0) return { wood: 60, iron: 12 }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)) }
     case 'mana_well':
-      if (currentLevel === 0) return { wood: 60, iron: 40 }  // construcción inicial (ya hay mina activa)
-      return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(35 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
+      if (currentLevel === 0) return { wood: 60, iron: 15 }
+      return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
     case 'laboratory':
-      if (currentLevel === 0) return { wood: 80, iron: 50 }  // construcción inicial
-      return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(50 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
+      if (currentLevel === 0) return { wood: 80, iron: 21 }
+      return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(18 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
     case 'library':
-      if (currentLevel === 0) return { wood: 100, iron: 60,  mana: 30  }
-      if (currentLevel === 1) return { wood: 180, iron: 110, mana: 70  }
-      if (currentLevel === 2) return { wood: 340, iron: 210, mana: 150 }
-      if (currentLevel === 3) return { wood: 560, iron: 360, mana: 270 }
-      return                          { wood: 850, iron: 550, mana: 420 }
+      if (currentLevel === 0) return { wood: 100, iron: 27,  mana: 30  }
+      if (currentLevel === 1) return { wood: 180, iron: 48,  mana: 70  }
+      if (currentLevel === 2) return { wood: 340, iron: 90,  mana: 150 }
+      if (currentLevel === 3) return { wood: 560, iron: 150, mana: 270 }
+      return                          { wood: 850, iron: 228, mana: 420 }
     default:
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(40 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)) }
   }
 }
 
@@ -172,7 +174,7 @@ export const TRAINING_ROOM_MAX_LEVEL = 5
 // ── Salas de entrenamiento ────────────────────────────────────────────────────
 
 /** Coste de construir cualquier sala de entrenamiento */
-export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 40 }
+export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 15 }
 
 /** Tiempo de construcción de una sala de entrenamiento nueva */
 export const TRAINING_ROOM_BUILD_TIME_MS = 10 * 60 * 1000
@@ -186,7 +188,7 @@ export function trainingRoomUpgradeDurationMs(currentLevel) {
 export function trainingRoomUpgradeCost(currentLevel) {
   return {
     wood: Math.round(60 * Math.pow(currentLevel, 1.5)),
-    iron: Math.round(50 * Math.pow(currentLevel, 1.4)),
+    iron: Math.round(17 * Math.pow(currentLevel, 1.4)),
   }
 }
 
@@ -206,7 +208,7 @@ export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
 
 /**
  * Lista completa de tipos de edificio que se crean al registrar un jugador.
- * Incluye los edificios de base más forge y library, que arrancan bloqueados.
+ * Incluye los edificios de base más library, que arranca bloqueada.
  */
 export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'library']
 
@@ -221,11 +223,8 @@ export const INITIALLY_UNLOCKED_BUILDINGS = ALL_BUILDING_TYPES.filter(t => !TRIG
 
 // ── Inventario ───────────────────────────────────────────────────────────────
 
-/** Slots de mochila base sin mejoras de taller */
+/** Slots de mochila */
 export const INVENTORY_BASE_LIMIT = 20
-
-/** Slots adicionales de mochila por nivel de taller */
-export const INVENTORY_PER_WORKSHOP_LEVEL = 5
 
 // ── Cartas de habilidad ───────────────────────────────────────────────────────
 
@@ -282,7 +281,7 @@ export function xpRateForLevel(roomLevel) {
 
 /** XP necesaria para el siguiente +1 al stat dado cuántos puntos ya se ganaron */
 export function xpThreshold(totalGained) {
-  return Math.round(10 * Math.pow(1.5, totalGained))
+  return Math.round(10 * Math.pow(1.3, totalGained))
 }
 
 // ── Árbol de investigación ────────────────────────────────────────────────────
@@ -315,8 +314,24 @@ export const RESEARCH_NODES = [
   { id: 'magic_4',      branch: 'magic',      position: 4, name: 'Resonancia Rúnica',     description: '+10% a los bonos de runas.',                             effect_type: 'enchantment_amp',     effect_value: 0.10,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'magic_3' },
 ]
 
-/** Costes de mejora de tier en la Forja v2. key = tier actual → siguiente */
+/** Costes de mejora de tier. key = tier actual → siguiente.
+ *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos). */
 export const ITEM_TIER_UPGRADE_COST = {
-  1: { gold: 150, iron: 80, mana: 30 },
-  2: { gold: 350, iron: 200, mana: 80 },
+  1: { gold: 150, fragments: 5,  essence: 2 },
+  2: { gold: 350, fragments: 15, essence: 6 },
 }
+
+// ── Héroes ────────────────────────────────────────────────────────────────────
+
+/** Nivel mínimo de Base requerido para cada slot de héroe adicional. */
+export const HERO_SLOT_REQUIREMENTS = { 2: 2, 3: 3 }
+
+// ── Pociones ─────────────────────────────────────────────────────────────────
+
+/** Máximo de unidades de una misma poción que puede tener un héroe. */
+export const MAX_POTION_STACK = 5
+
+// ── Entrenamiento ─────────────────────────────────────────────────────────────
+
+/** Stats válidas para salas de entrenamiento. */
+export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']

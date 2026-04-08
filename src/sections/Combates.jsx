@@ -10,8 +10,8 @@ import Torneos from './Torneos'
 const MODES = [
   { id: 'torre',         label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
   { id: 'torneos',       label: 'Torneo',          sublabel: 'Semanal',  Icon: Swords,       color: '#dc2626' },
-  { id: 'clasificacion', label: 'Clasificación',   sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
   { id: 'historial',     label: 'Historial',       sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
+  { id: 'clasificacion', label: 'Clasificación',   sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
 ]
 
 export default function Combates() {

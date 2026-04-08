@@ -2,7 +2,7 @@
  * Lógica de drop de items y cartas compartida entre expediciones y torre.
  */
 
-import { INVENTORY_BASE_LIMIT, INVENTORY_PER_WORKSHOP_LEVEL } from './_constants.js'
+import { INVENTORY_BASE_LIMIT } from './_constants.js'
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
 
@@ -78,11 +78,7 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
     .from('inventory_items').select('id', { count: 'exact', head: true })
     .eq('hero_id', heroId).is('equipped_slot', null)
 
-  const { data: workshop } = await supabase
-    .from('buildings').select('level').eq('player_id', playerId).eq('type', 'workshop').maybeSingle()
-
-  const limit = INVENTORY_BASE_LIMIT + ((workshop?.level ?? 1) - 1) * INVENTORY_PER_WORKSHOP_LEVEL
-  if ((bagCount ?? 0) >= limit) return { full: true }
+  if ((bagCount ?? 0) >= INVENTORY_BASE_LIMIT) return { full: true }
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
   const { data: newItem } = await supabase
@@ -121,4 +117,23 @@ export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBo
 /** Convierte un floor de torre en dificultad equivalente (1-10) */
 export function floorToDifficulty(floor) {
   return Math.min(10, Math.max(1, Math.floor(floor / 2) + 1))
+}
+
+// Drops de materiales de crafting por tipo de dungeon.
+// combat/mine/crypt → fragmentos | magic/ancient → esencia | wilderness → ninguno
+const MATERIAL_DROP_BY_TYPE = {
+  combat:  { resource: 'fragments', chance: 0.15, min: 1, max: 2 },
+  mine:    { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
+  crypt:   { resource: 'fragments', chance: 0.12, min: 1, max: 2 },
+  magic:   { resource: 'essence',   chance: 0.12, min: 1, max: 1 },
+  ancient: { resource: 'essence',   chance: 0.18, min: 1, max: 2 },
+}
+
+/** Lanza el dado de drop de material para un tipo de dungeon.
+ *  @returns {{ resource: 'fragments'|'essence', qty: number } | null} */
+export function rollMaterialDrop(dungeonType) {
+  const cfg = MATERIAL_DROP_BY_TYPE[dungeonType]
+  if (!cfg || Math.random() > cfg.chance) return null
+  const qty = cfg.min + Math.floor(Math.random() * (cfg.max - cfg.min + 1))
+  return { resource: cfg.resource, qty }
 }

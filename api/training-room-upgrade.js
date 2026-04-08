@@ -1,26 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
-import { safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { snapshotResources } from './_validate.js'
 import { trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs, TRAINING_ROOM_MAX_LEVEL } from '../src/lib/gameConstants.js'
-
-const VALID_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']
+import { TRAINING_ROOM_STATS } from './_constants.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { stat } = req.body
-  if (!stat || !VALID_STATS.includes(stat)) return res.status(400).json({ error: 'Stat inválido' })
+  if (!stat || !TRAINING_ROOM_STATS.includes(stat)) return res.status(400).json({ error: 'Stat inválido' })
 
   // Obtener nivel actual
   const { data: room, error: roomError } = await supabase
@@ -48,28 +37,24 @@ export default async function handler(req, res) {
 
   if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  const nowMs   = Date.now()
-  const hours   = safeHours(resources.last_collected_at, nowMs)
-  const curIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const curWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const curMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (curWood < cost.wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (curIron < cost.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
+  if (snap.wood < cost.wood) return res.status(402).json({ error: 'Madera insuficiente' })
+  if (snap.iron < cost.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
 
   const { error: updateResourcesErr } = await supabase
     .from('resources')
     .update({
-      wood: curWood - cost.wood,
-      iron: curIron - cost.iron,
-      mana: curMana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      wood: snap.wood - cost.wood,
+      iron: snap.iron - cost.iron,
+      mana: snap.mana,
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 
   if (updateResourcesErr) return res.status(500).json({ error: updateResourcesErr.message })
 
-  const endsAt = new Date(nowMs + trainingRoomUpgradeDurationMs(room.level)).toISOString()
+  const endsAt = new Date(snap.nowMs + trainingRoomUpgradeDurationMs(room.level)).toISOString()
 
   const { error: upgradeErr } = await supabase
     .from('training_rooms')

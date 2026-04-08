@@ -1,20 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
-import { isUUID, safeHours } from './_validate.js'
+import { requireAuth } from './_auth.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { cardId1, cardId2 } = req.body
   if (!cardId1 || !cardId2 || cardId1 === cardId2) {
@@ -66,13 +56,9 @@ export default async function handler(req, res) {
 
   if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
 
-  const now = Date.now()
-  const hours = safeHours(resources.last_collected_at, now)
-  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const currentMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  const snap = snapshotResources(resources)
 
-  if (currentMana < manaCost) {
+  if (snap.mana < manaCost) {
     return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
   }
 
@@ -94,7 +80,7 @@ export default async function handler(req, res) {
 
   await supabase
     .from('resources')
-    .update({ iron: snapshotIron, wood: snapshotWood, mana: currentMana - manaCost, last_collected_at: new Date(now).toISOString() })
+    .update({ iron: snap.iron, wood: snap.wood, mana: snap.mana - manaCost, last_collected_at: snap.nowIso })
     .eq('player_id', user.id)
 
   return res.status(200).json({ ok: true, newCard, manaCost })

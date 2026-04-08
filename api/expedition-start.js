@@ -1,23 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { interpolateHP, expeditionHpDamage } from './_hp.js'
 import { agilityDurationFactor } from '../src/lib/gameFormulas.js'
 import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { dungeonId, heroId } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
@@ -74,24 +64,12 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
-  // Taller: +5% de botín por nivel (no afecta duración)
-  const { data: workshop } = await supabase
-    .from('buildings')
-    .select('level')
-    .eq('player_id', user.id)
-    .eq('type', 'workshop')
-    .maybeSingle()
-
-  const workshopLevel = workshop?.level ?? 1
-  const workshopBonus = 1 + (workshopLevel - 1) * 0.05
-
   // Agilidad reduce duración (hasta −25%)
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
   const effectiveDuration = Math.round(dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1))
 
-  // Calcular duración y recompensas (taller amplifica el botín)
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
-  const goldEarned = Math.floor((dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min)) * workshopBonus)
+  const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
   // Madera, hierro y maná solo se producen en edificios — las expediciones solo dan oro e items
   const woodEarned = 0
   const manaEarned = 0

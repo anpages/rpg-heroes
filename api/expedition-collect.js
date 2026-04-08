@@ -1,24 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { attackMultiplier as calcAttackMultiplier } from '../src/lib/gameFormulas.js'
+import { attackMultiplier as calcAttackMultiplier, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
-import { rollItemDrop, rollCardDrop } from './_loot.js'
-import { isUUID, safeHours } from './_validate.js'
+import { rollItemDrop, rollCardDrop, rollMaterialDrop } from './_loot.js'
+import { isUUID, snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
-
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Sin token' })
-
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Token inválido' })
+  const auth = await requireAuth(req, res)
+  if (!auth) return
+  const { user, supabase } = auth
 
   const { expeditionId } = req.body
   if (!expeditionId) return res.status(400).json({ error: 'expeditionId requerido' })
@@ -48,7 +38,7 @@ export default async function handler(req, res) {
   // Obtener recursos actuales — se hace snapshot de todos los recursos pasivos antes de mover last_collected_at
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')
-    .select('gold, iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, fragments, essence, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -86,20 +76,20 @@ export default async function handler(req, res) {
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
-  // Añadir oro y hacer snapshot de recursos pasivos antes de mover last_collected_at
-  const nowMs = Date.now()
-  const hours = safeHours(resources.last_collected_at, nowMs)
-  const snapshotIron = Math.floor(resources.iron + resources.iron_rate * hours)
-  const snapshotWood = Math.floor(resources.wood + resources.wood_rate * hours)
-  const snapshotMana = Math.floor(resources.mana + resources.mana_rate * hours)
+  // Roll de material antes del UPDATE para incluirlo en la misma operación
+  const materialDrop = dungeon ? rollMaterialDrop(dungeon.type) : null
+
+  const snap = snapshotResources(resources)
   const { error: updateResourcesError } = await supabase
     .from('resources')
     .update({
-      gold: resources.gold + finalGold,
-      iron: snapshotIron,
-      wood: snapshotWood,
-      mana: snapshotMana,
-      last_collected_at: new Date(nowMs).toISOString(),
+      gold:      snap.gold + finalGold,
+      iron:      snap.iron,
+      wood:      snap.wood,
+      mana:      snap.mana,
+      fragments: (resources.fragments ?? 0) + (materialDrop?.resource === 'fragments' ? materialDrop.qty : 0),
+      essence:   (resources.essence   ?? 0) + (materialDrop?.resource === 'essence'   ? materialDrop.qty : 0),
+      last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
 
@@ -107,7 +97,7 @@ export default async function handler(req, res) {
 
   // Añadir XP y subir nivel si corresponde
   const newXp = hero.experience + finalXp
-  const xpForLevel = hero.level * 150
+  const xpForLevel = xpRequiredForLevel(hero.level)
   const levelUp = newXp >= xpForLevel
 
   // Consumir xp_boost si se usó
@@ -137,6 +127,7 @@ export default async function handler(req, res) {
 
   const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0 }) : null
   const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus) : null
+  // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
   // Progreso de misiones diarias
   await Promise.all([
@@ -154,7 +145,8 @@ export default async function handler(req, res) {
       experience: finalXp,
     },
     levelUp,
-    drop:     drop     ?? null,
-    cardDrop: cardDrop ?? null,
+    drop:         drop         ?? null,
+    cardDrop:     cardDrop     ?? null,
+    materialDrop: materialDrop ?? null,
   })
 }
