@@ -1066,7 +1066,7 @@ function Hero() {
           {/* Equipment preview */}
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
             <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {EQUIPMENT_SLOTS.map(slot => {
                 const item     = equipped[slot]
                 const meta     = SLOT_META[slot]
