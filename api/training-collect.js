@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId } = req.body
+  const { heroId, stat: onlyStat } = req.body
   if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     .select('stat, level, built_at, building_ends_at')
     .eq('player_id', user.id)
 
-  const rooms = (allRooms ?? []).filter(r => r.built_at !== null)
+  const rooms = (allRooms ?? []).filter(r => r.built_at !== null && (!onlyStat || r.stat === onlyStat))
 
   if (!rooms || rooms.length === 0) {
     return res.status(200).json({ ok: true, gained: {} })

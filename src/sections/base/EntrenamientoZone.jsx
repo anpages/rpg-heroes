@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { PackageOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { apiPost } from '../../lib/api.js'
 import { queryKeys } from '../../lib/queryKeys.js'
@@ -61,7 +60,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   })
 
   const collectMutation = useMutation({
-    mutationFn: () => apiPost('/api/training-collect', { heroId }),
+    mutationFn: (stat) => apiPost('/api/training-collect', { heroId, stat }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.training(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
@@ -75,20 +74,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
 
   return (
     <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
-        {anyReady && (
-          <motion.button
-            className="btn btn--primary btn--sm"
-            onClick={() => collectMutation.mutate()}
-            disabled={collectMutation.isPending}
-            whileTap={{ scale: 0.96 }}
-          >
-            <PackageOpen size={13} strokeWidth={2} />
-            Recoger todo
-          </motion.button>
-        )}
-      </div>
+      <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {TRAINING_ROOMS.map(room => (
@@ -101,9 +87,12 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
             baseLevel={baseLevel}
             mutPending={mutPending}
             isQueueBusy={isQueueBusy}
+            anyReady={anyReady}
+            collectPending={collectMutation.isPending}
             onBuild={() => buildMutation.mutate(room.stat)}
             onUpgrade={() => upgradeMutation.mutate(room.stat)}
             onBuildCollect={() => buildCollectMutation.mutate(room.stat)}
+            onCollect={() => collectMutation.mutate(room.stat)}
           />
         ))}
       </div>

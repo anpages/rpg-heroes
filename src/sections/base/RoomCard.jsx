@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Axe, Pickaxe, Clock, Lock, ChevronRight, Hammer } from 'lucide-react'
+import { Axe, Pickaxe, Clock, Lock, ChevronRight, Hammer, PackageOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import {
   xpRateForLevel, TRAINING_XP_CAP_HOURS,
@@ -10,7 +10,7 @@ import { xpThreshold } from '../../hooks/useTraining.js'
 import { STAT_LABEL_MAP } from './constants.js'
 import { fmt, fmtHours, fmtTime } from './helpers.js'
 
-export default function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPending, isQueueBusy, onBuild, onUpgrade, onBuildCollect }) {
+export default function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onBuildCollect, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const collectingRef = useRef(false)
 
@@ -184,7 +184,19 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
       {/* Acción */}
       {!isConstructing && !lockedByBase && (
         <div className="px-4 pb-4 mt-auto">
-          {isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (
+          {ready ? (
+            <div className="flex items-center justify-end pt-3 border-t border-border">
+              <motion.button
+                className="btn btn--primary btn--sm"
+                onClick={onCollect}
+                disabled={collectPending}
+                whileTap={collectPending ? {} : { scale: 0.96 }}
+              >
+                <PackageOpen size={12} strokeWidth={2} />
+                Recoger
+              </motion.button>
+            </div>
+          ) : isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (
             <div className="flex items-center justify-center pt-3 border-t border-border">
               <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel máximo</span>
             </div>
@@ -201,8 +213,8 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
               <motion.button
                 className="btn btn--primary btn--sm flex-shrink-0"
                 onClick={() => isBuilt ? onUpgrade() : onBuild()}
-                disabled={!canAfford || mutPending || isQueueBusy}
-                whileTap={(!canAfford || mutPending || isQueueBusy) ? {} : { scale: 0.96 }}
+                disabled={!canAfford || mutPending || isQueueBusy || anyReady}
+                whileTap={(!canAfford || mutPending || isQueueBusy || anyReady) ? {} : { scale: 0.96 }}
               >
                 {isBuilt ? (
                   <><ChevronRight size={12} strokeWidth={2.5} />Mejorar</>
