@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useResources } from '../hooks/useResources'
-import { useHero } from '../hooks/useHero'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
 import {
@@ -142,7 +141,6 @@ export default function Shop() {
   const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const shopKey     = queryKeys.shop(heroId)
-  const { hero }    = useHero(heroId)
   const { resources } = useResources(userId)
   const gold        = resources?.gold
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
