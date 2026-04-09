@@ -144,7 +144,6 @@ export default function Shop() {
   const shopKey     = queryKeys.shop(heroId)
   const { hero }    = useHero(heroId)
   const { resources } = useResources(userId)
-  const heroName    = hero?.name
   const gold        = resources?.gold
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
 
@@ -160,7 +159,6 @@ export default function Shop() {
     staleTime: 30 * 60_000,
   })
   const items    = shopData?.items ?? null
-  const merchant = shopData?.merchant ?? null
   const error    = shopError?.message ?? null
 
   const buyMutation = useMutation({

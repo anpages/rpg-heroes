@@ -11,7 +11,6 @@ import { useHeroCards } from '../hooks/useHeroCards'
 import { useHeroRunes } from '../hooks/useHeroRunes'
 import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
-import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
@@ -597,9 +596,6 @@ export default function Equipo() {
       </div>
     )
   }
-
-  const currentHp     = interpolateHp(hero, Date.now())
-  const equippedCount = Object.keys(equippedBySlot).length
 
   function handleEquip(itemId) {
     equipMutation.mutate({ endpoint: '/api/item-equip', body: { itemId, equip: true } })
