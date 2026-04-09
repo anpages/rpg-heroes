@@ -63,14 +63,14 @@ export function cardBonusAtRank(baseValue, rank) {
 
 /**
  * Penalización de una carta de habilidad en rango `rank`.
- * Crece más despacio que el bonus: baseValue × (1 + (rank−1) × 0.5).
- * Rango 1 → ×1.0, Rango 2 → ×1.5, Rango 3 → ×2.0, Rango 4 → ×2.5, Rango 5 → ×3.0.
+ * Escala linealmente igual que el bonus: baseValue × rank.
+ * Rango 1 → ×1, Rango 2 → ×2, Rango 3 → ×3, Rango 4 → ×4, Rango 5 → ×5.
  *
  * No incluye Math.round — el llamador redondea si trabaja con enteros.
  * Para stats de porcentaje (ej. weapon_attack_amp = 0.15) no se redondea.
  */
 export function cardPenaltyAtRank(baseValue, rank) {
-  return baseValue * (1 + (rank - 1) * 0.5)
+  return baseValue * rank
 }
 
 /**
@@ -83,12 +83,14 @@ export function xpRequiredForLevel(level) {
 
 /**
  * Recompensas por superar un piso de la torre.
+ * Las recompensas dejan de escalar a partir del piso 100 (soft-cap).
  */
 export function floorRewards(floor) {
   const milestone = floor % 5 === 0
+  const effectiveFloor = Math.min(floor, 100)
   return {
-    gold:       Math.round((30 + floor * 15) * (milestone ? 2 : 1)),
-    experience: Math.round((20 + floor * 10) * (milestone ? 2 : 1)),
+    gold:       Math.round((30 + effectiveFloor * 15) * (milestone ? 2 : 1)),
+    experience: Math.round((20 + effectiveFloor * 10) * (milestone ? 2 : 1)),
     milestone,
   }
 }

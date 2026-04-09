@@ -5,9 +5,9 @@
  * Fórmulas:
  *   daño físico  = max(1, round((attack + strength×0.3) × (1 − defense/(defense+60))))
  *   daño mágico  = floor(intelligence × 0.04)  → bypasa defensa
- *   velocidad    = cada 15 puntos de ventaja en agility = ataque doble cada 4 rondas
+ *   velocidad    = ataque doble cada 6 rondas si ventaja de agility >= 20
  *   crítico      = cada critPeriod rondas (determinista, período basado en agility)
- *                  critPeriod = max(4, 10 − floor(agility / 8))
+ *                  critPeriod = max(5, 10 − floor(agility / 10))
  *                  daño crítico = daño × 1.5
  *
  * Log devuelto: array de rondas, cada una con array de eventos individuales.
@@ -24,9 +24,10 @@ function magicDamage(intel) {
   return Math.floor(intel * 0.04)
 }
 
-/** Período de crítico: cada N rondas el combatiente acierta un crítico (×1.5). */
+/** Período de crítico: cada N rondas el combatiente acierta un crítico (×1.5).
+ *  Soft-cap: mínimo 5 rondas entre críticos, escala más lento (cada 10 AGI). */
 function critPeriod(agility) {
-  return Math.max(4, 10 - Math.floor((agility ?? 0) / 8))
+  return Math.max(5, 10 - Math.floor((agility ?? 0) / 10))
 }
 
 /**
@@ -45,11 +46,11 @@ export function simulateCombat(a, b) {
   const baseDmgA = physDamage(a.attack, a.strength, b.defense) + magicDamage(a.intelligence)
   const baseDmgB = physDamage(b.attack, b.strength, a.defense) + magicDamage(b.intelligence)
 
-  // Doble ataque: cada 15 puntos de ventaja en agility = +1 ataque extra cada 4 rondas
+  // Doble ataque: >= 20 puntos de ventaja en agility = +1 ataque extra cada 6 rondas
   const agiDiffA = Math.max(0, a.agility - b.agility)
   const agiDiffB = Math.max(0, b.agility - a.agility)
-  const doubleA = agiDiffA >= 15
-  const doubleB = agiDiffB >= 15
+  const doubleA = agiDiffA >= 20
+  const doubleB = agiDiffB >= 20
 
   // Orden: mayor agility ataca primero
   const aFirst = a.agility >= b.agility
@@ -60,7 +61,7 @@ export function simulateCombat(a, b) {
 
   for (let round = 1; round <= 20 && hpA > 0 && hpB > 0; round++) {
     const events = []
-    const isDoubleRound = round % 4 === 0
+    const isDoubleRound = round % 6 === 0
     const isCritA = round % critPA === 1          // offset 1 para A
     const isCritB = round % critPB === (critPB > 1 ? 2 : 0)  // offset 2 para B (evita coincidencia exacta)
 

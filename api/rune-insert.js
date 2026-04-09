@@ -46,6 +46,16 @@ export default async function handler(req, res) {
     .eq('hero_id', heroId).eq('rune_id', runeId).maybeSingle()
   if (!heroRune || heroRune.quantity < 1) return res.status(400).json({ error: 'No tienes esa runa en el inventario' })
 
+  // Límite: máximo 5 runas del mismo tipo incrustadas en el equipo de un héroe
+  const { count: sameRuneCount } = await supabase
+    .from('item_runes')
+    .select('id', { count: 'exact', head: true })
+    .eq('rune_id', runeId)
+    .in('inventory_item_id',
+      (await supabase.from('inventory_items').select('id').eq('hero_id', heroId).not('equipped_slot', 'is', null)).data?.map(i => i.id) ?? []
+    )
+  if ((sameRuneCount ?? 0) >= 5) return res.status(409).json({ error: 'Máximo 5 runas del mismo tipo por héroe' })
+
   // Decrementar inventario
   const { error: dErr } = await supabase
     .from('hero_runes').update({ quantity: heroRune.quantity - 1 }).eq('id', heroRune.id)

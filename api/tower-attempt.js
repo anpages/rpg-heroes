@@ -94,7 +94,7 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   Object.keys(usedBoosts).forEach(k => delete newEffects[k])
 
-  await supabase
+  const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
     .update({
       current_hp:          hpAfterCombat,
@@ -103,6 +103,10 @@ export default async function handler(req, res) {
       ...(heroKnockedOut && { status: 'idle' }),
     })
     .eq('id', hero.id)
+    .eq('status', 'idle')
+
+  if (hpError) return res.status(500).json({ error: hpError.message })
+  if (hpCount === 0) return res.status(409).json({ error: 'El héroe cambió de estado durante el combate' })
 
   // Reducir durabilidad del equipo — escala con el piso, siempre (gane o pierda)
   const durLossFloor = targetFloor <= 10 ? 1 : targetFloor <= 25 ? 2 : targetFloor <= 40 ? 3 : 4
