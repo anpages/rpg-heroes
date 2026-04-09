@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
-import { MAX_POTION_STACK } from './_constants.js'
+import { MAX_POTION_STACK, POTION_CRAFT_DURATION_MS } from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -13,23 +13,34 @@ export default async function handler(req, res) {
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
   // Verificar héroe
-  const { data: hero, error: heroError } = await supabase
+  const { data: hero } = await supabase
     .from('heroes')
     .select('id, player_id')
     .eq('id', heroId)
     .single()
 
-  if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
+  if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
+  // Verificar que no haya un crafteo en curso
+  const { data: activeCraft } = await supabase
+    .from('potion_crafting')
+    .select('potion_id, craft_ends_at')
+    .eq('hero_id', heroId)
+    .single()
+
+  if (activeCraft && new Date(activeCraft.craft_ends_at) > new Date()) {
+    return res.status(409).json({ error: 'Ya hay una poción en proceso. Espera a que termine.' })
+  }
+
   // Obtener receta
-  const { data: potion, error: potionError } = await supabase
+  const { data: potion } = await supabase
     .from('potion_catalog')
     .select('*')
     .eq('id', potionId)
     .single()
 
-  if (potionError || !potion) return res.status(404).json({ error: 'Poción no encontrada' })
+  if (!potion) return res.status(404).json({ error: 'Poción no encontrada' })
 
   // Verificar nivel del Laboratorio
   const { data: lab } = await supabase
@@ -55,14 +66,14 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: `Ya tienes el máximo (${MAX_POTION_STACK}) de esta poción` })
   }
 
-  // Verificar y descontar recursos (con interpolación idle)
-  const { data: resources, error: resourcesError } = await supabase
+  // Verificar y descontar recursos
+  const { data: resources } = await supabase
     .from('resources')
     .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
+  if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
   const snap = snapshotResources(resources)
 
@@ -70,32 +81,25 @@ export default async function handler(req, res) {
   if (snap.wood < potion.recipe_wood) return res.status(402).json({ error: 'Madera insuficiente' })
   if (snap.mana < potion.recipe_mana) return res.status(402).json({ error: 'Maná insuficiente' })
 
-  const { error: updateResourcesError } = await supabase
-    .from('resources')
-    .update({
+  const craftEndsAt = new Date(Date.now() + POTION_CRAFT_DURATION_MS).toISOString()
+
+  const [resourcesResult, craftResult] = await Promise.all([
+    supabase.from('resources').update({
       gold: snap.gold - potion.recipe_gold,
       iron: snap.iron,
       wood: snap.wood - potion.recipe_wood,
       mana: snap.mana - potion.recipe_mana,
       last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
+    }).eq('player_id', user.id),
 
-  if (updateResourcesError) return res.status(500).json({ error: updateResourcesError.message })
+    supabase.from('potion_crafting').upsert(
+      { hero_id: heroId, potion_id: potionId, craft_ends_at: craftEndsAt },
+      { onConflict: 'hero_id' }
+    ),
+  ])
 
-  // Añadir poción al inventario
-  const { error: upsertError } = await supabase
-    .from('hero_potions')
-    .upsert(
-      { hero_id: heroId, potion_id: potionId, quantity: currentQty + 1 },
-      { onConflict: 'hero_id,potion_id' }
-    )
+  if (resourcesResult.error) return res.status(500).json({ error: resourcesResult.error.message })
+  if (craftResult.error)    return res.status(500).json({ error: craftResult.error.message })
 
-  if (upsertError) return res.status(500).json({ error: upsertError.message })
-
-  return res.status(200).json({
-    ok:       true,
-    potionId,
-    quantity: currentQty + 1,
-  })
+  return res.status(200).json({ ok: true, craft_ends_at: craftEndsAt })
 }

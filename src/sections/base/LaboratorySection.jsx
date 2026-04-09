@@ -1,9 +1,42 @@
-import { Coins, Axe, Sparkles, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Coins, Axe, Sparkles, Plus, FlaskConical, Clock, CheckCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
 
-export function LaboratorySection({ labLevel, potions, resources, onCraft }) {
+function useCraftTimer(craftEndsAt) {
+  const [remaining, setRemaining] = useState(() => {
+    if (!craftEndsAt) return null
+    return Math.max(0, new Date(craftEndsAt) - Date.now())
+  })
+
+  useEffect(() => {
+    if (!craftEndsAt) { setRemaining(null); return }
+    const tick = () => setRemaining(Math.max(0, new Date(craftEndsAt) - Date.now()))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [craftEndsAt])
+
+  return remaining
+}
+
+function formatMs(ms) {
+  if (ms <= 0) return '0:00'
+  const totalSec = Math.ceil(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export function LaboratorySection({ labLevel, potions, crafting, resources, onCraft, onCollect }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
+  const remaining = useCraftTimer(crafting?.craft_ends_at)
+  const isReady   = remaining !== null && remaining <= 0
+  const isCrafting = remaining !== null && remaining > 0
+
+  const craftingPotion = crafting
+    ? availablePotions.find(p => p.id === crafting.potion_id) ?? potions.find(p => p.id === crafting.potion_id)
+    : null
 
   function canAfford(p) {
     if (!resources) return false
@@ -16,11 +49,43 @@ export function LaboratorySection({ labLevel, potions, resources, onCraft }) {
     <div className="flex flex-col gap-3">
       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Recetas disponibles</p>
 
+      {/* Banner de crafteo activo */}
+      {crafting && craftingPotion && (
+        <div className={`flex items-center gap-3 rounded-xl border p-3.5 ${isReady ? 'border-[#16a34a] bg-[color-mix(in_srgb,#16a34a_8%,var(--surface))]' : 'border-[#d97706] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]'}`}>
+          <FlaskConical size={18} strokeWidth={2} className={isReady ? 'text-[#16a34a]' : 'text-[#d97706]'} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-text truncate">{craftingPotion.name}</p>
+            {isCrafting && (
+              <p className="flex items-center gap-1 text-[12px] font-semibold text-[#d97706] mt-0.5">
+                <Clock size={11} strokeWidth={2} />
+                Lista en {formatMs(remaining)}
+              </p>
+            )}
+            {isReady && (
+              <p className="text-[12px] font-semibold text-[#16a34a] mt-0.5">¡Lista para recoger!</p>
+            )}
+          </div>
+          {isReady && (
+            <motion.button
+              className="btn btn--sm flex-shrink-0 font-semibold"
+              style={{ background: '#16a34a', color: '#fff', borderColor: 'transparent' }}
+              onClick={onCollect}
+              whileTap={{ scale: 0.96 }}
+            >
+              <CheckCircle size={13} strokeWidth={2.5} />
+              Recoger
+            </motion.button>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {availablePotions.map(p => {
           const affordable = canAfford(p)
           const full       = p.quantity >= 5
+          const blocked    = isCrafting || isReady
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
+          const disabled   = !affordable || full || blocked
 
           return (
             <div
@@ -57,9 +122,9 @@ export function LaboratorySection({ labLevel, potions, resources, onCraft }) {
               <motion.button
                 className="btn btn--primary btn--sm flex-shrink-0"
                 onClick={() => onCraft(p.id)}
-                disabled={!affordable || full}
-                whileTap={(!affordable || full) ? {} : { scale: 0.96 }}
-                title={full ? 'Inventario lleno' : !affordable ? 'Recursos insuficientes' : undefined}
+                disabled={disabled}
+                whileTap={disabled ? {} : { scale: 0.96 }}
+                title={full ? 'Inventario lleno' : blocked ? 'Crafteo en progreso' : !affordable ? 'Recursos insuficientes' : undefined}
               >
                 <Plus size={13} strokeWidth={2.5} />
               </motion.button>

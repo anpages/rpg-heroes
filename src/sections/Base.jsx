@@ -32,7 +32,7 @@ export default function Base({ mainRef }) {
   const { resources }          = useResources(userId)
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
-  const { potions }                        = usePotions(heroId)
+  const { potions, crafting }              = usePotions(heroId)
   const { catalog: runesCatalog, inventory: runesInventory } = useHeroRunes(heroId)
   const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('inicio')
@@ -60,7 +60,16 @@ export default function Base({ mainRef }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      toast.success('¡Poción creada!')
+      toast.success('¡Crafteo iniciado! Lista en 30 min.')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const collectPotionMutation = useMutation({
+    mutationFn: () => apiPost('/api/potion-collect', { heroId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
+      toast.success('¡Poción recogida!')
     },
     onError: err => toast.error(err.message),
   })
@@ -207,9 +216,11 @@ export default function Base({ mainRef }) {
             <LaboratorioZone
               byType={byType}
               potions={potions}
+              crafting={crafting}
               runesCatalog={runesCatalog}
               runesInventory={runesInventory}
               onCraft={(potionId) => craftMutation.mutate(potionId)}
+              onCollect={() => collectPotionMutation.mutate()}
               onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
               {...sharedBuildingProps}
             />
