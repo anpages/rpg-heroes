@@ -654,16 +654,6 @@ export default function Equipo() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Header */}
-      <div className="section-header !mb-0">
-        <div className="section-title-row">
-          <h2 className="section-title">Equipo</h2>
-        </div>
-        <p className="section-subtitle">
-          {hero.name} · {equippedCount}/8 piezas · {currentHp}/{hero.max_hp} HP
-        </p>
-      </div>
-
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
 

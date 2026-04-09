@@ -328,15 +328,6 @@ export default function Cartas() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Header */}
-      <div className="section-header !mb-0">
-        <div className="section-title-row">
-          <h2 className="section-title">Cartas</h2>
-          <span className="text-[12px] text-text-3 ml-auto">{(cards ?? []).length} en colección</span>
-        </div>
-        <p className="section-subtitle">{hero.name} · {equippedCount}/{CARD_SLOT_COUNT} slots activos</p>
-      </div>
-
       {/* Card slots */}
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Slots Equipados</p>

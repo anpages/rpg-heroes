@@ -396,14 +396,6 @@ function Dungeons() {
   const heroStrength   = hero?.strength ?? 0
   return (
     <div className="dungeons-section">
-      <div className="section-header">
-        <div className="section-title-row">
-          <h2 className="section-title">Mazmorras</h2>
-        </div>
-        <p className="section-subtitle">Envía a tu héroe a explorar mazmorras para conseguir recursos, experiencia y equipo. El botín es aleatorio; cada tipo tiene sus especialidades.</p>
-      </div>
-
-
       {/* Reward modal */}
       {reward && createPortal(
         <RewardModal reward={reward} onClose={() => setReward(null)} />,

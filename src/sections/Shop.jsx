@@ -198,25 +198,17 @@ export default function Shop() {
   return (
     <div className="flex flex-col gap-6 relative">
       {/* Header */}
-      <div className="section-header !mb-0">
-        <div className="section-title-row">
-          <h2 className="section-title">{merchant ? merchant.label : 'Tienda'}</h2>
-          <div className="flex items-center gap-3 ml-auto">
-            {gold !== undefined && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]">
-                <Coins size={14} strokeWidth={2} color="#d97706" />
-                <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
-              <Clock size={13} strokeWidth={2} />
-              Renueva en {renewsIn}
-            </div>
+      <div className="flex items-center gap-3">
+        {gold !== undefined && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]">
+            <Coins size={14} strokeWidth={2} color="#d97706" />
+            <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
           </div>
-        </div>
-        {heroName && (
-          <p className="section-subtitle">Inventario de {heroName}</p>
         )}
+        <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap ml-auto">
+          <Clock size={13} strokeWidth={2} />
+          Renueva en {renewsIn}
+        </div>
       </div>
 
       {error && (

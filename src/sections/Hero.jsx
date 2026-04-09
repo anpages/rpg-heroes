@@ -936,13 +936,7 @@ function Hero() {
   }
 
   return (
-    <motion.div key="hero-content" className="pt-[4px] overflow-x-hidden flex flex-col gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
-      <div className="section-header !mb-0">
-        <div className="section-title-row">
-          <h2 className="section-title">Ficha</h2>
-        </div>
-        <p className="section-subtitle">Estadísticas, equipo activo y progreso de tu héroe.</p>
-      </div>
+    <motion.div key="hero-content" className="overflow-x-hidden flex flex-col gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-start">
 
         {/* Left column: hero card only */}

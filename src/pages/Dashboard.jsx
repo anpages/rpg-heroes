@@ -409,11 +409,11 @@ function Dashboard({ session }) {
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
             {mountedTabs.has('heroes') && (
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
-                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1 md:mt-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
