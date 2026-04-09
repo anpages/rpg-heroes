@@ -421,11 +421,11 @@ function Dashboard({ session }) {
                     return (
                       <button
                         key={id}
-                        className={`relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] whitespace-nowrap flex-shrink-0
-                          ${isActive
-                            ? 'border-b-[var(--blue-600)] text-[var(--blue-700)]'
-                            : 'border-b-transparent text-text-3 hover:text-text'
-                          }`}
+                        className="relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] whitespace-nowrap flex-shrink-0"
+                        style={{
+                          borderBottomColor: isActive ? 'var(--blue-600)' : 'transparent',
+                          color: isActive ? 'var(--blue-600)' : 'var(--text-3)',
+                        }}
                         onClick={() => navigateToHeroTab(id)}
                       >
                         <Icon size={14} strokeWidth={2} />

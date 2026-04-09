@@ -10,11 +10,11 @@ export default function ZonePills({ active, onChange }) {
           <button
             key={z.id}
             onClick={() => onChange(z.id)}
-            className={`relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] ${
-              isActive
-                ? 'border-b-[var(--blue-600)] text-[var(--blue-700)]'
-                : 'border-b-transparent text-text-3 hover:text-text'
-            }`}
+            className="relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit]"
+            style={{
+              borderBottomColor: isActive ? 'var(--blue-600)' : 'transparent',
+              color: isActive ? 'var(--blue-600)' : 'var(--text-3)',
+            }}
           >
             <Icon size={14} strokeWidth={2} />
             {z.label}
