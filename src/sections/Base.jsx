@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useBuildings } from '../hooks/useBuildings'
@@ -163,68 +163,71 @@ export default function Base({ mainRef }) {
       <ZonePills active={activeZone} onChange={setActiveZone} />
 
       <AnimatePresence mode="wait">
-        {activeZone === 'inicio' && (
-          <InicioZone
-            key="inicio"
-            byType={byType}
-            nexusData={nexusData}
-            trainingRooms={trainingRooms}
-            trainingProgress={trainingProgress}
-            potions={potions}
-            research={research}
-            onGoTo={setActiveZone}
-          />
-        )}
+        <motion.div
+          key={activeZone}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18 }}
+        >
+          {activeZone === 'inicio' && (
+            <InicioZone
+              byType={byType}
+              nexusData={nexusData}
+              trainingRooms={trainingRooms}
+              trainingProgress={trainingProgress}
+              potions={potions}
+              research={research}
+              onGoTo={setActiveZone}
+            />
+          )}
 
-        {activeZone === 'recursos' && (
-          <RecursosZone
-            key="recursos"
-            byType={byType}
-            nexusData={nexusData}
-            nexusRatio={nexusRatio}
-            {...sharedBuildingProps}
-          />
-        )}
+          {activeZone === 'recursos' && (
+            <RecursosZone
+              byType={byType}
+              nexusData={nexusData}
+              nexusRatio={nexusRatio}
+              {...sharedBuildingProps}
+            />
+          )}
 
-        {activeZone === 'entrenamiento' && (
-          <EntrenamientoZone
-            key="entrenamiento"
-            trainingRooms={trainingRooms}
-            trainingProgress={trainingProgress}
-            resources={effectiveResources}
-            userId={userId}
-            heroId={heroId}
-            byType={byType}
-            anyUpgrading={anyUpgrading}
-          />
-        )}
+          {activeZone === 'entrenamiento' && (
+            <EntrenamientoZone
+              trainingRooms={trainingRooms}
+              trainingProgress={trainingProgress}
+              resources={effectiveResources}
+              userId={userId}
+              heroId={heroId}
+              byType={byType}
+              anyUpgrading={anyUpgrading}
+            />
+          )}
 
-        {activeZone === 'laboratorio' && (
-          <LaboratorioZone
-            key="laboratorio"
-            byType={byType}
-            potions={potions}
-            runesCatalog={runesCatalog}
-            runesInventory={runesInventory}
-            onCraft={(potionId) => craftMutation.mutate(potionId)}
-            onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
-            {...sharedBuildingProps}
-          />
-        )}
+          {activeZone === 'laboratorio' && (
+            <LaboratorioZone
+              byType={byType}
+              potions={potions}
+              runesCatalog={runesCatalog}
+              runesInventory={runesInventory}
+              onCraft={(potionId) => craftMutation.mutate(potionId)}
+              onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
+              {...sharedBuildingProps}
+            />
+          )}
 
-        {activeZone === 'biblioteca' && (
-          <BibliotecaZone
-            key="biblioteca"
-            byType={byType}
-            research={research}
-            resources={effectiveResources}
-            onResearchStart={(nodeId) => researchStartMutation.mutate(nodeId)}
-            onResearchCollect={(nodeId) => researchCollectMutation.mutate(nodeId)}
-            startPending={researchStartMutation.isPending}
-            collectPending={researchCollectMutation.isPending}
-            {...sharedBuildingProps}
-          />
-        )}
+          {activeZone === 'biblioteca' && (
+            <BibliotecaZone
+              byType={byType}
+              research={research}
+              resources={effectiveResources}
+              onResearchStart={(nodeId) => researchStartMutation.mutate(nodeId)}
+              onResearchCollect={(nodeId) => researchCollectMutation.mutate(nodeId)}
+              startPending={researchStartMutation.isPending}
+              collectPending={researchCollectMutation.isPending}
+              {...sharedBuildingProps}
+            />
+          )}
+        </motion.div>
       </AnimatePresence>
     </div>
   )

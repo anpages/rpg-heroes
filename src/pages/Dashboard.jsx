@@ -413,7 +413,7 @@ function Dashboard({ session }) {
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
-                <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ boxShadow: 'inset 0 -1px 0 var(--border)' }}>
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
@@ -421,10 +421,10 @@ function Dashboard({ session }) {
                     return (
                       <button
                         key={id}
-                        className="relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] whitespace-nowrap flex-shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-[color,box-shadow] duration-150 bg-transparent border-0 font-[inherit]"
                         style={{
-                          borderBottomColor: isActive ? 'var(--blue-600)' : 'transparent',
-                          color: isActive ? 'var(--blue-600)' : 'var(--text-3)',
+                          color: isActive ? '#2563eb' : 'var(--text-3)',
+                          boxShadow: isActive ? 'inset 0 -2px 0 #2563eb' : 'none',
                         }}
                         onClick={() => navigateToHeroTab(id)}
                       >
@@ -441,21 +441,21 @@ function Dashboard({ session }) {
                   })}
                 </div>
                 {/* Sub-content */}
-                <div className={activeHeroTab === 'ficha' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:ficha') && <ErrorBoundary><Hero /></ErrorBoundary>}
-                </div>
-                <div className={activeHeroTab === 'equipo' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:equipo') && <ErrorBoundary><Equipo /></ErrorBoundary>}
-                </div>
-                <div className={activeHeroTab === 'cartas' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:cartas') && <ErrorBoundary><Cartas /></ErrorBoundary>}
-                </div>
-                <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
-                </div>
-                <div className={activeHeroTab === 'tienda' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
-                </div>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeHeroTab}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {activeHeroTab === 'ficha'        && <ErrorBoundary><Hero /></ErrorBoundary>}
+                    {activeHeroTab === 'equipo'       && <ErrorBoundary><Equipo /></ErrorBoundary>}
+                    {activeHeroTab === 'cartas'       && <ErrorBoundary><Cartas /></ErrorBoundary>}
+                    {activeHeroTab === 'expediciones' && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                    {activeHeroTab === 'tienda'       && <ErrorBoundary><Shop /></ErrorBoundary>}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             )}
           </div>
