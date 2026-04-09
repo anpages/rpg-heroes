@@ -413,7 +413,8 @@ function Dashboard({ session }) {
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
-                <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ boxShadow: 'inset 0 -1px 0 var(--border)' }}>
+                <div className="border-b border-border">
+                <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
@@ -421,10 +422,10 @@ function Dashboard({ session }) {
                     return (
                       <button
                         key={id}
-                        className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-[color,box-shadow] duration-150 bg-transparent border-0 font-[inherit]"
+                        className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 border-x-0 border-t-0 transition-[color,border-color] duration-150 bg-transparent font-[inherit]"
                         style={{
+                          borderBottomColor: isActive ? '#2563eb' : 'transparent',
                           color: isActive ? '#2563eb' : 'var(--text-3)',
-                          boxShadow: isActive ? 'inset 0 -2px 0 #2563eb' : 'none',
                         }}
                         onClick={() => navigateToHeroTab(id)}
                       >
@@ -439,6 +440,7 @@ function Dashboard({ session }) {
                       </button>
                     )
                   })}
+                </div>
                 </div>
                 {/* Sub-content */}
                 <AnimatePresence mode="wait">

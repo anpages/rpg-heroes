@@ -2,7 +2,8 @@ import { ZONES } from './constants.js'
 
 export default function ZonePills({ active, onChange }) {
   return (
-    <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ boxShadow: 'inset 0 -1px 0 var(--border)' }}>
+    <div className="border-b border-border">
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
       {ZONES.map(z => {
         const Icon = z.icon
         const isActive = active === z.id
@@ -10,10 +11,10 @@ export default function ZonePills({ active, onChange }) {
           <button
             key={z.id}
             onClick={() => onChange(z.id)}
-            className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-[color,box-shadow] duration-150 bg-transparent border-0 font-[inherit]"
+            className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 border-x-0 border-t-0 transition-[color,border-color] duration-150 bg-transparent font-[inherit]"
             style={{
+              borderBottomColor: isActive ? '#2563eb' : 'transparent',
               color: isActive ? '#2563eb' : 'var(--text-3)',
-              boxShadow: isActive ? 'inset 0 -2px 0 #2563eb' : 'none',
             }}
           >
             <Icon size={14} strokeWidth={2} />
@@ -21,6 +22,7 @@ export default function ZonePills({ active, onChange }) {
           </button>
         )
       })}
+      </div>
     </div>
   )
 }
