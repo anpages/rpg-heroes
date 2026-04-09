@@ -43,7 +43,11 @@ export default async function handler(req, res) {
   const snap = snapshotResources(resources)
 
   // Aplicar recompensas — misiones solo dan oro y XP
-  await Promise.all([
+  const newXp = hero.experience + mission.reward_xp
+  const xpForLevel = xpRequiredForLevel(hero.level)
+  const levelUp = newXp >= xpForLevel
+
+  const results = await Promise.all([
     supabase
       .from('resources')
       .update({
@@ -55,24 +59,22 @@ export default async function handler(req, res) {
       })
       .eq('player_id', user.id),
 
-    (() => {
-      const newXp = hero.experience + mission.reward_xp
-      const xpForLevel = xpRequiredForLevel(hero.level)
-      const levelUp = newXp >= xpForLevel
-      return supabase
-        .from('heroes')
-        .update({
-          experience: levelUp ? newXp - xpForLevel : newXp,
-          level: levelUp ? hero.level + 1 : hero.level,
-        })
-        .eq('id', hero.id)
-    })(),
+    supabase
+      .from('heroes')
+      .update({
+        experience: levelUp ? newXp - xpForLevel : newXp,
+        level: levelUp ? hero.level + 1 : hero.level,
+      })
+      .eq('id', hero.id),
 
     supabase
       .from('daily_missions')
       .update({ claimed: true })
       .eq('id', missionId),
   ])
+
+  const firstError = results.find(r => r.error)
+  if (firstError) return res.status(500).json({ error: firstError.error.message })
 
   return res.status(200).json({
     ok: true,

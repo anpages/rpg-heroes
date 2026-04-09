@@ -118,26 +118,31 @@ export default async function handler(req, res) {
   if (updateHeroError) return res.status(500).json({ error: updateHeroError.message })
 
   // Marcar expedición como completada
-  await supabase
+  const { error: expUpdateError } = await supabase
     .from('expeditions')
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', expeditionId)
 
+  if (expUpdateError) return res.status(500).json({ error: expUpdateError.message })
+
   // Reducir durabilidad del equipo equipado
-  await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
+  if (durabilityLoss > 0) {
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
+    if (durError) console.error('durability rpc error:', durError.message)
+  }
 
   const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, heroClass: hero.class }) : null
   const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
-  // Progreso de misiones diarias
-  await Promise.all([
+  // Progreso de misiones diarias (no bloquean la respuesta)
+  Promise.all([
     progressMissions(supabase, user.id, 'expeditions_complete', 1),
     progressMissions(supabase, user.id, 'gold_earn', finalGold),
     progressMissions(supabase, user.id, 'xp_earn', finalXp),
     dungeon ? progressMissions(supabase, user.id, `dungeon_type_${dungeon.type}`, 1) : Promise.resolve(),
     drop && !drop.full ? progressMissions(supabase, user.id, 'item_drop', 1) : Promise.resolve(),
-  ])
+  ]).catch(e => console.error('mission progress error:', e.message))
 
   return res.status(200).json({
     ok: true,

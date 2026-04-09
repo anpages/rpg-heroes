@@ -28,11 +28,12 @@ export default async function handler(req, res) {
   // Desbloquear edificios según árbol de progresión
   const triggers = UNLOCK_TRIGGERS.filter(t => t.type === building.type && t.level === newLevel)
   for (const trigger of triggers) {
-    await supabase
+    const { error: unlockError } = await supabase
       .from('buildings')
       .update({ unlocked: true })
       .eq('player_id', user.id)
       .in('type', trigger.unlocks)
+    if (unlockError) console.error('unlock error:', unlockError.message)
   }
 
   // Subir nivel del edificio
@@ -60,15 +61,17 @@ export default async function handler(req, res) {
 
   if (resources) {
     const snap = snapshotResources(resources)
-    await supabase
+    const { error: ratesError } = await supabase
       .from('resources')
       .update({ ...rates, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
       .eq('player_id', user.id)
+    if (ratesError) return res.status(500).json({ error: ratesError.message })
   } else {
-    await supabase
+    const { error: ratesError } = await supabase
       .from('resources')
       .update(rates)
       .eq('player_id', user.id)
+    if (ratesError) return res.status(500).json({ error: ratesError.message })
   }
 
   return res.status(200).json({ ok: true, newLevel, type: building.type })

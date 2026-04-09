@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   const { heroId, runeId } = req.body
   if (!heroId || !isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
-  if (!runeId) return res.status(400).json({ error: 'runeId requerido' })
+  if (!runeId || typeof runeId !== 'number' || !Number.isInteger(runeId) || runeId < 1) return res.status(400).json({ error: 'runeId inválido' })
 
   // Verificar héroe
   const { data: hero } = await supabase

@@ -106,16 +106,19 @@ export default async function handler(req, res) {
 
   // Reducir durabilidad del equipo — escala con el piso, siempre (gane o pierda)
   const durLossFloor = targetFloor <= 10 ? 1 : targetFloor <= 25 ? 2 : targetFloor <= 40 ? 3 : 4
-  await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLossFloor })
+  const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLossFloor })
+  if (durError) console.error('durability rpc error:', durError.message)
 
   let rewards = null
 
   if (won) {
     // Actualizar progreso
-    await supabase
+    const { error: progressError } = await supabase
       .from('tower_progress')
       .update({ max_floor: targetFloor, updated_at: new Date().toISOString() })
       .eq('hero_id', hero.id)
+
+    if (progressError) return res.status(500).json({ error: progressError.message })
 
     rewards = floorRewards(targetFloor)
 
@@ -128,10 +131,12 @@ export default async function handler(req, res) {
 
     if (resources) {
       const snap = snapshotResources(resources)
-      await supabase
+      const { error: resError } = await supabase
         .from('resources')
         .update({ gold: snap.gold + rewards.gold, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
         .eq('player_id', user.id)
+
+      if (resError) return res.status(500).json({ error: resError.message })
     }
 
     // Dar XP
@@ -139,13 +144,15 @@ export default async function handler(req, res) {
     const xpForLevel = xpRequiredForLevel(hero.level)
     const levelUp = newXp >= xpForLevel
 
-    await supabase
+    const { error: xpError } = await supabase
       .from('heroes')
       .update({
         experience: levelUp ? newXp - xpForLevel : newXp,
         level: levelUp ? hero.level + 1 : hero.level,
       })
       .eq('id', hero.id)
+
+    if (xpError) return res.status(500).json({ error: xpError.message })
 
     rewards.levelUp = levelUp
 
@@ -156,8 +163,8 @@ export default async function handler(req, res) {
     rewards.drop = drop ?? null
   }
 
-  // Progreso de misiones (siempre, gane o no)
-  await progressMissions(supabase, user.id, 'tower_attempt', 1)
+  // Progreso de misiones (no bloquea la respuesta)
+  progressMissions(supabase, user.id, 'tower_attempt', 1).catch(e => console.error('mission error:', e.message))
 
   return res.status(200).json({
     ok: true,

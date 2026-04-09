@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   if (!heroId)   return res.status(400).json({ error: 'heroId requerido' })
   if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
+  if (typeof potionId !== 'string' || potionId.length > 50) return res.status(400).json({ error: 'potionId inválido' })
 
   // Verificar héroe
   const { data: hero } = await supabase
