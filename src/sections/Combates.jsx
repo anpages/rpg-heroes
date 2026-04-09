@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import { TowerControl, Trophy, Scroll, Swords } from 'lucide-react'
+import { TowerControl, Scroll, Swords } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HeroSelector } from '../components/HeroPicker'
 import Torre from './Torre'
-import Ranking from './Ranking'
 import CombatHistorial from './CombatHistorial'
 import Torneos from './Torneos'
 
 const MODES = [
-  { id: 'torre',         label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
-  { id: 'torneos',       label: 'Torneo',          sublabel: 'Semanal',  Icon: Swords,       color: '#dc2626' },
-  { id: 'historial',     label: 'Historial',       sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
-  { id: 'clasificacion', label: 'Clasificación',   sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
+  { id: 'torre',     label: 'Torre',    sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
+  { id: 'torneos',   label: 'Torneo',   sublabel: 'PvE',      Icon: Swords,       color: '#dc2626' },
+  { id: 'historial', label: 'Historial', sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
 ]
 
 export default function Combates() {
@@ -63,10 +61,9 @@ export default function Combates() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'torre'         && <Torre />}
-          {tab === 'clasificacion' && <Ranking />}
-          {tab === 'torneos'       && <Torneos />}
-          {tab === 'historial'     && <CombatHistorial />}
+          {tab === 'torre'     && <Torre />}
+          {tab === 'torneos'   && <Torneos />}
+          {tab === 'historial' && <CombatHistorial />}
         </motion.div>
       </AnimatePresence>
 

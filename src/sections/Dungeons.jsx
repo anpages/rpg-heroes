@@ -39,12 +39,20 @@ const RARITY_COLORS = {
 }
 
 const DUNGEON_TYPE_META = {
-  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas',                 material: 'fragments' },
-  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura · Accesorios', material: null        },
-  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas',   material: 'essence'   },
-  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura',     material: 'fragments' },
-  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura',       material: 'fragments' },
-  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza · Cartas',   material: 'essence'   },
+  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas'                 },
+  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura · Accesorios' },
+  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas'   },
+  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura'     },
+  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura'       },
+  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza · Cartas'   },
+}
+
+const MATERIAL_BY_DUNGEON_NAME = {
+  'Guarida del Dragón':     'essence',
+  'Abismo de las Almas':    'essence',
+  'Ruinas Encantadas':      'fragments',
+  'Minas de Hierro Oscuro': 'fragments',
+  'Templo de los Antiguos': 'essence',
 }
 
 const MATERIAL_META = {
@@ -158,8 +166,8 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
                 {meta.loot}
               </span>
             )}
-            {meta?.material && (() => {
-              const mat = MATERIAL_META[meta.material]
+            {MATERIAL_BY_DUNGEON_NAME[dungeon.name] && (() => {
+              const mat = MATERIAL_META[MATERIAL_BY_DUNGEON_NAME[dungeon.name]]
               const MatIcon = mat.Icon
               return (
                 <span

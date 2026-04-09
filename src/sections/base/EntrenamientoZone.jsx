@@ -10,7 +10,7 @@ import { cardVariants, TRAINING_ROOMS, STAT_LABEL_MAP } from './constants.js'
 import { baseLevelFromMap } from './helpers.js'
 import RoomCard from './RoomCard.jsx'
 
-export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, byType }) {
+export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, byType, anyUpgrading }) {
   const queryClient = useQueryClient()
 
   const baseLevel      = baseLevelFromMap(byType)
@@ -19,6 +19,9 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   const builtRooms     = trainingRooms.filter(r => r.built_at !== null)
   const anyReady       = builtRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const needsInit      = heroId && builtRooms.length > 0 && trainingProgress.length === 0
+
+  const anyTrainingConstructing = trainingRooms.some(r => r.building_ends_at && new Date(r.building_ends_at) > Date.now())
+  const isQueueBusy = anyUpgrading || anyTrainingConstructing
 
   useEffect(() => {
     if (!needsInit) return
@@ -97,6 +100,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
             resources={resources}
             baseLevel={baseLevel}
             mutPending={mutPending}
+            isQueueBusy={isQueueBusy}
             onBuild={() => buildMutation.mutate(room.stat)}
             onUpgrade={() => upgradeMutation.mutate(room.stat)}
             onBuildCollect={() => buildCollectMutation.mutate(room.stat)}

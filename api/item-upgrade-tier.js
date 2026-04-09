@@ -16,12 +16,13 @@ export default async function handler(req, res) {
   // Verificar héroe
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id')
+    .select('id, player_id, status')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .maybeSingle()
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
+  if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
   // Obtener item con catálogo
   const { data: item } = await supabase

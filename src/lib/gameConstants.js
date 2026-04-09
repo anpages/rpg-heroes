@@ -261,15 +261,15 @@ export const REPAIR_COST_TABLE = {
 }
 
 /**
- * Maná base recuperado al desmantelar un ítem, multiplicado por el tier.
- * `maná = DISMANTLE_MANA_TABLE[rarity] * tier`
+ * Oro base obtenido al desmantelar un ítem, multiplicado por el tier.
+ * `oro = DISMANTLE_GOLD_TABLE[rarity] * tier`
  */
-export const DISMANTLE_MANA_TABLE = {
-  common:    3,
-  uncommon:  8,
-  rare:      20,
-  epic:      50,
-  legendary: 120,
+export const DISMANTLE_GOLD_TABLE = {
+  common:    10,
+  uncommon:  25,
+  rare:      60,
+  epic:      150,
+  legendary: 400,
 }
 
 // ── Entrenamiento: XP ─────────────────────────────────────────────────────────

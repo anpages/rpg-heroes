@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
-import { DISMANTLE_MANA_TABLE as DISMANTLE_MANA } from './_constants.js'
+import { DISMANTLE_GOLD_TABLE as DISMANTLE_GOLD } from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -28,14 +28,14 @@ export default async function handler(req, res) {
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Calcular maná recuperado
-  const baseRate = DISMANTLE_MANA[item.item_catalog.rarity] ?? DISMANTLE_MANA.common
-  const manaGained = baseRate * (item.item_catalog.tier ?? 1)
+  // Calcular oro obtenido
+  const baseRate  = DISMANTLE_GOLD[item.item_catalog.rarity] ?? DISMANTLE_GOLD.common
+  const goldGained = baseRate * (item.item_catalog.tier ?? 1)
 
   // Obtener recursos actuales con interpolación
   const { data: resources } = await supabase
     .from('resources')
-    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -43,13 +43,14 @@ export default async function handler(req, res) {
 
   const snap = snapshotResources(resources)
 
-  // Desmantelar item y añadir maná
+  // Desmantelar item y añadir oro
   const [deleteResult, updateResult] = await Promise.all([
     supabase.from('inventory_items').delete().eq('id', itemId),
     supabase.from('resources').update({
+      gold: snap.gold + goldGained,
       iron: snap.iron,
       wood: snap.wood,
-      mana: snap.mana + manaGained,
+      mana: snap.mana,
       last_collected_at: snap.nowIso,
     }).eq('player_id', user.id),
   ])
@@ -57,5 +58,5 @@ export default async function handler(req, res) {
   if (deleteResult.error) return res.status(500).json({ error: deleteResult.error.message })
   if (updateResult.error) return res.status(500).json({ error: updateResult.error.message })
 
-  return res.status(200).json({ ok: true, mana: manaGained })
+  return res.status(200).json({ ok: true, gold: goldGained })
 }

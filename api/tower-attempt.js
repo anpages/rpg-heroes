@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { simulateCombat, floorEnemyStats, floorRewards } from './_combat.js'
+import { simulateCombat, floorEnemyStats, floorRewards, floorEnemyName } from './_combat.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     enemy_hp_left: result.hpLeftB,
     log:           result.log,
     hero_name:     hero.name,
-    enemy_name:    `Piso ${targetFloor}`,
+    enemy_name:    floorEnemyName(targetFloor),
     hero_max_hp:   heroStats.max_hp,
     enemy_max_hp:  enemyStats.max_hp,
   })

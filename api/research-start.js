@@ -26,16 +26,19 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'La Biblioteca no está desbloqueada' })
   }
 
-  // Verificar que no hay investigación activa en curso
-  const { data: active } = await supabase
-    .from('player_research')
-    .select('node_id, ends_at')
-    .eq('player_id', user.id)
-    .eq('status', 'active')
-    .maybeSingle()
+  // Verificar que no hay construcción/investigación activa en curso
+  const queueNow = new Date().toISOString()
+  const [{ data: active }, { data: busyBuildings }, { data: busyRooms }] = await Promise.all([
+    supabase.from('player_research').select('node_id, ends_at').eq('player_id', user.id).eq('status', 'active').maybeSingle(),
+    supabase.from('buildings').select('id').eq('player_id', user.id).gt('upgrade_ends_at', queueNow).limit(1),
+    supabase.from('training_rooms').select('stat').eq('player_id', user.id).gt('building_ends_at', queueNow).limit(1),
+  ])
 
   if (active && new Date(active.ends_at) > new Date()) {
     return res.status(409).json({ error: 'Ya hay una investigación en curso', activeNodeId: active.node_id })
+  }
+  if (busyBuildings?.length > 0 || busyRooms?.length > 0) {
+    return res.status(409).json({ error: 'Ya hay una construcción en curso. Espera a que termine.' })
   }
 
   // Verificar que el nodo no fue ya completado

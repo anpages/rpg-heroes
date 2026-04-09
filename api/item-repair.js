@@ -23,11 +23,12 @@ export default async function handler(req, res) {
   // Verificar propiedad
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id')
+    .select('id, player_id, status')
     .eq('id', item.hero_id)
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
   const catalog = item.item_catalog
   const missing = catalog.max_durability - item.current_durability

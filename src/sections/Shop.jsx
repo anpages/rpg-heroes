@@ -7,7 +7,6 @@ import { useResources } from '../hooks/useResources'
 import { useHero } from '../hooks/useHero'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
-import { HeroSelector } from '../components/HeroPicker'
 import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
@@ -195,34 +194,29 @@ export default function Shop() {
     </div>
   )
 
-  const MerchantIcon = merchant ? (MERCHANT_ICON[merchant.key] ?? Sword) : Sword
 
   return (
     <div className="flex flex-col gap-6 relative">
-      <HeroSelector />
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2 font-display tracking-[0.05em] text-[20px] font-bold text-text">
-            <MerchantIcon size={20} strokeWidth={1.8} />
-            <span>{merchant ? merchant.label : 'Tienda'}</span>
-          </div>
-          {heroName && (
-            <span className="text-[12px] text-text-3 font-medium pl-0.5">Inventario de {heroName}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {gold !== undefined && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]">
-              <Coins size={14} strokeWidth={2} color="#d97706" />
-              <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
+      <div className="section-header !mb-0">
+        <div className="section-title-row">
+          <h2 className="section-title">{merchant ? merchant.label : 'Tienda'}</h2>
+          <div className="flex items-center gap-3 ml-auto">
+            {gold !== undefined && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))]">
+                <Coins size={14} strokeWidth={2} color="#d97706" />
+                <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
+              <Clock size={13} strokeWidth={2} />
+              Renueva en {renewsIn}
             </div>
-          )}
-          <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
-            <Clock size={13} strokeWidth={2} />
-            Renueva en {renewsIn}
           </div>
         </div>
+        {heroName && (
+          <p className="section-subtitle">Inventario de {heroName}</p>
+        )}
       </div>
 
       {error && (

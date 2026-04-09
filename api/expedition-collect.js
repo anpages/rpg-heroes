@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
   // Obtener dungeon (necesario para peligro y loot)
   const { data: dungeon } = await supabase
-    .from('dungeons').select('difficulty, type').eq('id', expedition.dungeon_id).single()
+    .from('dungeons').select('difficulty, type, name').eq('id', expedition.dungeon_id).single()
 
   // Stats efectivas para bonificaciones (con bonos de investigación)
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
   // Roll de material antes del UPDATE para incluirlo en la misma operación
-  const materialDrop = dungeon ? rollMaterialDrop(dungeon.type) : null
+  const materialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
 
   const snap = snapshotResources(resources)
   const { error: updateResourcesError } = await supabase
@@ -108,9 +108,10 @@ export default async function handler(req, res) {
     .from('heroes')
     .update({
       status: 'idle',
-      experience:     levelUp ? newXp - xpForLevel : newXp,
-      level:          levelUp ? hero.level + 1 : hero.level,
-      active_effects: newEffects,
+      experience:         levelUp ? newXp - xpForLevel : newXp,
+      level:              levelUp ? hero.level + 1 : hero.level,
+      active_effects:     newEffects,
+      hp_last_updated_at: new Date().toISOString(),
     })
     .eq('id', hero.id)
 

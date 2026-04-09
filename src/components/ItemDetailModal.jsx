@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { X, Sword, Shield, Crown, Shirt, Hand, Move, Gem } from 'lucide-react'
+import { X, Sword, Shield, Crown, Shirt, Hand, Move, Gem, Weight } from 'lucide-react'
 
 const SLOT_META = {
   helmet:      { label: 'Casco',           icon: Crown  },
@@ -108,13 +108,18 @@ export function ItemDetailModal({ item, onClose }) {
           )}
 
           {/* Stats */}
-          {statLines.length > 0 && (
+          {(statLines.length > 0 || (catalog.weight ?? 0) > 0) && (
             <div className="flex flex-wrap gap-2">
               {statLines.map(s => (
-                <span key={s.label} className="text-[13px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-lg px-3 py-1.5">
+                <span key={s.label} className="text-[11px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-md px-2 py-1">
                   +{s.val} {s.label}
                 </span>
               ))}
+              {(catalog.weight ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-md px-2 py-1">
+                  <Weight size={10} strokeWidth={2} />{catalog.weight} peso
+                </span>
+              )}
             </div>
           )}
 

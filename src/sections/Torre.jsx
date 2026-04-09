@@ -10,7 +10,7 @@ import { useTowerProgress } from '../hooks/useTowerProgress'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { floorEnemyStats, floorRewards } from '../lib/gameFormulas'
+import { floorEnemyStats, floorRewards, floorEnemyName } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -21,17 +21,6 @@ const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
 const MILESTONE_PCT = [5, 10, 25, 50, 100]
 
-const ENEMY_NAMES = [
-  [1,  5,  'Guardián'],
-  [6,  10, 'Centinela'],
-  [11, 20, 'Campeón'],
-  [21, 50, 'Élite'],
-  [51, 999,'Legendario'],
-]
-
-function enemyName(floor) {
-  return ENEMY_NAMES.find(([lo, hi]) => floor >= lo && floor <= hi)?.[2] ?? 'Guardián'
-}
 
 /* ─── Progress strip ─────────────────────────────────────────────────────────── */
 
@@ -221,7 +210,7 @@ export default function Torre() {
       {result && (
         <CombatReplay
           heroName={hero?.name ?? 'Héroe'}
-          enemyName={enemyName(result.floor)}
+          enemyName={floorEnemyName(result.floor)}
           heroMaxHp={result.heroMaxHp}
           enemyMaxHp={result.enemyMaxHp}
           log={result.log ?? []}
@@ -252,7 +241,7 @@ export default function Torre() {
         <div className="flex items-center justify-between gap-4 px-1">
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
-            <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{enemyName(targetFloor)}</span>
+            <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{floorEnemyName(targetFloor)}</span>
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Nivel de amenaza</span>

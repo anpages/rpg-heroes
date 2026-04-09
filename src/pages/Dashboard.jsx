@@ -15,19 +15,19 @@ import Dungeons from '../sections/Dungeons'
 import Equipo from '../sections/Equipo'
 import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
+import Ranking from '../sections/Ranking'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Trophy } from 'lucide-react'
 
-function RedditIcon({ size = 20 }) {
+function DiscordIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <circle cx="10" cy="10" r="10" fill="#FF4500"/>
-      <path fill="white" d="M16.67 10a1.46 1.46 0 0 0-2.47-1 7.12 7.12 0 0 0-3.85-1.23l.65-3.07 2.13.45a1 1 0 1 0 .86-.49 1 1 0 0 0-.89.54l-2.37-.5a.16.16 0 0 0-.19.12l-.73 3.44a7.14 7.14 0 0 0-3.89 1.23 1.46 1.46 0 1 0-1.61 2.39 2.87 2.87 0 0 0 0 .44c0 2.24 2.61 4.06 5.83 4.06s5.83-1.82 5.83-4.06a2.87 2.87 0 0 0 0-.44 1.46 1.46 0 0 0 .7-1.33zM7.27 11a1 1 0 1 1 1 1 1 1 0 0 1-1-1zm5.58 2.71a3.58 3.58 0 0 1-2.85.87 3.58 3.58 0 0 1-2.85-.87.23.23 0 0 1 .33-.33 3.15 3.15 0 0 0 2.52.71 3.15 3.15 0 0 0 2.52-.71.23.23 0 0 1 .33.33zm-.22-1.71a1 1 0 1 1 1-1 1 1 0 0 1-1 1z"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
     </svg>
   )
 }
@@ -201,17 +201,18 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'base',    label: 'Base',    icon: Castle      },
-  { id: 'heroes',  label: 'Héroes',  icon: Sword       },
-  { id: 'mundo',   label: 'Mundo',   icon: Globe       },
-  { id: 'tienda',  label: 'Tienda',  icon: ShoppingBag },
+  { id: 'base',   label: 'Base',   icon: Castle },
+  { id: 'heroes', label: 'Héroes', icon: Sword  },
+  { id: 'mundo',  label: 'Combate', icon: Globe  },
+  { id: 'arena',  label: 'Arena',  icon: Swords },
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword  },
-  { id: 'expediciones', label: 'Expediciones', icon: Map    },
-  { id: 'equipo',       label: 'Equipo',       icon: Shield },
-  { id: 'cartas',       label: 'Cartas',       icon: Layers },
+  { id: 'ficha',        label: 'Ficha',        icon: Sword       },
+  { id: 'equipo',       label: 'Equipo',       icon: Shield      },
+  { id: 'cartas',       label: 'Cartas',       icon: Layers      },
+  { id: 'expediciones', label: 'Expediciones', icon: Map         },
+  { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
 ]
 
 
@@ -293,11 +294,21 @@ function Dashboard({ session }) {
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
-        <span className="font-display text-[22px] tracking-[0.08em] text-[var(--blue-700)] flex-shrink-0">RPG Legends</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <img src="/icon-pwa.svg" alt="" className="w-7 h-7" />
+          <span className="font-hero font-bold text-[22px] tracking-[0.06em] text-[#3b82f6]">RPG Legends</span>
+        </div>
 
         <div className="flex-1" />
 
         <div className="flex items-center gap-2.5">
+          <button
+            className={`btn btn--ghost btn--icon ${activeTab === 'clasificacion' ? 'text-[var(--blue-700)]' : ''}`}
+            onClick={() => navigateTo('clasificacion')}
+            title="Clasificación global"
+          >
+            <Trophy size={17} strokeWidth={1.8} />
+          </button>
           <button
             className="btn btn--ghost btn--icon relative"
             onClick={() => setMissionsOpen(true)}
@@ -311,12 +322,7 @@ function Dashboard({ session }) {
             )}
           </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
-          <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-2 overflow-hidden flex-shrink-0 flex items-center justify-center" title={session.user.email}>
-            {session.user.user_metadata?.avatar_url
-              ? <img src={session.user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover block" referrerPolicy="no-referrer" />
-              : <span className="text-[13px] font-bold text-text-2 leading-none">{(session.user.user_metadata?.name ?? session.user.email ?? '?')[0].toUpperCase()}</span>
-            }
-          </div>
+
           <button
             className="btn btn--ghost btn--sm hover:text-error-text hover:border-[color-mix(in_srgb,var(--error-text)_40%,var(--border))] hover:bg-[color-mix(in_srgb,var(--error-text)_6%,transparent)]"
             onClick={handleLogout}
@@ -365,15 +371,15 @@ function Dashboard({ session }) {
               )
             })}
             <a
-              href="https://www.reddit.com/r/RPGLegendsnet"
+              href="https://discord.gg/WKeRr7m5"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-[10px] rounded-lg text-[14px] font-medium text-text-2 hover:bg-bg hover:text-text transition-[background,color] duration-150 mt-auto"
             >
               <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                <RedditIcon size={18} />
+                <DiscordIcon size={18} />
               </span>
-              <span className="leading-none">Reddit</span>
+              <span className="leading-none">Discord</span>
             </a>
 
             {import.meta.env.DEV && (
@@ -410,7 +416,8 @@ function Dashboard({ session }) {
                 <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
-                    const hasAlert = id === 'expediciones' && anyHeroReady
+                    const hasAlert    = id === 'expediciones' && anyHeroReady
+                    const hasExploring = id === 'expediciones' && !anyHeroReady && anyHeroExploring
                     return (
                       <button
                         key={id}
@@ -426,6 +433,9 @@ function Dashboard({ session }) {
                         {hasAlert && (
                           <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse flex-shrink-0" />
                         )}
+                        {hasExploring && (
+                          <span className="w-2 h-2 rounded-full bg-[#d97706] animate-nav-badge-pulse flex-shrink-0" />
+                        )}
                       </button>
                     )
                   })}
@@ -434,14 +444,17 @@ function Dashboard({ session }) {
                 <div className={activeHeroTab === 'ficha' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:ficha') && <ErrorBoundary><Hero /></ErrorBoundary>}
                 </div>
-                <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
-                  {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
-                </div>
                 <div className={activeHeroTab === 'equipo' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:equipo') && <ErrorBoundary><Equipo /></ErrorBoundary>}
                 </div>
                 <div className={activeHeroTab === 'cartas' ? 'block' : 'hidden'}>
                   {mountedTabs.has('heroes:cartas') && <ErrorBoundary><Cartas /></ErrorBoundary>}
+                </div>
+                <div className={activeHeroTab === 'expediciones' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:expediciones') && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                </div>
+                <div className={activeHeroTab === 'tienda' ? 'block' : 'hidden'}>
+                  {mountedTabs.has('heroes:tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
                 </div>
               </div>
             )}
@@ -457,9 +470,18 @@ function Dashboard({ session }) {
             {mountedTabs.has('mundo') && <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>}
           </div>
 
-          {/* Tienda */}
-          <div className={activeTab === 'tienda' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('tienda') && <ErrorBoundary><Shop /></ErrorBoundary>}
+          {/* Arena */}
+          <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
+            <div className="flex flex-col items-center gap-4 py-20 px-6 text-center">
+              <Swords size={48} strokeWidth={1.2} className="text-text-3 opacity-60" />
+              <h2 className="section-title">Arena PvP</h2>
+              <p className="text-text-2 text-[14px] max-w-xs">Los combates entre jugadores llegarán próximamente. Entrena a tu héroe y prepárate para el desafío.</p>
+            </div>
+          </div>
+
+          {/* Clasificación */}
+          <div className={activeTab === 'clasificacion' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('clasificacion') && <ErrorBoundary><Ranking /></ErrorBoundary>}
           </div>
 
           {/* DEV only */}
@@ -504,15 +526,15 @@ function Dashboard({ session }) {
           )
         })}
         <a
-          href="https://www.reddit.com/r/RPGLegendsnet"
+          href="https://discord.gg/WKeRr7m5"
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium text-text-3 hover:bg-bg transition-[color,background] duration-150 py-2 px-1"
         >
           <span className="w-[22px] h-[22px] flex items-center justify-center">
-            <RedditIcon size={20} />
+            <DiscordIcon size={20} />
           </span>
-          <span className="leading-none">Reddit</span>
+          <span className="leading-none">Discord</span>
         </a>
       </nav>
 

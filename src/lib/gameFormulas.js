@@ -92,3 +92,20 @@ export function floorRewards(floor) {
     milestone,
   }
 }
+
+/**
+ * Nombre del enemigo para un piso de la torre.
+ * Determinista: mismo piso → mismo nombre.
+ */
+const ENEMY_POOLS = [
+  { max:  5, names: ['Bandido Renegado', 'Saqueador Orco', 'Goblin Feroz', 'Troll Bruto', 'Merodeador Oscuro'] },
+  { max: 10, names: ['Centinela de Hierro', 'Vigía Implacable', 'Patrullero Maldito', 'Mercenario Cruel', 'Guardaespaldas Corrupto'] },
+  { max: 20, names: ['Campeón Maldito', 'Berserker de Sangre', 'Cazador de Élite', 'Coloso de Piedra', 'Invocador de Sombras'] },
+  { max: 50, names: ['Señor de la Guerra', 'Archimago Oscuro', 'Inquisidor de Hierro', 'Ejecutor Implacable', 'Tirano Eterno', 'Forjador de Almas'] },
+  { max: Infinity, names: ['Ángel Caído', 'Archidemon', 'El Eterno', 'Señor de las Sombras', 'El Destructor', 'Dios de la Ruina', 'El Sin Nombre'] },
+]
+
+export function floorEnemyName(floor) {
+  const pool = ENEMY_POOLS.find(p => floor <= p.max)?.names ?? ENEMY_POOLS[ENEMY_POOLS.length - 1].names
+  return pool[floor % pool.length]
+}

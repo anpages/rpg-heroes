@@ -14,11 +14,11 @@ import { useResources } from '../hooks/useResources'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
-  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Package, Sparkles, ArrowUp,
+  Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Sparkles, ArrowUp,
   Coins, Layers, Info,
 } from 'lucide-react'
 
@@ -71,8 +71,8 @@ function estimateRepairCost(item) {
   }
 }
 
-function estimateDismantleMana(item) {
-  const base = DISMANTLE_MANA_TABLE[item.item_catalog.rarity] ?? DISMANTLE_MANA_TABLE.common
+function estimateDismantleGold(item) {
+  const base = DISMANTLE_GOLD_TABLE[item.item_catalog.rarity] ?? DISMANTLE_GOLD_TABLE.common
   return base * (item.item_catalog.tier ?? 1)
 }
 
@@ -229,7 +229,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading, isExploring }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -247,6 +247,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   const mainStat    = mainStatForSlot(slotKey, cat)
   const rarColor    = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
+  const durColor    = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
   const needsRepair = durPct < 100
   const canUpgrade  = cat.tier < 3 && durPct >= 100
 
@@ -261,13 +262,20 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           <span className="text-[12px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
           <span className="text-[10px] text-text-3 capitalize">{label}</span>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {mainStat && <span className="text-[11px] font-bold" style={{ color: mainStat.color }}>+{mainStat.value}</span>}
-          <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
-        </div>
+        <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
       </div>
 
       <div className="px-3 pb-2">
+        <div className="flex items-center justify-between gap-1 mb-1">
+          {mainStat
+            ? <span className="text-[10px] font-bold">
+                <span style={{ color: mainStat.color }}>+{mainStat.value}</span>
+                <span className="text-text-3"> {mainStat.label}</span>
+              </span>
+            : <span />
+          }
+          <span className="text-[10px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
+        </div>
         <DurabilityBar current={item.current_durability} max={cat.max_durability} />
       </div>
 
@@ -284,7 +292,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onRepair(item)}
-            disabled={repairLoading}
+            disabled={repairLoading || isExploring}
           >
             <Wrench size={12} strokeWidth={2} /> Reparar
           </button>
@@ -293,14 +301,15 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onUpgradeTier(item)}
-            disabled={upgradeLoading}
+            disabled={upgradeLoading || isExploring}
           >
             <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
           </button>
         )}
         <button
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
           onClick={() => onUnequip(item.id)}
+          disabled={isExploring}
         >
           <X size={12} strokeWidth={2.5} /> Quitar
         </button>
@@ -309,12 +318,12 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   )
 }
 
-function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) {
-  const total  = base + equipBonus + cardBonus
-  const maxVal = Math.max(30, total * 1.6)
+function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus, penalty = 0 }) {
+  const total  = base + equipBonus + cardBonus - penalty
+  const maxVal = Math.max(30, (base + equipBonus + cardBonus) * 1.6)
   const basePct  = Math.min(100, (base       / maxVal) * 100)
-  const eqPct    = Math.min(100 - basePct,             ((equipBonus) / maxVal) * 100)
-  const cardPct  = Math.min(100 - basePct - eqPct,     ((cardBonus)  / maxVal) * 100)
+  const eqPct    = Math.min(100 - basePct,         (Math.max(0, equipBonus) / maxVal) * 100)
+  const cardPct  = Math.min(100 - basePct - eqPct, (Math.max(0, cardBonus)  / maxVal) * 100)
 
   return (
     <div className="flex flex-col gap-1">
@@ -334,24 +343,13 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus }) 
             <StatIcon size={11} strokeWidth={2} style={{ color }} />
             <span className="text-[11px] font-semibold text-text-2">{label}</span>
           </div>
-          <div className="flex items-center gap-1">
-            {(equipBonus > 0 || cardBonus > 0) && (
-              <span className="text-[10px] text-text-3">{base} →</span>
-            )}
-            <span className="text-[13px] font-bold text-text">{total}</span>
-          </div>
+          <span className="text-[13px] font-bold text-text">{total}</span>
         </div>
         <div className="h-[5px] bg-surface-2 border border-border rounded-full overflow-hidden flex">
           <div className="h-full" style={{ width: `${basePct}%`, background: color, opacity: 0.4 }} />
           <div className="h-full" style={{ width: `${eqPct}%`,   background: color, opacity: 0.75 }} />
           <div className="h-full" style={{ width: `${cardPct}%`, background: color }} />
         </div>
-        {(equipBonus > 0 || cardBonus > 0) && (
-          <div className="flex gap-2">
-            {equipBonus > 0 && <span className="text-[10px] text-text-3">⚔ equipo <span style={{ color }}>+{equipBonus}</span></span>}
-            {cardBonus  > 0 && <span className="text-[10px] text-text-3">✦ cartas <span style={{ color }}>+{cardBonus}</span></span>}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -429,6 +427,7 @@ export default function Equipo() {
   const { buildings } = useBuildings(userId)
   const hasLab      = (buildings ?? []).some(b => b.type === 'laboratory' && b.level >= 1)
   const { hero }    = useHero(heroId)
+  const isExploring = hero?.status === 'exploring'
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
   const { inventory: runeInventory } = useHeroRunes(heroId)
@@ -539,10 +538,11 @@ export default function Equipo() {
 
   const unequipped = useMemo(() => (items ?? []).filter(i => !i.equipped_slot), [items])
 
-  const { equipBonus, runeBonus } = useMemo(() => {
+  const { equipBonus, runeBonus, totalWeight, weightPenalty } = useMemo(() => {
     const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const ru = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
+    let totalWeight = 0
     ;(items ?? []).filter(i => i.equipped_slot && i.current_durability > 0).forEach(i => {
       const c = i.item_catalog
       eq.attack       += c.attack_bonus       ?? 0
@@ -551,6 +551,7 @@ export default function Equipo() {
       eq.agility      += c.agility_bonus      ?? 0
       eq.intelligence += c.intelligence_bonus ?? 0
       eq.max_hp       += c.hp_bonus           ?? 0
+      totalWeight     += c.weight             ?? 0
       // Runas incrustadas en este ítem
       ;(i.item_runes ?? []).forEach(ir => {
         ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
@@ -561,7 +562,8 @@ export default function Equipo() {
     // equipBonus incluye tanto ítems como runas
     const combined = {}
     for (const k of Object.keys(eq)) combined[k] = eq[k] + ru[k]
-    return { equipBonus: combined, runeBonus: ru }
+    const weightPenalty = Math.floor(totalWeight / 4)
+    return { equipBonus: combined, runeBonus: ru, totalWeight, weightPenalty }
   }, [items])
 
   const cardBonus = useMemo(() => {
@@ -637,10 +639,10 @@ export default function Equipo() {
   }
 
   function handleDismantle(item) {
-    const mana = estimateDismantleMana(item)
+    const gold = estimateDismantleGold(item)
     setConfirm({
       title: `Desmantelar ${item.item_catalog.name}`,
-      body: `El ítem se destruirá y recuperarás ${mana} maná.`,
+      body: `El ítem se destruirá y recuperarás ${gold} oro.`,
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirm(null)
@@ -653,16 +655,13 @@ export default function Equipo() {
     <div className="flex flex-col gap-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <Package size={16} strokeWidth={1.8} className="text-[var(--blue-600)]" />
-            <span className="text-[16px] font-bold text-text">Gestionar Equipo</span>
-          </div>
-          <span className="text-[12px] text-text-3">
-            {hero.name} · {equippedCount}/8 piezas · {currentHp}/{hero.max_hp} HP
-          </span>
+      <div className="section-header !mb-0">
+        <div className="section-title-row">
+          <h2 className="section-title">Equipo</h2>
         </div>
+        <p className="section-subtitle">
+          {hero.name} · {equippedCount}/8 piezas · {currentHp}/{hero.max_hp} HP
+        </p>
       </div>
 
       {/* Main grid */}
@@ -674,7 +673,8 @@ export default function Equipo() {
 
           <div className="grid grid-cols-3 gap-2 p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => {
-              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0)
+              const pen   = key === 'agility' ? weightPenalty : 0
+              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0) - pen
               return (
                 <div key={key} className="flex flex-col items-center gap-0.5 py-1.5">
                   <Icon size={14} strokeWidth={2} style={{ color }} />
@@ -689,6 +689,7 @@ export default function Equipo() {
             {STAT_CONFIG.map(({ key, label, color, Icon }) => (
               <StatRow key={key} label={label} color={color} Icon={Icon}
                 base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0} cardBonus={cardBonus[key] ?? 0}
+                penalty={key === 'agility' ? weightPenalty : 0}
               />
             ))}
           </div>
@@ -710,6 +711,7 @@ export default function Equipo() {
                   onViewDetail={setItemDetail}
                   repairLoading={actionMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
+                  isExploring={isExploring}
                 />
               ))}
             </div>
@@ -762,7 +764,7 @@ export default function Equipo() {
                                 key={idx}
                                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[color:var(--blue-600)] transition-colors disabled:opacity-40"
                                 onClick={() => setRunePickerTarget({ item, slotIndex: idx })}
-                                disabled={runeMutation.isPending}
+                                disabled={runeMutation.isPending || isExploring}
                               >
                                 + Slot {idx + 1}
                               </button>
@@ -834,8 +836,8 @@ export default function Equipo() {
                             ? 'text-[var(--blue-600)] hover:bg-[color-mix(in_srgb,var(--blue-500)_6%,transparent)]'
                             : 'text-text-3 cursor-not-allowed'
                           }`}
-                        onClick={() => canEquip && handleEquip(item.id)}
-                        disabled={!canEquip}
+                        onClick={() => canEquip && !isExploring && handleEquip(item.id)}
+                        disabled={!canEquip || isExploring}
                         title={canEquip ? undefined : 'Repara el ítem antes de equiparlo'}
                       >
                         Equipar
@@ -843,7 +845,7 @@ export default function Equipo() {
                       <button
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
                         onClick={() => handleDismantle(item)}
-                        disabled={actionMutation.isPending}
+                        disabled={actionMutation.isPending || isExploring}
                       >
                         <Trash2 size={12} strokeWidth={2} /> Desmantelar
                       </button>

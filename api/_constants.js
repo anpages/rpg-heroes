@@ -10,7 +10,7 @@ export {
   CARD_SLOT_COUNT,
   CARD_MAX_RANK,
   REPAIR_COST_TABLE,
-  DISMANTLE_MANA_TABLE,
+  DISMANTLE_GOLD_TABLE,
 } from '../src/lib/gameConstants.js'
 
 export const SHOP_SIZE      = 8

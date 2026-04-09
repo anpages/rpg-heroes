@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, REPAIR_COST_TABLE, DISMANTLE_MANA_TABLE } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE } from '../lib/gameConstants'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -62,7 +62,7 @@ const ALL_STATS = [
   { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
 ]
 
-function StatsDetailModal({ hero, items, cards, onClose }) {
+function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
   const STAT_KEYS = ALL_STATS.map(s => s.key)
 
   const equippedItems = (items ?? [])
@@ -152,7 +152,8 @@ function StatsDetailModal({ hero, items, cards, onClose }) {
           )}
 
           {/* Stats grid */}
-          <div className="overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 content-start">
             {ALL_STATS.map(({ key, label, Icon, color }) => {
               const base = hero[key] ?? 0
               const rows = []
@@ -167,16 +168,17 @@ function StatsDetailModal({ hero, items, cards, onClose }) {
                 if (b !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: b, source: 'card' })
                 if (p !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: p, source: 'card' })
               })
+              if (key === 'agility' && weightPenalty > 0) {
+                rows.push({ label: 'Peso del equipo', value: -weightPenalty, source: 'weight' })
+              }
 
-              const total = base + rows.reduce((s, r) => s + r.value, 0)
+              const total = Math.max(0, base + rows.reduce((s, r) => s + r.value, 0))
 
               return (
                 <div key={key} className="flex flex-col bg-surface-2 rounded-xl border border-border overflow-hidden">
-                  {/* Color accent bar */}
                   <div style={{ height: '3px', background: color, flexShrink: 0 }} />
 
                   <div className="p-3.5 flex flex-col gap-2.5">
-                    {/* Stat name + total */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Icon size={13} strokeWidth={2} style={{ color }} />
@@ -185,7 +187,6 @@ function StatsDetailModal({ hero, items, cards, onClose }) {
                       <span className="text-[26px] font-black text-text tabular-nums leading-none">{total}</span>
                     </div>
 
-                    {/* Breakdown */}
                     <div className="flex flex-col gap-1 border-t border-border pt-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-text-3">Base</span>
@@ -207,6 +208,7 @@ function StatsDetailModal({ hero, items, cards, onClose }) {
                 </div>
               )
             })}
+          </div>
           </div>
         </motion.div>
       </motion.div>
@@ -286,8 +288,8 @@ const RARITY_META = {
 
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 
-function estimateDismantleMana(item) {
-  const base = DISMANTLE_MANA_TABLE[item.item_catalog.rarity] ?? DISMANTLE_MANA_TABLE.common
+function estimateDismantleGold(item) {
+  const base = DISMANTLE_GOLD_TABLE[item.item_catalog.rarity] ?? DISMANTLE_GOLD_TABLE.common
   return base * (item.item_catalog.tier ?? 1)
 }
 
@@ -840,8 +842,11 @@ function Hero() {
       acc.strength     += c.strength_bonus     ?? 0
       acc.agility      += c.agility_bonus      ?? 0
       acc.intelligence += c.intelligence_bonus ?? 0
+      acc._weight      += c.weight             ?? 0
       return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
+    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0, _weight: 0 })
+
+  const weightPenalty = Math.floor(equipBonuses._weight / 4)
 
   const cardBonuses = (cards ?? [])
     .filter(c => c.slot_index !== null && c.slot_index !== undefined)
@@ -858,7 +863,7 @@ function Hero() {
     defense:      equipBonuses.defense      + cardBonuses.defense,
     max_hp:       equipBonuses.max_hp       + cardBonuses.max_hp,
     strength:     equipBonuses.strength     + cardBonuses.strength,
-    agility:      equipBonuses.agility      + cardBonuses.agility,
+    agility:      equipBonuses.agility      + cardBonuses.agility - weightPenalty,
     intelligence: equipBonuses.intelligence + cardBonuses.intelligence,
   }
 
@@ -867,7 +872,7 @@ function Hero() {
     defense:      hero.defense      + bonuses.defense,
     max_hp:       hero.max_hp       + bonuses.max_hp,
     strength:     hero.strength     + bonuses.strength,
-    agility:      hero.agility      + bonuses.agility,
+    agility:      Math.max(0, hero.agility + bonuses.agility),
     intelligence: hero.intelligence + bonuses.intelligence,
   }
 
@@ -914,10 +919,10 @@ function Hero() {
   }
 
   function handleDiscard(item) {
-    const mana = estimateDismantleMana(item)
+    const gold = estimateDismantleGold(item)
     setConfirmModal({
       title: `Desmantelar ${item.item_catalog.name}`,
-      body: `El item se destruirá y recuperarás ${mana} maná.`,
+      body: `El item se destruirá y recuperarás ${gold} oro.`,
       confirmLabel: 'Desmantelar',
       onConfirm: () => {
         setConfirmModal(null)
@@ -931,7 +936,13 @@ function Hero() {
   }
 
   return (
-    <motion.div key="hero-content" className="pt-[4px] overflow-x-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
+    <motion.div key="hero-content" className="pt-[4px] overflow-x-hidden flex flex-col gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
+      <div className="section-header !mb-0">
+        <div className="section-title-row">
+          <h2 className="section-title">Ficha</h2>
+        </div>
+        <p className="section-subtitle">Estadísticas, equipo activo y progreso de tu héroe.</p>
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-start">
 
         {/* Left column: hero card only */}
@@ -1002,13 +1013,6 @@ function Hero() {
                   </span>
                 </div>
               </div>
-              <button
-                className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 hover:text-text-2 border border-transparent hover:border-border transition-colors"
-                onClick={() => setStatsDetailOpen(true)}
-                title="Desglose de estadísticas"
-              >
-                <Info size={16} strokeWidth={2} />
-              </button>
             </div>
 
             <XpBar level={hero.level} experience={hero.experience} />
@@ -1047,6 +1051,14 @@ function Hero() {
               base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
             />
 
+            <button
+              className="flex items-center justify-center gap-1.5 text-[12px] font-medium text-text-3 hover:text-text-2 w-full py-1.5 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border transition-colors"
+              onClick={() => setStatsDetailOpen(true)}
+            >
+              <Info size={11} strokeWidth={2} />
+              Desglose de stats
+            </button>
+
           </div>
 
           {statsDetailOpen && (
@@ -1054,6 +1066,7 @@ function Hero() {
               hero={hero}
               items={items}
               cards={cards}
+              weightPenalty={weightPenalty}
               onClose={() => setStatsDetailOpen(false)}
             />
           )}

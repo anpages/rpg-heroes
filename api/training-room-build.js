@@ -39,6 +39,16 @@ export default async function handler(req, res) {
 
   if (existing) return res.status(409).json({ error: 'Esta sala ya está construida o en construcción' })
 
+  // Verificar que no hay otra construcción/mejora en curso
+  const queueNow = new Date().toISOString()
+  const [{ data: busyBuildings }, { data: busyRooms }] = await Promise.all([
+    supabase.from('buildings').select('id').eq('player_id', user.id).gt('upgrade_ends_at', queueNow).limit(1),
+    supabase.from('training_rooms').select('stat').eq('player_id', user.id).gt('building_ends_at', queueNow).limit(1),
+  ])
+  if (busyBuildings?.length > 0 || busyRooms?.length > 0) {
+    return res.status(409).json({ error: 'Ya hay una construcción en curso' })
+  }
+
   // Verificar y descontar recursos (con interpolación idle)
   const { data: resources, error: resourcesError } = await supabase
     .from('resources')

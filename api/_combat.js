@@ -110,4 +110,4 @@ export function simulateCombat(a, b) {
 }
 
 // Fórmulas compartidas con el frontend — fuente de verdad en gameFormulas.js
-export { floorEnemyStats, floorRewards } from '../src/lib/gameFormulas.js'
+export { floorEnemyStats, floorRewards, floorEnemyName } from '../src/lib/gameFormulas.js'

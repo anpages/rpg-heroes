@@ -15,7 +15,7 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
       .single(),
     supabase
       .from('inventory_items')
-      .select('current_durability, equipped_slot, item_catalog(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus), item_runes(rune_catalog(bonuses))')
+      .select('current_durability, equipped_slot, item_catalog(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus, weight), item_runes(rune_catalog(bonuses))')
       .eq('hero_id', heroId)
       .not('equipped_slot', 'is', null),
     supabase
@@ -35,6 +35,7 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   // Acumular base de ataque de armas y defensa de armaduras para amplificación posterior
   let weaponAttackBase  = 0
   let armorDefenseBase  = 0
+  let totalWeight       = 0
 
   // Acumular bonos de runas por stat para enchantment_amp
   const runeStatBonuses = {}
@@ -42,6 +43,7 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   for (const item of itemsRes.data ?? []) {
     if (item.current_durability <= 0) continue
     const c      = item.item_catalog
+    totalWeight += c.weight ?? 0
     const durPct = c.max_durability > 0 ? item.current_durability / c.max_durability : 1
 
     const attack       = Math.round((c.attack_bonus       ?? 0) * durPct)
@@ -123,5 +125,9 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
     itemDropRateBonus += rb.item_drop_pct
   }
 
-  return { ...stats, durabilityMod, itemDropRateBonus }
+  // Penalización de agilidad por peso del equipo equipado
+  const weightPenalty = Math.floor(totalWeight / 4)
+  stats.agility = Math.max(0, stats.agility - weightPenalty)
+
+  return { ...stats, totalWeight, weightPenalty, durabilityMod, itemDropRateBonus }
 }

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     supabase.auth.getUser(token),
     supabase
       .from('inventory_items')
-      .select('*, item_catalog(*), hero:heroes!hero_id(id, player_id)')
+      .select('*, item_catalog(*), hero:heroes!hero_id(id, player_id, status)')
       .eq('id', itemId)
       .single(),
   ])
@@ -47,6 +47,7 @@ export default async function handler(req, res) {
   const item = itemRes.data
   if (!item) return res.status(404).json({ error: 'Item no encontrado' })
   if (item.hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (item.hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
   const heroId  = item.hero.id
   const catalog = item.item_catalog

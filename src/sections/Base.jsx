@@ -142,9 +142,10 @@ export default function Base({ mainRef }) {
 
   const nexusRatio   = nexusData?.ratio ?? 1
   const VISIBLE_BUILDINGS = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'laboratory']
-  const anyUpgrading = upgradePending || (buildings ?? []).some(
-    b => VISIBLE_BUILDINGS.includes(b.type) && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > new Date()
-  )
+  const now = new Date()
+  const anyUpgrading = upgradePending
+    || (buildings ?? []).some(b => VISIBLE_BUILDINGS.includes(b.type) && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
+    || (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
 
   const sharedBuildingProps = {
     effectiveResources,
@@ -194,6 +195,7 @@ export default function Base({ mainRef }) {
             userId={userId}
             heroId={heroId}
             byType={byType}
+            anyUpgrading={anyUpgrading}
           />
         )}
 

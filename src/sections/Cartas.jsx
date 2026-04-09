@@ -59,7 +59,7 @@ function formatVal(stat, val) {
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
 
-function CardSlot({ card, slotIndex, onUnequip, onViewDetail }) {
+function CardSlot({ card, slotIndex, onUnequip, onViewDetail, isExploring }) {
   if (!card) {
     return (
       <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-border bg-surface/50">
@@ -118,8 +118,9 @@ function CardSlot({ card, slotIndex, onUnequip, onViewDetail }) {
           <Info size={13} strokeWidth={2} />
         </button>
         <button
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
           onClick={() => onUnequip(card.id)}
+          disabled={isExploring}
         >
           <X size={12} strokeWidth={2.5} /> Quitar
         </button>
@@ -128,7 +129,7 @@ function CardSlot({ card, slotIndex, onUnequip, onViewDetail }) {
   )
 }
 
-function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading, onViewDetail }) {
+function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading, onViewDetail, isExploring }) {
   const sc         = card.skill_cards
   const meta       = getMeta(sc)
   const rank       = Math.min(card.rank ?? 1, 5)
@@ -179,7 +180,7 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onFuse(card.id, fusePair.id)}
-            disabled={fuseLoading}
+            disabled={fuseLoading || isExploring}
           >
             <FlameKindling size={12} strokeWidth={2} /> Fusionar
           </button>
@@ -190,8 +191,8 @@ function CollectionCard({ card, canEquip, fusePair, onEquip, onFuse, fuseLoading
               ? 'text-[var(--blue-600)] hover:bg-[color-mix(in_srgb,var(--blue-500)_6%,transparent)]'
               : 'text-text-3 cursor-not-allowed'
             }`}
-          onClick={() => canEquip && onEquip(card.id)}
-          disabled={!canEquip}
+          onClick={() => canEquip && !isExploring && onEquip(card.id)}
+          disabled={!canEquip || isExploring}
           title={canEquip ? undefined : 'Slots llenos — desequipa una carta primero'}
         >
           Equipar
@@ -207,6 +208,7 @@ export default function Cartas() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
   const { hero }    = useHero(heroId)
+  const isExploring = hero?.status === 'exploring'
   const { cards }   = useHeroCards(heroId)
   const queryClient  = useQueryClient()
   const equipPending = useRef(0)
@@ -327,19 +329,12 @@ export default function Cartas() {
     <div className="flex flex-col gap-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <Layers size={16} strokeWidth={1.8} className="text-[var(--blue-600)]" />
-            <span className="text-[16px] font-bold text-text">Build de Cartas</span>
-          </div>
-          <span className="text-[12px] text-text-3">
-            {hero.name} · {equippedCount}/{CARD_SLOT_COUNT} slots activos
-          </span>
+      <div className="section-header !mb-0">
+        <div className="section-title-row">
+          <h2 className="section-title">Cartas</h2>
+          <span className="text-[12px] text-text-3 ml-auto">{(cards ?? []).length} en colección</span>
         </div>
-        <div className="text-right">
-          <span className="text-[12px] text-text-3">{(cards ?? []).length} cartas en colección</span>
-        </div>
+        <p className="section-subtitle">{hero.name} · {equippedCount}/{CARD_SLOT_COUNT} slots activos</p>
       </div>
 
       {/* Card slots */}
@@ -348,7 +343,7 @@ export default function Cartas() {
         <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
           <div className="flex flex-col gap-2">
             {equippedCards.map((card, i) => (
-              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} onViewDetail={setCardDetail} />
+              <CardSlot key={card?.id ?? `empty-${i}`} card={card} slotIndex={i} onUnequip={handleUnequip} onViewDetail={setCardDetail} isExploring={isExploring} />
             ))}
           </div>
 
@@ -398,6 +393,7 @@ export default function Cartas() {
                     onFuse={handleFuse}
                     fuseLoading={fuseMutation.isPending}
                     onViewDetail={setCardDetail}
+                    isExploring={isExploring}
                   />
                 )
               })}

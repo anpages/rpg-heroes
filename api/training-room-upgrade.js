@@ -26,6 +26,16 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Ya hay una mejora en curso' })
   }
 
+  // Verificar que no hay otra construcción/mejora en curso (edificios u otras salas)
+  const queueNow = new Date().toISOString()
+  const [{ data: busyBuildings }, { data: busyRooms }] = await Promise.all([
+    supabase.from('buildings').select('id').eq('player_id', user.id).gt('upgrade_ends_at', queueNow).limit(1),
+    supabase.from('training_rooms').select('stat').eq('player_id', user.id).gt('building_ends_at', queueNow).limit(1),
+  ])
+  if (busyBuildings?.length > 0 || busyRooms?.length > 0) {
+    return res.status(409).json({ error: 'Ya hay una construcción en curso' })
+  }
+
   const cost = trainingRoomUpgradeCost(room.level)
 
   // Verificar y descontar recursos

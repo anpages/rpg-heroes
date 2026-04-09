@@ -119,20 +119,21 @@ export function floorToDifficulty(floor) {
   return Math.min(10, Math.max(1, Math.floor(floor / 2) + 1))
 }
 
-// Drops de materiales de crafting por tipo de dungeon.
-// combat/mine/crypt → fragmentos | magic/ancient → esencia | wilderness → ninguno
-const MATERIAL_DROP_BY_TYPE = {
-  combat:  { resource: 'fragments', chance: 0.15, min: 1, max: 2 },
-  mine:    { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
-  crypt:   { resource: 'fragments', chance: 0.12, min: 1, max: 2 },
-  magic:   { resource: 'essence',   chance: 0.12, min: 1, max: 1 },
-  ancient: { resource: 'essence',   chance: 0.18, min: 1, max: 2 },
+// Drops de materiales de crafting por nombre de dungeon.
+// Guarida del Dragón / Ruinas Encantadas / Minas / Templo → drop
+// Cueva de Goblins / Cripta de los Condenados / Bosque Oscuro → ninguno
+const MATERIAL_DROP_BY_NAME = {
+  'Guarida del Dragón':     { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
+  'Abismo de las Almas':    { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
+  'Ruinas Encantadas':      { resource: 'fragments', chance: 0.12, min: 1, max: 1 },
+  'Minas de Hierro Oscuro': { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
+  'Templo de los Antiguos': { resource: 'essence',   chance: 0.18, min: 1, max: 2 },
 }
 
-/** Lanza el dado de drop de material para un tipo de dungeon.
+/** Lanza el dado de drop de material para una dungeon por nombre.
  *  @returns {{ resource: 'fragments'|'essence', qty: number } | null} */
-export function rollMaterialDrop(dungeonType) {
-  const cfg = MATERIAL_DROP_BY_TYPE[dungeonType]
+export function rollMaterialDrop(dungeonName) {
+  const cfg = MATERIAL_DROP_BY_NAME[dungeonName]
   if (!cfg || Math.random() > cfg.chance) return null
   const qty = cfg.min + Math.floor(Math.random() * (cfg.max - cfg.min + 1))
   return { resource: cfg.resource, qty }

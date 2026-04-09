@@ -41,7 +41,7 @@ export default function CombatHistorial() {
           const sourceColor = SOURCE_COLOR[c.source] ?? '#6b7280'
           const sublabel = c.source === 'torneo'
             ? (ROUND_LABELS[c.round] ?? `R${c.round}`)
-            : `Piso ${c.floor}`
+            : (c.enemy_name ?? `Piso ${c.floor}`)
 
           return (
             <div
@@ -73,7 +73,9 @@ export default function CombatHistorial() {
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-[11px] text-text-3 truncate">
-                    {c.source === 'torneo' ? `${c.hero_name} vs ${c.enemy_name}` : c.hero_name}
+                    {c.source === 'torre'
+                      ? `${c.hero_name} vs ${c.enemy_name ?? `Piso ${c.floor}`} · Piso ${c.floor}`
+                      : `${c.hero_name} vs ${c.enemy_name}`}
                   </span>
                   <span className="text-[11px] text-text-3 ml-auto flex-shrink-0">{timeAgo(c.created_at)}</span>
                 </div>
