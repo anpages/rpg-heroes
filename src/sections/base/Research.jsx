@@ -48,6 +48,12 @@ function computePct(activeNode) {
 }
 
 
+function prereqName(node) {
+  if (!node.prerequisite) return null
+  const prereq = RESEARCH_NODES.find(n => n.id === node.prerequisite)
+  return prereq?.name ?? node.prerequisite
+}
+
 function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, hasActiveResearch, onStart, onCollect, startPending, collectPending }) {
   const bm        = BRANCH_META[node.branch]
   const libReq    = node.library_level_required ?? 1
@@ -102,6 +108,14 @@ function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, ha
 
       {/* Description */}
       <p className="text-[11px] text-text-3 leading-snug">{node.description}</p>
+
+      {/* Lock por prerequisito */}
+      {effectiveState === 'locked' && node.prerequisite && (
+        <p className="flex items-center gap-1 text-[11px] font-semibold text-text-3 mt-0.5">
+          <Lock size={10} strokeWidth={2.5} />
+          Requiere: {prereqName(node)}
+        </p>
+      )}
 
       {/* Lock por nivel de Biblioteca */}
       {effectiveState === 'locked_library' && (
