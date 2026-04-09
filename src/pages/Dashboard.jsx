@@ -293,10 +293,17 @@ function Dashboard({ session }) {
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <img src="/icon-pwa.svg" alt="" className="w-7 h-7" />
-          <span className="font-hero font-bold text-[22px] tracking-[0.06em] text-[#3b82f6]">RPG Legends</span>
-        </div>
+        <span
+          className="font-hero font-bold text-[26px] tracking-[0.08em] flex-shrink-0"
+          style={{
+            background: 'linear-gradient(120deg, #93c5fd 0%, #f0f9ff 35%, #60a5fa 65%, #2563eb 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          RPG Legends
+        </span>
 
         <div className="flex-1" />
 
