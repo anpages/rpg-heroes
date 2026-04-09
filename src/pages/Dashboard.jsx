@@ -413,7 +413,7 @@ function Dashboard({ session }) {
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
-                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1 md:mt-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1 md:mt-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
