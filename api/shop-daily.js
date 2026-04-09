@@ -36,8 +36,8 @@ export default async function handler(req, res) {
 
   // Hero + catalog en paralelo
   const [{ data: hero }, { data: catalog }] = await Promise.all([
-    supabase.from('heroes').select('id, level').eq('id', heroId).eq('player_id', user.id).single(),
-    supabase.from('shop_catalog').select('id, catalog_id, gold_price, daily_weight, item_catalog(name, slot, tier, rarity, attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)'),
+    supabase.from('heroes').select('id, level, class').eq('id', heroId).eq('player_id', user.id).single(),
+    supabase.from('shop_catalog').select('id, catalog_id, gold_price, daily_weight, item_catalog(name, slot, tier, rarity, required_class, attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus)'),
   ])
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
@@ -49,8 +49,13 @@ export default async function handler(req, res) {
   // Tipo de mercader del día para este héroe
   const merchantType = MERCHANT_TYPES[Math.floor(rand() * MERCHANT_TYPES.length)]
 
-  // Filtrar por slots del mercader
-  const filtered = catalog.filter(entry => merchantType.slots.includes(entry.item_catalog.slot))
+  // Filtrar por slots del mercader + solo items universales o de la clase del héroe
+  const filtered = catalog.filter(entry => {
+    const ic = entry.item_catalog
+    if (!merchantType.slots.includes(ic.slot)) return false
+    if (ic.required_class && ic.required_class !== hero.class) return false
+    return true
+  })
   const rotation = pickWeighted(filtered, rand, Math.min(SHOP_SIZE, filtered.length))
 
   // Compras de hoy (solo para la rotación seleccionada)

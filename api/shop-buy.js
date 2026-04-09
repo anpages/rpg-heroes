@@ -13,15 +13,20 @@ export default async function handler(req, res) {
   if (!isUUID(catalogId)) return res.status(400).json({ error: 'catalogId inválido' })
 
   const { data: hero } = await supabase
-    .from('heroes').select('id, player_id, level').eq('id', heroId).eq('player_id', user.id).single()
+    .from('heroes').select('id, player_id, level, class').eq('id', heroId).eq('player_id', user.id).single()
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
 
   const { data: shopEntry } = await supabase
     .from('shop_catalog')
-    .select('id, gold_price, item_catalog(id, tier, rarity, max_durability)')
+    .select('id, gold_price, item_catalog(id, tier, rarity, max_durability, required_class)')
     .eq('catalog_id', catalogId)
     .single()
   if (!shopEntry) return res.status(404).json({ error: 'Item no disponible en la tienda' })
+
+  // Gate por clase
+  if (shopEntry.item_catalog.required_class && shopEntry.item_catalog.required_class !== hero.class) {
+    return res.status(409).json({ error: 'Este item es exclusivo de otra clase' })
+  }
 
   // Gate por nivel
   const minLevel = getItemMinLevel(shopEntry.item_catalog.tier, shopEntry.item_catalog.rarity)
