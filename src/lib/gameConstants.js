@@ -334,6 +334,8 @@ export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
 export const MAX_POTION_STACK = 5
 /** Duración del crafteo de una poción en milisegundos. */
 export const POTION_CRAFT_DURATION_MS = 30 * 60 * 1000
+/** Duración del crafteo de una runa en milisegundos. */
+export const RUNE_CRAFT_DURATION_MS   = 60 * 60 * 1000  // 1 hora
 
 // ── Entrenamiento ─────────────────────────────────────────────────────────────
 

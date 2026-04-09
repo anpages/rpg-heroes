@@ -94,10 +94,15 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
               {room.label}
             </p>
             {isBuilt ? (
-              <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none flex-shrink-0"
-                style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
-                Nv.{roomLevel}
-              </span>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none"
+                  style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
+                  Nv.{roomLevel}
+                </span>
+                {isConstructing && (
+                  <span className="text-[11px] font-semibold text-[#0891b2]">Mejorando…</span>
+                )}
+              </div>
             ) : isConstructing ? (
               <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">Construyendo…</span>
             ) : lockedByBase ? (
@@ -115,22 +120,9 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
       </div>
 
       {/* Contenido central */}
-      {isConstructing ? (
-        <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
-          <div className="h-2 bg-border rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
-              style={{ width: `${buildPct}%` }} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-text-3">Construcción en curso</span>
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-[#0891b2]">
-              <Clock size={10} strokeWidth={2} />
-              {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
-            </span>
-          </div>
-        </div>
-      ) : isBuilt ? (
+      {isBuilt ? (
         <div className="px-4 pb-3 flex flex-col gap-2 border-t border-border pt-3">
+          {/* Progreso de entrenamiento — siempre visible si está construida */}
           <div className="h-2 bg-border rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-[width] duration-[600ms] ease-out"
               style={{ width: `${xpPct}%`, background: room.color }} />
@@ -147,6 +139,36 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
               +{gained} {STAT_LABEL_MAP[room.stat]} ganados en total
             </p>
           )}
+          {/* Barra de mejora — solo visible mientras se mejora */}
+          {isConstructing && (
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
+              <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
+                  style={{ width: `${buildPct}%` }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-text-3">Mejora en curso</span>
+                <span className="flex items-center gap-1 text-[10px] font-semibold text-[#0891b2]">
+                  <Clock size={9} strokeWidth={2} />
+                  {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : isConstructing ? (
+        <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
+          <div className="h-2 bg-border rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
+              style={{ width: `${buildPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-text-3">Construcción en curso</span>
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-[#0891b2]">
+              <Clock size={10} strokeWidth={2} />
+              {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="px-4 pb-3 border-t border-border pt-3">

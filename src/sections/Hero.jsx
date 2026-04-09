@@ -14,7 +14,7 @@ import { usePotions } from '../hooks/usePotions'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check,
+  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check, Sparkles,
 } from 'lucide-react'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel } from '../lib/gameFormulas'
@@ -67,18 +67,24 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
 
   const equippedItems = (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
-    .map(i => ({
-      name: i.item_catalog.name,
-      tier: i.item_catalog.tier,
-      contributions: {
-        attack:       i.item_catalog.attack_bonus       ?? 0,
-        defense:      i.item_catalog.defense_bonus      ?? 0,
-        max_hp:       i.item_catalog.hp_bonus           ?? 0,
-        strength:     i.item_catalog.strength_bonus     ?? 0,
-        agility:      i.item_catalog.agility_bonus      ?? 0,
-        intelligence: i.item_catalog.intelligence_bonus ?? 0,
-      },
-    }))
+    .map(i => {
+      const c = i.item_catalog
+      const base = {
+        attack: c.attack_bonus ?? 0, defense: c.defense_bonus ?? 0,
+        max_hp: c.hp_bonus ?? 0, strength: c.strength_bonus ?? 0,
+        agility: c.agility_bonus ?? 0, intelligence: c.intelligence_bonus ?? 0,
+      }
+      const runeRows = []
+      ;(i.item_runes ?? []).forEach(ir => {
+        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
+          const key = stat === 'max_hp' ? 'max_hp' : stat
+          if (key in base) runeRows.push({ stat: key, value, runeName: ir.rune_catalog.name })
+        })
+      })
+      const contributions = { ...base }
+      runeRows.forEach(r => { contributions[r.stat] += r.value })
+      return { name: c.name, tier: c.tier, base, contributions, runeRows }
+    })
     .filter(i => STAT_KEYS.some(k => i.contributions[k] !== 0))
 
   const equippedCards = (cards ?? [])
@@ -159,8 +165,11 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
               const rows = []
 
               equippedItems.forEach(item => {
-                const v = item.contributions[key]
+                const v = item.base[key]
                 if (v !== 0) rows.push({ label: `${item.name} T${item.tier}`, value: v, source: 'equip' })
+                item.runeRows.filter(r => r.stat === key).forEach(r => {
+                  rows.push({ label: r.runeName, value: r.value, source: 'rune' })
+                })
               })
               equippedCards.forEach(card => {
                 const b = card.bonuses[key]   ?? 0
@@ -197,7 +206,10 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
                       )}
                       {rows.map((r, i) => (
                         <div key={i} className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] text-text-2 truncate min-w-0">{r.label}</span>
+                          <div className="flex items-center gap-1 min-w-0">
+                            {r.source === 'rune' && <Sparkles size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
+                            <span className={`text-[11px] truncate ${r.source === 'rune' ? 'text-[#7c3aed]' : 'text-text-2'}`}>{r.label}</span>
+                          </div>
                           <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
                             {r.value > 0 ? '+' : ''}{r.value}
                           </span>
@@ -495,7 +507,22 @@ function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied 
       {item ? (
         <>
           <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: rarity?.color }}>{catalog.name}</p>
-          <StatsList catalog={catalog} hideEmpty />
+          {(item.item_runes ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {(item.item_runes ?? []).map((ir, idx) => {
+                const rc    = ir.rune_catalog
+                const main  = rc?.bonuses?.[0]
+                const color = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }[main?.stat] ?? '#7c3aed'
+                return (
+                  <span key={idx} className="flex items-center gap-[3px] text-[10px] font-semibold px-[5px] py-px rounded-[4px] border"
+                    style={{ color, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, borderColor: `color-mix(in srgb,${color} 30%,var(--border))` }}>
+                    <Sparkles size={8} strokeWidth={2} />
+                    {rc?.name ?? 'Runa'}
+                  </span>
+                )
+              })}
+            </div>
+          )}
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
           {needsRepair && (
             <div className="flex items-center justify-between mt-0.5">
@@ -535,7 +562,6 @@ function BagItem({ item, onDiscard, loading, isOccupied }) {
         <span className="text-[11px] font-semibold text-text-3">{slotMeta.label}</span>
         {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
       </div>
-      <StatsList catalog={catalog} />
       <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
       <div className="flex gap-1.5 mt-0.5">
         <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
@@ -678,7 +704,6 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: rarity?.color }}>{catalog.name}</p>
-                  <StatsList catalog={catalog} />
                   <DurabilityBar current={equippedItem.current_durability} max={catalog.max_durability} />
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
@@ -726,7 +751,6 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
                       <span className="text-[11px] font-semibold" style={{ color: rarity.color }}>{rarity.label}</span>
                       {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
                     </div>
-                    <StatsList catalog={catalog} />
                     <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
                   </button>
                 )
@@ -823,9 +847,13 @@ function Hero() {
     </div>
   )
 
-  const cls      = hero.classes
-  const status   = STATUS_META[hero.status] ?? STATUS_META.idle
-  const isOccupied = hero.status === 'exploring'
+  const cls          = hero.classes
+  const activeExp    = hero.expeditions?.find(e => e.status === 'traveling')
+  const derivedStatus = hero.status === 'exploring' && activeExp && new Date(activeExp.ends_at) <= Date.now()
+    ? 'ready'
+    : hero.status
+  const status     = STATUS_META[derivedStatus] ?? STATUS_META.idle
+  const isOccupied = derivedStatus === 'exploring'
 
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
     acc[slot] = items?.find(i => i.equipped_slot === slot) ?? null
@@ -843,6 +871,12 @@ function Hero() {
       acc.agility      += c.agility_bonus      ?? 0
       acc.intelligence += c.intelligence_bonus ?? 0
       acc._weight      += c.weight             ?? 0
+      ;(i.item_runes ?? []).forEach(ir => {
+        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
+          if (stat === 'max_hp')       acc.max_hp       += value
+          else if (stat in acc)        acc[stat]        += value
+        })
+      })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0, _weight: 0 })
 
@@ -1083,15 +1117,7 @@ function Hero() {
                 if (item) {
                   const durPct   = Math.round((item.current_durability / cat.max_durability) * 100)
                   const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-                  const mainStat = (() => {
-                    if (cat.attack_bonus  > 0) return { label: 'Atq', val: cat.attack_bonus,  color: '#d97706' }
-                    if (cat.defense_bonus > 0) return { label: 'Def', val: cat.defense_bonus, color: '#94a3b8' }
-                    if (cat.hp_bonus      > 0) return { label: 'HP',  val: cat.hp_bonus,      color: '#f87171' }
-                    if (cat.strength_bonus > 0) return { label: 'Fue', val: cat.strength_bonus, color: '#f87171' }
-                    if (cat.agility_bonus > 0) return { label: 'Agi', val: cat.agility_bonus, color: '#60a5fa' }
-                    if (cat.intelligence_bonus > 0) return { label: 'Int', val: cat.intelligence_bonus, color: '#c084fc' }
-                    return null
-                  })()
+                  const runesOnItem = item.item_runes ?? []
                   return (
                     <button
                       key={slot}
@@ -1108,12 +1134,18 @@ function Hero() {
                       </div>
                       {/* Row 2: item name */}
                       <span className="text-[12px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
-                      {/* Row 3: main stat + durability */}
+                      {/* Row 3: rune names + durability */}
                       <div className="flex items-center justify-between gap-1">
-                        {mainStat
-                          ? <span className="text-[10px] font-bold" style={{ color: mainStat.color }}>+{mainStat.val} {mainStat.label}</span>
-                          : <span />
-                        }
+                        {runesOnItem.length > 0 ? (
+                          <div className="flex items-center gap-1 flex-wrap min-w-0">
+                            {runesOnItem.map((ir, i) => (
+                              <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
+                                <Sparkles size={8} strokeWidth={2} />
+                                {ir.rune_catalog?.name ?? 'Runa'}
+                              </span>
+                            ))}
+                          </div>
+                        ) : <span />}
                         <span className="text-[9px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
                       </div>
                       <div className="w-full h-[3px] bg-border rounded-full overflow-hidden">

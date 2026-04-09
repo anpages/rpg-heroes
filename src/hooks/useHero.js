@@ -8,7 +8,7 @@ export function useHero(heroId) {
     queryFn: async () => {
       const { data } = await supabase
         .from('heroes')
-        .select('*, classes(*)')
+        .select('*, classes(*), expeditions(ends_at, status)')
         .eq('id', heroId)
         .single()
       return data ?? null

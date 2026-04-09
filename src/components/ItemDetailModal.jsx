@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { X, Sword, Shield, Crown, Shirt, Hand, Move, Gem, Weight } from 'lucide-react'
+import { X, Sword, Shield, Crown, Shirt, Hand, Move, Gem, Weight, Sparkles, ArrowLeft, Plus } from 'lucide-react'
 
 const SLOT_META = {
   helmet:      { label: 'Casco',           icon: Crown  },
@@ -20,6 +21,9 @@ const RARITY_META = {
   epic:      { label: 'Épico',       color: '#7c3aed' },
   legendary: { label: 'Legendario',  color: '#d97706' },
 }
+
+const RUNE_BONUS_LABELS = { attack: 'Ataque', defense: 'Defensa', intelligence: 'Inteligencia', agility: 'Agilidad', max_hp: 'HP', strength: 'Fuerza' }
+const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -49,7 +53,12 @@ const overlayVariants = {
 
 const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 
-export function ItemDetailModal({ item, onClose }) {
+/* ─── runeProps: { hasLab, maxRuneSlots, runeInventory, runePending, isExploring, onInsertRune }
+   Si no se pasan, la sección de runas es solo lectura (Ficha).               ── */
+
+export function ItemDetailModal({ item, onClose, runeProps }) {
+  const [pickingSlot, setPickingSlot] = useState(null)
+
   const catalog  = item.item_catalog
   const rarity   = RARITY_META[catalog.rarity]
   const slot     = SLOT_META[catalog.slot]
@@ -66,73 +75,213 @@ export function ItemDetailModal({ item, onClose }) {
     { label: 'Inteligencia', val: catalog.intelligence_bonus },
   ].filter(s => s.val > 0)
 
+  const runesOnItem       = item.item_runes ?? []
+  const { hasLab = false, maxRuneSlots = 0, runeInventory = [], runePending = false, isExploring = false, onInsertRune } = runeProps ?? {}
+  const canManageRunes    = !!onInsertRune
+  const showRuneSection   = canManageRunes ? (hasLab && maxRuneSlots > 0) : runesOnItem.length > 0
+  const hasRunesAvailable = runeInventory.some(ir => ir.quantity > 0)
+  const available         = runeInventory.filter(ir => ir.quantity > 0)
+
+  const handleClose = () => {
+    setPickingSlot(null)
+    onClose()
+  }
+
   return createPortal(
     <motion.div
       className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
-      onClick={onClose}
+      onClick={handleClose}
     >
       <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 overflow-hidden"
-        style={{ width: 'min(400px, 92vw)' }}
+        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden"
+        style={{ width: 'min(400px, 92vw)', maxHeight: '90dvh' }}
         variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5">
-          <div className="flex items-center gap-2">
-            <SlotIcon size={16} strokeWidth={1.8} className="text-text-3" />
-            <span className="text-[16px] font-bold text-text">{catalog.name}</span>
+        <div className="flex items-center gap-2 px-5 pt-5 pb-4 border-b border-border flex-shrink-0">
+          {pickingSlot !== null && (
+            <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 transition-colors flex-shrink-0"
+              onClick={() => setPickingSlot(null)}>
+              <ArrowLeft size={14} strokeWidth={2} />
+            </button>
+          )}
+          <SlotIcon size={15} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-bold text-text truncate">
+              {pickingSlot !== null ? `Insertar en Slot ${pickingSlot + 1}` : catalog.name}
+            </p>
+            {pickingSlot !== null && (
+              <p className="text-[11px] text-text-3 truncate">{catalog.name}</p>
+            )}
           </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose}>
+          <button className="btn btn--ghost btn--icon flex-shrink-0" onClick={handleClose}>
             <X size={16} strokeWidth={2} />
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 px-5 pb-5">
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
-              style={{ color: rarity.color, borderColor: `color-mix(in srgb, ${rarity.color} 30%, var(--border))`, background: `color-mix(in srgb, ${rarity.color} 8%, var(--surface))` }}>
-              {rarity.label}
-            </span>
-            <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
-            <span className="text-[11px] text-text-3">{slot?.label}</span>
-            {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
-          </div>
+        <div className="overflow-y-auto flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-          {/* Description */}
-          {catalog.description && (
-            <p className="text-[14px] text-text-2 italic leading-relaxed">{catalog.description}</p>
-          )}
+          {/* ── Vista principal: info del ítem ── */}
+          {pickingSlot === null && (
+            <div className="flex flex-col gap-4 px-5 py-4">
 
-          {/* Stats */}
-          {(statLines.length > 0 || (catalog.weight ?? 0) > 0) && (
-            <div className="flex flex-wrap gap-2">
-              {statLines.map(s => (
-                <span key={s.label} className="text-[11px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-md px-2 py-1">
-                  +{s.val} {s.label}
+              {/* Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+                  style={{ color: rarity.color, borderColor: `color-mix(in srgb,${rarity.color} 30%,var(--border))`, background: `color-mix(in srgb,${rarity.color} 8%,var(--surface))` }}>
+                  {rarity.label}
                 </span>
-              ))}
-              {(catalog.weight ?? 0) > 0 && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-md px-2 py-1">
-                  <Weight size={10} strokeWidth={2} />{catalog.weight} peso
-                </span>
+                <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
+                <span className="text-[11px] text-text-3">{slot?.label}</span>
+                {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+              </div>
+
+              {/* Description */}
+              {catalog.description && (
+                <p className="text-[13px] text-text-2 italic leading-relaxed">{catalog.description}</p>
+              )}
+
+              {/* Stats del catálogo */}
+              {(statLines.length > 0 || (catalog.weight ?? 0) > 0) && (
+                <div className="flex flex-wrap gap-2">
+                  {statLines.map(s => (
+                    <span key={s.label} className="text-[11px] font-bold text-[#16a34a] bg-success-bg border border-success-border rounded-md px-2 py-1">
+                      +{s.val} {s.label}
+                    </span>
+                  ))}
+                  {(catalog.weight ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-md px-2 py-1">
+                      <Weight size={10} strokeWidth={2} />{catalog.weight} peso
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Durabilidad */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-[12px] text-text-3">
+                  <span>Durabilidad</span>
+                  <span style={{ color: durColor }}>{item.current_durability} / {catalog.max_durability} ({durPct}%)</span>
+                </div>
+                <div className="h-2 bg-border rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${durPct}%`, background: durColor }} />
+                </div>
+              </div>
+
+              {/* ── Sección de runas ── */}
+              {showRuneSection && (
+                <div className="flex flex-col gap-2 border-t border-border pt-4">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
+                    <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Runas</p>
+                    {!canManageRunes && <span className="text-[10px] text-text-3 italic">(ve a Armamento para gestionar)</span>}
+                  </div>
+
+                  {/* Si tenemos gestión completa: mostrar todos los slots */}
+                  {canManageRunes && Array.from({ length: maxRuneSlots }).map((_, idx) => {
+                    const inserted = runesOnItem.find(r => r.slot_index === idx)
+                    if (inserted) {
+                      const rc    = inserted.rune_catalog
+                      const main  = rc?.bonuses?.[0]
+                      const color = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
+                      return (
+                        <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-xl border"
+                          style={{ borderColor: `color-mix(in srgb,${color} 30%,var(--border))`, background: `color-mix(in srgb,${color} 5%,var(--surface-2))` }}>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-text-3">Slot {idx + 1}</p>
+                          <div className="flex items-center gap-2">
+                            <Sparkles size={12} strokeWidth={2} style={{ color }} />
+                            <span className="text-[13px] font-bold" style={{ color }}>{rc?.name ?? 'Runa'}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                            {(rc?.bonuses ?? []).map(({ stat, value }, i) => (
+                              <span key={i} className="text-[11px] font-semibold" style={{ color: RUNE_BONUS_COLORS[stat] ?? color }}>
+                                +{value} {RUNE_BONUS_LABELS[stat] ?? stat}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-dashed border-border">
+                        <p className="text-[12px] text-text-3">Slot {idx + 1} — vacío</p>
+                        {hasRunesAvailable ? (
+                          <button
+                            className="btn btn--primary btn--sm flex-shrink-0"
+                            onClick={() => setPickingSlot(idx)}
+                            disabled={runePending || isExploring}
+                          >
+                            <Plus size={11} strokeWidth={2} /> Insertar
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-text-3 italic">Sin runas</span>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* Si solo lectura: mostrar las runas que tiene */}
+                  {!canManageRunes && runesOnItem.map((ir, idx) => {
+                    const rc    = ir.rune_catalog
+                    const main  = rc?.bonuses?.[0]
+                    const color = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
+                    return (
+                      <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-xl border"
+                        style={{ borderColor: `color-mix(in srgb,${color} 30%,var(--border))`, background: `color-mix(in srgb,${color} 5%,var(--surface-2))` }}>
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={12} strokeWidth={2} style={{ color }} />
+                          <span className="text-[13px] font-bold" style={{ color }}>{rc?.name ?? 'Runa'}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                          {(rc?.bonuses ?? []).map(({ stat, value }, i) => (
+                            <span key={i} className="text-[11px] font-semibold" style={{ color: RUNE_BONUS_COLORS[stat] ?? color }}>
+                              +{value} {RUNE_BONUS_LABELS[stat] ?? stat}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {canManageRunes && (
+                    <p className="text-[10px] text-text-3 italic">Las runas son permanentes una vez incrustadas.</p>
+                  )}
+                </div>
               )}
             </div>
           )}
 
-          {/* Durability */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-[12px] text-text-3">
-              <span>Durabilidad</span>
-              <span style={{ color: durColor }}>{item.current_durability} / {catalog.max_durability} ({durPct}%)</span>
+          {/* ── Vista selector de runa ── */}
+          {pickingSlot !== null && (
+            <div className="flex flex-col gap-2 px-5 py-4">
+              {available.map(ir => {
+                const rc       = ir.rune_catalog
+                const main     = rc?.bonuses?.[0]
+                const color    = RUNE_BONUS_COLORS[main?.stat] ?? '#475569'
+                const bonusTxt = (rc?.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
+                return (
+                  <button key={ir.rune_id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-[color:var(--blue-400)] bg-surface hover:bg-surface-2 transition-all text-left"
+                    onClick={() => { onInsertRune({ item, slotIndex: pickingSlot, runeId: ir.rune_id }); handleClose() }}
+                    disabled={runePending || isExploring}
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-extrabold"
+                      style={{ background: `color-mix(in srgb,${color} 12%,var(--surface-2))`, color }}>
+                      {ir.quantity}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-bold text-text truncate">{rc?.name}</p>
+                      <p className="text-[11px] text-text-3">{bonusTxt}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-            <div className="h-2 bg-border rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${durPct}%`, background: durColor }} />
-            </div>
-          </div>
+          )}
+
         </div>
       </motion.div>
     </motion.div>,

@@ -208,7 +208,7 @@ const NAV_ITEMS = [
 
 const HERO_SUB_TABS = [
   { id: 'ficha',        label: 'Ficha',        icon: Sword       },
-  { id: 'equipo',       label: 'Equipo',       icon: Shield      },
+  { id: 'equipo',       label: 'Armamento',    icon: Shield      },
   { id: 'cartas',       label: 'Cartas',       icon: Layers      },
   { id: 'expediciones', label: 'Expediciones', icon: Map         },
   { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },

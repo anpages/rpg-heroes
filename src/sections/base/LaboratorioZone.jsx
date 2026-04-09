@@ -6,7 +6,7 @@ import { baseLevelFromMap } from './helpers.js'
 import { BuildingCard } from './BuildingCard.jsx'
 import { LaboratorySection, RunesSection } from './LaboratorySection.jsx'
 
-export default function LaboratorioZone({ byType, effectiveResources, potions, crafting, runesCatalog, runesInventory, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, collectPending, onCraft, onCollect, onRuneCraft }) {
+export default function LaboratorioZone({ byType, effectiveResources, potions, crafting, runesCatalog, runesInventory, runesCrafting, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, collectPending, onCraft, onCollect, onRuneCraft, runeCraftPending, runeCollectPending, onRuneCollect }) {
   const lab       = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
 
@@ -56,7 +56,7 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, c
         onUpgradePending={onUpgradePending}
       />
 
-      {lab.level >= 1 && !lab.upgrade_ends_at && (
+      {lab.level >= 1 && (
         <div className="flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
             <LaboratorySection
@@ -68,6 +68,7 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, c
               resources={effectiveResources}
               onCraft={onCraft}
               onCollect={onCollect}
+              isUpgrading={!!lab.upgrade_ends_at}
             />
           </div>
 
@@ -78,7 +79,12 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, c
                 catalog={runesCatalog}
                 inventory={runesInventory}
                 resources={effectiveResources}
+                crafting={runesCrafting}
+                craftPending={runeCraftPending}
+                collectPending={runeCollectPending}
                 onCraft={onRuneCraft}
+                onCollect={onRuneCollect}
+                isUpgrading={!!lab.upgrade_ends_at}
               />
             </div>
           ) : (

@@ -75,16 +75,6 @@ function estimateDismantleGold(item) {
   return base * (item.item_catalog.tier ?? 1)
 }
 
-function mainStatForSlot(slotKey, cat) {
-  if (slotKey === 'main_hand' || slotKey === 'off_hand') {
-    if (cat.attack_bonus > 0)  return { label: 'Atq', value: cat.attack_bonus,  color: '#d97706' }
-    if (cat.defense_bonus > 0) return { label: 'Def', value: cat.defense_bonus, color: '#6b7280' }
-  }
-  if (cat.defense_bonus > 0) return { label: 'Def', value: cat.defense_bonus, color: '#6b7280' }
-  if (cat.attack_bonus  > 0) return { label: 'Atq', value: cat.attack_bonus,  color: '#d97706' }
-  if (cat.hp_bonus      > 0) return { label: 'HP',  value: cat.hp_bonus,      color: '#dc2626' }
-  return null
-}
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
@@ -243,10 +233,10 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   }
 
   const cat         = item.item_catalog
-  const mainStat    = mainStatForSlot(slotKey, cat)
   const rarColor    = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
   const durColor    = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
+  const runesOnItem = item.item_runes ?? []
   const needsRepair = durPct < 100
   const canUpgrade  = cat.tier < 3 && durPct >= 100
 
@@ -265,14 +255,17 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
       </div>
 
       <div className="px-3 pb-2">
-        <div className="flex items-center justify-between gap-1 mb-1">
-          {mainStat
-            ? <span className="text-[10px] font-bold">
-                <span style={{ color: mainStat.color }}>+{mainStat.value}</span>
-                <span className="text-text-3"> {mainStat.label}</span>
-              </span>
-            : <span />
-          }
+        <div className="flex items-center justify-between gap-2 mb-1">
+          {runesOnItem.length > 0 ? (
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {runesOnItem.map((ir, i) => (
+                <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
+                  <Sparkles size={9} strokeWidth={2} />
+                  {ir.rune_catalog?.name ?? 'Runa'}
+                </span>
+              ))}
+            </div>
+          ) : <span />}
           <span className="text-[10px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
         </div>
         <DurabilityBar current={item.current_durability} max={cat.max_durability} />
@@ -281,11 +274,10 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
       {/* Footer de acciones */}
       <div className="flex border-t border-border divide-x divide-border">
         <button
-          className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+          className="flex items-center justify-center gap-1 px-3 py-2 text-[11px] font-semibold text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
           onClick={() => onViewDetail(item)}
-          title="Ver detalles"
         >
-          <Info size={13} strokeWidth={2} />
+          <Info size={11} strokeWidth={2} /> + Info
         </button>
         {needsRepair && (
           <button
@@ -354,69 +346,6 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus, pe
   )
 }
 
-/* ─── Runas ──────────────────────────────────────────────────────────────────── */
-
-const RUNE_BONUS_LABELS = { attack: 'Atq', defense: 'Def', intelligence: 'Int', agility: 'Agi', max_hp: 'HP', strength: 'Fue' }
-const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
-
-function RuneInsertModal({ item, slotIndex, runeInventory, onInsert, onCancel }) {
-  const available = runeInventory.filter(ir => ir.quantity > 0)
-
-  return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
-      <div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(340px, 92vw)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] font-bold text-text">Insertar Runa — Slot {slotIndex + 1}</span>
-          <button className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors" onClick={onCancel}>
-            <X size={14} strokeWidth={2} />
-          </button>
-        </div>
-
-        <p className="text-[12px] text-text-3">
-          <span className="font-semibold text-text">{item.item_catalog.name}</span>
-          {' · '}Las runas son permanentes una vez incrustadas.
-        </p>
-
-        {available.length === 0 ? (
-          <p className="text-[13px] text-text-3 text-center py-4">
-            No tienes runas en el inventario. Craftéalas en el Laboratorio.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {available.map(ir => {
-              const rc     = ir.rune_catalog
-              const main   = rc.bonuses?.[0]
-              const color  = RUNE_BONUS_COLORS[main?.stat] ?? '#475569'
-              const bonusText = (rc.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
-              return (
-                <button
-                  key={ir.rune_id}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-[color:var(--blue-400)] bg-surface hover:bg-surface-2 transition-all text-left"
-                  onClick={() => onInsert(ir.rune_id)}
-                >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-extrabold" style={{ background: `color-mix(in srgb,${color} 12%,var(--surface-2))`, color }}>
-                    {ir.quantity}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-bold text-text truncate">{rc.name}</p>
-                    <p className="text-[11px] text-text-3">{bonusText}</p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        <button className="btn btn--ghost btn--sm self-end" onClick={onCancel}>Cancelar</button>
-      </div>
-    </div>,
-    document.body
-  )
-}
 
 /* ─── Componente principal ───────────────────────────────────────────────────── */
 
@@ -435,7 +364,6 @@ export default function Equipo() {
   const [confirm, setConfirm] = useState(null)
   const [tierUpgradeTarget, setTierUpgradeTarget] = useState(null)
   const [itemDetail, setItemDetail] = useState(null)
-  const [runePickerTarget, setRunePickerTarget] = useState(null) // { item, slotIndex }
   const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
 
   // Equip / unequip — optimistic desde el cache actual, invalida solo cuando
@@ -619,14 +547,8 @@ export default function Equipo() {
     })
   }
 
-  function handleRuneInsert(runeId) {
-    if (!runePickerTarget) return
-    runeMutation.mutate({
-      inventoryItemId: runePickerTarget.item.id,
-      slotIndex:       runePickerTarget.slotIndex,
-      runeId,
-    })
-    setRunePickerTarget(null)
+  function handleRuneInsert({ item, slotIndex, runeId }) {
+    runeMutation.mutate({ inventoryItemId: item.id, slotIndex, runeId })
   }
 
   function handleUpgradeTier(item) {
@@ -702,68 +624,6 @@ export default function Equipo() {
               ))}
             </div>
           </div>
-
-          {/* Rune slots — solo si el laboratorio está construido */}
-          {hasLab && maxRuneSlots > 0 && Object.keys(equippedBySlot).length > 0 && (
-            <div className="flex flex-col gap-2 mt-2">
-              <div className="flex items-center gap-1.5">
-                <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
-                <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Ranuras de Runa</p>
-                <span className="text-[10px] text-text-3 font-normal">(permanentes)</span>
-              </div>
-              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-                <div className="flex flex-col gap-3">
-                  {ALL_SLOTS.map(slot => {
-                    const item = equippedBySlot[slot]
-                    if (!item) return null
-                    const runesOnItem = item.item_runes ?? []
-                    const rarColor = RARITY_COLORS[item.item_catalog.rarity] ?? '#6b7280'
-                    return (
-                      <div key={slot} className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-semibold truncate" style={{ color: rarColor }}>
-                            {item.item_catalog.name}
-                          </span>
-                          <span className="text-[10px] text-text-3">{SLOT_META[slot]?.label}</span>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {Array.from({ length: maxRuneSlots }).map((_, idx) => {
-                            const inserted = runesOnItem.find(r => r.slot_index === idx)
-                            if (inserted) {
-                              const rc       = inserted.rune_catalog
-                              const main     = rc?.bonuses?.[0]
-                              const color    = RUNE_BONUS_COLORS[main?.stat] ?? '#7c3aed'
-                              const bonusTxt = (rc?.bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
-                              return (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold"
-                                  style={{ borderColor: `color-mix(in srgb,${color} 40%,var(--border))`, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, color }}
-                                >
-                                  <Sparkles size={10} strokeWidth={2} />
-                                  {rc?.name ?? 'Runa'} <span className="text-[10px] font-normal opacity-70">{bonusTxt}</span>
-                                </div>
-                              )
-                            }
-                            return (
-                              <button
-                                key={idx}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[color:var(--blue-600)] transition-colors disabled:opacity-40"
-                                onClick={() => setRunePickerTarget({ item, slotIndex: idx })}
-                                disabled={runeMutation.isPending || isExploring}
-                              >
-                                + Slot {idx + 1}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
       </div>
@@ -797,24 +657,26 @@ export default function Equipo() {
                         <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
                       </div>
                       <span className="text-[10px] font-medium" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                        {cat.attack_bonus       > 0 && <span className="text-[10px] text-[#d97706] font-medium">+{cat.attack_bonus} Atq</span>}
-                        {cat.defense_bonus      > 0 && <span className="text-[10px] text-[#6b7280] font-medium">+{cat.defense_bonus} Def</span>}
-                        {cat.hp_bonus           > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.hp_bonus} HP</span>}
-                        {cat.strength_bonus     > 0 && <span className="text-[10px] text-[#dc2626] font-medium">+{cat.strength_bonus} Fue</span>}
-                        {cat.agility_bonus      > 0 && <span className="text-[10px] text-[#2563eb] font-medium">+{cat.agility_bonus} Agi</span>}
-                        {cat.intelligence_bonus > 0 && <span className="text-[10px] text-[#7c3aed] font-medium">+{cat.intelligence_bonus} Int</span>}
-                      </div>
                       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+                      {/* Runas incrustadas (read-only mientras está en mochila) */}
+                      {(item.item_runes ?? []).length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                          {(item.item_runes ?? []).map((ir, i) => (
+                            <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
+                              <Sparkles size={9} strokeWidth={2} />
+                              {ir.rune_catalog?.name ?? 'Runa'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {/* Footer */}
                     <div className="flex border-t border-border divide-x divide-border">
                       <button
-                        className="flex items-center justify-center px-3 py-2 text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+                        className="flex items-center justify-center gap-1 px-3 py-2 text-[11px] font-semibold text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
                         onClick={() => setItemDetail(item)}
-                        title="Ver detalles"
                       >
-                        <Info size={13} strokeWidth={2} />
+                        <Info size={11} strokeWidth={2} /> + Info
                       </button>
                       <button
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-40
@@ -845,7 +707,18 @@ export default function Equipo() {
       </div>
 
       {itemDetail && (
-        <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} />
+        <ItemDetailModal
+          item={itemDetail}
+          onClose={() => setItemDetail(null)}
+          runeProps={{
+            hasLab,
+            maxRuneSlots,
+            runeInventory,
+            runePending: runeMutation.isPending,
+            isExploring,
+            onInsertRune: handleRuneInsert,
+          }}
+        />
       )}
 
       {confirm && (
@@ -866,16 +739,6 @@ export default function Equipo() {
           errorMsg={tierUpgradeMutation.error?.message ?? null}
           onConfirm={() => tierUpgradeMutation.mutate({ inventoryItemId: tierUpgradeTarget.id })}
           onCancel={() => { tierUpgradeMutation.reset(); setTierUpgradeTarget(null) }}
-        />
-      )}
-
-      {runePickerTarget && (
-        <RuneInsertModal
-          item={runePickerTarget.item}
-          slotIndex={runePickerTarget.slotIndex}
-          runeInventory={runeInventory}
-          onInsert={handleRuneInsert}
-          onCancel={() => setRunePickerTarget(null)}
         />
       )}
 

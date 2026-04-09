@@ -1,5 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
+import { RUNE_CRAFT_DURATION_MS } from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -15,6 +16,17 @@ export default async function handler(req, res) {
     .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).maybeSingle()
   if (!hero) return res.status(403).json({ error: 'Forbidden' })
 
+  // Verificar que no haya un crafteo de runa en curso
+  const { data: activeCraft } = await supabase
+    .from('rune_crafting')
+    .select('rune_id, craft_ends_at')
+    .eq('hero_id', heroId)
+    .single()
+
+  if (activeCraft && new Date(activeCraft.craft_ends_at) > new Date()) {
+    return res.status(409).json({ error: 'Ya hay una runa en proceso. Espera a que termine.' })
+  }
+
   const [runeRes, labRes, resourcesRes] = await Promise.all([
     supabase.from('rune_catalog').select('*').eq('id', runeId).maybeSingle(),
     supabase.from('buildings').select('level').eq('player_id', user.id).eq('type', 'laboratory').maybeSingle(),
@@ -26,7 +38,6 @@ export default async function handler(req, res) {
 
   const labLevel = labRes.data?.level ?? 0
 
-  // Investigación: lab_req_reduction puede reducir el nivel de lab requerido para craftear runas
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
   const effectiveLabLevel = labLevel + rb.lab_req_reduction
@@ -41,33 +52,30 @@ export default async function handler(req, res) {
 
   const snap = snapshotResources(resources)
 
-  if (snap.gold < rune.recipe_gold || snap.wood < rune.recipe_wood || snap.mana < rune.recipe_mana) {
-    return res.status(400).json({ error: 'Recursos insuficientes' })
-  }
+  if (snap.fragments < (rune.recipe_fragments ?? 0))    return res.status(400).json({ error: 'Fragmentos insuficientes' })
+  if (snap.essence   < (rune.recipe_essence   ?? 0))    return res.status(400).json({ error: 'Esencia insuficiente' })
 
-  const { error: rErr } = await supabase
-    .from('resources')
-    .update({
-      gold: snap.gold - rune.recipe_gold,
-      wood: snap.wood - rune.recipe_wood,
-      mana: snap.mana - rune.recipe_mana,
-      iron: snap.iron,
+  const craftEndsAt = new Date(Date.now() + RUNE_CRAFT_DURATION_MS).toISOString()
+
+  const [resourcesResult, craftResult] = await Promise.all([
+    supabase.from('resources').update({
+      iron:      snap.iron,
+      gold:      snap.gold,
+      wood:      snap.wood,
+      mana:      snap.mana,
+      fragments: snap.fragments - (rune.recipe_fragments ?? 0),
+      essence:   snap.essence   - (rune.recipe_essence   ?? 0),
       last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
+    }).eq('player_id', user.id),
 
-  if (rErr) return res.status(500).json({ error: rErr.message })
+    supabase.from('rune_crafting').upsert(
+      { hero_id: heroId, rune_id: runeId, craft_ends_at: craftEndsAt },
+      { onConflict: 'hero_id' }
+    ),
+  ])
 
-  // Upsert hero_runes (incrementar cantidad o insertar nuevo)
-  const { data: existing } = await supabase
-    .from('hero_runes').select('id, quantity')
-    .eq('hero_id', heroId).eq('rune_id', runeId).maybeSingle()
+  if (resourcesResult.error) return res.status(500).json({ error: resourcesResult.error.message })
+  if (craftResult.error)     return res.status(500).json({ error: craftResult.error.message })
 
-  if (existing) {
-    await supabase.from('hero_runes').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
-  } else {
-    await supabase.from('hero_runes').insert({ hero_id: heroId, rune_id: runeId, quantity: 1 })
-  }
-
-  return res.json({ ok: true })
+  return res.status(200).json({ ok: true, craft_ends_at: craftEndsAt })
 }

@@ -144,6 +144,11 @@ export default function Torre() {
       acc.max_hp   += c.hp_bonus       ?? 0
       acc.strength += c.strength_bonus ?? 0
       acc.agility  += c.agility_bonus  ?? 0
+      ;(i.item_runes ?? []).forEach(ir => {
+        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
+          if (stat in acc) acc[stat] += value
+        })
+      })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
 

@@ -1,16 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
-import { apiGet } from '../lib/api'
 
-/**
- * Devuelve el catálogo completo de runas + el inventario de runas craftadas del héroe.
- * catalog: todas las runas disponibles (seed estático de la DB)
- * inventory: runas craftadas por el héroe aún no incrustadas (quantity > 0)
- */
 export function useHeroRunes(heroId) {
   const { data, ...rest } = useQuery({
     queryKey: queryKeys.heroRunes(heroId),
-    queryFn:  () => apiGet(`/api/hero-runes?heroId=${heroId}`),
+    queryFn:  async () => {
+      const [catalogRes, inventoryRes, craftingRes] = await Promise.all([
+        supabase.from('rune_catalog').select('*').order('min_lab_level'),
+        supabase.from('hero_runes').select('rune_id, quantity, rune_catalog(*)').eq('hero_id', heroId),
+        supabase.from('rune_crafting').select('rune_id, craft_ends_at').eq('hero_id', heroId).single(),
+      ])
+      return {
+        catalog:   catalogRes.data   ?? [],
+        inventory: inventoryRes.data ?? [],
+        crafting:  craftingRes.data  ?? null,
+      }
+    },
     enabled:  !!heroId,
     staleTime: 30_000,
   })
@@ -18,6 +24,7 @@ export function useHeroRunes(heroId) {
   return {
     catalog:   data?.catalog   ?? [],
     inventory: data?.inventory ?? [],
+    crafting:  data?.crafting  ?? null,
     ...rest,
   }
 }

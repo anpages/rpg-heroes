@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Coins, Axe, Sparkles, Layers, Gem, Plus, Clock, CheckCircle } from 'lucide-react'
+import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { POTION_CRAFT_DURATION_MS } from '../../lib/gameConstants.js'
+import { POTION_CRAFT_DURATION_MS, RUNE_CRAFT_DURATION_MS } from '../../lib/gameConstants.js'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
 
 function useCraftTimer(craftEndsAt) {
@@ -29,7 +29,7 @@ function formatMs(ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function LaboratorySection({ labLevel, potions, crafting, craftPending, collectPending, resources, onCraft, onCollect }) {
+export function LaboratorySection({ labLevel, potions, crafting, craftPending, collectPending, resources, onCraft, onCollect, isUpgrading = false }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
   const remaining  = useCraftTimer(crafting?.craft_ends_at)
   const isReady    = remaining !== null && remaining <= 0
@@ -59,7 +59,7 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
           const full       = p.quantity >= 5
           const blocked    = isCrafting || isReady
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
-          const disabled   = !affordable || full || blocked || craftPending
+          const disabled   = !affordable || full || blocked || craftPending || isUpgrading
 
           const borderColor = isActive
             ? (isReady ? '#16a34a' : '#d97706')
@@ -112,7 +112,7 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
                       )}
                       {p.recipe_essence > 0 && (
                         <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= p.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                          <Gem size={10} strokeWidth={2} />{p.recipe_essence}
+                          <Flame size={10} strokeWidth={2} />{p.recipe_essence}
                         </span>
                       )}
                       <span className="text-[11px] text-text-3 opacity-60">máx.5</span>
@@ -169,15 +169,21 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
   )
 }
 
-export function RunesSection({ labLevel, catalog, inventory, resources, onCraft }) {
+export function RunesSection({ labLevel, catalog, inventory, resources, crafting, craftPending, collectPending, onCraft, onCollect, isUpgrading = false }) {
   const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
   const inventoryMap   = Object.fromEntries(inventory.map(ir => [ir.rune_id, ir.quantity]))
+  const remaining      = useCraftTimer(crafting?.craft_ends_at)
+  const isReady        = remaining !== null && remaining <= 0
+  const isCrafting     = remaining !== null && remaining > 0
+
+  const progress = isCrafting
+    ? Math.min(100, ((RUNE_CRAFT_DURATION_MS - remaining) / RUNE_CRAFT_DURATION_MS) * 100)
+    : isReady ? 100 : 0
 
   function canAfford(r) {
     if (!resources) return false
-    return resources.gold >= r.recipe_gold
-      && resources.wood >= r.recipe_wood
-      && resources.mana >= r.recipe_mana
+    return (resources.fragments ?? 0) >= (r.recipe_fragments ?? 0)
+        && (resources.essence   ?? 0) >= (r.recipe_essence   ?? 0)
   }
 
   function bonusText(bonuses) {
@@ -186,58 +192,114 @@ export function RunesSection({ labLevel, catalog, inventory, resources, onCraft 
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Crafteo de Runas</p>
-      </div>
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Crafteo de Runas</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {availableRunes.map(r => {
+          const isActive   = crafting?.rune_id === r.id
           const affordable = canAfford(r)
           const qty        = inventoryMap[r.id] ?? 0
           const mainBonus  = r.bonuses?.[0]
           const color      = RUNE_BONUS_COLORS[mainBonus?.stat] ?? '#475569'
+          const blocked    = isCrafting || isReady
+          const disabled   = !affordable || blocked || craftPending || isUpgrading
+
+          const borderColor = isActive
+            ? (isReady ? '#16a34a' : '#d97706')
+            : undefined
 
           return (
             <div
               key={r.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3.5 hover:border-border-2 transition-[border-color] duration-150"
+              className="flex flex-col rounded-xl overflow-hidden border bg-surface transition-[border-color] duration-150"
+              style={{ borderColor: borderColor ?? 'var(--border)' }}
             >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px] font-extrabold"
-                style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
-              >
-                {qty > 0 ? qty : '✦'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-bold text-text truncate">{r.name}</p>
-                <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  {r.recipe_gold > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                      <Coins size={10} strokeWidth={2} />{r.recipe_gold}
-                    </span>
-                  )}
-                  {r.recipe_wood > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                      <Axe size={10} strokeWidth={2} />{r.recipe_wood}
-                    </span>
-                  )}
-                  {r.recipe_mana > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                      <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
-                    </span>
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px] font-extrabold"
+                  style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
+                >
+                  {qty > 0 ? qty : '✦'}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-text truncate">{r.name}</p>
+                  {isActive && isCrafting ? (
+                    <p className="flex items-center gap-1 text-[12px] font-semibold text-[#d97706] mt-0.5">
+                      <Clock size={11} strokeWidth={2} />
+                      {formatMs(remaining)}
+                    </p>
+                  ) : isActive && isReady ? (
+                    <p className="text-[12px] font-semibold text-[#16a34a] mt-0.5">¡Lista para recoger!</p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {r.recipe_gold > 0 && (
+                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                            <Coins size={10} strokeWidth={2} />{r.recipe_gold}
+                          </span>
+                        )}
+                        {r.recipe_wood > 0 && (
+                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                            <Axe size={10} strokeWidth={2} />{r.recipe_wood}
+                          </span>
+                        )}
+                        {r.recipe_mana > 0 && (
+                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                            <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
+                          </span>
+                        )}
+                        {(r.recipe_fragments ?? 0) > 0 && (
+                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= r.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                            <Layers size={10} strokeWidth={2} />{r.recipe_fragments}
+                          </span>
+                        )}
+                        {(r.recipe_essence ?? 0) > 0 && (
+                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= r.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                            <Flame size={10} strokeWidth={2} />{r.recipe_essence}
+                          </span>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
+
+                {isActive && isReady ? (
+                  <motion.button
+                    className="btn btn--sm flex-shrink-0 font-semibold"
+                    style={{ background: '#16a34a', color: '#fff', borderColor: 'transparent' }}
+                    onClick={onCollect}
+                    disabled={collectPending}
+                    whileTap={collectPending ? {} : { scale: 0.96 }}
+                  >
+                    <CheckCircle size={13} strokeWidth={2.5} />
+                    Recoger
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    className="btn btn--primary btn--sm flex-shrink-0"
+                    onClick={() => onCraft(r.id)}
+                    disabled={disabled}
+                    whileTap={disabled ? {} : { scale: 0.96 }}
+                    title={blocked ? 'Crafteo en progreso' : !affordable ? 'Recursos insuficientes' : undefined}
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                  </motion.button>
+                )}
               </div>
-              <motion.button
-                className="btn btn--primary btn--sm flex-shrink-0"
-                onClick={() => onCraft(r.id)}
-                disabled={!affordable}
-                whileTap={!affordable ? {} : { scale: 0.96 }}
-                title={!affordable ? 'Recursos insuficientes' : undefined}
-              >
-                <Plus size={13} strokeWidth={2.5} />
-              </motion.button>
+
+              {isActive && (
+                <div className="h-1 bg-[var(--surface-2)]">
+                  <div
+                    className="h-full transition-[width] duration-1000"
+                    style={{
+                      width: `${progress}%`,
+                      background: isReady ? '#16a34a' : '#d97706',
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )
         })}

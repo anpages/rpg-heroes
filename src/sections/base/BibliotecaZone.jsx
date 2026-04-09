@@ -103,14 +103,16 @@ export default function BibliotecaZone({ byType, research, resources, onResearch
         />
       )}
 
-      <ResearchTree
-        research={research}
-        resources={resources}
-        onStart={onResearchStart}
-        onCollect={onResearchCollect}
-        startPending={startPending}
-        collectPending={collectPending}
-      />
+      {library.level >= 1 && (
+        <ResearchTree
+          research={research}
+          resources={resources}
+          onStart={onResearchStart}
+          onCollect={onResearchCollect}
+          startPending={startPending}
+          collectPending={collectPending}
+        />
+      )}
     </motion.div>
   )
 }

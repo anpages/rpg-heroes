@@ -33,7 +33,7 @@ export default function Base({ mainRef }) {
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
   const { potions, crafting }              = usePotions(heroId)
-  const { catalog: runesCatalog, inventory: runesInventory } = useHeroRunes(heroId)
+  const { catalog: runesCatalog, inventory: runesInventory, crafting: runesCrafting } = useHeroRunes(heroId)
   const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('inicio')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
@@ -77,12 +77,23 @@ export default function Base({ mainRef }) {
   })
 
   const runeCraftMutation = useMutation({
-    mutationFn: (runeId) => apiPost('/api/rune-craft', { heroId, runeId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      toast.success('¡Runa creada!')
+    mutationFn: async (runeId) => {
+      await apiPost('/api/rune-craft', { heroId, runeId })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(heroId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
     },
+    onSuccess: () => toast.success('¡Crafteo de runa iniciado!'),
+    onError: err => toast.error(err.message),
+  })
+
+  const collectRuneMutation = useMutation({
+    mutationFn: async () => {
+      await apiPost('/api/rune-collect', { heroId })
+      await queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(heroId) })
+    },
+    onSuccess: () => toast.success('¡Runa recogida!'),
     onError: err => toast.error(err.message),
   })
 
@@ -221,11 +232,15 @@ export default function Base({ mainRef }) {
               crafting={crafting}
               runesCatalog={runesCatalog}
               runesInventory={runesInventory}
+              runesCrafting={runesCrafting}
               craftPending={craftMutation.isPending}
               collectPending={collectPotionMutation.isPending}
               onCraft={(potionId) => craftMutation.mutate(potionId)}
               onCollect={() => collectPotionMutation.mutate()}
               onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
+              runeCraftPending={runeCraftMutation.isPending}
+              runeCollectPending={collectRuneMutation.isPending}
+              onRuneCollect={() => collectRuneMutation.mutate()}
               {...sharedBuildingProps}
             />
           )}
