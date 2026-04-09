@@ -37,17 +37,17 @@ export function LaboratorySection({ labLevel, potions, resources, onCraft }) {
                 <p className="text-[13px] font-bold text-text truncate">{p.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {p.recipe_gold > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Coins size={10} strokeWidth={2} />{p.recipe_gold}
                     </span>
                   )}
                   {p.recipe_wood > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= p.recipe_wood ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= p.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Axe size={10} strokeWidth={2} />{p.recipe_wood}
                     </span>
                   )}
                   {p.recipe_mana > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= p.recipe_mana ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= p.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Sparkles size={10} strokeWidth={2} />{p.recipe_mana}
                     </span>
                   )}
@@ -121,17 +121,17 @@ export function RunesSection({ labLevel, catalog, inventory, resources, onCraft 
                 <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {r.recipe_gold > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Coins size={10} strokeWidth={2} />{r.recipe_gold}
                     </span>
                   )}
                   {r.recipe_wood > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Axe size={10} strokeWidth={2} />{r.recipe_wood}
                     </span>
                   )}
                   {r.recipe_mana > 0 && (
-                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-text-3' : 'text-error-text'}`}>
+                    <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
                       <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
                     </span>
                   )}
