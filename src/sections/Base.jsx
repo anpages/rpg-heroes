@@ -128,12 +128,12 @@ export default function Base({ mainRef }) {
   }
 
   async function handleUpgradeStart() {
-    setResourceDelta({ iron: 0, wood: 0, mana: 0 })
     setUpgradePending(false)
     await Promise.all([
       queryClient.refetchQueries({ queryKey: queryKeys.buildings(userId) }),
       queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
     ])
+    setResourceDelta({ iron: 0, wood: 0, mana: 0 })
   }
 
   function handleUpgradeCollect() {
