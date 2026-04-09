@@ -29,7 +29,7 @@ function formatMs(ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function LaboratorySection({ labLevel, potions, crafting, craftPending, resources, onCraft, onCollect }) {
+export function LaboratorySection({ labLevel, potions, crafting, craftPending, collectPending, resources, onCraft, onCollect }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
   const remaining  = useCraftTimer(crafting?.craft_ends_at)
   const isReady    = remaining !== null && remaining <= 0
@@ -113,7 +113,8 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, r
                     className="btn btn--sm flex-shrink-0 font-semibold"
                     style={{ background: '#16a34a', color: '#fff', borderColor: 'transparent' }}
                     onClick={onCollect}
-                    whileTap={{ scale: 0.96 }}
+                    disabled={collectPending}
+                    whileTap={collectPending ? {} : { scale: 0.96 }}
                   >
                     <CheckCircle size={13} strokeWidth={2.5} />
                     Recoger
