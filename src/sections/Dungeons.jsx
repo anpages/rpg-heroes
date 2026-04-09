@@ -44,7 +44,7 @@ const DUNGEON_TYPE_META = {
   magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas'   },
   crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura'     },
   mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura'       },
-  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza · Esencia'   },
+  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Alta rareza'             },
 }
 
 const MATERIAL_BY_DUNGEON_NAME = {
