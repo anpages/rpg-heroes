@@ -50,7 +50,7 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, r
     <div className="flex flex-col gap-3">
       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Recetas disponibles</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         {availablePotions.map(p => {
           const isActive   = crafting?.potion_id === p.id
           const affordable = canAfford(p)
