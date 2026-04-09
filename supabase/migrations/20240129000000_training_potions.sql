@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS potion_catalog (
 );
 
 INSERT INTO potion_catalog (id, name, description, effect_type, effect_value, recipe_gold, recipe_wood, recipe_mana, craft_minutes, min_lab_level) VALUES
-  ('hp_minor', 'Poción de vida menor',  'Restaura el 30% de los puntos de vida.',         'hp_restore', 0.30, 50,  20, 0,  5,  1),
-  ('hp_major', 'Poción de vida mayor',  'Restaura el 70% de los puntos de vida.',         'hp_restore', 0.70, 100, 50, 20, 10, 2),
-  ('power',    'Elixir de poder',       '+20% de ataque en el próximo combate.',          'atk_boost',  0.20, 80,  0,  40, 10, 2),
-  ('shield',   'Elixir de escudo',      '+20% de defensa en el próximo combate.',         'def_boost',  0.20, 80,  0,  40, 10, 2),
-  ('wisdom',   'Elixir de sabiduría',   '+50% de experiencia en la próxima expedición.', 'xp_boost',   0.50, 60,  30, 30, 10, 2)
+  ('hp_minor', 'Poción de vida menor',  'Restaura el 30% de los puntos de vida.',         'hp_restore', 0.30, 50,  0, 20, 5,  1),
+  ('hp_major', 'Poción de vida mayor',  'Restaura el 70% de los puntos de vida.',         'hp_restore', 0.70, 100, 0, 70, 10, 2),
+  ('power',    'Elixir de poder',       '+20% de ataque en el próximo combate.',          'atk_boost',  0.20, 80,  0, 40, 10, 2),
+  ('shield',   'Elixir de escudo',      '+20% de defensa en el próximo combate.',         'def_boost',  0.20, 80,  0, 40, 10, 2),
+  ('wisdom',   'Elixir de sabiduría',   '+50% de experiencia en la próxima expedición.', 'xp_boost',   0.50, 60,  0, 60, 10, 2)
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── Inventario de pociones por héroe ────────────────────────────────────────
