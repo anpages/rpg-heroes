@@ -23,11 +23,12 @@ export default function InicioZone({ byType, nexusData, trainingRooms, trainingP
   const trainingRoomsInProgress  = trainingRooms.filter(r => r.building_ends_at && new Date(r.building_ends_at) > now)
   const trainingRoomsDone        = trainingRooms.filter(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
 
+  const EXCLUDED_TYPES = ['laboratory', 'library']
   const doneBuilding = Object.values(byType).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now
+    b => !EXCLUDED_TYPES.includes(b.type) && b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now
   )
   const inProgressBuilding = !doneBuilding && Object.values(byType).find(
-    b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now
+    b => !EXCLUDED_TYPES.includes(b.type) && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now
   )
 
   const activeNode      = research?.active
