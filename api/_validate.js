@@ -27,10 +27,12 @@ export function safeMinutes(lastCollectedAt, nowMs = Date.now()) {
 export function snapshotResources(resources, nowMs = Date.now()) {
   const hours = safeHours(resources.last_collected_at, nowMs)
   return {
-    gold: Math.floor(resources.gold + (resources.gold_rate ?? 0) * hours),
-    iron: Math.floor(resources.iron + (resources.iron_rate ?? 0) * hours),
-    wood: Math.floor(resources.wood + (resources.wood_rate ?? 0) * hours),
-    mana: Math.floor(resources.mana + (resources.mana_rate ?? 0) * hours),
+    gold:      Math.floor(resources.gold + (resources.gold_rate ?? 0) * hours),
+    iron:      Math.floor(resources.iron + (resources.iron_rate ?? 0) * hours),
+    wood:      Math.floor(resources.wood + (resources.wood_rate ?? 0) * hours),
+    mana:      Math.floor(resources.mana + (resources.mana_rate ?? 0) * hours),
+    fragments: resources.fragments ?? 0,
+    essence:   resources.essence   ?? 0,
     nowMs,
     nowIso: new Date(nowMs).toISOString(),
   }

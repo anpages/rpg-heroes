@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Coins, Axe, Sparkles, Plus, Clock, CheckCircle } from 'lucide-react'
+import { Coins, Axe, Sparkles, Layers, Gem, Plus, Clock, CheckCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { POTION_CRAFT_DURATION_MS } from '../../lib/gameConstants.js'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
@@ -44,6 +44,8 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
     return resources.gold >= p.recipe_gold
       && resources.wood >= p.recipe_wood
       && resources.mana >= p.recipe_mana
+      && (resources.fragments ?? 0) >= (p.recipe_fragments ?? 0)
+      && (resources.essence   ?? 0) >= (p.recipe_essence   ?? 0)
   }
 
   return (
@@ -101,6 +103,16 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
                       {p.recipe_mana > 0 && (
                         <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= p.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
                           <Sparkles size={10} strokeWidth={2} />{p.recipe_mana}
+                        </span>
+                      )}
+                      {p.recipe_fragments > 0 && (
+                        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= p.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                          <Layers size={10} strokeWidth={2} />{p.recipe_fragments}
+                        </span>
+                      )}
+                      {p.recipe_essence > 0 && (
+                        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= p.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                          <Gem size={10} strokeWidth={2} />{p.recipe_essence}
                         </span>
                       )}
                       <span className="text-[11px] text-text-3 opacity-60">máx.5</span>

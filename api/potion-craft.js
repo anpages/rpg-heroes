@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   // Verificar y descontar recursos
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
+    .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
     .eq('player_id', user.id)
     .single()
 
@@ -77,18 +77,22 @@ export default async function handler(req, res) {
 
   const snap = snapshotResources(resources)
 
-  if (snap.gold < potion.recipe_gold) return res.status(402).json({ error: 'Oro insuficiente' })
-  if (snap.wood < potion.recipe_wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (snap.mana < potion.recipe_mana) return res.status(402).json({ error: 'Maná insuficiente' })
+  if (snap.gold      < potion.recipe_gold)      return res.status(402).json({ error: 'Oro insuficiente' })
+  if (snap.wood      < potion.recipe_wood)      return res.status(402).json({ error: 'Madera insuficiente' })
+  if (snap.mana      < potion.recipe_mana)      return res.status(402).json({ error: 'Maná insuficiente' })
+  if (snap.fragments < (potion.recipe_fragments ?? 0)) return res.status(402).json({ error: 'Fragmentos insuficientes' })
+  if (snap.essence   < (potion.recipe_essence   ?? 0)) return res.status(402).json({ error: 'Esencia insuficiente' })
 
   const craftEndsAt = new Date(Date.now() + POTION_CRAFT_DURATION_MS).toISOString()
 
   const [resourcesResult, craftResult] = await Promise.all([
     supabase.from('resources').update({
-      gold: snap.gold - potion.recipe_gold,
-      iron: snap.iron,
-      wood: snap.wood - potion.recipe_wood,
-      mana: snap.mana - potion.recipe_mana,
+      gold:      snap.gold      - potion.recipe_gold,
+      iron:      snap.iron,
+      wood:      snap.wood      - potion.recipe_wood,
+      mana:      snap.mana      - potion.recipe_mana,
+      fragments: snap.fragments - (potion.recipe_fragments ?? 0),
+      essence:   snap.essence   - (potion.recipe_essence   ?? 0),
       last_collected_at: snap.nowIso,
     }).eq('player_id', user.id),
 
