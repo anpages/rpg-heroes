@@ -424,7 +424,7 @@ export default function Equipo() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
   const { buildings } = useBuildings(userId)
-  const hasLab      = (buildings ?? []).some(b => b.type === 'laboratory' && b.level >= 1)
+  const hasLab      = (buildings ?? []).some(b => b.type === 'laboratory' && b.level >= 2)
   const { hero }    = useHero(heroId)
   const isExploring = hero?.status === 'exploring'
   const { items }   = useInventory(heroId)
