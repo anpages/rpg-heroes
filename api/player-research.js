@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   const rows      = data ?? []
   const completed = rows.filter(r => r.status === 'completed').map(r => r.node_id)
-  const active    = rows.find(r => r.status === 'active' && new Date(r.ends_at) > new Date()) ?? null
+  const active    = rows.find(r => r.status === 'active') ?? null
 
   return res.status(200).json({
     completed,
