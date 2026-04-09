@@ -88,14 +88,14 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, c
                     <p className="text-[12px] font-semibold text-[#16a34a] mt-0.5">¡Lista para recoger!</p>
                   ) : (
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {p.recipe_gold > 0 && (
-                        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                          <Coins size={10} strokeWidth={2} />{p.recipe_gold}
-                        </span>
-                      )}
                       {p.recipe_wood > 0 && (
                         <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= p.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
                           <Axe size={10} strokeWidth={2} />{p.recipe_wood}
+                        </span>
+                      )}
+                      {p.recipe_gold > 0 && (
+                        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                          <Coins size={10} strokeWidth={2} />{p.recipe_gold}
                         </span>
                       )}
                       {p.recipe_mana > 0 && (
