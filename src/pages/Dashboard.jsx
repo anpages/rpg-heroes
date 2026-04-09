@@ -296,7 +296,7 @@ function Dashboard({ session }) {
         <span
           className="font-hero font-bold text-[26px] tracking-[0.08em] flex-shrink-0"
           style={{
-            background: 'linear-gradient(120deg, #93c5fd 0%, #60a5fa 40%, #3b82f6 70%, #1d4ed8 100%)',
+            background: 'linear-gradient(120deg, #60a5fa 0%, #3b82f6 50%, #1d4ed8 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
