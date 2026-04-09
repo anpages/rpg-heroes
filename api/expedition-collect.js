@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al usuario
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
-    .select('id, player_id, experience, level, active_effects')
+    .select('id, player_id, experience, level, active_effects, class')
     .eq('id', expedition.hero_id)
     .single()
 
@@ -126,8 +126,8 @@ export default async function handler(req, res) {
   // Reducir durabilidad del equipo equipado
   await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
 
-  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0 }) : null
-  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus) : null
+  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, heroClass: hero.class }) : null
+  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
   // Progreso de misiones diarias

@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
   const { data: heroCard } = await supabase
     .from('hero_cards')
-    .select('id, hero_id, slot_index, rank')
+    .select('id, hero_id, slot_index, rank, skill_cards(required_class)')
     .eq('id', cardId)
     .single()
 
@@ -27,12 +27,15 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status')
+    .select('id, player_id, status, class')
     .eq('id', heroCard.hero_id)
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
+  if (heroCard.skill_cards?.required_class && heroCard.skill_cards.required_class !== hero.class) {
+    return res.status(409).json({ error: 'Esta carta es exclusiva de otra clase' })
+  }
 
   // ── DESEQUIPAR ────────────────────────────────────────────────────────────
   if (unequipping) {

@@ -81,7 +81,7 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
 
   const cost = buildingUpgradeCost(building.type, level)
   const Icon = meta.icon
-  const totalSeconds = buildingUpgradeDurationMs(level) / 1000
+  const totalSeconds = buildingUpgradeDurationMs(level, building.type) / 1000
   const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
 
@@ -92,7 +92,7 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
   const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
-    setOptimisticEndsAt(new Date(Date.now() + buildingUpgradeDurationMs(building.level)).toISOString())
+    setOptimisticEndsAt(new Date(Date.now() + buildingUpgradeDurationMs(building.level, building.type)).toISOString())
     onOptimisticDeduct(cost)
     onUpgradePending(true)
     try {

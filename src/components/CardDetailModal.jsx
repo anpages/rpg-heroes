@@ -18,6 +18,7 @@ const STAT_LABELS = {
 }
 
 const RANK_LABELS = ['', 'I', 'II', 'III', 'IV', 'V']
+const CLASS_LABELS = { caudillo: 'Caudillo', arcanista: 'Arcanista', sombra: 'Sombra', domador: 'Domador' }
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
 const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
@@ -79,6 +80,11 @@ export function CardDetailModal({ card, onClose }) {
         <div className="flex items-center gap-1.5 px-4 pt-4 pb-1">
           <Icon size={13} strokeWidth={2} style={{ color: meta.color }} />
           <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
+          {sc.required_class && (
+            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-white/15 bg-white/5 text-[#e879f9]">
+              {CLASS_LABELS[sc.required_class] ?? sc.required_class}
+            </span>
+          )}
         </div>
 
         {/* Name */}

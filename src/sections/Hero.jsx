@@ -682,11 +682,14 @@ function CardChip({ card, onClick, loading, isOccupied }) {
 
 /* ─── Slot picker sheet ───────────────────────────────────────────────────────── */
 
-function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onRepair, loading, isOccupied, onClose }) {
+function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onRepair, loading, isOccupied, heroClass, onClose }) {
   const meta = SLOT_META[slot]
   const Icon = meta.icon
   const sv   = sheetVariants()
-  const compatible = bagItems.filter(i => i.item_catalog.slot === slot)
+  const compatible = bagItems.filter(i =>
+    i.item_catalog.slot === slot &&
+    (!i.item_catalog.required_class || i.item_catalog.required_class === heroClass)
+  )
 
   return createPortal(
     <ModalOverlay onClick={onClose}>
@@ -1051,7 +1054,7 @@ function Hero() {
                 {hpPotions.map(p => {
                   const empty    = p.quantity <= 0
                   const full     = hpNow >= effective.max_hp
-                  const disabled = empty || full || potionMutation.isPending
+                  const disabled = empty || full || isOccupied || potionMutation.isPending
                   return (
                     <motion.button
                       key={p.id}
@@ -1106,7 +1109,7 @@ function Hero() {
 
           {/* Equipment preview */}
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
-            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipo</p>
+            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">Equipado</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {EQUIPMENT_SLOTS.map(slot => {
                 const item     = equipped[slot]
@@ -1251,6 +1254,7 @@ function Hero() {
             onRepair={handleRepair}
             loading={mutationPending}
             isOccupied={isOccupied}
+            heroClass={hero.class}
             onClose={() => setSlotPicker(null)}
           />
         )}

@@ -39,10 +39,15 @@ const RARITY_COLORS = {
   common: '#6b7280', uncommon: '#16a34a', rare: '#2563eb', epic: '#7c3aed', legendary: '#d97706',
 }
 const SLOT_ORDER = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory']
+const SLOT_LABELS = { all: 'Todos', helmet: 'Casco', chest: 'Pecho', arms: 'Brazos', legs: 'Piernas', main_hand: 'Mano ppal.', off_hand: 'Mano sec.', accessory: 'Accesorio' }
+
+const CLASS_OPTIONS = ['universal', 'caudillo', 'arcanista', 'sombra', 'domador']
+const CLASS_LABELS = { universal: 'Universales', caudillo: 'Caudillo', arcanista: 'Arcanista', sombra: 'Sombra', domador: 'Domador' }
 
 function CatalogDebug() {
   const [items, setItems] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [classFilter, setClassFilter] = useState('caudillo')
 
   useEffect(() => {
     supabase.from('item_catalog').select('*').order('slot').order('tier').order('rarity')
@@ -51,18 +56,35 @@ function CatalogDebug() {
 
   if (!items) return <p style={{ padding: 40, color: '#94a3b8' }}>Cargando catálogo...</p>
 
+  const classFiltered = items.filter(i =>
+    classFilter === 'universal'
+      ? !i.required_class
+      : i.required_class === classFilter
+  )
   const slots = filter === 'all' ? SLOT_ORDER : [filter]
   const grouped = slots.reduce((acc, slot) => {
-    acc[slot] = items.filter(i => i.slot === slot)
+    acc[slot] = classFiltered.filter(i => i.slot === slot)
     return acc
   }, {})
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de items</h2>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de ítems</h2>
         <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>DEV ONLY</span>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>{items.length} items</span>
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>{classFiltered.length} items</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {CLASS_OPTIONS.map(c => (
+          <button key={c} onClick={() => setClassFilter(c)} style={{
+            padding: '3px 10px', borderRadius: 6, border: '1px solid',
+            borderColor: classFilter === c ? '#7c3aed' : '#e2e8f0',
+            background: classFilter === c ? '#f5f3ff' : 'white',
+            color: classFilter === c ? '#7c3aed' : '#475569',
+            fontWeight: 600, fontSize: 11, cursor: 'pointer',
+          }}>{CLASS_LABELS[c]}</button>
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -73,17 +95,17 @@ function CatalogDebug() {
             background: filter === s ? '#eff6ff' : 'white',
             color: filter === s ? '#2563eb' : '#475569',
             fontWeight: 600, fontSize: 11, cursor: 'pointer',
-          }}>{s}</button>
+          }}>{SLOT_LABELS[s]}</button>
         ))}
       </div>
 
       {slots.map(slot => grouped[slot].length > 0 && (
         <div key={slot} style={{ marginBottom: 24 }}>
-          <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', marginBottom: 8 }}>{slot}</p>
+          <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', marginBottom: 8 }}>{SLOT_LABELS[slot]}</p>
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ background: '#f8fafc', fontSize: 11 }}>
-                {['Nombre','Tier','Rareza','2H','Atq','Def','HP','Fue','Agi','Int','Dur'].map(h => (
+                {['Nombre','Tier','Rareza','2M','Atq','Def','HP','Fue','Agi','Int','Dur'].map(h => (
                   <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                 ))}
               </tr>
@@ -208,7 +230,7 @@ const NAV_ITEMS = [
 
 const HERO_SUB_TABS = [
   { id: 'ficha',        label: 'Ficha',        icon: Sword       },
-  { id: 'equipo',       label: 'Armamento',    icon: Shield      },
+  { id: 'equipo',       label: 'Equipo',       icon: Shield      },
   { id: 'cartas',       label: 'Cartas',       icon: Layers      },
   { id: 'expediciones', label: 'Expediciones', icon: Map         },
   { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },

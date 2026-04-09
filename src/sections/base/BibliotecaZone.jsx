@@ -107,6 +107,7 @@ export default function BibliotecaZone({ byType, research, resources, onResearch
         <ResearchTree
           research={research}
           resources={resources}
+          libraryLevel={library.level}
           onStart={onResearchStart}
           onCollect={onResearchCollect}
           startPending={startPending}

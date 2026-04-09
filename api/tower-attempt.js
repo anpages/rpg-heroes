@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -152,7 +152,7 @@ export default async function handler(req, res) {
     // Drop de item — probabilidad escala con el floor
     const difficulty = floorToDifficulty(targetFloor)
     const poolKey = targetFloor % 2 === 0 ? 'tower_even' : 'tower_odd'
-    const drop = await rollItemDrop(supabase, hero.id, user.id, { difficulty, poolKey, dropRateBonus: heroStats.itemDropRateBonus ?? 0 })
+    const drop = await rollItemDrop(supabase, hero.id, user.id, { difficulty, poolKey, dropRateBonus: heroStats.itemDropRateBonus ?? 0, heroClass: hero.class })
     rewards.drop = drop ?? null
   }
 

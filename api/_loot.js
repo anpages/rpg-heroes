@@ -57,7 +57,7 @@ const CARD_DROP_BY_TYPE = {
   mine:    { chance: 0.15, categoryPool: ['offense','offense','defense','defense','equipment'],    weights: [45,30,18,6,1] },
 }
 
-export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0 }) {
+export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0, heroClass = null }) {
   const { chance, tiers, weights } = getDropConfig(difficulty)
   if (Math.random() > chance + dropRateBonus) return null
 
@@ -69,8 +69,17 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   const tier = tiers[Math.floor(Math.random() * tiers.length)]
   const slot = pickSlot(poolKey)
 
-  const { data: candidates } = await supabase
+  let query = supabase
     .from('item_catalog').select('id, max_durability').eq('slot', slot).eq('tier', tier).eq('rarity', rarity)
+
+  // Items universales + items de la clase del héroe
+  if (heroClass) {
+    query = query.or(`required_class.is.null,required_class.eq.${heroClass}`)
+  } else {
+    query = query.is('required_class', null)
+  }
+
+  const { data: candidates } = await query
   if (!candidates?.length) return null
 
 
@@ -89,7 +98,7 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   return newItem
 }
 
-export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBonus = 0) {
+export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBonus = 0, heroClass = null) {
   const cfg = CARD_DROP_BY_TYPE[dungeonType]
   if (!cfg || Math.random() > cfg.chance + intelligenceBonus) return null
 
@@ -101,8 +110,12 @@ export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBo
   let rarity = RARITIES[0]
   for (let i = 0; i < RARITIES.length; i++) { roll -= adjustedWeights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
 
-  const { data: candidates } = await supabase
+  let cardQuery = supabase
     .from('skill_cards').select('id').eq('card_category', category).eq('rarity', rarity)
+  if (heroClass) {
+    cardQuery = cardQuery.or(`required_class.is.null,required_class.eq.${heroClass}`)
+  }
+  const { data: candidates } = await cardQuery
   if (!candidates?.length) return null
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]

@@ -57,7 +57,7 @@ export default async function handler(req, res) {
   }
 
   const cost       = buildingUpgradeCost(building.type, building.level)
-  const durationMs = buildingUpgradeDurationMs(building.level)
+  const durationMs = buildingUpgradeDurationMs(building.level, building.type)
 
   const { data: resources } = await supabase
     .from('resources')

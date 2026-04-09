@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   // Obtener item con catálogo
   const { data: item } = await supabase
     .from('inventory_items')
-    .select('*, item_catalog(slot, tier, rarity, is_two_handed, max_durability, name)')
+    .select('*, item_catalog(slot, tier, rarity, is_two_handed, max_durability, name, required_class)')
     .eq('id', inventoryItemId)
     .eq('hero_id', heroId)
     .maybeSingle()
@@ -60,6 +60,12 @@ export default async function handler(req, res) {
     catalogQuery = catalogQuery.eq('is_two_handed', true)
   } else {
     catalogQuery = catalogQuery.or('is_two_handed.is.null,is_two_handed.eq.false')
+  }
+
+  if (cat.required_class) {
+    catalogQuery = catalogQuery.eq('required_class', cat.required_class)
+  } else {
+    catalogQuery = catalogQuery.is('required_class', null)
   }
 
   const { data: nextCatalog } = await catalogQuery.maybeSingle()

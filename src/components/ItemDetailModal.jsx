@@ -22,6 +22,8 @@ const RARITY_META = {
   legendary: { label: 'Legendario',  color: '#d97706' },
 }
 
+const CLASS_LABELS = { caudillo: 'Caudillo', arcanista: 'Arcanista', sombra: 'Sombra', domador: 'Domador' }
+
 const RUNE_BONUS_LABELS = { attack: 'Ataque', defense: 'Defensa', intelligence: 'Inteligencia', agility: 'Agilidad', max_hp: 'HP', strength: 'Fuerza' }
 const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
 
@@ -137,6 +139,12 @@ export function ItemDetailModal({ item, onClose, runeProps }) {
                 <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
                 <span className="text-[11px] text-text-3">{slot?.label}</span>
                 {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+                {catalog.required_class && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+                    style={{ color: '#e879f9', borderColor: 'color-mix(in srgb,#e879f9 30%,var(--border))', background: 'color-mix(in srgb,#e879f9 8%,var(--surface))' }}>
+                    {CLASS_LABELS[catalog.required_class] ?? catalog.required_class}
+                  </span>
+                )}
               </div>
 
               {/* Description */}
@@ -177,7 +185,7 @@ export function ItemDetailModal({ item, onClose, runeProps }) {
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={12} strokeWidth={2} className="text-[#7c3aed]" />
                     <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Runas</p>
-                    {!canManageRunes && <span className="text-[10px] text-text-3 italic">(ve a Armamento para gestionar)</span>}
+                    {!canManageRunes && <span className="text-[10px] text-text-3 italic">(ve a Equipo para gestionar)</span>}
                   </div>
 
                   {/* Si tenemos gestión completa: mostrar todos los slots */}

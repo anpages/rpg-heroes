@@ -26,6 +26,12 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'La Biblioteca no está desbloqueada' })
   }
 
+  // Verificar nivel de Biblioteca requerido para el nodo
+  const libLevelRequired = node.library_level_required ?? 1
+  if (library.level < libLevelRequired) {
+    return res.status(403).json({ error: `Requiere Biblioteca Nv.${libLevelRequired}` })
+  }
+
   // Verificar que no hay construcción/investigación activa en curso
   const queueNow = new Date().toISOString()
   const [{ data: active }, { data: busyBuildings }, { data: busyRooms }] = await Promise.all([

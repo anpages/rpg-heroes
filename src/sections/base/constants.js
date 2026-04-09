@@ -62,8 +62,21 @@ export const BUILDING_META = {
     description: 'Custodia las cartas y alberga el árbol de investigación.',
     icon: BookOpen,
     color: '#0f766e',
-    effect: (level) => level === 0 ? 'Sin construir' : 'Árbol de investigación activo',
-    nextEffect: (level) => level === 0 ? 'Árbol de investigación' : 'Mayor capacidad arcana',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level === 1) return 'Investigaciones básicas (pos. 1)'
+      if (level === 2) return 'Investigaciones intermedias (pos. 2)'
+      if (level === 3) return 'Investigaciones avanzadas (pos. 3)'
+      if (level === 4) return 'Investigaciones avanzadas (pos. 3)'
+      return 'Investigaciones maestras (pos. 4)'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Investigaciones básicas (pos. 1)'
+      if (level === 1) return 'Desbloquea investigaciones pos. 2'
+      if (level === 2) return 'Desbloquea investigaciones pos. 3'
+      if (level === 3) return 'Camino hacia investigaciones maestras'
+      return 'Desbloquea investigaciones maestras (pos. 4)'
+    },
     energyPerLevel: 5,
   },
   laboratory: {

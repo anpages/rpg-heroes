@@ -21,6 +21,7 @@ export default async function handler(req, res) {
 
   if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
+  if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en expedición' })
 
   // Verificar inventario
   const { data: stock } = await supabase
