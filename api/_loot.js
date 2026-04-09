@@ -86,7 +86,7 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   const [{ count: bagCount }, { data: res }] = await Promise.all([
     supabase.from('inventory_items').select('id', { count: 'exact', head: true })
       .eq('hero_id', heroId).is('equipped_slot', null),
-    supabase.from('resources').select('bag_extra_slots').eq('player_id', playerId).single(),
+    supabase.from('resources').select('*').eq('player_id', playerId).single(),
   ])
 
   if ((bagCount ?? 0) >= effectiveBagLimit(res?.bag_extra_slots)) return { full: true }

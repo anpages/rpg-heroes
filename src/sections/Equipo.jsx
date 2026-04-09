@@ -654,7 +654,12 @@ export default function Equipo() {
           {canUpgradeBag && (
             <button
               className="flex items-center gap-1.5 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-full px-2.5 py-1 hover:bg-[color-mix(in_srgb,#d97706_18%,var(--surface))] transition-colors disabled:opacity-50"
-              onClick={() => bagUpgradeMutation.mutate()}
+              onClick={() => setConfirm({
+                title: 'Ampliar mochila',
+                body: `¿Ampliar la mochila de ${bagLimit} a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots por ${nextBagCost} oro?`,
+                confirmLabel: 'Ampliar',
+                onConfirm: () => { setConfirm(null); bagUpgradeMutation.mutate() },
+              })}
               disabled={bagUpgradeMutation.isPending || (resources?.gold ?? 0) < nextBagCost}
               title={`Ampliar a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots por ${nextBagCost} oro`}
             >

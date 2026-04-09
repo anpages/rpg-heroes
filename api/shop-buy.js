@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
   // Verificar oro — interpolar acumulado idle para no perder el gold generado
   const { data: resources } = await supabase
-    .from('resources').select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at, bag_extra_slots').eq('player_id', user.id).single()
+    .from('resources').select('*').eq('player_id', user.id).single()
 
   const snap = resources ? snapshotResources(resources) : { gold: 0, iron: 0, wood: 0, mana: 0, nowIso: new Date().toISOString() }
 

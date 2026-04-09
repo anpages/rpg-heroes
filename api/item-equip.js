@@ -52,7 +52,7 @@ export default async function handler(req, res) {
 
   // Obtener límite de mochila del jugador
   const { data: resRow } = await supabase
-    .from('resources').select('bag_extra_slots').eq('player_id', user.id).single()
+    .from('resources').select('*').eq('player_id', user.id).single()
   const limit = effectiveBagLimit(resRow?.bag_extra_slots)
 
   // ── DESEQUIPAR ────────────────────────────────────────────────────────────

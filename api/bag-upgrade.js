@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at, bag_extra_slots')
+    .select('*')
     .eq('player_id', user.id)
     .single()
 
