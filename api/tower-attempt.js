@@ -52,7 +52,7 @@ export default async function handler(req, res) {
   const targetFloor = progress.max_floor + 1
 
   // Stats efectivas del héroe
-  const heroStats = await getEffectiveStats(supabase, hero.id)
+  const heroStats = await getEffectiveStats(supabase, hero.id, user.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats del héroe' })
 
   // Aplicar boosts de pociones activas (atk_boost / def_boost)
