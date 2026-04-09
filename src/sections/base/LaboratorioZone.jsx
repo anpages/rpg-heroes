@@ -58,7 +58,7 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, c
 
       {lab.level >= 1 && !lab.upgrade_ends_at && (
         <div className="flex flex-col gap-4">
-          <div className="bg-surface border border-border rounded-xl p-3 shadow-[var(--shadow-sm)]">
+          <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
             <LaboratorySection
               labLevel={lab.level}
               potions={potions}

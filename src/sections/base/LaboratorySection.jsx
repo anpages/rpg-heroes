@@ -69,7 +69,7 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, r
               className="flex flex-col rounded-xl overflow-hidden border bg-surface transition-[border-color] duration-150"
               style={{ borderColor: borderColor ?? 'var(--border)' }}
             >
-              <div className="flex items-center gap-3 p-3.5">
+              <div className="flex items-center gap-3 px-3 py-2.5">
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[14px] font-extrabold"
                   style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
