@@ -18,7 +18,7 @@ async function getBagCount(supabase, heroId) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  const token = req.headers.authorization?.replace('Bearer ', '')
+  const token = req.headers.authorization?.replace(/^bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Sin token' })
 
   const { itemId, equip } = req.body

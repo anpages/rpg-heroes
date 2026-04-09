@@ -23,6 +23,7 @@ export function safeMinutes(lastCollectedAt, nowMs = Date.now()) {
  * Interpolates idle resource accumulation since last_collected_at.
  * Returns snapshot values for all four resources + timestamp helpers.
  * Always use this before any UPDATE on the resources row.
+ * Include `prevCollectedAt` in your .eq() filter to prevent concurrent overwrites.
  */
 export function snapshotResources(resources, nowMs = Date.now()) {
   const hours = safeHours(resources.last_collected_at, nowMs)
@@ -35,5 +36,6 @@ export function snapshotResources(resources, nowMs = Date.now()) {
     essence:   resources.essence   ?? 0,
     nowMs,
     nowIso: new Date(nowMs).toISOString(),
+    prevCollectedAt: resources.last_collected_at,
   }
 }

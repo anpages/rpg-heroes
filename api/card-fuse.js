@@ -78,10 +78,14 @@ export default async function handler(req, res) {
     .select('*, skill_cards(*)')
     .single()
 
-  await supabase
+  const { error: resErr, count: resCount } = await supabase
     .from('resources')
     .update({ iron: snap.iron, wood: snap.wood, mana: snap.mana - manaCost, last_collected_at: snap.nowIso })
     .eq('player_id', user.id)
+    .eq('last_collected_at', snap.prevCollectedAt)
+
+  if (resErr) return res.status(500).json({ error: resErr.message })
+  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   return res.status(200).json({ ok: true, newCard, manaCost })
 }

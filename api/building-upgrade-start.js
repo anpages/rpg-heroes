@@ -75,8 +75,8 @@ export default async function handler(req, res) {
 
   const endsAt = new Date(snap.nowMs + durationMs).toISOString()
 
-  // Descontar recursos (snapshot en este momento)
-  const { error: resourcesError } = await supabase
+  // Descontar recursos (snapshot en este momento, optimistic lock via last_collected_at)
+  const { error: resourcesError, count: resCount } = await supabase
     .from('resources')
     .update({
       wood: snap.wood - (cost.wood ?? 0),
@@ -85,8 +85,10 @@ export default async function handler(req, res) {
       last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
+    .eq('last_collected_at', snap.prevCollectedAt)
 
   if (resourcesError) return res.status(500).json({ error: resourcesError.message })
+  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   // Iniciar mejora
   const { error: buildingError } = await supabase

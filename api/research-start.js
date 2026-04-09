@@ -90,7 +90,7 @@ export default async function handler(req, res) {
   if (snap.iron < cost.iron) return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
   if (snap.mana < cost.mana) return res.status(402).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
 
-  const { error: updateError } = await supabase
+  const { error: updateError, count: resCount } = await supabase
     .from('resources')
     .update({
       gold: snap.gold - cost.gold,
@@ -100,8 +100,10 @@ export default async function handler(req, res) {
       last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
+    .eq('last_collected_at', snap.prevCollectedAt)
 
   if (updateError) return res.status(500).json({ error: updateError.message })
+  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   // Calcular ends_at
   const endsAt = new Date(snap.nowMs + node.duration_hours * 3_600_000)

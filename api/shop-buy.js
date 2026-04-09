@@ -65,10 +65,14 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 
-  await supabase
+  const { error: resErr, count: resCount } = await supabase
     .from('resources')
     .update({ gold: snap.gold - shopEntry.gold_price, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
     .eq('player_id', user.id)
+    .eq('last_collected_at', snap.prevCollectedAt)
+
+  if (resErr) return res.status(500).json({ error: resErr.message })
+  if (resCount === 0) return res.status(409).json({ error: 'Recursos actualizados por otra operación, reintenta' })
 
   // Crear item
   const { data: newItem } = await supabase

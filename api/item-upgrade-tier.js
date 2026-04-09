@@ -91,7 +91,7 @@ export default async function handler(req, res) {
   if (curFragments < cost.fragments) return res.status(402).json({ error: `Fragmentos insuficientes (necesitas ${cost.fragments})` })
   if (curEssence   < cost.essence)   return res.status(402).json({ error: `Esencia insuficiente (necesitas ${cost.essence})` })
 
-  const { error: resourceUpdateError } = await supabase
+  const { error: resourceUpdateError, count: resCount } = await supabase
     .from('resources')
     .update({
       gold:      snap.gold      - cost.gold,
@@ -103,8 +103,10 @@ export default async function handler(req, res) {
       last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
+    .eq('last_collected_at', snap.prevCollectedAt)
 
   if (resourceUpdateError) return res.status(500).json({ error: resourceUpdateError.message })
+  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   // Actualizar ítem: nuevo catalog_id y durabilidad máxima del nuevo tier
   const { error: itemUpdateError } = await supabase

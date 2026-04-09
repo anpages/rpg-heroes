@@ -15,7 +15,7 @@ export async function requireAuth(req, res, method = 'POST') {
     return null
   }
 
-  const token = req.headers.authorization?.replace('Bearer ', '')
+  const token = req.headers.authorization?.replace(/^bearer\s+/i, '')
   if (!token) {
     res.status(401).json({ error: 'Sin token' })
     return null

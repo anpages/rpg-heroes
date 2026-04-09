@@ -95,7 +95,7 @@ export default async function handler(req, res) {
       fragments: snap.fragments - (potion.recipe_fragments ?? 0),
       essence:   snap.essence   - (potion.recipe_essence   ?? 0),
       last_collected_at: snap.nowIso,
-    }).eq('player_id', user.id),
+    }).eq('player_id', user.id).eq('last_collected_at', snap.prevCollectedAt),
 
     supabase.from('potion_crafting').upsert(
       { hero_id: heroId, potion_id: potionId, craft_ends_at: craftEndsAt },

@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       fragments: snap.fragments - (rune.recipe_fragments ?? 0),
       essence:   snap.essence   - (rune.recipe_essence   ?? 0),
       last_collected_at: snap.nowIso,
-    }).eq('player_id', user.id),
+    }).eq('player_id', user.id).eq('last_collected_at', snap.prevCollectedAt),
 
     supabase.from('rune_crafting').upsert(
       { hero_id: heroId, rune_id: runeId, craft_ends_at: craftEndsAt },
