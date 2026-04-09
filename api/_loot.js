@@ -123,11 +123,11 @@ export function floorToDifficulty(floor) {
 // Guarida del Dragón / Ruinas Encantadas / Minas / Templo → drop
 // Cueva de Goblins / Cripta de los Condenados / Bosque Oscuro → ninguno
 const MATERIAL_DROP_BY_NAME = {
-  'Guarida del Dragón':     { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
+  'Guarida del Dragón':     { resource: 'essence',   chance: 0.20, min: 2, max: 3 },
   'Abismo de las Almas':    { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
   'Ruinas Encantadas':      { resource: 'fragments', chance: 0.12, min: 1, max: 1 },
   'Minas de Hierro Oscuro': { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
-  'Templo de los Antiguos': { resource: 'essence',   chance: 0.18, min: 1, max: 2 },
+  'Templo de los Antiguos': { resource: 'fragments', chance: 0.18, min: 1, max: 2 },
 }
 
 /** Lanza el dado de drop de material para una dungeon por nombre.
