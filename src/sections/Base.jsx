@@ -56,21 +56,23 @@ export default function Base({ mainRef }) {
   }, [])
 
   const craftMutation = useMutation({
-    mutationFn: (potionId) => apiPost('/api/potion-craft', { heroId, potionId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      toast.success('¡Crafteo iniciado! Lista en 30 min.')
+    mutationFn: async (potionId) => {
+      await apiPost('/api/potion-craft', { heroId, potionId })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.potions(heroId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
     },
+    onSuccess: () => toast.success('¡Crafteo iniciado! Lista en 30 min.'),
     onError: err => toast.error(err.message),
   })
 
   const collectPotionMutation = useMutation({
-    mutationFn: () => apiPost('/api/potion-collect', { heroId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
-      toast.success('¡Poción recogida!')
+    mutationFn: async () => {
+      await apiPost('/api/potion-collect', { heroId })
+      await queryClient.refetchQueries({ queryKey: queryKeys.potions(heroId) })
     },
+    onSuccess: () => toast.success('¡Poción recogida!'),
     onError: err => toast.error(err.message),
   })
 
