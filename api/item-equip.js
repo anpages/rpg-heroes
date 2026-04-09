@@ -1,10 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isUUID } from './_validate.js'
-import { INVENTORY_BASE_LIMIT } from './_constants.js'
-
-function getInventoryLimit() {
-  return INVENTORY_BASE_LIMIT
-}
+import { isUUID, effectiveBagLimit } from './_validate.js'
 
 async function getBagCount(supabase, heroId) {
   const { count } = await supabase
@@ -55,15 +50,16 @@ export default async function handler(req, res) {
   const heroId  = item.hero.id
   const catalog = item.item_catalog
 
+  // Obtener límite de mochila del jugador
+  const { data: resRow } = await supabase
+    .from('resources').select('bag_extra_slots').eq('player_id', user.id).single()
+  const limit = effectiveBagLimit(resRow?.bag_extra_slots)
+
   // ── DESEQUIPAR ────────────────────────────────────────────────────────────
   if (!equip) {
     if (!item.equipped_slot) return res.status(409).json({ error: 'El item no está equipado' })
 
-    // Stage 2: bag count + inventory limit en paralelo
-    const [bagCount, limit] = await Promise.all([
-      getBagCount(supabase, heroId),
-      getInventoryLimit(),
-    ])
+    const bagCount = await getBagCount(supabase, heroId)
     if (bagCount >= limit) return res.status(409).json({ error: 'Mochila llena' })
 
     await supabase
@@ -103,10 +99,7 @@ export default async function handler(req, res) {
 
   const bagDelta = (toUnequip?.length ?? 0) - 1
   if (bagDelta > 0) {
-    const [bagCount, limit] = await Promise.all([
-      getBagCount(supabase, heroId),
-      getInventoryLimit(),
-    ])
+    const bagCount = await getBagCount(supabase, heroId)
     if (bagCount + bagDelta > limit) return res.status(409).json({ error: 'Mochila llena para hacer el cambio' })
   }
 

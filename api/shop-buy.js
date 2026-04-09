@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
-import { INVENTORY_BASE_LIMIT, SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
+import { isUUID, snapshotResources, effectiveBagLimit } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
   // Verificar oro — interpolar acumulado idle para no perder el gold generado
   const { data: resources } = await supabase
-    .from('resources').select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at').eq('player_id', user.id).single()
+    .from('resources').select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at, bag_extra_slots').eq('player_id', user.id).single()
 
   const snap = resources ? snapshotResources(resources) : { gold: 0, iron: 0, wood: 0, mana: 0, nowIso: new Date().toISOString() }
 
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     .eq('hero_id', heroId)
     .is('equipped_slot', null)
 
-  if ((bagCount ?? 0) >= INVENTORY_BASE_LIMIT) {
+  if ((bagCount ?? 0) >= effectiveBagLimit(resources?.bag_extra_slots)) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 

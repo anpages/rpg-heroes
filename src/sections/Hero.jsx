@@ -6,11 +6,12 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE } from '../lib/gameConstants'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { usePotions } from '../hooks/usePotions'
+import { useResources } from '../hooks/useResources'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
@@ -782,6 +783,7 @@ function Hero() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading  } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
+  const { resources } = useResources(userId)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
   const [confirmModal,   setConfirmModal]   = useState(null)
@@ -915,7 +917,7 @@ function Hero() {
 
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
-  const bagLimit = INVENTORY_BASE_LIMIT
+  const bagLimit = INVENTORY_BASE_LIMIT + (resources?.bag_extra_slots ?? 0) * BAG_SLOTS_PER_UPGRADE
 
   function handleEquip(itemId) {
     const item = items?.find(i => i.id === itemId)

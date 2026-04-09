@@ -13,7 +13,7 @@ import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES } from '../lib/gameConstants'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
@@ -465,6 +465,21 @@ export default function Equipo() {
 
   const unequipped = useMemo(() => (items ?? []).filter(i => !i.equipped_slot), [items])
 
+  // Bag limit dinámico
+  const bagExtraSlots = resources?.bag_extra_slots ?? 0
+  const bagLimit      = INVENTORY_BASE_LIMIT + bagExtraSlots * BAG_SLOTS_PER_UPGRADE
+  const canUpgradeBag = bagExtraSlots < BAG_MAX_UPGRADES
+  const nextBagCost   = canUpgradeBag ? BAG_UPGRADE_COSTS[bagExtraSlots] : null
+
+  const bagUpgradeMutation = useMutation({
+    mutationFn: () => apiPost('/api/bag-upgrade', {}),
+    onSuccess: () => {
+      toast.success(`Mochila ampliada a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots`)
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
   const { equipBonus, runeBonus, weightPenalty } = useMemo(() => {
     const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const ru = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
@@ -631,8 +646,23 @@ export default function Equipo() {
       {/* Inventory */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Mochila</p>
-          {unequipped.length > 0 && <span className="text-[11px] text-text-3">{unequipped.length} ítems</span>}
+          <div className="flex items-center gap-2">
+            <Backpack size={13} strokeWidth={2} className="text-text-3" />
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Mochila</p>
+            <span className="text-[11px] font-semibold text-text-2 tabular-nums">{unequipped.length} / {bagLimit}</span>
+          </div>
+          {canUpgradeBag && (
+            <button
+              className="flex items-center gap-1.5 text-[11px] font-bold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] rounded-full px-2.5 py-1 hover:bg-[color-mix(in_srgb,#d97706_18%,var(--surface))] transition-colors disabled:opacity-50"
+              onClick={() => bagUpgradeMutation.mutate()}
+              disabled={bagUpgradeMutation.isPending || (resources?.gold ?? 0) < nextBagCost}
+              title={`Ampliar a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots por ${nextBagCost} oro`}
+            >
+              <ArrowUp size={11} strokeWidth={2.5} />
+              <Coins size={11} strokeWidth={2} />
+              {nextBagCost}
+            </button>
+          )}
         </div>
 
         {unequipped.length === 0 ? (

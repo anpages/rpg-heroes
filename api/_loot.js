@@ -2,7 +2,7 @@
  * Lógica de drop de items y cartas compartida entre expediciones y torre.
  */
 
-import { INVENTORY_BASE_LIMIT } from './_constants.js'
+import { effectiveBagLimit } from './_validate.js'
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
 
@@ -83,11 +83,13 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   if (!candidates?.length) return null
 
 
-  const { count: bagCount } = await supabase
-    .from('inventory_items').select('id', { count: 'exact', head: true })
-    .eq('hero_id', heroId).is('equipped_slot', null)
+  const [{ count: bagCount }, { data: res }] = await Promise.all([
+    supabase.from('inventory_items').select('id', { count: 'exact', head: true })
+      .eq('hero_id', heroId).is('equipped_slot', null),
+    supabase.from('resources').select('bag_extra_slots').eq('player_id', playerId).single(),
+  ])
 
-  if ((bagCount ?? 0) >= INVENTORY_BASE_LIMIT) return { full: true }
+  if ((bagCount ?? 0) >= effectiveBagLimit(res?.bag_extra_slots)) return { full: true }
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
   const { data: newItem } = await supabase

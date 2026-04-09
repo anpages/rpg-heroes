@@ -245,6 +245,15 @@ export const INITIALLY_UNLOCKED_BUILDINGS = ALL_BUILDING_TYPES.filter(t => !TRIG
 /** Slots de mochila */
 export const INVENTORY_BASE_LIMIT = 20
 
+/** Slots extra por cada ampliación de mochila */
+export const BAG_SLOTS_PER_UPGRADE = 5
+
+/** Coste en oro de cada ampliación (índice = nivel actual de ampliación) */
+export const BAG_UPGRADE_COSTS = [500, 1500, 4000, 10000, 25000]
+
+/** Nivel máximo de ampliación de mochila */
+export const BAG_MAX_UPGRADES = BAG_UPGRADE_COSTS.length
+
 // ── Cartas de habilidad ───────────────────────────────────────────────────────
 
 /** Número máximo de cartas equipadas simultáneamente */

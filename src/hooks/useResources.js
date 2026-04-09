@@ -20,6 +20,7 @@ function interpolate(resources) {
     iron_rate: resources.iron_rate,
     wood_rate: resources.wood_rate,
     mana_rate: resources.mana_rate,
+    bag_extra_slots: resources.bag_extra_slots ?? 0,
   }
 }
 
@@ -36,7 +37,7 @@ export function useResources(userId) {
     queryFn: async () => {
       const { data } = await supabase
         .from('resources')
-        .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
+        .select('*')
         .eq('player_id', userId)
         .single()
       return data

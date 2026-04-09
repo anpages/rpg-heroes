@@ -12,7 +12,7 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
-import { showItemDropToast, showCardDropToast } from '../lib/dropToast'
+import { showItemDropToast, showCardDropToast, showDropFullToast } from '../lib/dropToast'
 import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -374,6 +374,7 @@ function Dungeons() {
   function handleCollect(data) {
     setReward({ ...(data.rewards ?? {}), materialDrop: data.materialDrop ?? null })
     if (data.drop?.item_catalog)      showItemDropToast(data.drop.item_catalog)
+    if (data.drop?.full)              showDropFullToast()
     if (data.cardDrop?.skill_cards)   showCardDropToast(data.cardDrop.skill_cards)
     triggerResourceFlash()
     setExpedition(null)

@@ -15,7 +15,7 @@ import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { PotionPanel } from '../components/PotionPanel'
-import { showItemDropToast } from '../lib/dropToast'
+import { showItemDropToast, showDropFullToast } from '../lib/dropToast'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -187,6 +187,7 @@ export default function Torre() {
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
       if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
+      if (data.rewards?.drop?.full) showDropFullToast()
       setResult(data)
       if (data.won) {
         triggerResourceFlash()

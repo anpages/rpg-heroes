@@ -1,3 +1,5 @@
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE } from './_constants.js'
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Returns true if s is a well-formed UUID v4. */
@@ -25,6 +27,14 @@ export function safeMinutes(lastCollectedAt, nowMs = Date.now()) {
  * Always use this before any UPDATE on the resources row.
  * Include `prevCollectedAt` in your .eq() filter to prevent concurrent overwrites.
  */
+/**
+ * Effective bag limit = base + extras from upgrades.
+ * `bagExtraSlots` comes from resources.bag_extra_slots.
+ */
+export function effectiveBagLimit(bagExtraSlots = 0) {
+  return INVENTORY_BASE_LIMIT + bagExtraSlots * BAG_SLOTS_PER_UPGRADE
+}
+
 export function snapshotResources(resources, nowMs = Date.now()) {
   const hours = safeHours(resources.last_collected_at, nowMs)
   return {

@@ -24,6 +24,14 @@ export function showItemDropToast(item_catalog) {
   })
 }
 
+export function showDropFullToast() {
+  toast.warning('Mochila llena', {
+    description: 'Un objeto ha sido descartado porque no hay espacio en el inventario.',
+    position:    'bottom-right',
+    duration:    8000,
+  })
+}
+
 export function showCardDropToast(skill_cards) {
   if (!skill_cards) return
   const name = skill_cards.name ?? skill_cards
