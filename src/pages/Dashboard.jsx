@@ -15,14 +15,13 @@ import Dungeons from '../sections/Dungeons'
 import Equipo from '../sections/Equipo'
 import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
-import Ranking from '../sections/Ranking'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Trophy } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords } from 'lucide-react'
 
 function DiscordIcon({ size = 20 }) {
   return (
@@ -303,13 +302,6 @@ function Dashboard({ session }) {
 
         <div className="flex items-center gap-2.5">
           <button
-            className={`btn btn--ghost btn--icon ${activeTab === 'clasificacion' ? 'text-[var(--blue-700)]' : ''}`}
-            onClick={() => navigateTo('clasificacion')}
-            title="Clasificación global"
-          >
-            <Trophy size={17} strokeWidth={1.8} />
-          </button>
-          <button
             className="btn btn--ghost btn--icon relative"
             onClick={() => setMissionsOpen(true)}
             title="Misiones"
@@ -481,10 +473,6 @@ function Dashboard({ session }) {
             </div>
           </div>
 
-          {/* Clasificación */}
-          <div className={activeTab === 'clasificacion' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('clasificacion') && <ErrorBoundary><Ranking /></ErrorBoundary>}
-          </div>
 
           {/* DEV only */}
           {import.meta.env.DEV && (
