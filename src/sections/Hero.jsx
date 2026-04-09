@@ -56,9 +56,9 @@ const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 /* ─── Stats detail modal ─────────────────────────────────────────────────────── */
 
 const ALL_STATS = [
+  { key: 'max_hp',       label: 'HP Máximo',    Icon: Heart,    color: '#dc2626' },
   { key: 'attack',       label: 'Ataque',       Icon: Sword,    color: '#d97706' },
   { key: 'defense',      label: 'Defensa',      Icon: Shield,   color: '#475569' },
-  { key: 'max_hp',       label: 'HP Máximo',    Icon: Heart,    color: '#dc2626' },
   { key: 'strength',     label: 'Fuerza',       Icon: Dumbbell, color: '#dc2626' },
   { key: 'agility',      label: 'Agilidad',     Icon: Wind,     color: '#2563eb' },
   { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
