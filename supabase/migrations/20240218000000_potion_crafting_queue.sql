@@ -1,7 +1,7 @@
 -- Cola de crafteo de pociones (una por héroe a la vez)
 CREATE TABLE IF NOT EXISTS potion_crafting (
   hero_id        UUID PRIMARY KEY REFERENCES heroes(id) ON DELETE CASCADE,
-  potion_id      UUID NOT NULL REFERENCES potion_catalog(id),
+  potion_id      TEXT NOT NULL REFERENCES potion_catalog(id),
   craft_ends_at  TIMESTAMPTZ NOT NULL
 );
 
