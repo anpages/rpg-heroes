@@ -48,7 +48,7 @@ export function LaboratorySection({ labLevel, potions, crafting, craftPending, r
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3">Recetas disponibles</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3 pl-1">Recetas disponibles</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {availablePotions.map(p => {
