@@ -538,7 +538,7 @@ export default function Equipo() {
 
   const unequipped = useMemo(() => (items ?? []).filter(i => !i.equipped_slot), [items])
 
-  const { equipBonus, runeBonus, totalWeight, weightPenalty } = useMemo(() => {
+  const { equipBonus, runeBonus, weightPenalty } = useMemo(() => {
     const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const ru = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
     const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
