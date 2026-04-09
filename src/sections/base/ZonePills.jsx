@@ -2,7 +2,7 @@ import { ZONES } from './constants.js'
 
 export default function ZonePills({ active, onChange }) {
   return (
-    <div className="flex items-center gap-1 border-b border-border -mt-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+    <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {ZONES.map(z => {
         const Icon = z.icon
         const isActive = active === z.id
