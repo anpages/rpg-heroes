@@ -219,6 +219,7 @@ export default function Base({ mainRef }) {
               crafting={crafting}
               runesCatalog={runesCatalog}
               runesInventory={runesInventory}
+              craftPending={craftMutation.isPending}
               onCraft={(potionId) => craftMutation.mutate(potionId)}
               onCollect={() => collectPotionMutation.mutate()}
               onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}

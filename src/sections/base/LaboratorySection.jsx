@@ -28,7 +28,7 @@ function formatMs(ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function LaboratorySection({ labLevel, potions, crafting, resources, onCraft, onCollect }) {
+export function LaboratorySection({ labLevel, potions, crafting, craftPending, resources, onCraft, onCollect }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
   const remaining = useCraftTimer(crafting?.craft_ends_at)
   const isReady   = remaining !== null && remaining <= 0
@@ -85,7 +85,7 @@ export function LaboratorySection({ labLevel, potions, crafting, resources, onCr
           const full       = p.quantity >= 5
           const blocked    = isCrafting || isReady
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
-          const disabled   = !affordable || full || blocked
+          const disabled   = !affordable || full || blocked || craftPending
 
           return (
             <div

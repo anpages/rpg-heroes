@@ -6,7 +6,7 @@ import { baseLevelFromMap } from './helpers.js'
 import { BuildingCard } from './BuildingCard.jsx'
 import { LaboratorySection, RunesSection } from './LaboratorySection.jsx'
 
-export default function LaboratorioZone({ byType, effectiveResources, potions, crafting, runesCatalog, runesInventory, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, onCraft, onCollect, onRuneCraft }) {
+export default function LaboratorioZone({ byType, effectiveResources, potions, crafting, runesCatalog, runesInventory, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, onCraft, onCollect, onRuneCraft }) {
   const lab       = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
 
@@ -63,6 +63,7 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, c
               labLevel={lab.level}
               potions={potions}
               crafting={crafting}
+              craftPending={craftPending}
               resources={effectiveResources}
               onCraft={onCraft}
               onCollect={onCollect}
