@@ -413,7 +413,7 @@ function Dashboard({ session }) {
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
-                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1">
+                <div className="flex items-center gap-1 border-b border-border pb-0 -mt-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
@@ -421,7 +421,7 @@ function Dashboard({ session }) {
                     return (
                       <button
                         key={id}
-                        className={`relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit]
+                        className={`relative flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] whitespace-nowrap flex-shrink-0
                           ${isActive
                             ? 'border-b-[var(--blue-600)] text-[var(--blue-700)]'
                             : 'border-b-transparent text-text-3 hover:text-text'
