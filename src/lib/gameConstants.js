@@ -22,12 +22,11 @@ export function computeBaseLevel(buildings) {
   const levels = BASE_BUILDING_TYPES.map(t =>
     (byType[t] && byType[t].unlocked !== false) ? (byType[t].level ?? 0) : 0
   )
-  const active = levels.filter(l => l > 0)
-  if (active.length === 0) return 1
-  const avg = levels.reduce((a, b) => a + b, 0) / active.length
-  // Math.round: base Nv2 se alcanza cuando el promedio ≥ 1.5
-  // (ej: nexo Nv2 + aserradero Nv2 con mina y maná en Nv1 → avg=1.5 → Nv2)
-  return Math.max(1, Math.round(avg))
+  const total = levels.reduce((a, b) => a + b, 0)
+  if (total === 0) return 1
+  // Divisor fijo 4: agregar un edificio nuevo siempre mantiene o sube el nivel,
+  // nunca lo baja (a diferencia de dividir por edificios activos, que varía).
+  return Math.max(1, Math.ceil(total / 4))
 }
 
 // ── Árbol de desbloqueo ───────────────────────────────────────────────────────
