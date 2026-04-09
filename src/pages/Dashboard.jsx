@@ -409,7 +409,7 @@ function Dashboard({ session }) {
           {/* Héroes — con sub-nav */}
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
             {mountedTabs.has('heroes') && (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-6">
                 {/* Selector de héroe */}
                 <HeroSelector />
                 {/* Sub-nav */}
