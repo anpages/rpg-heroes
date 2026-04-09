@@ -63,11 +63,18 @@ export default async function handler(req, res) {
     ['atk_boost', 'def_boost'].filter(k => effects[k]).map(k => [k, effects[k]])
   )
 
+  // Bonos de investigación para combate
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+
   // Stats del enemigo
   const enemyStats = floorEnemyStats(targetFloor)
 
-  // Simular combate
-  const result = simulateCombat(heroStats, enemyStats)
+  // Simular combate — aplicar crit_pct y tower_dmg_pct
+  const result = simulateCombat(heroStats, enemyStats, {
+    critBonus: rb.crit_pct,
+    dmgMultiplier: rb.tower_dmg_pct,
+  })
   const won = result.winner === 'a'
 
   // Registrar intento con log completo para replay

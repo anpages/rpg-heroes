@@ -6,16 +6,17 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, computeResearchBonuses } from '../lib/gameConstants'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { usePotions } from '../hooks/usePotions'
 import { useResources } from '../hooks/useResources'
+import { useResearch } from '../hooks/useResearch'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check, Sparkles,
+  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check, Sparkles, Telescope,
 } from 'lucide-react'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel } from '../lib/gameFormulas'
@@ -63,7 +64,7 @@ const ALL_STATS = [
   { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
 ]
 
-function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
+function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonuses = {}, onClose }) {
   const STAT_KEYS = ALL_STATS.map(s => s.key)
 
   const equippedItems = (items ?? [])
@@ -104,10 +105,20 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
       return { name: sc.name, rank, bonuses, penalties }
     })
 
+  // Mapeo de stat → key de investigación %
+  const RESEARCH_PCT_MAP = { attack: 'attack_pct', defense: 'defense_pct', intelligence: 'intelligence_pct' }
+
   const totalEquipBonus = equippedItems.reduce((sum, item) =>
     sum + STAT_KEYS.reduce((s, k) => s + Math.max(0, item.contributions[k]), 0), 0)
   const totalCardNet = equippedCards.reduce((sum, card) =>
     sum + STAT_KEYS.reduce((s, k) => s + (card.bonuses[k] ?? 0) + (card.penalties[k] ?? 0), 0), 0)
+  const totalResearchNet = STAT_KEYS.reduce((s, k) => {
+    const pctKey = RESEARCH_PCT_MAP[k]
+    if (!pctKey || !researchBonuses[pctKey]) return s
+    const baseWithBonuses = hero[k] + equippedItems.reduce((sum, item) => sum + (item.contributions[k] ?? 0), 0)
+      + equippedCards.reduce((sum, card) => sum + (card.bonuses[k] ?? 0) + (card.penalties[k] ?? 0), 0)
+    return s + Math.round(baseWithBonuses * researchBonuses[pctKey])
+  }, 0)
 
   return createPortal(
     <AnimatePresence>
@@ -135,7 +146,7 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
           </div>
 
           {/* Summary strip */}
-          {(totalEquipBonus > 0 || totalCardNet !== 0) && (
+          {(totalEquipBonus > 0 || totalCardNet !== 0 || totalResearchNet > 0) && (
             <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border flex-shrink-0 flex-wrap">
               {totalEquipBonus > 0 && (
                 <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
@@ -153,6 +164,13 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
                   }}>
                   <BookOpen size={11} strokeWidth={2.5} />
                   {totalCardNet > 0 ? '+' : ''}{totalCardNet} de cartas
+                </span>
+              )}
+              {totalResearchNet > 0 && (
+                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
+                  style={{ color: '#0f766e', background: 'color-mix(in srgb,#0f766e 10%,transparent)', borderColor: 'color-mix(in srgb,#0f766e 28%,transparent)' }}>
+                  <Telescope size={11} strokeWidth={2.5} />
+                  +{totalResearchNet} de investigación
                 </span>
               )}
             </div>
@@ -182,6 +200,14 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
                 rows.push({ label: 'Peso del equipo', value: -weightPenalty, source: 'weight' })
               }
 
+              // Bonos de investigación (% sobre subtotal)
+              const pctKey = RESEARCH_PCT_MAP[key]
+              if (pctKey && researchBonuses[pctKey]) {
+                const subtotal = base + rows.reduce((s, r) => s + r.value, 0)
+                const researchVal = Math.round(subtotal * researchBonuses[pctKey])
+                if (researchVal !== 0) rows.push({ label: `Investigación (${Math.round(researchBonuses[pctKey] * 100)}%)`, value: researchVal, source: 'research' })
+              }
+
               const total = Math.max(0, base + rows.reduce((s, r) => s + r.value, 0))
 
               return (
@@ -209,7 +235,8 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, onClose }) {
                         <div key={i} className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1 min-w-0">
                             {r.source === 'rune' && <Sparkles size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
-                            <span className={`text-[11px] truncate ${r.source === 'rune' ? 'text-[#7c3aed]' : 'text-text-2'}`}>{r.label}</span>
+                            {r.source === 'research' && <Telescope size={10} strokeWidth={2} className="text-[#0f766e] flex-shrink-0" />}
+                            <span className={`text-[11px] truncate ${r.source === 'rune' ? 'text-[#7c3aed]' : r.source === 'research' ? 'text-[#0f766e]' : 'text-text-2'}`}>{r.label}</span>
                           </div>
                           <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
                             {r.value > 0 ? '+' : ''}{r.value}
@@ -784,6 +811,8 @@ function Hero() {
   const { items, loading: invLoading  } = useInventory(hero?.id)
   const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
   const { resources } = useResources(userId)
+  const { research }  = useResearch(userId)
+  const researchBonuses = computeResearchBonuses(research.completed)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
   const [confirmModal,   setConfirmModal]   = useState(null)
@@ -1100,6 +1129,7 @@ function Hero() {
               items={items}
               cards={cards}
               weightPenalty={weightPenalty}
+              researchBonuses={researchBonuses}
               onClose={() => setStatsDetailOpen(false)}
             />
           )}

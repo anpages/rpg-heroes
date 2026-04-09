@@ -33,17 +33,19 @@ function critPeriod(agility) {
 /**
  * Simula un combate entre dos combatientes.
  * Ambos tienen: attack, defense, strength, agility, intelligence, max_hp
+ * Opcionales en opts: critBonus (fracción extra de prob. crit), dmgMultiplier (multiplicador de daño global)
  *
  * @returns {{ winner:'a'|'b', rounds:number, log:Round[], hpLeftA:number, hpLeftB:number }}
  * Round = { round:number, events:Event[] }
  * Event = { actor:'a'|'b', damage:number, crit:boolean, hpA:number, hpB:number }
  */
-export function simulateCombat(a, b) {
+export function simulateCombat(a, b, opts = {}) {
   let hpA = a.max_hp
   let hpB = b.max_hp
   const log = []
 
-  const baseDmgA = physDamage(a.attack, a.strength, b.defense) + magicDamage(a.intelligence)
+  const dmgMult = 1 + (opts.dmgMultiplier ?? 0)
+  const baseDmgA = Math.round((physDamage(a.attack, a.strength, b.defense) + magicDamage(a.intelligence)) * dmgMult)
   const baseDmgB = physDamage(b.attack, b.strength, a.defense) + magicDamage(b.intelligence)
 
   // Doble ataque: >= 20 puntos de ventaja en agility = +1 ataque extra cada 6 rondas
@@ -56,7 +58,9 @@ export function simulateCombat(a, b) {
   const aFirst = a.agility >= b.agility
 
   // Períodos de crítico (deterministas, distintos offset para que no coincidan siempre)
-  const critPA = critPeriod(a.agility)
+  // crit_pct reduce el período del héroe (A): ej. 0.03 = 3% → reduce ~1 ronda a períodos largos
+  const critBonusRounds = Math.floor((opts.critBonus ?? 0) * 100)
+  const critPA = Math.max(3, critPeriod(a.agility) - critBonusRounds)
   const critPB = critPeriod(b.agility)
 
   for (let round = 1; round <= 20 && hpA > 0 && hpB > 0; round++) {

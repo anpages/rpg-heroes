@@ -7,9 +7,11 @@ import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
 import { useTowerProgress } from '../hooks/useTowerProgress'
+import { useResearch } from '../hooks/useResearch'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
+import { computeResearchBonuses } from '../lib/gameConstants'
 import { floorEnemyStats, floorRewards, floorEnemyName } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -124,6 +126,8 @@ export default function Torre() {
   const { items } = useInventory(hero?.id)
   const { cards } = useHeroCards(hero?.id)
   const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
+  const { research } = useResearch(userId)
+  const rb = computeResearchBonuses(research.completed)
   const [result, setResult]   = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
@@ -162,14 +166,20 @@ export default function Torre() {
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
 
-  const effectiveHero = hero ? {
-    max_hp:       hero.max_hp       + equipBonuses.max_hp    + cardBonuses.max_hp,
-    attack:       hero.attack       + equipBonuses.attack    + cardBonuses.attack,
-    defense:      hero.defense      + equipBonuses.defense   + cardBonuses.defense,
-    strength:     hero.strength     + equipBonuses.strength  + cardBonuses.strength,
-    agility:      hero.agility      + equipBonuses.agility   + cardBonuses.agility,
-    intelligence: hero.intelligence,
-  } : null
+  const effectiveHero = hero ? (() => {
+    const s = {
+      max_hp:       hero.max_hp       + equipBonuses.max_hp    + cardBonuses.max_hp,
+      attack:       hero.attack       + equipBonuses.attack    + cardBonuses.attack,
+      defense:      hero.defense      + equipBonuses.defense   + cardBonuses.defense,
+      strength:     hero.strength     + equipBonuses.strength  + cardBonuses.strength,
+      agility:      hero.agility      + equipBonuses.agility   + cardBonuses.agility,
+      intelligence: hero.intelligence + (cardBonuses.intelligence ?? 0),
+    }
+    if (rb.attack_pct)       s.attack       = Math.round(s.attack       * (1 + rb.attack_pct))
+    if (rb.defense_pct)      s.defense      = Math.round(s.defense      * (1 + rb.defense_pct))
+    if (rb.intelligence_pct) s.intelligence = Math.round(s.intelligence * (1 + rb.intelligence_pct))
+    return s
+  })() : null
 
   // HP efectivo: usa max_hp con bonificaciones de equipo y cartas como techo
   const effectiveMaxHp = effectiveHero?.max_hp ?? hero?.max_hp ?? 100

@@ -342,6 +342,21 @@ export const RESEARCH_NODES = [
   { id: 'magic_4',      branch: 'magic',      position: 4, library_level_required: 5, name: 'Resonancia Rúnica',     description: '+10% a los bonos de runas.',                             effect_type: 'enchantment_amp',     effect_value: 0.10,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'magic_3' },
 ]
 
+/**
+ * Calcula bonos de investigación a partir de la lista de IDs completados.
+ * Uso en el frontend para mostrar desglose sin llamar al backend.
+ */
+export function computeResearchBonuses(completedIds = []) {
+  const set = new Set(completedIds)
+  const bonuses = {}
+  for (const node of RESEARCH_NODES) {
+    if (set.has(node.id)) {
+      bonuses[node.effect_type] = (bonuses[node.effect_type] ?? 0) + node.effect_value
+    }
+  }
+  return bonuses
+}
+
 /** Costes de mejora de tier. key = tier actual → siguiente.
  *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos). */
 export const ITEM_TIER_UPGRADE_COST = {
