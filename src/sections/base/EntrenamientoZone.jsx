@@ -18,7 +18,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const builtRooms     = trainingRooms.filter(r => r.built_at !== null)
   const anyReady       = builtRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
-  const needsInit      = heroId && builtRooms.length > 0 && trainingProgress.length === 0
+  const needsInit      = heroId && builtRooms.some(r => !progressByStat[r.stat])
 
   const anyTrainingConstructing = trainingRooms.some(r => r.building_ends_at && new Date(r.building_ends_at) > Date.now())
   const isQueueBusy = anyUpgrading || anyTrainingConstructing
