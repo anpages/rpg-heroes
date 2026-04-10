@@ -13,8 +13,10 @@ import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
 import { showItemDropToast, showCardDropToast, showDropFullToast } from '../lib/dropToast'
-import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles } from 'lucide-react'
+import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles, FlaskConical, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { usePotions } from '../hooks/usePotions'
+import { useMutation } from '@tanstack/react-query'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.07 } },
@@ -102,7 +104,81 @@ function useExpeditionTimer(expedition) {
 }
 
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1, heroStrength = 0 }) {
+function ExpeditionPotionPanel({ heroId, userId, activeEffects = {} }) {
+  const queryClient = useQueryClient()
+  const { potions } = usePotions(userId)
+
+  const useMut = useMutation({
+    mutationFn: (potionId) => apiPost('/api/potion-use', { heroId, potionId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      toast.success('¡Poción activada!')
+    },
+    onError: err => toast.error(err.message),
+  })
+
+  const xpPotions = potions.filter(p => p.effect_type === 'xp_boost' && p.quantity > 0)
+  const activeXp  = activeEffects?.xp_boost
+
+  if (xpPotions.length === 0 && !activeXp) return null
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg mb-3.5">
+      <div className="flex items-center gap-1.5">
+        <FlaskConical size={12} strokeWidth={2} className="text-text-3" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Pociones de expedición</span>
+        {activeXp && (
+          <span
+            className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-md ml-auto"
+            style={{
+              color: '#0369a1',
+              background: 'color-mix(in srgb, #0369a1 12%, var(--surface))',
+            }}
+          >
+            <Star size={10} strokeWidth={2.5} />
+            +{Math.round(activeXp * 100)}% XP activo
+          </span>
+        )}
+      </div>
+
+      {xpPotions.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {xpPotions.map(p => {
+            const alreadyActive = !!activeXp
+            const disabled = alreadyActive || useMut.isPending
+
+            return (
+              <motion.button
+                key={p.id}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
+                style={{
+                  color:       alreadyActive ? '#0369a1' : 'var(--text-2)',
+                  borderColor: alreadyActive
+                    ? 'color-mix(in srgb, #0369a1 40%, var(--border))'
+                    : 'var(--border)',
+                  background: alreadyActive
+                    ? 'color-mix(in srgb, #0369a1 8%, var(--surface))'
+                    : 'var(--surface)',
+                }}
+                onClick={() => !disabled && useMut.mutate(p.id)}
+                disabled={disabled}
+                whileTap={disabled ? {} : { scale: 0.95 }}
+              >
+                <Star size={11} strokeWidth={2.5} style={{ color: '#0369a1' }} />
+                {p.name}
+                <span className="opacity-60">×{p.quantity}</span>
+                {alreadyActive && <span className="text-[10px]">✓</span>}
+              </motion.button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1, heroStrength = 0, weeklyModifier = null }) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
@@ -110,6 +186,8 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
   const disabled = locked || busy || lowHp
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
+  const isWeekly = weeklyModifier?.dungeon_id === dungeon.id
+  const weeklyMeta = isWeekly ? weeklyModifier?.modifier : null
 
   const [collecting, setCollecting] = useState(false)
   const timer = useExpeditionTimer(isActive ? expedition : null)
@@ -127,13 +205,20 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   }
 
   return (
-    <div className={`flex flex-col bg-surface border rounded-xl p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200
+    <div
+      className={`flex flex-col bg-surface border rounded-xl p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200
       ${isActive
         ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-300)] dark:bg-[color-mix(in_srgb,var(--blue-300)_8%,var(--surface))]'
         : locked
           ? 'border-border opacity-55'
           : 'border-border hover:shadow-[var(--shadow-md)] hover:border-border-2'
-      }`}>
+      }`}
+      style={isWeekly && weeklyMeta && !isActive ? {
+        borderColor: `color-mix(in srgb, ${weeklyMeta.color} 55%, var(--border))`,
+        boxShadow:   `0 0 0 1px color-mix(in srgb, ${weeklyMeta.color} 30%, transparent), var(--shadow-sm)`,
+        background:  `color-mix(in srgb, ${weeklyMeta.color} 4%, var(--surface))`,
+      } : undefined}
+    >
 
       {/* Top */}
       <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-5 mb-4 flex-1">
@@ -146,12 +231,27 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
               </span>
             )}
           </div>
+          {isWeekly && weeklyMeta && (
+            <div
+              className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-md border w-fit"
+              style={{
+                color:       weeklyMeta.color,
+                borderColor: `color-mix(in srgb, ${weeklyMeta.color} 40%, var(--border))`,
+                background:  `color-mix(in srgb, ${weeklyMeta.color} 10%, var(--surface))`,
+              }}
+              title={weeklyMeta.description}
+            >
+              <Zap size={11} strokeWidth={2.5} />
+              <span className="text-[11px] font-bold uppercase tracking-[0.06em]">Desafío semanal · {weeklyMeta.name}</span>
+            </div>
+          )}
           <p className="text-[13px] text-text-3 leading-[1.5] mb-2.5 line-clamp-2">{dungeon.description}</p>
           <div className="flex gap-3.5 flex-wrap">
             <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
               <Clock size={13} strokeWidth={2} />
               {(() => {
-                const mins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1))
+                const durMult = isWeekly && weeklyMeta?.durationMult ? weeklyMeta.durationMult : 1
+                const mins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1) * durMult)
                 return mins >= 60
                   ? `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}m` : ''}`
                   : `${mins}m`
@@ -337,7 +437,7 @@ function Dungeons() {
   const heroId                = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
-  const { dungeons, loading: dungeonsLoading } = useDungeons()
+  const { dungeons, loading: dungeonsLoading, weeklyModifier } = useDungeons(heroId)
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
@@ -351,7 +451,9 @@ function Dungeons() {
 
   async function handleStart(dungeon) {
     const now = Date.now()
-    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 60_000
+    const isWeekly = weeklyModifier?.dungeon_id === dungeon.id
+    const durMult  = isWeekly && weeklyModifier?.modifier?.durationMult ? weeklyModifier.modifier.durationMult : 1
+    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor * durMult) * 60_000
     setExpedition({
       id: '__optimistic__',
       dungeon_id: dungeon.id,
@@ -403,6 +505,11 @@ function Dungeons() {
         document.body
       )}
 
+      {/* Expedition potions (xp_boost) */}
+      {heroStatus === 'idle' && (
+        <ExpeditionPotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects} />
+      )}
+
       {/* Grid */}
       <motion.div
         className="grid grid-cols-1 md:grid-cols-2 gap-3.5"
@@ -424,6 +531,7 @@ function Dungeons() {
               agilityFactor={agilityFactor}
               atkMultiplier={atkMultiplier}
               heroStrength={heroStrength}
+              weeklyModifier={weeklyModifier}
             />
           </motion.div>
         ))}

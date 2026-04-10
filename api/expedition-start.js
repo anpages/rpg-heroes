@@ -3,6 +3,7 @@ import { getEffectiveStats } from './_stats.js'
 import { interpolateHP, expeditionHpDamage } from './_hp.js'
 import { agilityDurationFactor } from '../src/lib/gameFormulas.js'
 import { isUUID } from './_validate.js'
+import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -64,9 +65,15 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
+  // Modificador semanal: si esta mazmorra es el desafío de la semana del héroe,
+  // aplica multiplicadores de duración y de daño HP recibido al iniciar.
+  const weekly = await getOrCreateWeeklyModifier(supabase, hero.id)
+  const mods = getModifierForDungeon(weekly, dungeonId)
+
   // Agilidad reduce duración (hasta −25%)
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
-  const effectiveDuration = Math.round(dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1))
+  const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
+  const effectiveDuration = Math.round(baseDuration * mods.durationMult)
 
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
   const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
@@ -76,7 +83,8 @@ export default async function handler(req, res) {
 
   // Deducir HP por peligro de la expedición al iniciar
   // La dificultad aumenta el coste; la fuerza del héroe lo reduce
-  const hpDamage = expeditionHpDamage(hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
+  const baseHpDamage = expeditionHpDamage(hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
+  const hpDamage = Math.round(baseHpDamage * mods.hpDamageMult)
   if (currentHp <= hpDamage) {
     return res.status(409).json({
       error: `HP insuficiente. Esta expedición cuesta ${hpDamage} HP y tienes ${currentHp}.`,

@@ -57,9 +57,9 @@ const CARD_DROP_BY_TYPE = {
   mine:    { chance: 0.15, categoryPool: ['offense','offense','defense','defense','equipment'],    weights: [45,30,18,6,1] },
 }
 
-export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0, heroClass = null }) {
+export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0, dropRateMult = 1, heroClass = null }) {
   const { chance, tiers, weights } = getDropConfig(difficulty)
-  if (Math.random() > chance + dropRateBonus) return null
+  if (Math.random() > (chance + dropRateBonus) * dropRateMult) return null
 
   const total = weights.reduce((a, b) => a + b, 0)
   let roll = Math.random() * total

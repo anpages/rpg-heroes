@@ -26,4 +26,5 @@ export const queryKeys = {
   potions:         (userId) => ['potions', userId],
   heroRunes:       (userId) => ['hero-runes', userId],
   research:        (userId) => ['research', userId],
+  weeklyModifier:  (heroId) => ['weekly-modifier', heroId],
 }

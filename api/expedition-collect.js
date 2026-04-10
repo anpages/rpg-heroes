@@ -4,6 +4,7 @@ import { attackMultiplier as calcAttackMultiplier, xpRequiredForLevel } from '..
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollCardDrop, rollMaterialDrop } from './_loot.js'
 import { isUUID, snapshotResources } from './_validate.js'
+import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -55,13 +56,18 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
+  // Modificador semanal del héroe: si esta es su mazmorra del desafío, aplica
+  // multiplicadores a oro, XP, drops y materiales.
+  const weekly = await getOrCreateWeeklyModifier(supabase, hero.id)
+  const mods = getModifierForDungeon(weekly, expedition.dungeon_id)
+
   // Ataque escala oro y XP (hasta +100%)
   const attackMultiplier = calcAttackMultiplier(stats?.attack)
   const xpBoost  = hero.active_effects?.xp_boost ?? 0
   const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
-  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct))
+  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult)
   const xpBase    = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
-  const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct))
+  const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct) * mods.xpMult)
 
   // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa y cartas
   // Peligro 1 → base 1, peligro 9 → base 5; defensa y carta Herrero reducen, Destrozador aumenta
@@ -76,8 +82,12 @@ export default async function handler(req, res) {
   // Inteligencia mejora drops de cartas
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
-  // Roll de material antes del UPDATE para incluirlo en la misma operación
-  const materialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
+  // Roll de material antes del UPDATE para incluirlo en la misma operación.
+  // El modificador semanal "Vena Rica" multiplica la cantidad obtenida.
+  const baseMaterialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
+  const materialDrop = baseMaterialDrop && mods.materialMult !== 1
+    ? { ...baseMaterialDrop, qty: Math.round(baseMaterialDrop.qty * mods.materialMult) }
+    : baseMaterialDrop
 
   const snap = snapshotResources(resources)
   const { error: updateResourcesError } = await supabase
@@ -131,7 +141,7 @@ export default async function handler(req, res) {
     if (durError) console.error('durability rpc error:', durError.message)
   }
 
-  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, heroClass: hero.class }) : null
+  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult, heroClass: hero.class }) : null
   const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
