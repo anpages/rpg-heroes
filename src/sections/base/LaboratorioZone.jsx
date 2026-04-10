@@ -89,7 +89,6 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, p
               <RunesSection
                 labLevel={lab.level}
                 catalog={runesCatalog}
-                inventory={runesInventory}
                 resources={effectiveResources}
                 craftingMap={runeCraftingMap}
                 craftPending={runeCraftPending}

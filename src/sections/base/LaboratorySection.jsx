@@ -195,14 +195,6 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
   const hasAnyCrafting = Object.values(craftingMap).some(c => new Date(c.craft_ends_at) > new Date())
   useTickWhileActive(hasAnyCrafting)
 
-  // Total actual en inventario
-  const totalInInventory = potions.reduce((s, p) => s + p.quantity, 0)
-  const upgrades = resources?.lab_inventory_upgrades ?? 0
-  const capacity = LAB_INVENTORY_BASE + upgrades * LAB_INVENTORY_PER_UPGRADE
-  // Contar runas también (se pasan aparte, aquí solo limitamos por pociones+runas totales)
-  // El check de inventario lleno se hará a nivel de item individual con MAX_POTION_STACK
-  // y a nivel global con la capacidad total
-
   // Ordenar categorías por min_lab_level de su primera aparición
   const typeFirst = {}
   for (const p of availablePotions) {
@@ -394,9 +386,8 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
 
 /* ─── Sección de Runas ───────────────────────────────────────────────────────── */
 
-export function RunesSection({ labLevel, catalog, inventory, resources, craftingMap, craftPending, collectPending, onCraft, onCollect, isUpgrading = false }) {
+export function RunesSection({ labLevel, catalog, resources, craftingMap, craftPending, collectPending, onCraft, onCollect, isUpgrading = false }) {
   const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
-  const inventoryMap   = Object.fromEntries(inventory.map(ir => [ir.rune_id, ir.quantity]))
   const hasAnyCrafting = Object.values(craftingMap).some(c => new Date(c.craft_ends_at) > new Date())
   useTickWhileActive(hasAnyCrafting)
 

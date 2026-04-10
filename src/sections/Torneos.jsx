@@ -135,7 +135,7 @@ function WeekBracket({ todayOffset, matchByRound, nextRound, eliminated, champio
 const STAT_KEYS   = ['max_hp', 'attack', 'defense', 'strength', 'agility']
 const STAT_LABELS = { max_hp: 'HP', attack: 'ATQ', defense: 'DEF', strength: 'FUE', agility: 'AGI' }
 
-function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId, activeEffects }) {
+function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId, userId, activeEffects }) {
   const color = ROUND_COLORS[round - 1]
 
   return (
@@ -585,6 +585,7 @@ export default function Torneos() {
           isPending={fightMutation.isPending}
           heroExploring={hero?.status === 'exploring'}
           heroId={heroId}
+          userId={userId}
           activeEffects={hero?.active_effects ?? {}}
         />
       )}
