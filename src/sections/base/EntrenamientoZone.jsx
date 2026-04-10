@@ -58,7 +58,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Sala mejorada!'),
+    onSuccess: () => {},
     onError: err => toast.error(err.message),
   })
 
@@ -83,7 +83,12 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
 
   return (
     <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
-      <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
+        {builtRooms.length > 0 && (
+          <span className="text-[10px] font-semibold text-text-3">Se aplica a todos tus héroes</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {TRAINING_ROOMS.map(room => (

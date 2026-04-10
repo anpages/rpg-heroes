@@ -26,7 +26,12 @@ export default async function handler(req, res) {
     .select('stat, level, built_at, building_ends_at')
     .eq('player_id', user.id)
 
-  const rooms = (allRooms ?? []).filter(r => r.built_at !== null && (!onlyStat || r.stat === onlyStat))
+  const now = new Date()
+  const rooms = (allRooms ?? []).filter(r =>
+    r.built_at !== null &&
+    (!r.building_ends_at || new Date(r.building_ends_at) <= now) &&
+    (!onlyStat || r.stat === onlyStat)
+  )
 
   if (!rooms || rooms.length === 0) {
     return res.status(200).json({ ok: true, gained: {} })
@@ -34,7 +39,6 @@ export default async function handler(req, res) {
 
   const roomByStat     = Object.fromEntries(rooms.map(r => [r.stat, r]))
   const availableStats = rooms.map(r => r.stat)
-  const now            = new Date()
 
   // Procesar TODOS los héroes del jugador
   const allGains = {}

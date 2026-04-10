@@ -41,16 +41,17 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
 
   const rate   = xpRateForLevel(isBuilt ? roomLevel : 1)
   const thr    = xpThreshold(progressRow?.total_gained ?? 0)
-  const xp     = isBuilt && progressRow
+  const upgrading = isBuilt && isConstructing
+  const xp     = isBuilt && progressRow && !upgrading
     ? (() => {
         const hoursToThr  = Math.max(0, (thr - progressRow.xp_bank) / rate)
         const hoursElapsed = (Date.now() - new Date(progressRow.last_collected_at).getTime()) / 3_600_000
         return progressRow.xp_bank + Math.min(hoursElapsed, hoursToThr) * rate
       })()
-    : 0
+    : (progressRow?.xp_bank ?? 0)
   const xpPct  = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
   const gained = progressRow?.total_gained ?? 0
-  const ready  = isBuilt && progressRow ? xp >= thr : false
+  const ready  = isBuilt && progressRow && !upgrading ? xp >= thr : false
 
   const upgCost   = isBuilt ? trainingRoomUpgradeCost(roomLevel) : TRAINING_ROOM_BUILD_COST
   const canAfford = resources
@@ -118,7 +119,7 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
             )}
           </div>
           <p className="text-[11px] text-text-3 mt-0.5">
-            {isBuilt ? `${rate} XP/h` : `${xpRateForLevel(1)} XP/h al construir`}
+            {isBuilt ? (upgrading ? 'Entrenamiento pausado' : `${rate} XP/h`) : `${xpRateForLevel(1)} XP/h al construir`}
           </p>
         </div>
       </div>
@@ -127,22 +128,19 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
       {isBuilt ? (
         <div className="px-4 pb-3 flex flex-col gap-2 border-t border-border pt-3">
           {/* Progreso de entrenamiento — siempre visible si está construida */}
-          <div className="h-2 bg-border rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-[width] duration-[600ms] ease-out"
-              style={{ width: `${xpPct}%`, background: room.color }} />
+          <div className={`h-2 rounded-full overflow-hidden ${upgrading ? 'bg-border/50' : 'bg-border'}`}>
+            <div className={`h-full rounded-full transition-[width] duration-[600ms] ease-out ${upgrading ? 'opacity-30 grayscale' : ''}`}
+              style={{ width: `${xpPct}%`, background: upgrading ? 'var(--text-3)' : room.color }} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-text-3">{progressRow ? `${xp.toFixed(1)} / ${thr} XP` : '—'}</span>
-            {ready
-              ? <span className="text-[11px] font-bold" style={{ color: room.color }}>¡Listo! Recoge para continuar</span>
-              : <span className="text-[11px] text-text-3">{progressRow && thr - xp > 0 ? fmtHours((thr - xp) / rate) : ''}</span>
+            <span className={`text-[11px] ${upgrading ? 'text-text-3/50' : 'text-text-3'}`}>{progressRow ? `${xp.toFixed(1)} / ${thr} XP` : '—'}</span>
+            {upgrading
+              ? <span className="text-[11px] text-text-3/50">Pausado</span>
+              : ready
+                ? <span className="text-[11px] font-bold" style={{ color: room.color }}>¡Listo! Recoge para continuar</span>
+                : <span className="text-[11px] text-text-3">{progressRow && thr - xp > 0 ? fmtHours((thr - xp) / rate) : ''}</span>
             }
           </div>
-          {gained > 0 && (
-            <p className="text-[11px] font-semibold" style={{ color: room.color }}>
-              +{gained} {STAT_LABEL_MAP[room.stat]} ganados en total
-            </p>
-          )}
           {/* Barra de mejora — solo visible mientras se mejora */}
           {isConstructing && (
             <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
