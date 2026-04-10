@@ -89,7 +89,7 @@ export default function Torre() {
   const { cards } = useHeroCards(hero?.id)
   const { maxFloor, attemptsByFloor, loading: towerLoading } = useTowerProgress(hero?.id)
   const { research } = useResearch(userId)
-  const { potions } = usePotions(hero?.id)
+  const { potions } = usePotions(userId)
   const rb = computeResearchBonuses(research.completed)
   const [result, setResult]       = useState(null)
   const [showCountdown, setShowCountdown] = useState(false)
@@ -99,7 +99,7 @@ export default function Torre() {
     mutationFn: async (potionId) => {
       await apiPost('/api/potion-use', { heroId: hero?.id, potionId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.potions(hero?.id) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
       ])
     },
@@ -302,7 +302,7 @@ export default function Torre() {
           )
         })()}
 
-        <PotionPanel heroId={heroId} activeEffects={hero?.active_effects ?? {}} />
+        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} />
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"

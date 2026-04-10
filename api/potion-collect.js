@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { isUUID } from './_validate.js'
 import { MAX_POTION_STACK } from './_constants.js'
 
 export default async function handler(req, res) {
@@ -7,28 +6,14 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId } = req.body
-  if (!heroId) return res.status(400).json({ error: 'heroId requerido' })
-  if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
-
-  // Verificar héroe
-  const { data: hero } = await supabase
-    .from('heroes')
-    .select('id, player_id')
-    .eq('id', heroId)
-    .single()
-
-  if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-
   const { potionId } = req.body
   if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
 
   // Obtener crafteo activo de esta poción
   const { data: craft } = await supabase
-    .from('potion_crafting')
+    .from('player_potion_crafting')
     .select('potion_id, craft_ends_at')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
     .maybeSingle()
 
@@ -39,9 +24,9 @@ export default async function handler(req, res) {
 
   // Verificar stack actual
   const { data: existing } = await supabase
-    .from('hero_potions')
+    .from('player_potions')
     .select('quantity')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
     .single()
 
@@ -51,11 +36,11 @@ export default async function handler(req, res) {
   }
 
   const [upsertResult, deleteResult] = await Promise.all([
-    supabase.from('hero_potions').upsert(
-      { hero_id: heroId, potion_id: potionId, quantity: currentQty + 1 },
-      { onConflict: 'hero_id,potion_id' }
+    supabase.from('player_potions').upsert(
+      { player_id: user.id, potion_id: potionId, quantity: currentQty + 1 },
+      { onConflict: 'player_id,potion_id' }
     ),
-    supabase.from('potion_crafting').delete().eq('hero_id', heroId).eq('potion_id', potionId),
+    supabase.from('player_potion_crafting').delete().eq('player_id', user.id).eq('potion_id', potionId),
   ])
 
   if (upsertResult.error) return res.status(500).json({ error: upsertResult.error.message })

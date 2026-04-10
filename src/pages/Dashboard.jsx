@@ -260,8 +260,8 @@ function Dashboard({ session }) {
   const { research }                 = useResearch(session.user.id)
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
-  const { craftingMap: potionCraftingMap } = usePotions(heroId)
-  const { craftingMap: runeCraftingMap }   = useHeroRunes(heroId)
+  const { craftingMap: potionCraftingMap } = usePotions(session.user.id)
+  const { craftingMap: runeCraftingMap }   = useHeroRunes(session.user.id)
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)

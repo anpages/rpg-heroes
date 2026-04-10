@@ -40,11 +40,11 @@ export default async function handler(req, res) {
     .eq('inventory_item_id', inventoryItemId).eq('slot_index', slotIndex).maybeSingle()
   if (occupied) return res.status(400).json({ error: 'Ese slot ya tiene una runa incrustada' })
 
-  // Verificar inventario de runas del héroe
-  const { data: heroRune } = await supabase
-    .from('hero_runes').select('id, quantity')
-    .eq('hero_id', heroId).eq('rune_id', runeId).maybeSingle()
-  if (!heroRune || heroRune.quantity < 1) return res.status(400).json({ error: 'No tienes esa runa en el inventario' })
+  // Verificar inventario de runas del jugador (compartido)
+  const { data: playerRune } = await supabase
+    .from('player_runes').select('quantity')
+    .eq('player_id', user.id).eq('rune_id', runeId).maybeSingle()
+  if (!playerRune || playerRune.quantity < 1) return res.status(400).json({ error: 'No tienes esa runa en el inventario' })
 
   // Límite: máximo 5 runas del mismo tipo incrustadas en el equipo de un héroe
   const { count: sameRuneCount } = await supabase
@@ -56,9 +56,9 @@ export default async function handler(req, res) {
     )
   if ((sameRuneCount ?? 0) >= 5) return res.status(409).json({ error: 'Máximo 5 runas del mismo tipo por héroe' })
 
-  // Decrementar inventario
+  // Decrementar inventario del jugador
   const { error: dErr } = await supabase
-    .from('hero_runes').update({ quantity: heroRune.quantity - 1 }).eq('id', heroRune.id)
+    .from('player_runes').update({ quantity: playerRune.quantity - 1 }).eq('player_id', user.id).eq('rune_id', runeId)
   if (dErr) return res.status(500).json({ error: dErr.message })
 
   // Incrustar runa
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     .from('item_runes').insert({ inventory_item_id: inventoryItemId, slot_index: slotIndex, rune_id: runeId })
 
   if (iErr) {
-    await supabase.from('hero_runes').update({ quantity: heroRune.quantity }).eq('id', heroRune.id)
+    await supabase.from('player_runes').update({ quantity: playerRune.quantity }).eq('player_id', user.id).eq('rune_id', runeId)
     return res.status(500).json({ error: iErr.message })
   }
 

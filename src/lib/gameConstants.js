@@ -369,8 +369,22 @@ export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
 
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
-/** Máximo de unidades de una misma poción que puede tener un héroe. */
+/** Máximo de unidades de una misma poción en el inventario del laboratorio. */
 export const MAX_POTION_STACK = 5
+/** Capacidad base del inventario del laboratorio (slots totales entre pociones y runas). */
+export const LAB_INVENTORY_BASE = 15
+/** Slots extra por ampliación del inventario del laboratorio. */
+export const LAB_INVENTORY_PER_UPGRADE = 5
+/** Número máximo de ampliaciones del inventario del laboratorio. */
+export const LAB_INVENTORY_MAX_UPGRADES = 5
+/** Costes para ampliar el inventario del laboratorio. Array indexado por upgrade (0 = primera). */
+export const LAB_INVENTORY_UPGRADE_COSTS = [
+  { gold: 200,  mana: 100 },
+  { gold: 500,  mana: 250 },
+  { gold: 1000, mana: 500 },
+  { gold: 2000, mana: 1000 },
+  { gold: 4000, mana: 2000 },
+]
 /** Duración del crafteo de una poción en milisegundos. */
 export const POTION_CRAFT_DURATION_MS = 30 * 60 * 1000
 /** Duración del crafteo de una runa en milisegundos. */

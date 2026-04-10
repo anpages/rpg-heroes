@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { snapshotResources } from './_validate.js'
 import { MAX_POTION_STACK } from './_constants.js'
 
 export default async function handler(req, res) {
@@ -7,27 +7,15 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId, potionId } = req.body
-  if (!heroId)   return res.status(400).json({ error: 'heroId requerido' })
+  const { potionId } = req.body
   if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
-  if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
   if (typeof potionId !== 'string' || potionId.length > 50) return res.status(400).json({ error: 'potionId inválido' })
-
-  // Verificar héroe
-  const { data: hero } = await supabase
-    .from('heroes')
-    .select('id, player_id')
-    .eq('id', heroId)
-    .single()
-
-  if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
   // Verificar que esta poción no esté ya crafteándose
   const { data: activeCraft } = await supabase
-    .from('potion_crafting')
+    .from('player_potion_crafting')
     .select('craft_ends_at')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
     .maybeSingle()
 
@@ -57,9 +45,9 @@ export default async function handler(req, res) {
 
   // Verificar stack actual
   const { data: existing } = await supabase
-    .from('hero_potions')
+    .from('player_potions')
     .select('quantity')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
     .single()
 
@@ -99,9 +87,9 @@ export default async function handler(req, res) {
       last_collected_at: snap.nowIso,
     }).eq('player_id', user.id).eq('last_collected_at', snap.prevCollectedAt),
 
-    supabase.from('potion_crafting').upsert(
-      { hero_id: heroId, potion_id: potionId, craft_ends_at: craftEndsAt },
-      { onConflict: 'hero_id,potion_id' }
+    supabase.from('player_potion_crafting').upsert(
+      { player_id: user.id, potion_id: potionId, craft_ends_at: craftEndsAt },
+      { onConflict: 'player_id,potion_id' }
     ),
   ])
 

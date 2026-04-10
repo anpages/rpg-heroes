@@ -1,7 +1,8 @@
 import { useState, useEffect, useReducer } from 'react'
-import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle } from 'lucide-react'
+import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle, Package, ArrowUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
+import { LAB_INVENTORY_BASE, LAB_INVENTORY_PER_UPGRADE, LAB_INVENTORY_MAX_UPGRADES, LAB_INVENTORY_UPGRADE_COSTS, MAX_POTION_STACK } from '../../lib/gameConstants.js'
 import ScrollHint from '../../components/ScrollHint.jsx'
 
 function formatMs(ms) {
@@ -74,12 +75,133 @@ const RUNE_FILTER_LABELS = {
   multi:        'Combinadas',
 }
 
+/* ─── Inventario del Laboratorio ─────────────────────────────────────────────── */
+
+export function LabInventory({ potions, runesCatalog, runesInventory, resources, onUpgrade, upgradePending }) {
+  const upgrades = resources?.lab_inventory_upgrades ?? 0
+  const capacity = LAB_INVENTORY_BASE + upgrades * LAB_INVENTORY_PER_UPGRADE
+  const canUpgrade = upgrades < LAB_INVENTORY_MAX_UPGRADES
+
+  // Items con stock > 0
+  const potionItems = (potions ?? []).filter(p => p.quantity > 0)
+  const runeInvMap = Object.fromEntries((runesInventory ?? []).map(r => [r.rune_id, r.quantity]))
+  const runeItems = (runesCatalog ?? []).filter(r => (runeInvMap[r.id] ?? 0) > 0).map(r => ({
+    ...r,
+    quantity: runeInvMap[r.id],
+    _isRune: true,
+  }))
+
+  const allItems = [
+    ...potionItems.map(p => ({ ...p, _isRune: false })),
+    ...runeItems,
+  ]
+  const totalUsed = allItems.reduce((s, i) => s + i.quantity, 0)
+
+  const upgradeCost = canUpgrade ? LAB_INVENTORY_UPGRADE_COSTS[upgrades] : null
+  const canAffordUpgrade = upgradeCost && resources
+    && (resources.gold ?? 0) >= (upgradeCost.gold ?? 0)
+    && (resources.mana ?? 0) >= (upgradeCost.mana ?? 0)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-3 flex items-center gap-1.5">
+          <Package size={12} strokeWidth={2} />
+          Inventario
+        </p>
+        <span className="text-[12px] font-semibold text-text-2">
+          {totalUsed} <span className="text-text-3">/ {capacity}</span>
+        </span>
+      </div>
+
+      {/* Barra de capacidad */}
+      <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-[width] duration-300"
+          style={{
+            width: `${Math.min(100, (totalUsed / capacity) * 100)}%`,
+            background: totalUsed >= capacity ? '#dc2626' : totalUsed >= capacity * 0.8 ? '#d97706' : '#2563eb',
+          }}
+        />
+      </div>
+
+      {allItems.length === 0 ? (
+        <p className="text-[13px] text-text-3 text-center py-4">
+          Aún no has crafteado nada
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {allItems.map(item => {
+            const isRune = item._isRune
+            const color = isRune
+              ? (RUNE_BONUS_COLORS[item.bonuses?.[0]?.stat] ?? '#475569')
+              : (EFFECT_COLOR[item.effect_type] ?? '#475569')
+
+            return (
+              <div
+                key={isRune ? `r-${item.id}` : `p-${item.id}`}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-surface"
+              >
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-[12px] font-extrabold"
+                  style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
+                >
+                  {item.quantity}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-text truncate">{item.name}</p>
+                  <p className="text-[10px] text-text-3 truncate">
+                    {isRune ? 'Runa' : 'Poción'}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Botón de ampliar */}
+      {canUpgrade && (
+        <motion.button
+          className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-border bg-surface text-[12px] font-semibold text-text-2 transition-colors hover:bg-surface-2 disabled:opacity-40"
+          onClick={onUpgrade}
+          disabled={!canAffordUpgrade || upgradePending}
+          whileTap={!canAffordUpgrade || upgradePending ? {} : { scale: 0.98 }}
+        >
+          <ArrowUp size={12} strokeWidth={2.5} />
+          Ampliar a {capacity + LAB_INVENTORY_PER_UPGRADE}
+          <span className="flex items-center gap-1.5 ml-1">
+            {(upgradeCost.gold ?? 0) > 0 && (
+              <span className={`flex items-center gap-[2px] ${(resources?.gold ?? 0) >= upgradeCost.gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                <Coins size={10} strokeWidth={2} />{upgradeCost.gold}
+              </span>
+            )}
+            {(upgradeCost.mana ?? 0) > 0 && (
+              <span className={`flex items-center gap-[2px] ${(resources?.mana ?? 0) >= upgradeCost.mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                <Sparkles size={10} strokeWidth={2} />{upgradeCost.mana}
+              </span>
+            )}
+          </span>
+        </motion.button>
+      )}
+    </div>
+  )
+}
+
 /* ─── Sección de Pociones ────────────────────────────────────────────────────── */
 
 export function LaboratorySection({ labLevel, potions, craftingMap, craftPending, collectPending, resources, onCraft, onCollect, isUpgrading = false }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
   const hasAnyCrafting = Object.values(craftingMap).some(c => new Date(c.craft_ends_at) > new Date())
   useTickWhileActive(hasAnyCrafting)
+
+  // Total actual en inventario
+  const totalInInventory = potions.reduce((s, p) => s + p.quantity, 0)
+  const upgrades = resources?.lab_inventory_upgrades ?? 0
+  const capacity = LAB_INVENTORY_BASE + upgrades * LAB_INVENTORY_PER_UPGRADE
+  // Contar runas también (se pasan aparte, aquí solo limitamos por pociones+runas totales)
+  // El check de inventario lleno se hará a nivel de item individual con MAX_POTION_STACK
+  // y a nivel global con la capacidad total
 
   // Ordenar categorías por min_lab_level de su primera aparición
   const typeFirst = {}
@@ -142,8 +264,8 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
           const isReady    = remaining !== null && remaining <= 0
           const isCrafting = remaining !== null && remaining > 0
           const affordable = canAfford(p)
-          const full       = p.quantity >= 5
-          const disabled   = !affordable || full || isCrafting || craftPending || isUpgrading
+          const stackFull  = p.quantity >= MAX_POTION_STACK
+          const disabled   = !affordable || stackFull || isCrafting || craftPending || isUpgrading
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
 
           const totalMs  = (p.craft_minutes ?? 30) * 60_000
@@ -163,10 +285,10 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
             >
               <div className="flex items-center gap-3 px-3 py-2.5">
                 <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[14px] font-extrabold"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[14px]"
                   style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
                 >
-                  {p.quantity}
+                  <Flame size={16} strokeWidth={2} />
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -232,7 +354,7 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
                     onClick={() => onCraft(p.id)}
                     disabled={disabled}
                     whileTap={disabled ? {} : { scale: 0.96 }}
-                    title={full ? 'Inventario lleno' : isCrafting ? 'Crafteando...' : !affordable ? 'Recursos insuficientes' : undefined}
+                    title={stackFull ? 'Máximo alcanzado' : isCrafting ? 'Crafteando...' : !affordable ? 'Recursos insuficientes' : undefined}
                   >
                     <Plus size={13} strokeWidth={2.5} />
                   </motion.button>
@@ -351,7 +473,6 @@ export function RunesSection({ labLevel, catalog, inventory, resources, crafting
           const isReady    = remaining !== null && remaining <= 0
           const isCrafting = remaining !== null && remaining > 0
           const affordable = canAfford(r)
-          const qty        = inventoryMap[r.id] ?? 0
           const mainBonus  = r.bonuses?.[0]
           const color      = RUNE_BONUS_COLORS[mainBonus?.stat] ?? '#475569'
           const disabled   = !affordable || isCrafting || craftPending || isUpgrading
@@ -373,10 +494,10 @@ export function RunesSection({ labLevel, catalog, inventory, resources, crafting
             >
               <div className="flex items-center gap-3 px-3 py-2.5">
                 <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px] font-extrabold"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px]"
                   style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
                 >
-                  {qty > 0 ? qty : '✦'}
+                  ✦
                 </div>
 
                 <div className="flex-1 min-w-0">

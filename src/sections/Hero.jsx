@@ -881,14 +881,14 @@ function Hero() {
   const potionMutation = useMutation({
     mutationFn: (potionId) => apiPost('/api/potion-use', { heroId: hero?.id, potionId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(hero?.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       toast.success('¡Poción usada!')
     },
     onError: err => toast.error(err.message),
   })
 
-  const { potions } = usePotions(hero?.id)
+  const { potions } = usePotions(userId)
   const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
 
   const mutationPending = itemMutation.isPending

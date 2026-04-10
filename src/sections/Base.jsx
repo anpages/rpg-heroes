@@ -32,8 +32,8 @@ export default function Base({ mainRef }) {
   const { resources }          = useResources(userId)
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
-  const { potions, craftingMap: potionCraftingMap }              = usePotions(heroId)
-  const { catalog: runesCatalog, inventory: runesInventory, craftingMap: runeCraftingMap } = useHeroRunes(heroId)
+  const { potions, craftingMap: potionCraftingMap }              = usePotions(userId)
+  const { catalog: runesCatalog, inventory: runesInventory, craftingMap: runeCraftingMap } = useHeroRunes(userId)
   const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('inicio')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
@@ -57,9 +57,9 @@ export default function Base({ mainRef }) {
 
   const craftMutation = useMutation({
     mutationFn: async (potionId) => {
-      await apiPost('/api/potion-craft', { heroId, potionId })
+      await apiPost('/api/potion-craft', { potionId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.potions(heroId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
@@ -69,8 +69,8 @@ export default function Base({ mainRef }) {
 
   const collectPotionMutation = useMutation({
     mutationFn: async (potionId) => {
-      await apiPost('/api/potion-collect', { heroId, potionId })
-      await queryClient.refetchQueries({ queryKey: queryKeys.potions(heroId) })
+      await apiPost('/api/potion-collect', { potionId })
+      await queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) })
     },
     onSuccess: () => toast.success('¡Poción recogida!'),
     onError: err => toast.error(err.message),
@@ -78,9 +78,9 @@ export default function Base({ mainRef }) {
 
   const runeCraftMutation = useMutation({
     mutationFn: async (runeId) => {
-      await apiPost('/api/rune-craft', { heroId, runeId })
+      await apiPost('/api/rune-craft', { runeId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(heroId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
@@ -90,10 +90,19 @@ export default function Base({ mainRef }) {
 
   const collectRuneMutation = useMutation({
     mutationFn: async (runeId) => {
-      await apiPost('/api/rune-collect', { heroId, runeId })
-      await queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(heroId) })
+      await apiPost('/api/rune-collect', { runeId })
+      await queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(userId) })
     },
     onSuccess: () => toast.success('¡Runa recogida!'),
+    onError: err => toast.error(err.message),
+  })
+
+  const labInventoryUpgradeMutation = useMutation({
+    mutationFn: async () => {
+      await apiPost('/api/lab-inventory-upgrade', {})
+      await queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) })
+    },
+    onSuccess: () => toast.success('¡Inventario del laboratorio ampliado!'),
     onError: err => toast.error(err.message),
   })
 
@@ -258,6 +267,8 @@ export default function Base({ mainRef }) {
               runeCraftPending={runeCraftMutation.isPending}
               runeCollectPending={collectRuneMutation.isPending}
               onRuneCollect={(runeId) => collectRuneMutation.mutate(runeId)}
+              onLabInventoryUpgrade={() => labInventoryUpgradeMutation.mutate()}
+              labInventoryUpgradePending={labInventoryUpgradeMutation.isPending}
               anyUpgrading={laboratorioUpgrading}
               {...sharedBuildingProps}
             />

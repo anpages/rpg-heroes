@@ -224,7 +224,7 @@ function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId,
 
       {/* Pociones de combate */}
       <div className="px-4 pb-2">
-        <PotionPanel heroId={heroId} activeEffects={activeEffects} />
+        <PotionPanel heroId={heroId} userId={userId} activeEffects={activeEffects} />
       </div>
 
       {/* CTA */}

@@ -188,7 +188,7 @@ export default function QuickCombat() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items }  = useInventory(hero?.id)
   const { cards }  = useHeroCards(hero?.id)
-  const { potions }  = usePotions(hero?.id)
+  const { potions }  = usePotions(userId)
   const [matchmaking, setMatchmaking] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
   const [result, setResult] = useState(null)
@@ -199,7 +199,7 @@ export default function QuickCombat() {
     mutationFn: async (potionId) => {
       await apiPost('/api/potion-use', { heroId: hero?.id, potionId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.potions(hero?.id) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
       ])
     },
@@ -410,7 +410,7 @@ export default function QuickCombat() {
           )
         })()}
 
-        <PotionPanel heroId={heroId} activeEffects={hero?.active_effects ?? {}} />
+        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} />
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"

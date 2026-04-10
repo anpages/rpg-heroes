@@ -1,25 +1,19 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { snapshotResources } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId, runeId } = req.body
-  if (!heroId || !isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
+  const { runeId } = req.body
   if (!runeId || typeof runeId !== 'number' || !Number.isInteger(runeId) || runeId < 1) return res.status(400).json({ error: 'runeId inválido' })
-
-  // Verificar héroe
-  const { data: hero } = await supabase
-    .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).maybeSingle()
-  if (!hero) return res.status(403).json({ error: 'Forbidden' })
 
   // Verificar que esta runa no esté ya crafteándose
   const { data: activeCraft } = await supabase
-    .from('rune_crafting')
+    .from('player_rune_crafting')
     .select('craft_ends_at')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('rune_id', runeId)
     .maybeSingle()
 
@@ -72,9 +66,9 @@ export default async function handler(req, res) {
       last_collected_at: snap.nowIso,
     }).eq('player_id', user.id).eq('last_collected_at', snap.prevCollectedAt),
 
-    supabase.from('rune_crafting').upsert(
-      { hero_id: heroId, rune_id: runeId, craft_ends_at: craftEndsAt },
-      { onConflict: 'hero_id,rune_id' }
+    supabase.from('player_rune_crafting').upsert(
+      { player_id: user.id, rune_id: runeId, craft_ends_at: craftEndsAt },
+      { onConflict: 'player_id,rune_id' }
     ),
   ])
 

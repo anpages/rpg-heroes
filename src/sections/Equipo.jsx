@@ -364,7 +364,7 @@ export default function Equipo() {
   const isExploring = hero?.status === 'exploring'
   const { items }   = useInventory(heroId)
   const { cards }   = useHeroCards(heroId)
-  const { inventory: runeInventory } = useHeroRunes(heroId)
+  const { inventory: runeInventory } = useHeroRunes(userId)
   const { resources } = useResources(userId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
@@ -446,7 +446,7 @@ export default function Equipo() {
       apiPost('/api/rune-insert', { heroId, inventoryItemId, slotIndex, runeId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(userId) })
       toast.success('¡Runa incrustada!')
     },
     onError: err => toast.error(err.message),

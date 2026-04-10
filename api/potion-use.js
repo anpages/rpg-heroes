@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
 
-  // Verificar héroe (columnas correctas: current_hp, hp_last_updated_at)
+  // Verificar héroe
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
     .select('id, player_id, max_hp, current_hp, hp_last_updated_at, status, active_effects')
@@ -23,11 +23,11 @@ export default async function handler(req, res) {
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en expedición' })
 
-  // Verificar inventario
+  // Verificar inventario del jugador (compartido)
   const { data: stock } = await supabase
-    .from('hero_potions')
+    .from('player_potions')
     .select('quantity')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
     .single()
 
@@ -42,11 +42,11 @@ export default async function handler(req, res) {
 
   if (!potion) return res.status(404).json({ error: 'Poción no encontrada' })
 
-  // Descontar del inventario
+  // Descontar del inventario del jugador
   await supabase
-    .from('hero_potions')
+    .from('player_potions')
     .update({ quantity: stock.quantity - 1 })
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('potion_id', potionId)
 
   let heroUpdate = {}

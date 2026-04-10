@@ -21,6 +21,7 @@ function interpolate(resources) {
     wood_rate: resources.wood_rate,
     mana_rate: resources.mana_rate,
     bag_extra_slots: resources.bag_extra_slots ?? 0,
+    lab_inventory_upgrades: resources.lab_inventory_upgrades ?? 0,
   }
 }
 

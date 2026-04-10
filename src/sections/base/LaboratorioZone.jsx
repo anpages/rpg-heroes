@@ -4,9 +4,9 @@ import { LAB_BASE_LEVEL_REQUIRED, RUNE_MIN_LAB_LEVEL } from '../../lib/gameConst
 import { cardVariants, BUILDING_META } from './constants.js'
 import { baseLevelFromMap } from './helpers.js'
 import { BuildingCard } from './BuildingCard.jsx'
-import { LaboratorySection, RunesSection } from './LaboratorySection.jsx'
+import { LaboratorySection, RunesSection, LabInventory } from './LaboratorySection.jsx'
 
-export default function LaboratorioZone({ byType, effectiveResources, potions, potionCraftingMap, runesCatalog, runesInventory, runeCraftingMap, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, collectPending, onCraft, onCollect, onRuneCraft, runeCraftPending, runeCollectPending, onRuneCollect }) {
+export default function LaboratorioZone({ byType, effectiveResources, potions, potionCraftingMap, runesCatalog, runesInventory, runeCraftingMap, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, collectPending, onCraft, onCollect, onRuneCraft, runeCraftPending, runeCollectPending, onRuneCollect, onLabInventoryUpgrade, labInventoryUpgradePending }) {
   const lab       = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
 
@@ -58,6 +58,18 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, p
 
       {lab.level >= 1 && (
         <div className="flex flex-col gap-4">
+          {/* Inventario del laboratorio */}
+          <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
+            <LabInventory
+              potions={potions}
+              runesCatalog={runesCatalog}
+              runesInventory={runesInventory}
+              resources={effectiveResources}
+              onUpgrade={onLabInventoryUpgrade}
+              upgradePending={labInventoryUpgradePending}
+            />
+          </div>
+
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
             <LaboratorySection
               labLevel={lab.level}

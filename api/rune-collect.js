@@ -1,27 +1,18 @@
 import { requireAuth } from './_auth.js'
-import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId } = req.body
-  if (!heroId || !isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
-
-  // Verificar héroe
-  const { data: hero } = await supabase
-    .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).maybeSingle()
-  if (!hero) return res.status(403).json({ error: 'Forbidden' })
-
   const { runeId } = req.body
   if (!runeId) return res.status(400).json({ error: 'runeId requerido' })
 
   // Obtener crafteo activo de esta runa
   const { data: craft } = await supabase
-    .from('rune_crafting')
+    .from('player_rune_crafting')
     .select('rune_id, craft_ends_at')
-    .eq('hero_id', heroId)
+    .eq('player_id', user.id)
     .eq('rune_id', runeId)
     .maybeSingle()
 
@@ -32,14 +23,14 @@ export default async function handler(req, res) {
 
   // Incrementar inventario de runas
   const { data: existing } = await supabase
-    .from('hero_runes').select('id, quantity')
-    .eq('hero_id', heroId).eq('rune_id', runeId).maybeSingle()
+    .from('player_runes').select('quantity')
+    .eq('player_id', user.id).eq('rune_id', runeId).maybeSingle()
 
   const [upsertResult, deleteResult] = await Promise.all([
     existing
-      ? supabase.from('hero_runes').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
-      : supabase.from('hero_runes').insert({ hero_id: heroId, rune_id: runeId, quantity: 1 }),
-    supabase.from('rune_crafting').delete().eq('hero_id', heroId).eq('rune_id', runeId),
+      ? supabase.from('player_runes').update({ quantity: existing.quantity + 1 }).eq('player_id', user.id).eq('rune_id', runeId)
+      : supabase.from('player_runes').insert({ player_id: user.id, rune_id: runeId, quantity: 1 }),
+    supabase.from('player_rune_crafting').delete().eq('player_id', user.id).eq('rune_id', runeId),
   ])
 
   if (upsertResult.error) return res.status(500).json({ error: upsertResult.error.message })

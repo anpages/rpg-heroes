@@ -15,14 +15,14 @@ const BOOST_META = {
   def_boost: { label: 'DEF +%', icon: ShieldCheck,  color: '#16a34a' },
 }
 
-export function PotionPanel({ heroId, activeEffects = {} }) {
+export function PotionPanel({ heroId, userId, activeEffects = {} }) {
   const queryClient = useQueryClient()
-  const { potions } = usePotions(heroId)
+  const { potions } = usePotions(userId)
 
   const useMut = useMutation({
     mutationFn: (potionId) => apiPost('/api/potion-use', { heroId, potionId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       toast.success('¡Poción activada!')
     },
