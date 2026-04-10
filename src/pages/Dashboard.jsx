@@ -283,8 +283,10 @@ function Dashboard({ session }) {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeTab])
 
-  const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
-  const anyHeroExploring = !anyHeroReady && heroes.some(h => h.status === 'exploring')
+  const selectedHero     = heroes.find(h => h.id === heroId)
+  const selectedStatus   = selectedHero ? getHeroDerivedStatus(selectedHero, now) : null
+  const anyHeroReady     = selectedStatus === 'ready'
+  const anyHeroExploring = selectedStatus === 'exploring'
 
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
@@ -320,20 +322,35 @@ function Dashboard({ session }) {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-bg overflow-hidden">
+    <div className="h-dvh flex flex-col world-bg overflow-hidden">
 
       {/* Header */}
-      <header className="flex items-center justify-between px-6 h-14 bg-surface border-b border-border shadow-[var(--shadow-sm)] sticky top-0 z-[100] flex-shrink-0">
-        <span
-          className="font-hero font-bold text-[26px] tracking-[0.02em] flex-shrink-0"
-          style={{
-            background: 'linear-gradient(120deg, #3b82f6 0%, #2563eb 50%, #1e3a8a 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}
-        >
-          RPG Legends
+      <header className="flex items-center justify-between px-6 h-14 glass-header sticky top-0 z-[100] flex-shrink-0">
+        <span className="flex items-center gap-1.5 flex-shrink-0">
+          <svg width="22" height="26" viewBox="120 40 272 400" className="flex-shrink-0">
+            <polygon points="256,52 237,220 275,220" fill="#2563eb" />
+            <line x1="256" y1="60" x2="256" y2="212" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+            <rect x="142" y="220" width="228" height="30" rx="15" fill="#2563eb" />
+            <circle cx="142" cy="235" r="20" fill="#2563eb" />
+            <circle cx="370" cy="235" r="20" fill="#2563eb" />
+            <rect x="241" y="250" width="30" height="108" rx="15" fill="#2563eb" />
+            <line x1="241" y1="277" x2="271" y2="277" stroke="rgba(255,255,255,0.15)" strokeWidth="5" />
+            <line x1="241" y1="303" x2="271" y2="303" stroke="rgba(255,255,255,0.15)" strokeWidth="5" />
+            <line x1="241" y1="329" x2="271" y2="329" stroke="rgba(255,255,255,0.15)" strokeWidth="5" />
+            <polygon points="256,361 292,394 256,427 220,394" fill="#2563eb" />
+            <polygon points="256,371 282,394 256,417 230,394" fill="#2563eb" opacity="0.5" />
+          </svg>
+          <span
+            className="font-display text-[28px] tracking-[0.1em] leading-none"
+            style={{
+              background: 'linear-gradient(180deg, #2563eb 46%, transparent 46%, transparent 49%, #2563eb 49%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            RPG LEGENDS
+          </span>
         </span>
 
         <div className="flex-1" />
@@ -367,7 +384,7 @@ function Dashboard({ session }) {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Sidebar — desktop only */}
-        <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-surface border-r border-border flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
+        <aside className="hidden md:flex w-[220px] flex-shrink-0 glass-sidebar border-r-0 flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
           <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
               const badge    = badgeState(id)
@@ -379,13 +396,13 @@ function Dashboard({ session }) {
                   className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative
                     ${isActive
                       ? 'text-[var(--blue-700)] font-semibold hover:bg-transparent'
-                      : 'text-text-2 hover:bg-bg hover:text-text'
+                      : 'text-text-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-text'
                     }`}
                   onClick={() => navigateTo(id)}
                 >
                   {isActive && (
                     <motion.span
-                      className="absolute inset-0 rounded-lg bg-[var(--blue-50)] z-0"
+                      className="absolute inset-0 rounded-lg nav-active-indicator z-0"
                       layoutId="nav-indicator"
                       transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                     />
@@ -400,11 +417,12 @@ function Dashboard({ session }) {
                 </button>
               )
             })}
+            <div className="sidebar-separator mt-auto" />
             <a
               href="https://discord.gg/WKeRr7m5"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 px-3 py-[10px] rounded-lg text-[14px] font-medium text-text-2 hover:bg-bg hover:text-text transition-[background,color] duration-150 mt-auto"
+              className="flex items-center gap-3 px-3 py-[10px] rounded-lg text-[14px] font-medium text-text-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-text transition-[background,color] duration-150"
             >
               <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                 <DiscordIcon size={18} />
@@ -531,7 +549,7 @@ function Dashboard({ session }) {
       </div>
 
       {/* Bottom nav — mobile only */}
-      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: '4rem' }}>
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 glass-nav z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: '4rem' }}>
         {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
           const badge = badgeState(id)
           const isActive = activeTab === id
@@ -539,7 +557,7 @@ function Dashboard({ session }) {
           return (
             <button
               key={id}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium transition-[color,background] duration-150 py-2 px-1 hover:bg-bg
+              className={`flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium transition-[color,background] duration-150 py-2 px-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]
                 ${isActive ? 'text-[var(--blue-600)] font-semibold' : 'text-text-3'}`}
               onClick={() => navigateTo(id)}
             >
@@ -557,7 +575,7 @@ function Dashboard({ session }) {
           href="https://discord.gg/WKeRr7m5"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium text-text-3 hover:bg-bg transition-[color,background] duration-150 py-2 px-1"
+          className="flex-1 flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-medium text-text-3 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-[color,background] duration-150 py-2 px-1"
         >
           <span className="w-[22px] h-[22px] flex items-center justify-center">
             <DiscordIcon size={20} />
