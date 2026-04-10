@@ -541,6 +541,11 @@ export default function Equipo() {
     return b
   }, [cards, runeBonus])
 
+  const damagedEquipped = useMemo(() =>
+    (items ?? []).filter(i => i.equipped_slot && i.current_durability < i.item_catalog.max_durability),
+    [items]
+  )
+
   if (!hero) {
     return (
       <div className="flex items-center justify-center h-40 text-text-3 text-[13px]">
@@ -570,11 +575,6 @@ export default function Equipo() {
       },
     })
   }
-
-  const damagedEquipped = useMemo(() =>
-    (items ?? []).filter(i => i.equipped_slot && i.current_durability < i.item_catalog.max_durability),
-    [items]
-  )
 
   function handleRepairAll() {
     const totalCost = damagedEquipped.reduce((sum, item) => {

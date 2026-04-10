@@ -7,12 +7,10 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
-import { useResearch } from '../hooks/useResearch'
 import { usePotions } from '../hooks/usePotions'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { computeResearchBonuses } from '../lib/gameConstants'
 import { trainingRewards } from '../lib/gameFormulas'
 import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -190,10 +188,7 @@ export default function QuickCombat() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items }  = useInventory(hero?.id)
   const { cards }  = useHeroCards(hero?.id)
-  const { research } = useResearch(userId)
   const { potions }  = usePotions(hero?.id)
-  const rb = computeResearchBonuses(research.completed)
-
   const [matchmaking, setMatchmaking] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
   const [result, setResult] = useState(null)
@@ -280,15 +275,7 @@ export default function QuickCombat() {
     combatMutation.mutate()
   }
 
-  const handleMatchmakingReady = useCallback(() => {
-    // Wait for API if not done yet
-    if (pendingResult) {
-      setMatchmaking(false)
-      setResult(pendingResult)
-      setPendingResult(null)
-      if (pendingResult.won) triggerResourceFlash()
-    }
-  }, [pendingResult, triggerResourceFlash])
+
 
   // If matchmaking finished but API was slow, show result once ready
   const [waitingForApi, setWaitingForApi] = useState(false)
