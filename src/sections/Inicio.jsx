@@ -25,7 +25,7 @@ const URGENCY = {
   info:      { border: 'var(--border)', icon: 'var(--text-3)', bg: 'var(--surface)' },
 }
 
-const STATUS_DOT  = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
+const STATUS_DOT  = { idle: '#16a34a', exploring: '#d97706', in_chamber: '#d97706', ready: '#16a34a' }
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 
@@ -40,10 +40,14 @@ function fmtDuration(ms) {
 }
 
 function getDerivedStatus(hero, now) {
-  if (hero.status === 'exploring') {
-    const active = hero.expeditions?.find(e => e.status === 'traveling')
-    if (active && new Date(active.ends_at) <= now) return 'ready'
-  }
+  const activeExp     = hero.expeditions?.find(e => e.status === 'traveling')
+  const activeChamber = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
+  const expReady      = activeExp     && new Date(activeExp.ends_at) <= now
+  const chamberReady  = activeChamber && (activeChamber.status === 'awaiting_choice' || new Date(activeChamber.ends_at) <= now)
+
+  if (expReady || chamberReady) return 'ready'
+  if (activeExp)               return 'exploring'
+  if (activeChamber)           return 'in_chamber'
   return hero.status
 }
 
@@ -55,20 +59,23 @@ function HeroCard({ hero, now, onClick, index }) {
   const hpPct   = Math.min(100, Math.round((hpNow / hero.max_hp) * 100))
   const hpColor = hpPct >= 60 ? '#16a34a' : hpPct >= 30 ? '#d97706' : '#dc2626'
 
-  const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
-  const msLeft    = activeExp ? Math.max(0, new Date(activeExp.ends_at) - now) : 0
-  const isFullHp  = hpNow >= hero.max_hp
+  const activeExp     = hero.expeditions?.find(e => e.status === 'traveling')
+  const activeChamber = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
+  const expMsLeft     = activeExp     ? Math.max(0, new Date(activeExp.ends_at) - now)     : 0
+  const chamberMsLeft = activeChamber ? Math.max(0, new Date(activeChamber.ends_at) - now) : 0
+  const isFullHp      = hpNow >= hero.max_hp
 
-  const StatusIcon = status === 'ready' || status === 'exploring' ? Map
+  const StatusIcon = status === 'ready' || status === 'exploring' || status === 'in_chamber' ? Map
     : isFullHp ? Sword : Moon
 
   const statusColor = status === 'ready' ? '#16a34a'
-    : status === 'exploring' ? '#d97706'
+    : status === 'exploring' || status === 'in_chamber' ? '#d97706'
     : isFullHp ? '#2563eb' : '#94a3b8'
 
-  const statusText = status === 'ready'     ? 'Misión completada — recoge la recompensa'
-    : status === 'exploring' ? `Explorando · ${fmtDuration(msLeft)} restante`
-    : isFullHp               ? 'Disponible — listo para explorar'
+  const statusText = status === 'ready'      ? 'Misión completada — recoge la recompensa'
+    : status === 'exploring'  ? `Explorando · ${fmtDuration(expMsLeft)} restante`
+    : status === 'in_chamber' ? `En cámara · ${fmtDuration(chamberMsLeft)} restante`
+    : isFullHp                ? 'Disponible — listo para explorar'
     : `Recuperando HP · ${hpPct}% · ${fmtDuration(Math.ceil((hero.max_hp - hpNow) / (hero.max_hp / 60)) * 60000)}`
 
   return (

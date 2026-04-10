@@ -38,15 +38,42 @@ function randomName() {
   return HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)]
 }
 
-const SLOT_UNLOCK      = HERO_SLOT_REQUIREMENTS
-const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
-const STATUS_LABEL     = { idle: 'Reposo', exploring: 'Explorando', ready: '¡Recoger!' }
+const SLOT_UNLOCK = HERO_SLOT_REQUIREMENTS
+const STATUS_COLOR = {
+  idle:        '#16a34a',
+  exploring:   '#d97706',
+  in_chamber:  '#d97706',
+  ready:       '#16a34a',
+}
+const STATUS_LABEL = {
+  idle:        'Reposo',
+  exploring:   'Explorando',
+  in_chamber:  'En cámara',
+  ready:       '¡Recoger!',
+}
 
+/**
+ * Estado de cabecera del héroe — diferencia entre expedición y cámara.
+ * Si hay algo "ready" (expedición o cámara), tiene prioridad sobre "exploring".
+ */
 function getDerivedStatus(hero) {
-  if (hero.status === 'exploring') {
-    const active = hero.expeditions?.find(e => e.status === 'traveling')
-    if (active && new Date(active.ends_at) <= new Date()) return 'ready'
-  }
+  const now = new Date()
+
+  // Cámara con cofres listos o esperando elección → ready (verde)
+  const activeChamber = (hero.chamber_runs ?? []).find(
+    c => c.status === 'active' || c.status === 'awaiting_choice',
+  )
+  const chamberReady = activeChamber && (
+    activeChamber.status === 'awaiting_choice' || new Date(activeChamber.ends_at) <= now
+  )
+
+  // Expedición lista para recoger → ready
+  const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
+  const expReady  = activeExp && new Date(activeExp.ends_at) <= now
+
+  if (expReady || chamberReady) return 'ready'
+  if (activeExp)               return 'exploring'   // en expedición
+  if (activeChamber)           return 'in_chamber'  // en cámara
   return hero.status
 }
 
@@ -59,6 +86,15 @@ export function HeroSelector() {
   const selectedHeroId  = useAppStore(s => s.selectedHeroId)
   const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
   const setRecruitOpen  = useAppStore(s => s.setRecruitOpen)
+  const activeTab          = useAppStore(s => s.activeTab)
+  const navigateToHeroTab  = useAppStore(s => s.navigateToHeroTab)
+  const navigateToWorldTab = useAppStore(s => s.navigateToWorldTab)
+
+  function handleSelectHero(id) {
+    setSelectedHeroId(id)
+    if (activeTab === 'mundo')       navigateToWorldTab('practica')
+    else if (activeTab === 'heroes') navigateToHeroTab('ficha')
+  }
 
   const { heroes }    = useHeroes(userId)
   const { buildings } = useBuildings(userId)
@@ -94,7 +130,7 @@ export function HeroSelector() {
                     ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
                     : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
                 }`}
-              onClick={() => setSelectedHeroId(hero.id)}
+              onClick={() => handleSelectHero(hero.id)}
             >
               <span
                 className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}

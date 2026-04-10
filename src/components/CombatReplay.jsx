@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Coins, Star, Zap } from 'lucide-react'
+import { Coins, Star, Zap, Loader } from 'lucide-react'
+import { COMBAT_DECISIONS } from '../lib/combatDecisions'
 
 const SPEEDS = [
   { label: '×1', ms: 500 },
@@ -105,6 +106,68 @@ function EventRow({ ev, heroName, enemyName, index }) {
   )
 }
 
+function KeyMomentPanel({ decisions, onDecide, loading }) {
+  return (
+    <motion.div
+      className="flex flex-col items-center justify-center gap-4 px-5 py-6 flex-1"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="text-center">
+        <motion.span
+          className="text-[40px] leading-none select-none block mb-1"
+          initial={{ scale: 0.5 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+        >
+          ⚡
+        </motion.span>
+        <p className="text-[20px] font-extrabold text-text tracking-tight">¡Momento clave!</p>
+        <p className="text-[12px] text-text-3 mt-1">El destino del combate está en tus manos</p>
+      </div>
+
+      <div className="flex flex-col gap-2.5 w-full max-w-[340px]">
+        {(decisions ?? []).map(key => {
+          const dec = COMBAT_DECISIONS[key]
+          if (!dec) return null
+          return (
+            <motion.button
+              key={key}
+              className="flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-[transform,background] disabled:opacity-50"
+              style={{
+                borderColor: dec.color,
+                background: `color-mix(in srgb, ${dec.color} 8%, var(--surface))`,
+              }}
+              onClick={() => !loading && onDecide?.(key)}
+              disabled={loading}
+              whileHover={loading ? {} : { scale: 1.02 }}
+              whileTap={loading ? {} : { scale: 0.98 }}
+            >
+              <span className="text-[26px] leading-none flex-shrink-0">{dec.icon}</span>
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <span className="text-[14px] font-extrabold" style={{ color: dec.color }}>
+                  {dec.label}
+                </span>
+                <span className="text-[11px] text-text-2 font-medium leading-tight">
+                  {dec.description}
+                </span>
+              </div>
+            </motion.button>
+          )
+        })}
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-[12px] text-text-3">
+          <Loader size={12} className="animate-spin" />
+          Resolviendo combate...
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 function ResultPanel({ won, rewards, onClose }) {
   return (
     <motion.div
@@ -163,16 +226,24 @@ function ResultPanel({ won, rewards, onClose }) {
  * Modal de replay de combate.
  *
  * Props:
- *   heroName    {string}
- *   enemyName   {string}
- *   heroMaxHp   {number}  — max_hp efectivo usado en el combate
- *   enemyMaxHp  {number}
- *   log         {Round[]} — resultado de simulateCombat
- *   won         {boolean}
- *   rewards     {object|null}
- *   onClose     {() => void}
+ *   heroName       {string}
+ *   enemyName      {string}
+ *   heroMaxHp      {number}  — max_hp efectivo usado en el combate
+ *   enemyMaxHp     {number}
+ *   log            {Round[]} — resultado de simulateCombat (puede crecer si hay Momento clave)
+ *   won            {boolean}
+ *   rewards        {object|null}
+ *   onClose        {() => void}
+ *   keyMomentPause {boolean}  — true si el log actual es parcial y hay decisión pendiente
+ *   decisions      {string[]} — opciones del Momento clave a mostrar al final del log parcial
+ *   onDecide       {(key) => void}
+ *   resolving      {boolean}  — true mientras se resuelve la decisión en el servidor
  */
-export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, won, rewards, onClose }) {
+export function CombatReplay({
+  heroName, enemyName, heroMaxHp, enemyMaxHp, log,
+  won, rewards, onClose,
+  keyMomentPause, decisions, onDecide, resolving,
+}) {
   // Aplanar todas las rondas en un array secuencial de eventos
   const allEvents = (log ?? []).flatMap(r =>
     (r.events ?? []).map(e => ({ ...e, round: r.round }))
@@ -182,6 +253,13 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
   const [phase,      setPhase]      = useState(allEvents.length > 0 ? 'playing' : 'done')
   const [speedIdx,   setSpeedIdx]   = useState(0)
   const logRef = useRef(null)
+
+  // Si el log crece (post Momento clave), reanudar la reproducción
+  useEffect(() => {
+    if (phase === 'done' && eventIndex < allEvents.length && !keyMomentPause) {
+      setPhase('playing')
+    }
+  }, [allEvents.length, keyMomentPause])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Avanzar un evento cada `speed` ms
   useEffect(() => {
@@ -229,7 +307,7 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
           <FighterBar name={enemyName} hp={hpB} maxHp={enemyMaxHp} side="right" />
         </div>
 
-        {/* ── Contenido: log o resultado ── */}
+        {/* ── Contenido: log, decisión Momento clave o resultado ── */}
         <AnimatePresence mode="wait">
           {phase !== 'done' ? (
             <div
@@ -244,6 +322,13 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
                 <span className="animate-pulse">···</span>
               </div>
             </div>
+          ) : keyMomentPause ? (
+            <KeyMomentPanel
+              key="keymoment"
+              decisions={decisions}
+              onDecide={onDecide}
+              loading={resolving}
+            />
           ) : (
             <ResultPanel
               key="result"

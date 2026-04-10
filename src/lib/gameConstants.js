@@ -385,6 +385,101 @@ export const COMBAT_HP_COST = {
   tower:      { win: 0.10, loss: 0.17 },
 }
 
+// ── Cámaras: incursiones rápidas ─────────────────────────────────────────────
+
+/**
+ * Coste de HP fijo al iniciar una cámara, como fracción de hero.max_hp.
+ *
+ * Diseño: las cámaras son cortas (3-10 min) y no son idle-friendly como
+ * las expediciones. El HP es el limitador real: con 100% HP solo dan
+ * para ~5 incursiones antes de tener que esperar regeneración.
+ *
+ * NO se aplica reducción por fuerza ni dificultad — es plano y duro a propósito,
+ * para que las cámaras no sustituyan a las expediciones de 4h.
+ */
+export const CHAMBER_HP_COST_PCT = 0.20
+
+/**
+ * Duración base por tipo de cámara, en minutos.
+ * Cada cámara sortea su duración entre min y max al iniciarse.
+ */
+export const CHAMBER_TYPES = {
+  mercader: { label: 'Cámara del Mercader', icon: '🪙', color: '#d97706', minMinutes: 3,  maxMinutes: 5  },
+  erudito:  { label: 'Cámara del Erudito',  icon: '📜', color: '#0369a1', minMinutes: 4,  maxMinutes: 7  },
+  cazador:  { label: 'Cámara del Cazador',  icon: '⚔️', color: '#7c3aed', minMinutes: 6,  maxMinutes: 10 },
+}
+
+/** Número fijo de cofres ofrecidos al recoger. El jugador elige uno. */
+export const CHAMBER_CHEST_COUNT = 3
+
+/**
+ * TTL del token firmado de elección de cofre (15 min).
+ * Si el jugador deja la app abierta y no decide, el token caduca y debe
+ * volver a llamar a chamber-collect (que regenera 3 cofres nuevos).
+ */
+export const CHAMBER_CHOICE_TOKEN_TTL_MS = 15 * 60 * 1000
+
+/**
+ * Recompensas base por arquetipo de cofre.
+ * Las cantidades luego se escalan por dificultad de la cámara y por nivel del héroe.
+ *
+ * IMPORTANTE: las cámaras dan menos por unidad de tiempo que las expediciones
+ * en items raros y cartas — lo justo para que sean complementarias, no sustitutivas.
+ */
+export const CHAMBER_CHEST_REWARDS = {
+  mercader: {
+    label: 'Cofre del Mercader',
+    icon: '🪙',
+    color: '#d97706',
+    description: 'Mucho oro y posible material',
+    goldMult:    1.4,    // multiplicador sobre el oro base de la cámara
+    xpMult:      0.4,
+    materialChance: 0.30,
+    itemChance:     0.04,  // muy raro
+    cardChance:     0.00,  // nunca
+  },
+  erudito: {
+    label: 'Cofre del Erudito',
+    icon: '📜',
+    color: '#0369a1',
+    description: 'Mucha XP y posible carta de habilidad',
+    goldMult:    0.4,
+    xpMult:      1.5,
+    materialChance: 0.05,
+    itemChance:     0.02,
+    cardChance:     0.10,  // ÚNICO cofre con cartas
+  },
+  cazador: {
+    label: 'Cofre del Cazador',
+    icon: '⚔️',
+    color: '#7c3aed',
+    description: 'Equipo y materiales de crafteo',
+    goldMult:    0.6,
+    xpMult:      0.5,
+    materialChance: 0.25,
+    itemChance:     0.18,  // ÚNICO cofre con items decentes
+    cardChance:     0.00,
+  },
+}
+
+/**
+ * Recompensas base por dificultad de cámara — escala con el nivel del héroe.
+ * difficulty 1 → héroe nivel 1-3, difficulty 5 → héroe nivel ~15+, etc.
+ * Estos son los valores ANTES de aplicar el multiplicador del cofre elegido.
+ */
+export function chamberBaseReward(difficulty) {
+  const d = Math.max(1, Math.min(10, difficulty))
+  return {
+    gold: Math.round(20 + d * 18),       // d1=38, d5=110, d10=200
+    xp:   Math.round(10 + d * 9),        // d1=19, d5=55,  d10=100
+  }
+}
+
+/** Dificultad recomendada para una cámara según el nivel del héroe (1-10) */
+export function chamberDifficultyForLevel(heroLevel) {
+  return Math.max(1, Math.min(10, Math.ceil(heroLevel / 3)))
+}
+
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
 /** Máximo de unidades de una misma poción en el inventario del laboratorio. */

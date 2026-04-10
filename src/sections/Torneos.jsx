@@ -348,9 +348,24 @@ export default function Torneos() {
     onError: err => toast.error(err.message),
   })
 
+  const [pauseToken, setPauseToken] = useState(null)
+
   const fightMutation = useMutation({
     mutationFn: () => apiPost('/api/tournament-fight', { heroId }),
     onSuccess: data => {
+      if (data.paused) {
+        // Final del torneo: Momento clave activado, esperamos la decisión del jugador
+        setPauseToken(data.token)
+        setReplay({
+          log:        data.log,
+          heroMaxHp:  data.heroMaxHp,
+          rivalMaxHp: data.rivalMaxHp,
+          rival:      data.rival,
+          paused:     true,
+          decisions:  data.decisions,
+        })
+        return
+      }
       if (data.rewards) triggerResourceFlash()
       if (data.rewards?.card?.name) showCardDropToast(data.rewards.card)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
@@ -360,6 +375,24 @@ export default function Torneos() {
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
     onError: err => toast.error(err.message),
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (decision) => apiPost('/api/combat-resume', { token: pauseToken, decision }),
+    onSuccess: data => {
+      setPauseToken(null)
+      if (data.rewards) triggerResourceFlash()
+      if (data.rewards?.card?.name) showCardDropToast(data.rewards.card)
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
+    },
+    onError: err => {
+      toast.error(err.message)
+      setPauseToken(null)
+    },
   })
 
   if (isLoading) return <p className="text-text-3 text-[14px] text-center py-16">Cargando torneo...</p>
@@ -626,7 +659,11 @@ export default function Torneos() {
           log={replay.log}
           won={replay.won}
           rewards={replay.rewards}
-          onClose={() => setReplay(null)}
+          onClose={() => { setReplay(null); setPauseToken(null) }}
+          keyMomentPause={replay.paused === true}
+          decisions={replay.decisions}
+          onDecide={(d) => resumeMutation.mutate(d)}
+          resolving={resumeMutation.isPending}
         />
       )}
     </div>

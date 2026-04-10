@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { TowerControl, Scroll, Swords, Trophy, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
+import { useAppStore } from '../store/appStore'
 import Torre from './Torre'
 import QuickCombat from './QuickCombat'
 import CombatHistorial from './CombatHistorial'
@@ -18,7 +18,8 @@ const MODES = [
 ]
 
 export default function Combates() {
-  const [tab, setTab] = useState('practica')
+  const tab    = useAppStore(s => s.activeWorldTab)
+  const setTab = useAppStore(s => s.navigateToWorldTab)
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,12 +29,13 @@ export default function Combates() {
 
       {/* Mode selector */}
       <div className="border-b border-border">
-      <ScrollHint>
+      <ScrollHint activeKey={tab}>
         {MODES.map(m => {
           const active = tab === m.id
           return (
             <button
               key={m.id}
+              data-scroll-key={m.id}
               className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap transition-[color,border-color] duration-150 bg-transparent border-x-0 border-t-0 font-[inherit] cursor-pointer flex-shrink-0"
               style={{
                 borderBottomColor: active ? m.color : 'transparent',

@@ -23,8 +23,8 @@ export const useAppStore = create((set) => ({
   // Sub-tab de Héroes: ficha | expediciones
   activeHeroTab: 'ficha',
 
-  // Sub-tab de Mundo: torre | torneos | clasificacion | historial
-  activeWorldTab: 'torre',
+  // Sub-tab de Mundo: practica | torre | torneos | historial | clasificacion
+  activeWorldTab: 'practica',
 
   navigateTo: (tab, opts = {}) => set((state) => {
     const next = {
@@ -39,7 +39,7 @@ export const useAppStore = create((set) => ({
       next.mountedTabs.add(`heroes:${heroTab}`)
     }
     if (tab === 'mundo') {
-      const worldTab = opts.worldTab ?? 'torre'
+      const worldTab = opts.worldTab ?? 'practica'
       next.activeWorldTab = worldTab
       next.mountedTabs.add(`mundo:${worldTab}`)
     }

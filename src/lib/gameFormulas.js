@@ -112,6 +112,101 @@ export function floorEnemyName(floor) {
   return pool[floor % pool.length]
 }
 
+/* ─── Arquetipos de enemigos ────────────────────────────────────────────────── */
+
+/**
+ * Arquetipos que dan personalidad a los enemigos PvE.
+ * Cada arquetipo modifica las stats base manteniéndose dentro del presupuesto
+ * del piso/nivel — se intercambia poder de un stat a otro.
+ *
+ * Berserker → glass cannon (mucho daño, frágil)
+ * Tanque    → muralla (mucho HP/def, golpea poco)
+ * Asesino   → veloz y crítico (muchos críticos, frágil)
+ * Místico   → daño mágico que ignora defensa
+ */
+export const ENEMY_ARCHETYPES = {
+  berserker: {
+    label: 'Berserker',
+    color: '#dc2626',
+    description: 'Ataques brutales pero defensa frágil',
+    apply: (s) => ({
+      ...s,
+      max_hp:   Math.max(1, Math.round(s.max_hp  * 0.95)),
+      attack:   Math.max(1, Math.round(s.attack  * 1.40)),
+      defense:  Math.max(1, Math.round(s.defense * 0.70)),
+      strength: Math.max(1, Math.round(s.strength * 1.25)),
+    }),
+  },
+  tank: {
+    label: 'Tanque',
+    color: '#0369a1',
+    description: 'Muralla con mucho HP y defensa, pero lento',
+    apply: (s) => ({
+      ...s,
+      max_hp:  Math.max(1, Math.round(s.max_hp  * 1.40)),
+      defense: Math.max(1, Math.round(s.defense * 1.50)),
+      attack:  Math.max(1, Math.round(s.attack  * 0.80)),
+      agility: Math.max(1, Math.round(s.agility * 0.85)),
+    }),
+  },
+  assassin: {
+    label: 'Asesino',
+    color: '#7c3aed',
+    description: 'Veloz y letal, muchos críticos pero frágil',
+    apply: (s) => ({
+      ...s,
+      max_hp:  Math.max(1, Math.round(s.max_hp  * 0.85)),
+      attack:  Math.max(1, Math.round(s.attack  * 1.20)),
+      defense: Math.max(1, Math.round(s.defense * 0.70)),
+      agility: Math.max(1, Math.round(s.agility * 1.60)),
+    }),
+  },
+  mage: {
+    label: 'Místico',
+    color: '#a855f7',
+    description: 'Daño mágico que ignora defensa',
+    apply: (s) => ({
+      ...s,
+      max_hp:       Math.max(1, Math.round(s.max_hp  * 0.90)),
+      defense:      Math.max(1, Math.round(s.defense * 0.75)),
+      attack:       Math.max(1, Math.round(s.attack  * 1.10)),
+      intelligence: (s.intelligence ?? 0) + 25,
+    }),
+  },
+}
+
+export const ARCHETYPE_KEYS = ['berserker', 'tank', 'assassin', 'mage']
+
+/** Aplica las modificaciones del arquetipo a unas stats base. */
+export function applyArchetype(stats, archetypeKey) {
+  const arch = ENEMY_ARCHETYPES[archetypeKey]
+  return arch ? arch.apply(stats) : stats
+}
+
+/** Decora el nombre del enemigo con el arquetipo. */
+export function decoratedEnemyName(baseName, archetypeKey) {
+  const arch = ENEMY_ARCHETYPES[archetypeKey]
+  return arch ? `${arch.label} · ${baseName}` : baseName
+}
+
+/**
+ * Arquetipo determinista del enemigo de un piso de la torre.
+ * Mismo piso → mismo arquetipo, para que el progreso sea reproducible.
+ * Pisos múltiplos de 10 garantizan Tanque (mini-jefes), múltiplos de 25 son Místicos (jefes).
+ */
+export function floorEnemyArchetype(floor) {
+  if (floor % 25 === 0) return 'mage'
+  if (floor % 10 === 0) return 'tank'
+  // Distribución pseudo-aleatoria pero determinista por piso
+  const idx = (floor * 7 + 3) % ARCHETYPE_KEYS.length
+  return ARCHETYPE_KEYS[idx]
+}
+
+/** Arquetipo aleatorio para combate rápido / práctica. */
+export function randomArchetype() {
+  return ARCHETYPE_KEYS[Math.floor(Math.random() * ARCHETYPE_KEYS.length)]
+}
+
 /* ─── Combate rápido / Práctica ──────────────────────────────────────────────── */
 
 /**

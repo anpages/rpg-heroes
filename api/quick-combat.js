@@ -1,7 +1,15 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import { trainingEnemyStats, trainingEnemyName, trainingRewards, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
+import {
+  trainingEnemyStats,
+  trainingEnemyName,
+  trainingRewards,
+  xpRequiredForLevel,
+  randomArchetype,
+  applyArchetype,
+  decoratedEnemyName,
+} from '../src/lib/gameFormulas.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
@@ -52,9 +60,11 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Generar enemigo escalado al nivel del héroe
-  const enemyStats = trainingEnemyStats(hero.level)
-  const enemyName  = trainingEnemyName(hero.level)
+  // Generar enemigo escalado al nivel del héroe + arquetipo aleatorio
+  const baseEnemyStats = trainingEnemyStats(hero.level)
+  const archetypeKey   = randomArchetype()
+  const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
+  const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)
 
   // Simular combate
   const result = simulateCombat(heroStats, enemyStats, {
@@ -145,6 +155,7 @@ export default async function handler(req, res) {
     heroMaxHp:    heroStats.max_hp,
     enemyMaxHp:   enemyStats.max_hp,
     enemyName,
+    archetype:    archetypeKey,
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,

@@ -1,11 +1,12 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
-import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
-import { isUUID, snapshotResources } from './_validate.js'
-import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { getWeekStart, getAvailableRound, isAutoEliminated } from './_tournament.js'
+import { isUUID } from './_validate.js'
+import { interpolateHP, canPlay } from './_hp.js'
+import { signCombatToken } from './_combatSign.js'
+import { KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
+import { finalizeTournamentFight } from './_tournamentFinalize.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -71,7 +72,7 @@ export default async function handler(req, res) {
 
   const rival = bracket.rivals[nextRound - 1]
 
-  // Stats efectivas actuales del héroe (con bonos de investigación, sin coste de HP)
+  // Stats efectivas actuales del héroe
   const heroStats = await getEffectiveStats(supabase, hero.id, user.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
 
@@ -83,97 +84,52 @@ export default async function handler(req, res) {
   delete newEffects.atk_boost
   delete newEffects.def_boost
 
-  const result   = simulateCombat(heroStats, rival.stats)
-  const won      = result.winner === 'a'
-  const champion = won && nextRound === 3
+  // Final del torneo (ronda 3) → activa Momento clave
+  const isKeyMomentRound = nextRound === 3
+  const result = simulateCombat(heroStats, rival.stats, {
+    keyMomentEnabled: isKeyMomentRound,
+  })
 
-  // Coste plano de HP por luchar (independiente del resultado del duelo)
-  const costPct       = won ? COMBAT_HP_COST.tournament.win : COMBAT_HP_COST.tournament.loss
-  const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
-
-  await supabase
-    .from('heroes')
-    .update({
-      active_effects:     newEffects,
-      current_hp:         hpAfterCombat,
-      hp_last_updated_at: new Date(nowMs).toISOString(),
+  if (result.paused) {
+    const token = signCombatToken({
+      type:        'tournament',
+      heroId:      hero.id,
+      userId:      user.id,
+      bracketId:   bracket.id,
+      nextRound,
+      heroStats,
+      rival,
+      state:       result.state,
+      newEffects,
     })
-    .eq('id', heroId)
-
-  // Actualizar bracket
-  await supabase
-    .from('tournament_brackets')
-    .update({
-      current_round: won ? nextRound : bracket.current_round,
-      eliminated:    !won,
-      champion,
+    return res.status(200).json({
+      ok:          true,
+      paused:      true,
+      token,
+      decisions:   KEY_MOMENT_OPTIONS,
+      log:         result.log,
+      heroHpLeft:  result.hpLeftA,
+      enemyHpLeft: result.hpLeftB,
+      heroMaxHp:   heroStats.max_hp,
+      rivalMaxHp:  rival.stats.max_hp,
+      round:       nextRound,
+      rival,
     })
-    .eq('id', bracket.id)
-
-  // Recompensas si gana
-  let rewards = null
-  if (won) {
-    rewards = tournamentRoundRewards(nextRound, champion)
-    const { data: resources } = await supabase
-      .from('resources')
-      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-      .eq('player_id', user.id)
-      .single()
-
-    if (resources) {
-      const snap = snapshotResources(resources)
-      await supabase
-        .from('resources')
-        .update({ gold: snap.gold + rewards.gold, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-        .eq('player_id', user.id)
-    }
-
-    const newXp      = hero.experience + rewards.experience
-    const xpForLevel = xpRequiredForLevel(hero.level)
-    const levelUp    = newXp >= xpForLevel
-    await supabase
-      .from('heroes')
-      .update({
-        experience: levelUp ? newXp - xpForLevel : newXp,
-        level:      levelUp ? hero.level + 1 : hero.level,
-      })
-      .eq('id', hero.id)
-    rewards.levelUp = levelUp
-
-    // Carta garantizada al ganar el torneo
-    if (champion) {
-      const { data: cards } = await supabase.from('skill_cards').select('id, name').limit(20)
-      if (cards?.length) {
-        const card = cards[Math.floor(Math.random() * cards.length)]
-        const { data: existing } = await supabase
-          .from('hero_cards').select('id, rank').eq('hero_id', heroId).eq('card_id', card.id).maybeSingle()
-        if (existing) {
-          await supabase.from('hero_cards').update({ rank: Math.min(20, existing.rank + 1) }).eq('id', existing.id)
-        } else {
-          await supabase.from('hero_cards').insert({ hero_id: heroId, card_id: card.id, rank: 1 })
-        }
-        rewards.card = card
-      }
-    }
   }
 
-  // Guardar match
-  await supabase.from('tournament_matches').insert({
-    bracket_id:   bracket.id,
-    round:        nextRound,
-    won,
-    log:          result.log,
-    rewards:      rewards ?? null,
-    hero_max_hp:  heroStats.max_hp,
-    rival_max_hp: rival.stats.max_hp,
+  const finalize = await finalizeTournamentFight({
+    supabase,
+    user,
+    hero,
+    heroStats,
+    rival,
+    bracket,
+    nextRound,
+    result,
+    currentHp,
+    newEffects,
+    nowMs,
   })
 
-  return res.status(200).json({
-    ok: true, won, round: nextRound, champion,
-    eliminated: !won,
-    log:          result.log,
-    heroMaxHp:    heroStats.max_hp,
-    rivalMaxHp:   rival.stats.max_hp,
-    rival, rewards,
-  })
+  return res.status(200).json(finalize.payload)
 }

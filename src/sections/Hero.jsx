@@ -325,9 +325,10 @@ function StatBars({ effective, base }) {
 /* ─── Hero status ─────────────────────────────────────────────────────────────── */
 
 const STATUS_META = {
-  idle:      { label: 'En reposo',  color: '#16a34a' },
-  exploring: { label: 'Explorando', color: '#d97706' },
-  ready:     { label: 'Listo',      color: '#16a34a' },
+  idle:       { label: 'En reposo',  color: '#16a34a' },
+  exploring:  { label: 'Explorando', color: '#d97706' },
+  in_chamber: { label: 'En cámara',  color: '#d97706' },
+  ready:      { label: 'Listo',      color: '#16a34a' },
 }
 
 /* ─── Inventory constants ─────────────────────────────────────────────────────── */
@@ -908,11 +909,15 @@ function Hero() {
 
   const cls          = hero.classes
   const activeExp    = hero.expeditions?.find(e => e.status === 'traveling')
-  const derivedStatus = hero.status === 'exploring' && activeExp && new Date(activeExp.ends_at) <= Date.now()
-    ? 'ready'
+  const activeChamber = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
+  const expReady      = activeExp     && new Date(activeExp.ends_at) <= Date.now()
+  const chamberReady  = activeChamber && (activeChamber.status === 'awaiting_choice' || new Date(activeChamber.ends_at) <= Date.now())
+  const derivedStatus = (expReady || chamberReady) ? 'ready'
+    : activeExp     ? 'exploring'
+    : activeChamber ? 'in_chamber'
     : hero.status
   const status     = STATUS_META[derivedStatus] ?? STATUS_META.idle
-  const isOccupied = derivedStatus === 'exploring'
+  const isOccupied = derivedStatus === 'exploring' || derivedStatus === 'in_chamber'
 
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
     acc[slot] = items?.find(i => i.equipped_slot === slot) ?? null

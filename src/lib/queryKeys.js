@@ -16,6 +16,7 @@ export const queryKeys = {
   shop:            (heroId) => ['shop', heroId],
   dungeons:        ()       => ['dungeons'],
   activeExpedition:(heroId) => ['expedition-active', heroId],
+  activeChamber:   (heroId) => ['chamber-active', heroId],
   towerProgress:   (heroId) => ['tower-progress', heroId],
   ranking:         ()       => ['ranking'],
   classes:         ()       => ['classes'],

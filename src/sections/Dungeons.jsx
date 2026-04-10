@@ -230,21 +230,17 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
                 {meta.label}
               </span>
             )}
+            {isWeekly && weeklyMeta && (
+              <span
+                className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em]"
+                style={{ color: weeklyMeta.color }}
+                title={`Desafío semanal · ${weeklyMeta.name} — ${weeklyMeta.description}`}
+              >
+                <Zap size={11} strokeWidth={2.5} />
+                {weeklyMeta.name}
+              </span>
+            )}
           </div>
-          {isWeekly && weeklyMeta && (
-            <div
-              className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-md border w-fit"
-              style={{
-                color:       weeklyMeta.color,
-                borderColor: `color-mix(in srgb, ${weeklyMeta.color} 40%, var(--border))`,
-                background:  `color-mix(in srgb, ${weeklyMeta.color} 10%, var(--surface))`,
-              }}
-              title={weeklyMeta.description}
-            >
-              <Zap size={11} strokeWidth={2.5} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.06em]">Desafío semanal · {weeklyMeta.name}</span>
-            </div>
-          )}
           <p className="text-[13px] text-text-3 leading-[1.5] mb-2.5 line-clamp-2">{dungeon.description}</p>
           <div className="flex gap-3.5 flex-wrap">
             <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
@@ -437,7 +433,7 @@ function Dungeons() {
   const heroId                = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
-  const { dungeons, loading: dungeonsLoading, weeklyModifier } = useDungeons(heroId)
+  const { dungeons, loading: dungeonsLoading, weeklyModifier, weeklyLoading } = useDungeons(heroId)
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const [reward, setReward] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
@@ -487,7 +483,10 @@ function Dungeons() {
     queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
   }
 
-  if (heroLoading || dungeonsLoading || expLoading) {
+  // Esperamos también al modificador semanal antes de pintar las cards para
+  // evitar que el badge "destacado" aparezca con varios segundos de retraso
+  // y que las cards salten visualmente.
+  if (heroLoading || dungeonsLoading || expLoading || weeklyLoading) {
     return <div className="text-text-3 text-[15px] p-10 text-center">Cargando mazmorras...</div>
   }
 

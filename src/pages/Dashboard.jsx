@@ -14,6 +14,7 @@ import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
+import Camaras from '../sections/Camaras'
 import Equipo from '../sections/Equipo'
 import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
@@ -24,7 +25,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, DoorOpen } from 'lucide-react'
 
 function DiscordIcon({ size = 20 }) {
   return (
@@ -216,11 +217,42 @@ function CardCatalogDebug() {
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Estado del héroe respecto a EXPEDICIONES (independiente de cámaras).
+ *   'ready'     → expedición terminada esperando recoger
+ *   'exploring' → expedición en curso
+ *   'idle'      → ninguna activa
+ */
+function getHeroExpeditionState(hero, now) {
+  const active = hero.expeditions?.find(e => e.status === 'traveling')
+  if (!active) return 'idle'
+  if (new Date(active.ends_at) <= now) return 'ready'
+  return 'exploring'
+}
+
+/**
+ * Estado del héroe respecto a CÁMARAS.
+ *   'ready'     → cámara terminada o esperando elección de cofre
+ *   'exploring' → cámara en curso
+ *   'idle'      → ninguna activa
+ */
+function getHeroChamberState(hero, now) {
+  const active = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
+  if (!active) return 'idle'
+  if (active.status === 'awaiting_choice') return 'ready'
+  if (new Date(active.ends_at) <= now) return 'ready'
+  return 'exploring'
+}
+
+/**
+ * Combinación de ambos — usado por el badge del sidebar (tab 'heroes').
+ * Prioriza 'ready' sobre 'exploring' sobre el status crudo del héroe.
+ */
 function getHeroDerivedStatus(hero, now) {
-  if (hero.status === 'exploring') {
-    const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
-    if (activeExp && new Date(activeExp.ends_at) <= now) return 'ready'
-  }
+  const exp = getHeroExpeditionState(hero, now)
+  const cam = getHeroChamberState(hero, now)
+  if (exp === 'ready' || cam === 'ready') return 'ready'
+  if (exp === 'exploring' || cam === 'exploring') return 'exploring'
   return hero.status
 }
 
@@ -235,6 +267,7 @@ const HERO_SUB_TABS = [
   { id: 'ficha',        label: 'Ficha',        icon: Sword       },
   { id: 'equipo',       label: 'Equipo',       icon: Shield      },
   { id: 'cartas',       label: 'Cartas',       icon: Layers      },
+  { id: 'camaras',      label: 'Cámaras',      icon: DoorOpen    },
   { id: 'expediciones', label: 'Expediciones', icon: Map         },
   { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
 ]
@@ -283,8 +316,18 @@ function Dashboard({ session }) {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeTab])
 
+  // Estado combinado (expediciones + cámaras) para el badge del sidebar — mira todos los héroes
   const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
   const anyHeroExploring = heroes.some(h => getHeroDerivedStatus(h, now) === 'exploring')
+
+  // Dots del sub-nav: reflejan SOLO el héroe seleccionado (no "algún héroe")
+  const selectedHero       = heroes.find(h => h.id === heroId) ?? null
+  const selExpState        = selectedHero ? getHeroExpeditionState(selectedHero, now) : 'idle'
+  const selChamberState    = selectedHero ? getHeroChamberState(selectedHero, now)    : 'idle'
+  const selExpReady        = selExpState     === 'ready'
+  const selExpExploring    = selExpState     === 'exploring'
+  const selChamberReady    = selChamberState === 'ready'
+  const selChamberExploring = selChamberState === 'exploring'
 
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
@@ -460,14 +503,19 @@ function Dashboard({ session }) {
                 <HeroSelector />
                 {/* Sub-nav */}
                 <div className="border-b border-border">
-                <ScrollHint>
+                <ScrollHint activeKey={activeHeroTab}>
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
-                    const hasAlert    = id === 'expediciones' && anyHeroReady
-                    const hasExploring = id === 'expediciones' && !anyHeroReady && anyHeroExploring
+                    const hasAlert =
+                      (id === 'expediciones' && selExpReady) ||
+                      (id === 'camaras'      && selChamberReady)
+                    const hasExploring =
+                      (id === 'expediciones' && !selExpReady     && selExpExploring) ||
+                      (id === 'camaras'      && !selChamberReady && selChamberExploring)
                     return (
                       <button
                         key={id}
+                        data-scroll-key={id}
                         className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 border-x-0 border-t-0 transition-[color,border-color] duration-150 bg-transparent font-[inherit]"
                         style={{
                           borderBottomColor: isActive ? '#2563eb' : 'transparent',
@@ -501,6 +549,7 @@ function Dashboard({ session }) {
                     {activeHeroTab === 'equipo'       && <ErrorBoundary><Equipo /></ErrorBoundary>}
                     {activeHeroTab === 'cartas'       && <ErrorBoundary><Cartas /></ErrorBoundary>}
                     {activeHeroTab === 'expediciones' && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                    {activeHeroTab === 'camaras'      && <ErrorBoundary><Camaras /></ErrorBoundary>}
                     {activeHeroTab === 'tienda'       && <ErrorBoundary><Shop /></ErrorBoundary>}
                   </motion.div>
                 </AnimatePresence>

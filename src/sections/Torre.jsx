@@ -12,7 +12,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
-import { floorRewards, floorEnemyName } from '../lib/gameFormulas'
+import { floorRewards, floorEnemyName, floorEnemyArchetype, decoratedEnemyName, ENEMY_ARCHETYPES } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart } from 'lucide-react'
 import { usePotions } from '../hooks/usePotions'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -169,9 +169,18 @@ export default function Torre() {
   const isBusy        = hero?.status !== 'idle'
   const floorAttempts = attemptsByFloor[targetFloor] ?? 0
 
+  const [pauseToken, setPauseToken] = useState(null)
+
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
+      if (data.paused) {
+        // Combate pausado por Momento clave: guardamos el token y mostramos
+        // el log parcial para que el jugador elija una decisión.
+        setPauseToken(data.token)
+        setResult(data)
+        return
+      }
       if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
       if (data.rewards?.drop?.full) showDropFullToast()
       setResult(data)
@@ -184,6 +193,29 @@ export default function Torre() {
       queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
     },
     onError: (err) => toast.error(err.message),
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (decision) => apiPost('/api/combat-resume', { token: pauseToken, decision }),
+    onSuccess: (data) => {
+      // El servidor devuelve el combate completo (log final) y las recompensas.
+      // Sustituimos el log parcial por el completo y limpiamos el token.
+      setPauseToken(null)
+      if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
+      if (data.rewards?.drop?.full) showDropFullToast()
+      setResult(data)
+      if (data.won) {
+        triggerResourceFlash()
+        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
+    },
+    onError: (err) => {
+      toast.error(err.message)
+      setPauseToken(null)
+    },
   })
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
@@ -206,13 +238,17 @@ export default function Torre() {
       {result && (
         <CombatReplay
           heroName={hero?.name ?? 'Héroe'}
-          enemyName={floorEnemyName(result.floor)}
+          enemyName={result.enemyName ?? decoratedEnemyName(floorEnemyName(result.floor), floorEnemyArchetype(result.floor))}
           heroMaxHp={result.heroMaxHp}
           enemyMaxHp={result.enemyMaxHp}
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          onClose={() => setResult(null)}
+          onClose={() => { setResult(null); setPauseToken(null) }}
+          keyMomentPause={result.paused === true}
+          decisions={result.decisions}
+          onDecide={(d) => resumeMutation.mutate(d)}
+          resolving={resumeMutation.isPending}
         />
       )}
 
@@ -233,18 +269,39 @@ export default function Torre() {
         </div>
 
         {/* Enemy */}
-        <div className="flex items-center justify-between gap-4 px-1">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
-            <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{floorEnemyName(targetFloor)}</span>
-          </div>
-          {floorAttempts > 0 && (
-            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 bg-surface-2 border border-border rounded-full px-2.5 py-1">
-              <ScrollText size={12} strokeWidth={2} />
-              {floorAttempts} {floorAttempts === 1 ? 'combate' : 'combates'}
+        {(() => {
+          const archKey = floorEnemyArchetype(targetFloor)
+          const arch    = ENEMY_ARCHETYPES[archKey]
+          return (
+            <div className="flex items-center justify-between gap-4 px-1">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
+                  {arch && (
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
+                      style={{
+                        color: arch.color,
+                        background: `color-mix(in srgb, ${arch.color} 12%, var(--surface))`,
+                        border: `1px solid color-mix(in srgb, ${arch.color} 30%, var(--border))`,
+                      }}
+                      title={arch.description}
+                    >
+                      {arch.label}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{floorEnemyName(targetFloor)}</span>
+              </div>
+              {floorAttempts > 0 && (
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 bg-surface-2 border border-border rounded-full px-2.5 py-1">
+                  <ScrollText size={12} strokeWidth={2} />
+                  {floorAttempts} {floorAttempts === 1 ? 'combate' : 'combates'}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          )
+        })()}
 
         {/* Rewards */}
         <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
