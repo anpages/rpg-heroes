@@ -50,7 +50,6 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
       })()
     : (progressRow?.xp_bank ?? 0)
   const xpPct  = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
-  const gained = progressRow?.total_gained ?? 0
   const ready  = isBuilt && progressRow && !upgrading ? xp >= thr : false
 
   const upgCost   = isBuilt ? trainingRoomUpgradeCost(roomLevel) : TRAINING_ROOM_BUILD_COST
