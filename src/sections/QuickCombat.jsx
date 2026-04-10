@@ -261,10 +261,7 @@ export default function QuickCombat() {
     onError: (err) => {
       setMatchmaking(false)
       toast.error(err.message)
-    },
-    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
   })
 
@@ -279,27 +276,31 @@ export default function QuickCombat() {
 
   // If matchmaking finished but API was slow, show result once ready
   const [waitingForApi, setWaitingForApi] = useState(false)
+  function revealResult(data) {
+    setMatchmaking(false)
+    setResult(data)
+    setPendingResult(null)
+    setWaitingForApi(false)
+    if (data.won) triggerResourceFlash()
+    // Refrescar HP y recursos solo al revelar el resultado, no antes
+    queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+  }
+
   useEffect(() => {
-    if (waitingForApi && pendingResult) {
-      setMatchmaking(false)
-      setResult(pendingResult)
-      setPendingResult(null)
-      setWaitingForApi(false)
-      if (pendingResult.won) triggerResourceFlash()
-    }
-  }, [waitingForApi, pendingResult, triggerResourceFlash])
+    if (waitingForApi && pendingResult) revealResult(pendingResult)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingForApi, pendingResult])
 
   const handleAnimationDone = useCallback(() => {
     if (pendingResult) {
-      setMatchmaking(false)
-      setResult(pendingResult)
-      setPendingResult(null)
-      if (pendingResult.won) triggerResourceFlash()
+      revealResult(pendingResult)
     } else {
       // API still loading — wait
       setWaitingForApi(true)
     }
-  }, [pendingResult, triggerResourceFlash])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingResult])
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
 
@@ -330,7 +331,6 @@ export default function QuickCombat() {
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          knockedOut={result.knockedOut}
           onClose={() => setResult(null)}
         />
       )}

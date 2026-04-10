@@ -180,12 +180,10 @@ export default function Torre() {
         queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       }
-    },
-    onError: (err) => toast.error(err.message),
-    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
     },
+    onError: (err) => toast.error(err.message),
   })
 
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
@@ -214,7 +212,6 @@ export default function Torre() {
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          knockedOut={result.knockedOut}
           onClose={() => setResult(null)}
         />
       )}

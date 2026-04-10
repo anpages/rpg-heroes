@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useReducer } from 'react'
 import { Axe, Pickaxe, Clock, Lock, ChevronRight, Hammer, PackageOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import {
@@ -13,6 +13,13 @@ import { fmt, fmtHours, fmtTime } from './helpers.js'
 export default function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onBuildCollect, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const collectingRef = useRef(false)
+  const [, tick] = useReducer(x => x + 1, 0)
+
+  // Re-render periódico para que la barra de XP avance en tiempo real
+  useEffect(() => {
+    const id = setInterval(tick, 10_000)
+    return () => clearInterval(id)
+  }, [])
 
   const Icon           = room.icon
   const exists         = !!roomData

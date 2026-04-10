@@ -283,10 +283,8 @@ function Dashboard({ session }) {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeTab])
 
-  const selectedHero     = heroes.find(h => h.id === heroId)
-  const selectedStatus   = selectedHero ? getHeroDerivedStatus(selectedHero, now) : null
-  const anyHeroReady     = selectedStatus === 'ready'
-  const anyHeroExploring = selectedStatus === 'exploring'
+  const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
+  const anyHeroExploring = heroes.some(h => getHeroDerivedStatus(h, now) === 'exploring')
 
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
