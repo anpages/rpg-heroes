@@ -388,25 +388,40 @@ export const COMBAT_HP_COST = {
 // ── Cámaras: incursiones rápidas ─────────────────────────────────────────────
 
 /**
- * Coste de HP fijo al iniciar una cámara, como fracción de hero.max_hp.
+ * Tipos de cámara. Cada tipo es:
+ *   - una duración (minutos sorteados entre min/max)
+ *   - un coste de HP escalado (más larga = más caro)
+ *   - un PERFIL de loot exclusivo (solo arma / solo armadura / cualquiera)
  *
- * Diseño: las cámaras son cortas (3-10 min) y no son idle-friendly como
- * las expediciones. El HP es el limitador real: con 100% HP solo dan
- * para ~5 incursiones antes de tener que esperar regeneración.
- *
- * NO se aplica reducción por fuerza ni dificultad — es plano y duro a propósito,
- * para que las cámaras no sustituyan a las expediciones de 4h.
- */
-export const CHAMBER_HP_COST_PCT = 0.20
-
-/**
- * Duración base por tipo de cámara, en minutos.
- * Cada cámara sortea su duración entre min y max al iniciarse.
+ * Mecánica: cada cámara genera 3 rolls del MISMO arquetipo (su cofre exclusivo).
+ * El jugador elige el mejor de los 3 al recoger. La elección de cámara
+ * decide QUÉ tipo de equipo puede dropear, no si dropea más o menos.
  */
 export const CHAMBER_TYPES = {
-  mercader: { label: 'Cámara del Mercader', icon: '🪙', color: '#d97706', minMinutes: 3,  maxMinutes: 5  },
-  erudito:  { label: 'Cámara del Erudito',  icon: '📜', color: '#0369a1', minMinutes: 4,  maxMinutes: 7  },
-  cazador:  { label: 'Cámara del Cazador',  icon: '⚔️', color: '#7c3aed', minMinutes: 6,  maxMinutes: 10 },
+  mercader: {
+    label:      'Cámara del Mercader',
+    icon:       '🪙',
+    color:      '#d97706',
+    minMinutes: 3,
+    maxMinutes: 5,
+    hpCostPct:  0.12,
+  },
+  erudito: {
+    label:      'Cámara del Erudito',
+    icon:       '📜',
+    color:      '#0369a1',
+    minMinutes: 4,
+    maxMinutes: 7,
+    hpCostPct:  0.18,
+  },
+  cazador: {
+    label:      'Cámara del Cazador',
+    icon:       '⚔️',
+    color:      '#7c3aed',
+    minMinutes: 6,
+    maxMinutes: 10,
+    hpCostPct:  0.28,
+  },
 }
 
 /** Número fijo de cofres ofrecidos al recoger. El jugador elige uno. */
@@ -420,52 +435,87 @@ export const CHAMBER_CHEST_COUNT = 3
 export const CHAMBER_CHOICE_TOKEN_TTL_MS = 15 * 60 * 1000
 
 /**
- * Recompensas base por arquetipo de cofre.
- * Las cantidades luego se escalan por dificultad de la cámara y por nivel del héroe.
+ * Slots posibles por cámara. Define qué tipo de equipo puede dropear.
+ * - mercader: cualquier slot (incluye accesorios — único cofre que los da)
+ * - erudito:  solo armadura (sin accesorios)
+ * - cazador:  solo armas
+ */
+export const CHAMBER_ITEM_SLOTS = {
+  mercader: ['main_hand', 'off_hand', 'helmet', 'chest', 'arms', 'legs', 'accessory'],
+  erudito:  ['helmet', 'chest', 'arms', 'legs'],
+  cazador:  ['main_hand', 'off_hand'],
+}
+
+/** Etiqueta corta del tipo de equipo de cada cámara, para la UI. */
+export const CHAMBER_ITEM_KIND = {
+  mercader: 'Cualquier equipo',
+  erudito:  'Solo armadura',
+  cazador:  'Solo armas',
+}
+
+/**
+ * Perfil de cofre por arquetipo. Cada cámara solo genera cofres de SU
+ * arquetipo (3 rolls del mismo perfil). Las cantidades concretas de oro/xp
+ * se calculan multiplicando los multiplicadores por chamberBaseReward(difficulty).
  *
- * IMPORTANTE: las cámaras dan menos por unidad de tiempo que las expediciones
- * en items raros y cartas — lo justo para que sean complementarias, no sustitutivas.
+ * Diferenciación incremental:
+ *   mercader (3-5 min, 12% HP)  → básico, todo poco
+ *   erudito  (4-7 min, 18% HP)  → intermedio, sesgado a armadura
+ *   cazador  (6-10 min, 28% HP) → mayor, sesgado a armas
+ *
+ * Los items siguen siendo tier 1-2 (nunca tier 3 — eso queda para expediciones).
+ * Las cartas NUNCA salen de cámaras (cardChance siempre 0).
  */
 export const CHAMBER_CHEST_REWARDS = {
   mercader: {
-    label: 'Cofre del Mercader',
-    icon: '🪙',
-    color: '#d97706',
-    description: 'Mucho oro y posible material',
-    goldMult:    1.4,    // multiplicador sobre el oro base de la cámara
-    xpMult:      0.4,
-    materialChance: 0.30,
-    itemChance:     0.04,  // muy raro
-    cardChance:     0.00,  // nunca
+    label:          'Cofre del Mercader',
+    icon:           '🪙',
+    color:          '#d97706',
+    description:    'Oro y, con suerte, cualquier pieza de equipo',
+    goldMult:       1.0,
+    xpMult:         0.6,
+    itemChance:     0.05,  // baja, pero puede ser cualquier slot (incluye accesorios)
+    fragmentChance: 0.12,  // gateado por dificultad ≥ 2
+    fragmentMin:    1,
+    fragmentMax:    1,
   },
   erudito: {
-    label: 'Cofre del Erudito',
-    icon: '📜',
-    color: '#0369a1',
-    description: 'Mucha XP y posible carta de habilidad',
-    goldMult:    0.4,
-    xpMult:      1.5,
-    materialChance: 0.05,
-    itemChance:     0.02,
-    cardChance:     0.10,  // ÚNICO cofre con cartas
+    label:          'Cofre del Erudito',
+    icon:           '📜',
+    color:          '#0369a1',
+    description:    'Más XP y armadura para el héroe estudioso',
+    goldMult:       1.2,
+    xpMult:         1.0,
+    itemChance:     0.18,  // armadura (helmet/chest/arms/legs)
+    fragmentChance: 0.22,
+    fragmentMin:    1,
+    fragmentMax:    2,
   },
   cazador: {
-    label: 'Cofre del Cazador',
-    icon: '⚔️',
-    color: '#7c3aed',
-    description: 'Equipo y materiales de crafteo',
-    goldMult:    0.6,
-    xpMult:      0.5,
-    materialChance: 0.25,
-    itemChance:     0.18,  // ÚNICO cofre con items decentes
-    cardChance:     0.00,
+    label:          'Cofre del Cazador',
+    icon:           '⚔️',
+    color:          '#7c3aed',
+    description:    'Armas y materiales para el cazador veterano',
+    goldMult:       1.0,
+    xpMult:         0.8,
+    itemChance:     0.28,  // armas (main_hand/off_hand)
+    fragmentChance: 0.30,
+    fragmentMin:    1,
+    fragmentMax:    2,
   },
 }
 
 /**
+ * Dificultad mínima para que las cámaras dropeen fragmentos.
+ * Alineado con cuándo aparecen en mazmorras: Ruinas (nv5) en adelante.
+ * Con chamberDifficultyForLevel, dif=2 → héroe nivel ≥ 4.
+ */
+export const CHAMBER_FRAGMENT_MIN_DIFFICULTY = 2
+
+/**
  * Recompensas base por dificultad de cámara — escala con el nivel del héroe.
- * difficulty 1 → héroe nivel 1-3, difficulty 5 → héroe nivel ~15+, etc.
- * Estos son los valores ANTES de aplicar el multiplicador del cofre elegido.
+ * difficulty 1 → héroe nivel 1-3, difficulty 5 → héroe nivel ~15, etc.
+ * Estos son los valores ANTES de aplicar el multiplicador del cofre.
  */
 export function chamberBaseReward(difficulty) {
   const d = Math.max(1, Math.min(10, difficulty))
@@ -478,6 +528,16 @@ export function chamberBaseReward(difficulty) {
 /** Dificultad recomendada para una cámara según el nivel del héroe (1-10) */
 export function chamberDifficultyForLevel(heroLevel) {
   return Math.max(1, Math.min(10, Math.ceil(heroLevel / 3)))
+}
+
+/**
+ * Coste de HP en puntos absolutos para una cámara dado el max_hp del héroe.
+ * Devuelve mínimo 1.
+ */
+export function chamberHpCost(chamberType, heroMaxHp) {
+  const cfg = CHAMBER_TYPES[chamberType]
+  if (!cfg) return 1
+  return Math.max(1, Math.round(heroMaxHp * cfg.hpCostPct))
 }
 
 // ── Pociones ─────────────────────────────────────────────────────────────────

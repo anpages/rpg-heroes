@@ -2,9 +2,9 @@ import { requireAuth } from './_auth.js'
 import { interpolateHP } from './_hp.js'
 import { isUUID } from './_validate.js'
 import {
-  CHAMBER_HP_COST_PCT,
   CHAMBER_TYPES,
   chamberDifficultyForLevel,
+  chamberHpCost,
 } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -34,10 +34,10 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El héroe ya está ocupado' })
   }
 
-  // Coste de HP — plano y duro, sin reducciones por fuerza ni dificultad
+  // Coste de HP — escalado por tipo de cámara (más larga = más caro)
   const nowMs = Date.now()
   const currentHp = interpolateHP(hero, nowMs)
-  const hpCost = Math.max(1, Math.round(hero.max_hp * CHAMBER_HP_COST_PCT))
+  const hpCost = chamberHpCost(chamberType, hero.max_hp)
   if (currentHp <= hpCost) {
     return res.status(409).json({
       error: `HP insuficiente. Esta cámara cuesta ${hpCost} HP y tienes ${currentHp}.`,

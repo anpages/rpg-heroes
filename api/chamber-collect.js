@@ -40,8 +40,8 @@ export default async function handler(req, res) {
   if (run.status === 'completed')        return res.status(409).json({ error: 'Esta cámara ya fue recogida' })
   if (new Date(run.ends_at) > new Date()) return res.status(409).json({ error: 'La cámara aún no ha terminado' })
 
-  // Sortear 3 cofres
-  const chests = rollChamberChests(run.difficulty)
+  // Sortear 3 cofres del arquetipo de la cámara
+  const chests = rollChamberChests(run.chamber_type, run.difficulty)
 
   // Marcar como esperando decisión (idempotente — soporta rerolls tras expiración)
   const { error: updateError } = await supabase

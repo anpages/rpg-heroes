@@ -22,9 +22,11 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { token, chosen } = req.body
-  if (!token)  return res.status(400).json({ error: 'token requerido' })
-  if (!chosen) return res.status(400).json({ error: 'chosen requerido' })
+  const { token, chosenIndex } = req.body
+  if (!token) return res.status(400).json({ error: 'token requerido' })
+  if (!Number.isInteger(chosenIndex) || chosenIndex < 0) {
+    return res.status(400).json({ error: 'chosenIndex requerido' })
+  }
 
   // ── 1. Verificar firma ────────────────────────────────────────────────────
   let payload
@@ -40,9 +42,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'runId inválido en token' })
   }
 
-  // ── 2. Buscar el cofre elegido en el array firmado ────────────────────────
-  const chest = (payload.chests ?? []).find(c => c.archetype === chosen)
-  if (!chest) return res.status(400).json({ error: 'Cofre no válido' })
+  // ── 2. Buscar el cofre elegido por índice en el array firmado ─────────────
+  // Los 3 cofres son del mismo arquetipo, así que distinguimos por posición.
+  const chests = payload.chests ?? []
+  if (chosenIndex >= chests.length) {
+    return res.status(400).json({ error: 'Cofre no válido' })
+  }
+  const chest = chests[chosenIndex]
 
   // ── 3. Cargar el run para asegurar consistencia ───────────────────────────
   const { data: run } = await supabase
@@ -77,10 +83,11 @@ export default async function handler(req, res) {
 
   if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
-  // ── 5. Aplicar oro / material ─────────────────────────────────────────────
+  // ── 5. Aplicar oro / fragmentos ───────────────────────────────────────────
+  // Las cámaras solo dan oro, fragmentos e items. NUNCA wood/iron/mana
+  // (esos son exclusivos de los edificios productores).
   const snap = snapshotResources(resources)
   const fragmentsAdd = chest.material?.resource === 'fragments' ? chest.material.qty : 0
-  const essenceAdd   = chest.material?.resource === 'essence'   ? chest.material.qty : 0
 
   const { error: resourcesError } = await supabase
     .from('resources')
@@ -90,7 +97,6 @@ export default async function handler(req, res) {
       wood:      snap.wood,
       mana:      snap.mana,
       fragments: (resources.fragments ?? 0) + fragmentsAdd,
-      essence:   (resources.essence   ?? 0) + essenceAdd,
       last_collected_at: snap.nowIso,
     })
     .eq('player_id', user.id)
@@ -116,8 +122,8 @@ export default async function handler(req, res) {
 
   if (heroError) return res.status(500).json({ error: heroError.message })
 
-  // ── 7. Rolear item/carta concretos a partir de los hints firmados ─────────
-  const { drop, cardDrop } = await applyChamberChestLoot(supabase, hero, chest)
+  // ── 7. Rolear el item concreto a partir del hint firmado ─────────────────
+  const { drop } = await applyChamberChestLoot(supabase, hero, chest)
 
   // ── 8. Marcar el run como completado ──────────────────────────────────────
   const reward = {
@@ -125,14 +131,13 @@ export default async function handler(req, res) {
     xp:       xpEarned,
     material: chest.material ?? null,
     item:     drop ? { id: drop.id, name: drop.item_catalog?.name } : null,
-    card:     cardDrop ? { id: cardDrop.id, name: cardDrop.skill_cards?.name } : null,
   }
   await supabase
     .from('chamber_runs')
     .update({
       status:        'completed',
       collected_at:  new Date().toISOString(),
-      chosen_chest:  chosen,
+      chosen_chest:  String(chosenIndex),
       reward,
     })
     .eq('id', run.id)
@@ -146,11 +151,10 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     ok: true,
-    chosen,
+    chosenIndex,
     rewards: { gold: chest.gold ?? 0, experience: xpEarned },
     levelUp,
     drop:     drop     ?? null,
-    cardDrop: cardDrop ?? null,
     material: chest.material ?? null,
   })
 }
