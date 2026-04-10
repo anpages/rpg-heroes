@@ -1,25 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
-import { xpThreshold, xpRateForLevel, TRAINING_XP_CAP_HOURS } from '../lib/gameConstants.js'
+import { xpThreshold, xpRateForLevel } from '../lib/gameConstants.js'
 
 // Re-exportar para que los consumidores solo importen de este hook
 export { xpThreshold }
 
-/** Horas transcurridas desde last_collected_at, con cap anti-AFK */
-function pendingHours(lastCollectedAt) {
-  const elapsed = (Date.now() - new Date(lastCollectedAt).getTime()) / 3_600_000
-  return Math.min(TRAINING_XP_CAP_HOURS, elapsed)
-}
-
 /**
  * XP actual interpolada (bank + acumulación desde última recogida).
- * Requiere el nivel de sala para aplicar la tasa correcta.
+ * Se para al llegar al umbral — no sigue acumulando después.
  */
 export function currentXp(row, roomLevel = 1) {
   if (!row) return 0
   const rate = xpRateForLevel(roomLevel)
-  return row.xp_bank + pendingHours(row.last_collected_at) * rate
+  const thr  = xpThreshold(row.total_gained)
+
+  // Horas necesarias para llegar al umbral desde el bank
+  const hoursToThreshold = Math.max(0, (thr - row.xp_bank) / rate)
+  const hoursElapsed     = (Date.now() - new Date(row.last_collected_at).getTime()) / 3_600_000
+  const effectiveHours   = Math.min(hoursElapsed, hoursToThreshold)
+
+  return row.xp_bank + effectiveHours * rate
 }
 
 /** Progreso [0-1] hacia el siguiente punto */

@@ -299,9 +299,6 @@ export const DISMANTLE_GOLD_TABLE = {
 
 // ── Entrenamiento: XP ─────────────────────────────────────────────────────────
 
-/** Horas máximas de XP acumulable sin recoger (cap anti-AFK) */
-export const TRAINING_XP_CAP_HOURS = 24
-
 /** XP generada por hora según nivel de sala (Nv1 → 1/h, Nv2 → 1.5/h, …) */
 export function xpRateForLevel(roomLevel) {
   return 0.5 + roomLevel * 0.5

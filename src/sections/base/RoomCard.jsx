@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Axe, Pickaxe, Clock, Lock, ChevronRight, Hammer, PackageOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import {
-  xpRateForLevel, TRAINING_XP_CAP_HOURS,
+  xpRateForLevel,
   trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs,
   TRAINING_ROOM_BUILD_COST, TRAINING_ROOM_BUILD_TIME_MS, TRAINING_ROOM_MAX_LEVEL,
 } from '../../lib/gameConstants.js'
@@ -40,10 +40,14 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
   }, [building_ends_at])
 
   const rate   = xpRateForLevel(isBuilt ? roomLevel : 1)
-  const xp     = isBuilt && progressRow
-    ? progressRow.xp_bank + Math.min(TRAINING_XP_CAP_HOURS, (Date.now() - new Date(progressRow.last_collected_at).getTime()) / 3_600_000) * rate
-    : 0
   const thr    = xpThreshold(progressRow?.total_gained ?? 0)
+  const xp     = isBuilt && progressRow
+    ? (() => {
+        const hoursToThr  = Math.max(0, (thr - progressRow.xp_bank) / rate)
+        const hoursElapsed = (Date.now() - new Date(progressRow.last_collected_at).getTime()) / 3_600_000
+        return progressRow.xp_bank + Math.min(hoursElapsed, hoursToThr) * rate
+      })()
+    : 0
   const xpPct  = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
   const gained = progressRow?.total_gained ?? 0
   const ready  = isBuilt && progressRow ? xp >= thr : false
@@ -130,7 +134,7 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-text-3">{progressRow ? `${xp.toFixed(1)} / ${thr} XP` : '—'}</span>
             {ready
-              ? <span className="text-[11px] font-bold" style={{ color: room.color }}>¡Listo!</span>
+              ? <span className="text-[11px] font-bold" style={{ color: room.color }}>¡Listo! Recoge para continuar</span>
               : <span className="text-[11px] text-text-3">{progressRow && thr - xp > 0 ? fmtHours((thr - xp) / rate) : ''}</span>
             }
           </div>

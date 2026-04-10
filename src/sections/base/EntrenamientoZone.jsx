@@ -67,7 +67,8 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       const data = await apiPost('/api/training-collect', { heroId, stat })
       await Promise.all([
         queryClient.refetchQueries({ queryKey: queryKeys.training(heroId) }),
-        queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
+        // Invalidar hero de todos los héroes (el backend aplica a todos)
+        queryClient.invalidateQueries({ queryKey: ['hero'] }),
       ])
       return data
     },
