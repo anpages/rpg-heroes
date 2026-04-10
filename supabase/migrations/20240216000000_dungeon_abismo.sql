@@ -1,5 +1,6 @@
--- Añade "Abismo de las Almas" (crypt, 180 min) para completar la progresión par de mazmorras.
--- Encaja entre Minas de Hierro Oscuro (150 min) y Templo de los Antiguos (210 min).
+-- Añade "Abismo de las Almas" (crypt, 180 min) — encaja en duración entre
+-- Minas de Hierro Oscuro (150 min) y Templo de los Antiguos (210 min).
+-- Idempotente: si ya existe una mazmorra con ese nombre, no inserta.
 
 INSERT INTO public.dungeons (
   name,
@@ -15,7 +16,8 @@ INSERT INTO public.dungeons (
   mana_max,
   experience_reward,
   type
-) VALUES (
+)
+SELECT
   'Abismo de las Almas',
   'Un abismo sin fondo donde las almas de los condenados vagan sin descanso. Los que se adentran raramente recuerdan el camino de vuelta.',
   7,
@@ -29,4 +31,6 @@ INSERT INTO public.dungeons (
   0,
   350,
   'crypt'
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.dungeons WHERE name = 'Abismo de las Almas'
 );
