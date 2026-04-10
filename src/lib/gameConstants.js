@@ -367,6 +367,24 @@ export const ITEM_TIER_UPGRADE_COST = {
 /** Nivel mínimo de Base requerido para cada slot de héroe adicional. */
 export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
 
+// ── Coste de HP en combate ────────────────────────────────────────────────────
+
+/**
+ * Coste plano de HP por actividad de combate, como fracción de hero.max_hp.
+ *
+ * El combate siempre se simula con max_hp del héroe (cada duelo es independiente).
+ * Tras el duelo se deduce un coste fijo del HP actual, distinto si gana o pierde.
+ *
+ * Objetivo de balance: ~10 actividades por sesión llena (100% HP),
+ * con margen para perder algunas. El HP se regenera al 100% por hora cuando
+ * el héroe está idle, así que sesiones consecutivas no se penalizan.
+ */
+export const COMBAT_HP_COST = {
+  quick:      { win: 0.07, loss: 0.13 },
+  tournament: { win: 0.08, loss: 0.14 },
+  tower:      { win: 0.10, loss: 0.17 },
+}
+
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
 /** Máximo de unidades de una misma poción en el inventario del laboratorio. */

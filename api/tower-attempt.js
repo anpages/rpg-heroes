@@ -4,8 +4,9 @@ import { simulateCombat, floorEnemyStats, floorRewards, floorEnemyName } from '.
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
-import { interpolateHP, canPlay } from './_hp.js'
+import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
+import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -92,10 +93,11 @@ export default async function handler(req, res) {
     enemy_max_hp:  enemyStats.max_hp,
   })
 
-  // Deducir HP del combate — daño proporcional al simulado vs max_hp del héroe
-  const damageTaken = heroStats.max_hp - result.hpLeftA
-  const hpAfterCombat = Math.max(0, currentHp - damageTaken)
-  const heroKnockedOut = hpAfterCombat === 0
+  // Deducir HP — coste plano fijo, gane o pierda. El combate ya se simuló
+  // sobre max_hp del héroe, así que el HP actual solo limita cuántas
+  // actividades caben en una sesión, no afecta a la fuerza del duelo.
+  const costPct       = won ? COMBAT_HP_COST.tower.win : COMBAT_HP_COST.tower.loss
+  const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
 
   // Limpiar boosts usados de active_effects
   const newEffects = { ...effects }
@@ -107,7 +109,6 @@ export default async function handler(req, res) {
       current_hp:          hpAfterCombat,
       hp_last_updated_at:  new Date(nowMs).toISOString(),
       active_effects:      newEffects,
-      ...(heroKnockedOut && { status: 'idle' }),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -191,6 +192,5 @@ export default async function handler(req, res) {
     rewards,
     heroCurrentHp: hpAfterCombat,
     heroRealMaxHp: hero.max_hp,
-    knockedOut: heroKnockedOut,
   })
 }

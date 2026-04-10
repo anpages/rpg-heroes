@@ -105,7 +105,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
   )
 }
 
-function ResultPanel({ won, rewards, knockedOut, onClose }) {
+function ResultPanel({ won, rewards, onClose }) {
   return (
     <motion.div
       className="flex flex-col items-center justify-center gap-5 px-6 py-8 flex-1"
@@ -126,10 +126,7 @@ function ResultPanel({ won, rewards, knockedOut, onClose }) {
         <p className={`text-[26px] font-extrabold tracking-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
           {won ? '¡Victoria!' : 'Derrota'}
         </p>
-        {knockedOut && !won && (
-          <p className="text-[13px] text-text-3 mt-1">Héroe derribado. Recuperándose.</p>
-        )}
-        {!won && !knockedOut && (
+        {!won && (
           <p className="text-[13px] text-text-3 mt-1">El enemigo aguantó este asalto.</p>
         )}
       </div>
@@ -173,10 +170,9 @@ function ResultPanel({ won, rewards, knockedOut, onClose }) {
  *   log         {Round[]} — resultado de simulateCombat
  *   won         {boolean}
  *   rewards     {object|null}
- *   knockedOut  {boolean}
  *   onClose     {() => void}
  */
-export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, won, rewards, knockedOut, onClose }) {
+export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, won, rewards, onClose }) {
   // Aplanar todas las rondas en un array secuencial de eventos
   const allEvents = (log ?? []).flatMap(r =>
     (r.events ?? []).map(e => ({ ...e, round: r.round }))
@@ -253,7 +249,6 @@ export function CombatReplay({ heroName, enemyName, heroMaxHp, enemyMaxHp, log, 
               key="result"
               won={won}
               rewards={rewards}
-              knockedOut={knockedOut}
               onClose={onClose}
             />
           )}

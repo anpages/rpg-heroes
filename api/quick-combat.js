@@ -2,9 +2,10 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import { trainingEnemyStats, trainingEnemyName, trainingRewards, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
-import { interpolateHP, canPlay } from './_hp.js'
+import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
+import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -77,10 +78,9 @@ export default async function handler(req, res) {
     xp_reward:    won ? rewards.experience : 0,
   })
 
-  // Deducir HP — sin pérdida de durabilidad
-  const damageTaken   = heroStats.max_hp - result.hpLeftA
-  const hpAfterCombat = Math.max(0, currentHp - damageTaken)
-  const heroKnockedOut = hpAfterCombat === 0
+  // Deducir HP — coste plano fijo, gane o pierda. Combate independiente.
+  const costPct       = won ? COMBAT_HP_COST.quick.win : COMBAT_HP_COST.quick.loss
+  const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
 
   // Limpiar boosts usados
   const newEffects = { ...effects }
@@ -92,7 +92,6 @@ export default async function handler(req, res) {
       current_hp:         hpAfterCombat,
       hp_last_updated_at: new Date(nowMs).toISOString(),
       active_effects:     newEffects,
-      ...(heroKnockedOut && { status: 'idle' }),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -149,6 +148,5 @@ export default async function handler(req, res) {
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,
-    knockedOut:     heroKnockedOut,
   })
 }

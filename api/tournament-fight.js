@@ -4,6 +4,8 @@ import { simulateCombat } from './_combat.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { getWeekStart, getAvailableRound, isAutoEliminated, tournamentRoundRewards } from './_tournament.js'
 import { isUUID, snapshotResources } from './_validate.js'
+import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
+import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -16,12 +18,22 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, experience, level, active_effects')
+    .select('id, name, player_id, experience, level, active_effects, current_hp, max_hp, hp_last_updated_at')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
+
+  // Verificar HP mínimo para combatir (20% de max_hp)
+  const nowMs     = Date.now()
+  const currentHp = interpolateHP(hero, nowMs)
+  if (!canPlay(currentHp, hero.max_hp)) {
+    return res.status(409).json({
+      error: `HP insuficiente. Necesitas al menos ${Math.floor(hero.max_hp * 0.2)} HP para combatir.`,
+      code: 'LOW_HP',
+    })
+  }
 
   const weekStart = getWeekStart()
 
@@ -70,11 +82,23 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   delete newEffects.atk_boost
   delete newEffects.def_boost
-  await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', heroId)
 
   const result   = simulateCombat(heroStats, rival.stats)
   const won      = result.winner === 'a'
   const champion = won && nextRound === 3
+
+  // Coste plano de HP por luchar (independiente del resultado del duelo)
+  const costPct       = won ? COMBAT_HP_COST.tournament.win : COMBAT_HP_COST.tournament.loss
+  const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
+
+  await supabase
+    .from('heroes')
+    .update({
+      active_effects:     newEffects,
+      current_hp:         hpAfterCombat,
+      hp_last_updated_at: new Date(nowMs).toISOString(),
+    })
+    .eq('id', heroId)
 
   // Actualizar bracket
   await supabase

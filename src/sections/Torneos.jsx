@@ -626,7 +626,6 @@ export default function Torneos() {
           log={replay.log}
           won={replay.won}
           rewards={replay.rewards}
-          knockedOut={false}
           onClose={() => setReplay(null)}
         />
       )}

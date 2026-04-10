@@ -117,7 +117,6 @@ export default function CombatHistorial() {
           log={replay.log ?? []}
           won={replay.won}
           rewards={null}
-          knockedOut={false}
           onClose={() => setReplay(null)}
         />
       )}

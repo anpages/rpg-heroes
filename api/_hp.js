@@ -34,5 +34,22 @@ export function canPlay(currentHp, maxHp) {
   return currentHp >= Math.floor(maxHp * MIN_HP_PCT)
 }
 
+/**
+ * Calcula el HP del héroe tras una actividad de combate.
+ *
+ * El combate se simula sobre max_hp (cada duelo es independiente). Aquí se
+ * deduce un coste plano del HP actual: el HP funciona como "energía/fatiga"
+ * que limita cuántas actividades caben en una sesión, no como vida del duelo.
+ *
+ * @param {number} currentHp - HP actual del héroe (tras interpolación)
+ * @param {number} maxHp     - max_hp base del héroe
+ * @param {number} costPct   - fracción de max_hp a deducir (ej. 0.10 = 10%)
+ * @returns {number} HP tras la actividad (mínimo 0)
+ */
+export function applyCombatHpCost(currentHp, maxHp, costPct) {
+  const damage = Math.round(maxHp * costPct)
+  return Math.max(0, currentHp - damage)
+}
+
 // Fórmula compartida con el frontend — no duplicar aquí
 export { expeditionHpCost as expeditionHpDamage } from '../src/lib/gameFormulas.js'
