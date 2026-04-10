@@ -960,13 +960,20 @@ function Hero() {
     intelligence: equipBonuses.intelligence + cardBonuses.intelligence,
   }
 
-  const effective = {
+  const preResearch = {
     attack:       hero.attack       + bonuses.attack,
     defense:      hero.defense      + bonuses.defense,
     max_hp:       hero.max_hp       + bonuses.max_hp,
     strength:     hero.strength     + bonuses.strength,
     agility:      Math.max(0, hero.agility + bonuses.agility),
     intelligence: hero.intelligence + bonuses.intelligence,
+  }
+
+  const effective = {
+    ...preResearch,
+    attack:       researchBonuses.attack_pct       ? Math.round(preResearch.attack       * (1 + researchBonuses.attack_pct))       : preResearch.attack,
+    defense:      researchBonuses.defense_pct      ? Math.round(preResearch.defense      * (1 + researchBonuses.defense_pct))      : preResearch.defense,
+    intelligence: researchBonuses.intelligence_pct ? Math.round(preResearch.intelligence * (1 + researchBonuses.intelligence_pct)) : preResearch.intelligence,
   }
 
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)

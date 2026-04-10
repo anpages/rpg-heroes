@@ -1,7 +1,7 @@
 import {
   Coins, Axe, Sparkles, Zap, BookOpen, FlaskConical,
   Pickaxe, Dumbbell, Home, Sword, Map, Hammer,
-  Swords, ShieldCheck, Brain, Layers, Flame,
+  Swords, ShieldCheck, Brain, Layers, Flame, Heart,
 } from 'lucide-react'
 import {
   UNLOCK_TRIGGERS,
@@ -135,11 +135,12 @@ export const TRAINING_ROOMS = [
   { stat: 'agility',      label: 'Agilidad',        icon: Zap,         color: '#d97706' },
   { stat: 'attack',       label: 'Ataque',          icon: Swords,      color: '#0369a1' },
   { stat: 'defense',      label: 'Defensa',         icon: ShieldCheck, color: '#16a34a' },
+  { stat: 'max_hp',       label: 'Resistencia',     icon: Heart,       color: '#e11d48' },
   { stat: 'intelligence', label: 'Inteligencia',    icon: Brain,       color: '#7c3aed' },
 ].map(r => ({ ...r, baseLevelMin: TRAINING_ROOM_BASE_LEVEL_REQUIRED[r.stat] }))
 
 export const STAT_LABEL_MAP = {
-  strength: 'FUE', agility: 'AGI', attack: 'ATQ', defense: 'DEF', intelligence: 'INT',
+  strength: 'FUE', agility: 'AGI', attack: 'ATQ', defense: 'DEF', max_hp: 'HP', intelligence: 'INT',
 }
 
 /* ─── Laboratorio ────────────────────────────────────────────────────────────── */

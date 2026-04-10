@@ -220,6 +220,7 @@ export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
   agility:      2,
   attack:       2,
   defense:      2,
+  max_hp:       2,
   intelligence: 3,
 }
 
@@ -378,7 +379,7 @@ export const RUNE_CRAFT_DURATION_MS   = 60 * 60 * 1000  // 1 hora
 // ── Entrenamiento ─────────────────────────────────────────────────────────────
 
 /** Stats válidas para salas de entrenamiento. */
-export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']
+export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 'max_hp', 'intelligence']
 
 // ── Clases ───────────────────────────────────────────────────────────────────
 

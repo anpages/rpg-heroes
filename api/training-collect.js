@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   // Obtener todos los héroes del jugador
   const { data: heroes } = await supabase
     .from('heroes')
-    .select('id, strength, agility, attack, defense, intelligence')
+    .select('id, strength, agility, attack, defense, intelligence, max_hp')
     .eq('player_id', user.id)
 
   if (!heroes?.length) return res.status(404).json({ error: 'No hay héroes' })
