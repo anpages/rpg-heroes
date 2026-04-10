@@ -32,8 +32,8 @@ export default function Base({ mainRef }) {
   const { resources }          = useResources(userId)
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
-  const { potions, crafting }              = usePotions(heroId)
-  const { catalog: runesCatalog, inventory: runesInventory, crafting: runesCrafting } = useHeroRunes(heroId)
+  const { potions, craftingMap: potionCraftingMap }              = usePotions(heroId)
+  const { catalog: runesCatalog, inventory: runesInventory, craftingMap: runeCraftingMap } = useHeroRunes(heroId)
   const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('inicio')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
@@ -63,13 +63,13 @@ export default function Base({ mainRef }) {
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Crafteo iniciado! Lista en 30 min.'),
+    onSuccess: () => {},
     onError: err => toast.error(err.message),
   })
 
   const collectPotionMutation = useMutation({
-    mutationFn: async () => {
-      await apiPost('/api/potion-collect', { heroId })
+    mutationFn: async (potionId) => {
+      await apiPost('/api/potion-collect', { heroId, potionId })
       await queryClient.refetchQueries({ queryKey: queryKeys.potions(heroId) })
     },
     onSuccess: () => toast.success('¡Poción recogida!'),
@@ -84,13 +84,13 @@ export default function Base({ mainRef }) {
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Crafteo de runa iniciado!'),
+    onSuccess: () => {},
     onError: err => toast.error(err.message),
   })
 
   const collectRuneMutation = useMutation({
-    mutationFn: async () => {
-      await apiPost('/api/rune-collect', { heroId })
+    mutationFn: async (runeId) => {
+      await apiPost('/api/rune-collect', { heroId, runeId })
       await queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(heroId) })
     },
     onSuccess: () => toast.success('¡Runa recogida!'),
@@ -98,10 +98,15 @@ export default function Base({ mainRef }) {
   })
 
   const researchStartMutation = useMutation({
-    mutationFn: (nodeId) => apiPost('/api/research-start', { nodeId }),
-    onSuccess: (_, nodeId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.research(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    mutationFn: async (nodeId) => {
+      await apiPost('/api/research-start', { nodeId })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.research(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
+      return nodeId
+    },
+    onSuccess: (nodeId) => {
       const node = RESEARCH_NODES.find(n => n.id === nodeId)
       toast.success(`Investigando: ${node?.name ?? nodeId}`)
     },
@@ -109,10 +114,15 @@ export default function Base({ mainRef }) {
   })
 
   const researchCollectMutation = useMutation({
-    mutationFn: (nodeId) => apiPost('/api/research-collect', { nodeId }),
-    onSuccess: (_, nodeId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.research(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    mutationFn: async (nodeId) => {
+      await apiPost('/api/research-collect', { nodeId })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.research(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
+      return nodeId
+    },
+    onSuccess: (nodeId) => {
       const node = RESEARCH_NODES.find(n => n.id === nodeId)
       toast.success(`¡${node?.name ?? nodeId} completado!`)
     },
@@ -136,9 +146,11 @@ export default function Base({ mainRef }) {
     setResourceDelta({ iron: 0, wood: 0, mana: 0 })
   }
 
-  function handleUpgradeCollect() {
-    queryClient.invalidateQueries({ queryKey: queryKeys.buildings(userId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+  async function handleUpgradeCollect() {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: queryKeys.buildings(userId) }),
+      queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+    ])
   }
 
   if (loading) return (
@@ -163,15 +175,17 @@ export default function Base({ mainRef }) {
   })() : null
 
   const nexusRatio   = nexusData?.ratio ?? 1
-  const VISIBLE_BUILDINGS = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'laboratory']
+  const RESOURCE_BUILDINGS = ['energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well']
   const now = new Date()
-  const anyUpgrading = upgradePending
-    || (buildings ?? []).some(b => VISIBLE_BUILDINGS.includes(b.type) && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
-    || (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
+  const isUpgrading = (type) => (buildings ?? []).some(b => b.type === type && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
+
+  const recursosUpgrading      = upgradePending || RESOURCE_BUILDINGS.some(isUpgrading)
+  const entrenamientoUpgrading = upgradePending || (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
+  const laboratorioUpgrading   = upgradePending || isUpgrading('laboratory')
+  const bibliotecaUpgrading    = upgradePending || isUpgrading('library')
 
   const sharedBuildingProps = {
     effectiveResources,
-    anyUpgrading,
     onUpgradeStart:     handleUpgradeStart,
     onUpgradeCollect:   handleUpgradeCollect,
     onOptimisticDeduct: handleOptimisticDeduct,
@@ -199,6 +213,8 @@ export default function Base({ mainRef }) {
               trainingRooms={trainingRooms}
               trainingProgress={trainingProgress}
               potions={potions}
+              potionCraftingMap={potionCraftingMap}
+              runeCraftingMap={runeCraftingMap}
               research={research}
               onGoTo={setActiveZone}
             />
@@ -209,6 +225,7 @@ export default function Base({ mainRef }) {
               byType={byType}
               nexusData={nexusData}
               nexusRatio={nexusRatio}
+              anyUpgrading={recursosUpgrading}
               {...sharedBuildingProps}
             />
           )}
@@ -221,7 +238,7 @@ export default function Base({ mainRef }) {
               userId={userId}
               heroId={heroId}
               byType={byType}
-              anyUpgrading={anyUpgrading}
+              anyUpgrading={entrenamientoUpgrading}
             />
           )}
 
@@ -229,18 +246,19 @@ export default function Base({ mainRef }) {
             <LaboratorioZone
               byType={byType}
               potions={potions}
-              crafting={crafting}
+              potionCraftingMap={potionCraftingMap}
               runesCatalog={runesCatalog}
               runesInventory={runesInventory}
-              runesCrafting={runesCrafting}
+              runeCraftingMap={runeCraftingMap}
               craftPending={craftMutation.isPending}
               collectPending={collectPotionMutation.isPending}
               onCraft={(potionId) => craftMutation.mutate(potionId)}
-              onCollect={() => collectPotionMutation.mutate()}
+              onCollect={(potionId) => collectPotionMutation.mutate(potionId)}
               onRuneCraft={(runeId) => runeCraftMutation.mutate(runeId)}
               runeCraftPending={runeCraftMutation.isPending}
               runeCollectPending={collectRuneMutation.isPending}
-              onRuneCollect={() => collectRuneMutation.mutate()}
+              onRuneCollect={(runeId) => collectRuneMutation.mutate(runeId)}
+              anyUpgrading={laboratorioUpgrading}
               {...sharedBuildingProps}
             />
           )}
@@ -254,6 +272,7 @@ export default function Base({ mainRef }) {
               onResearchCollect={(nodeId) => researchCollectMutation.mutate(nodeId)}
               startPending={researchStartMutation.isPending}
               collectPending={researchCollectMutation.isPending}
+              anyUpgrading={bibliotecaUpgrading}
               {...sharedBuildingProps}
             />
           )}

@@ -18,20 +18,20 @@ export function usePotions(heroId) {
         supabase
           .from('potion_crafting')
           .select('potion_id, craft_ends_at')
-          .eq('hero_id', heroId)
-          .single(),
+          .eq('hero_id', heroId),
       ])
       const stockById = Object.fromEntries((inventory ?? []).map(r => [r.potion_id, r.quantity]))
       const potions = (catalog ?? []).map(p => ({ ...p, quantity: stockById[p.id] ?? 0 }))
-      return { potions, crafting: crafting ?? null }
+      const craftingMap = Object.fromEntries((crafting ?? []).map(c => [c.potion_id, c]))
+      return { potions, craftingMap }
     },
     enabled:   !!heroId,
     staleTime: 30_000,
   })
 
   return {
-    potions:  data?.potions  ?? [],
-    crafting: data?.crafting ?? null,
-    loading:  heroId ? isLoading : false,
+    potions:     data?.potions     ?? [],
+    craftingMap: data?.craftingMap ?? {},
+    loading:     heroId ? isLoading : false,
   }
 }

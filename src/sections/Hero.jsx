@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, computeResearchBonuses } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -63,6 +63,25 @@ const ALL_STATS = [
   { key: 'agility',      label: 'Agilidad',     Icon: Wind,     color: '#2563eb' },
   { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
 ]
+
+const HERO_STAT_ICONS = {
+  attack: Sword, defense: Shield, max_hp: Heart, strength: Dumbbell,
+  agility: Wind, intelligence: Brain,
+  weapon_attack_amp: Sword, armor_defense_amp: Shield,
+  durability_loss: Wrench, item_drop_rate: Telescope,
+}
+const HERO_STAT_COLORS = {
+  attack: '#d97706', defense: '#475569', max_hp: '#dc2626', strength: '#dc2626',
+  agility: '#2563eb', intelligence: '#7c3aed',
+  weapon_attack_amp: '#d97706', armor_defense_amp: '#475569',
+  durability_loss: '#d97706', item_drop_rate: '#16a34a',
+}
+const HERO_STAT_LABELS = {
+  attack: 'Ataque', defense: 'Defensa', max_hp: 'HP', strength: 'Fuerza',
+  agility: 'Agilidad', intelligence: 'Inteligencia',
+  weapon_attack_amp: 'Amp. arma', armor_defense_amp: 'Amp. armadura',
+  durability_loss: 'Durabilidad', item_drop_rate: 'Drop rate',
+}
 
 function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonuses = {}, onClose }) {
   const STAT_KEYS = ALL_STATS.map(s => s.key)
@@ -180,8 +199,13 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
           <div className="overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 content-start">
             {ALL_STATS.map(({ key, label, Icon, color }) => {
-              const base = hero[key] ?? 0
+              const classBase = hero.classes?.[key] ?? hero[key] ?? 0
+              const trainingPts = (hero[key] ?? 0) - classBase
               const rows = []
+
+              if (trainingPts > 0) {
+                rows.push({ label: 'Entrenamiento', value: trainingPts, source: 'training' })
+              }
 
               equippedItems.forEach(item => {
                 const v = item.base[key]
@@ -203,12 +227,12 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
               // Bonos de investigación (% sobre subtotal)
               const pctKey = RESEARCH_PCT_MAP[key]
               if (pctKey && researchBonuses[pctKey]) {
-                const subtotal = base + rows.reduce((s, r) => s + r.value, 0)
+                const subtotal = classBase + rows.reduce((s, r) => s + r.value, 0)
                 const researchVal = Math.round(subtotal * researchBonuses[pctKey])
                 if (researchVal !== 0) rows.push({ label: `Investigación (${Math.round(researchBonuses[pctKey] * 100)}%)`, value: researchVal, source: 'research' })
               }
 
-              const total = Math.max(0, base + rows.reduce((s, r) => s + r.value, 0))
+              const total = Math.max(0, classBase + rows.reduce((s, r) => s + r.value, 0))
 
               return (
                 <div key={key} className="flex flex-col bg-surface-2 rounded-xl border border-border overflow-hidden">
@@ -226,7 +250,7 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
                     <div className="flex flex-col gap-1 border-t border-border pt-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-text-3">Base</span>
-                        <span className="text-[12px] font-semibold text-text-2 tabular-nums">{base}</span>
+                        <span className="text-[12px] font-semibold text-text-2 tabular-nums">{classBase}</span>
                       </div>
                       {rows.length === 0 && (
                         <span className="text-[11px] text-text-3 italic mt-0.5">Sin modificadores</span>
@@ -234,9 +258,10 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
                       {rows.map((r, i) => (
                         <div key={i} className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1 min-w-0">
+                            {r.source === 'training' && <Dumbbell size={10} strokeWidth={2} className="text-[#dc2626] flex-shrink-0" />}
                             {r.source === 'rune' && <Sparkles size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
                             {r.source === 'research' && <Telescope size={10} strokeWidth={2} className="text-[#0f766e] flex-shrink-0" />}
-                            <span className={`text-[11px] truncate ${r.source === 'rune' ? 'text-[#7c3aed]' : r.source === 'research' ? 'text-[#0f766e]' : 'text-text-2'}`}>{r.label}</span>
+                            <span className={`text-[11px] truncate ${r.source === 'training' ? 'text-[#dc2626]' : r.source === 'rune' ? 'text-[#7c3aed]' : r.source === 'research' ? 'text-[#0f766e]' : 'text-text-2'}`}>{r.label}</span>
                           </div>
                           <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
                             {r.value > 0 ? '+' : ''}{r.value}
@@ -864,7 +889,7 @@ function Hero() {
   })
 
   const { potions } = usePotions(hero?.id)
-  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore')
+  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
 
   const mutationPending = itemMutation.isPending
 
@@ -1153,38 +1178,44 @@ function Hero() {
                   const durPct   = Math.round((item.current_durability / cat.max_durability) * 100)
                   const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
                   const runesOnItem = item.item_runes ?? []
+                  const isClassItem = cat.required_class && cat.required_class === hero?.class
+                  const classColor  = CLASS_COLORS[cat.required_class]
                   return (
                     <button
                       key={slot}
-                      className="flex flex-col gap-1.5 p-2.5 rounded-lg border border-border bg-surface-2 min-w-0 text-left hover:border-[color:var(--blue-400)] transition-colors"
+                      className="flex rounded-lg border border-border bg-surface-2 min-w-0 text-left hover:border-[color:var(--blue-400)] transition-colors overflow-hidden"
+                      style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}
                       onClick={() => setItemDetail(item)}
                     >
+                      {isClassItem && <div className="w-1 flex-shrink-0" style={{ background: `color-mix(in srgb,${classColor} 60%,transparent)` }} />}
+                      <div className="flex flex-col gap-1.5 p-2.5 flex-1 min-w-0">
                       {/* Row 1: slot label + tier */}
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1 min-w-0">
-                          <Icon size={10} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
-                          <span className="text-[9px] font-semibold text-text-3 truncate">{meta.label}</span>
+                          <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                          <span className="text-[11px] font-semibold text-text-3 truncate">{meta.label}</span>
                         </div>
-                        <span className="text-[9px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                        <span className="text-[11px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
                       </div>
                       {/* Row 2: item name */}
-                      <span className="text-[12px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
+                      <span className="text-[13px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
                       {/* Row 3: rune names + durability */}
                       <div className="flex items-center justify-between gap-1">
                         {runesOnItem.length > 0 ? (
                           <div className="flex items-center gap-1 flex-wrap min-w-0">
                             {runesOnItem.map((ir, i) => (
-                              <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
-                                <Sparkles size={8} strokeWidth={2} />
+                              <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
+                                <Sparkles size={10} strokeWidth={2} />
                                 {ir.rune_catalog?.name ?? 'Runa'}
                               </span>
                             ))}
                           </div>
                         ) : <span />}
-                        <span className="text-[9px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
+                        <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
                       </div>
                       <div className="w-full h-[3px] bg-border rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${durPct}%`, background: durColor }} />
+                      </div>
                       </div>
                     </button>
                   )
@@ -1192,10 +1223,10 @@ function Hero() {
                 return (
                   <div key={slot} className="flex flex-col gap-1 p-2.5 rounded-lg border border-dashed border-border bg-surface-2/50 min-w-0">
                     <div className="flex items-center gap-1">
-                      <Icon size={10} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
-                      <span className="text-[9px] font-semibold text-text-3 truncate">{meta.label}</span>
+                      <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
+                      <span className="text-[11px] font-semibold text-text-3 truncate">{meta.label}</span>
                     </div>
-                    <span className="text-[11px] text-text-3 italic">Vacío</span>
+                    <span className="text-[12px] text-text-3 italic">Vacío</span>
                   </div>
                 )
               })}
@@ -1250,16 +1281,26 @@ function Hero() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                            {bonuses.slice(0, 2).map((b, i) => (
-                              <span key={i} className="text-[11px] font-semibold text-[#86efac]">
-                                +{Math.round(b.value * rank)} {b.stat}
-                              </span>
-                            ))}
-                            {penalties.slice(0, 1).map((p, i) => (
-                              <span key={i} className="text-[11px] font-semibold text-[#fca5a5]">
-                                −{Math.round(Math.abs(p.value) * rank)} {p.stat}
-                              </span>
-                            ))}
+                            {bonuses.slice(0, 2).map((b, i) => {
+                              const StatI = HERO_STAT_ICONS[b.stat]
+                              const color = HERO_STAT_COLORS[b.stat] ?? '#6b7280'
+                              return (
+                                <span key={`b${i}`} className="inline-flex items-center gap-0.5 text-[11px] font-semibold" style={{ color }}>
+                                  {StatI && <StatI size={10} strokeWidth={2} />}
+                                  +{Math.round(b.value * rank)} {HERO_STAT_LABELS[b.stat] ?? b.stat}
+                                </span>
+                              )
+                            })}
+                            {penalties.slice(0, 1).map((p, i) => {
+                              const StatI = HERO_STAT_ICONS[p.stat]
+                              const color = HERO_STAT_COLORS[p.stat] ?? '#6b7280'
+                              return (
+                                <span key={`p${i}`} className="inline-flex items-center gap-0.5 text-[11px] font-semibold" style={{ color }}>
+                                  {StatI && <StatI size={10} strokeWidth={2} />}
+                                  −{Math.round(Math.abs(p.value) * rank)} {HERO_STAT_LABELS[p.stat] ?? p.stat}
+                                </span>
+                              )
+                            })}
                           </div>
                         </div>
                         <ChevronRight size={14} strokeWidth={2} className="text-text-3 flex-shrink-0" />
@@ -1318,7 +1359,7 @@ function Hero() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} />}
+        {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} heroClass={hero?.class} />}
       </AnimatePresence>
 
       <AnimatePresence>

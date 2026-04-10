@@ -5,20 +5,27 @@ import { RESEARCH_NODES } from '../../lib/gameConstants.js'
 import { cardVariants, BUILDING_META } from './constants.js'
 import { fmtCountdown } from './helpers.js'
 
-export default function InicioZone({ byType, nexusData, trainingRooms, trainingProgress, potions, research, onGoTo }) {
+export default function InicioZone({ byType, nexusData, trainingRooms, trainingProgress, potions, potionCraftingMap, runeCraftingMap, research, onGoTo }) {
   const progressByStat   = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const builtRooms       = trainingRooms.filter(r => r.built_at !== null)
   const readyRooms       = builtRooms.filter(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const builtCount       = builtRooms.length
 
+  const now = new Date()
+
   const labLevel    = byType['laboratory']?.level ?? 0
   const labUnlocked = byType['laboratory']?.unlocked !== false && labLevel > 0
   const potionCount = potions.reduce((s, p) => s + (p.quantity ?? 0), 0)
 
+  const activePotionCrafts = Object.values(potionCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) > now)
+  const readyPotionCrafts  = Object.values(potionCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) <= now)
+  const activeRuneCrafts   = Object.values(runeCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) > now)
+  const readyRuneCrafts    = Object.values(runeCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) <= now)
+  const totalCrafting      = activePotionCrafts.length + activeRuneCrafts.length
+  const totalReady         = readyPotionCrafts.length + readyRuneCrafts.length
+
   const libLevel    = byType['library']?.level ?? 0
   const libUnlocked = byType['library']?.unlocked !== false && libLevel > 0
-
-  const now = new Date()
 
   const trainingRoomsInProgress  = trainingRooms.filter(r => r.building_ends_at && new Date(r.building_ends_at) > now)
   const trainingRoomsDone        = trainingRooms.filter(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
@@ -108,7 +115,7 @@ export default function InicioZone({ byType, nexusData, trainingRooms, trainingP
     },
     {
       id: 'laboratorio', color: '#7c3aed', Icon: FlaskConical,
-      alert: labDone ? 'ready' : labInProgress ? 'active' : null,
+      alert: (labDone || totalReady > 0) ? 'ready' : (labInProgress || totalCrafting > 0) ? 'active' : null,
       content: (
         <>
           <div className="flex items-center gap-2">
@@ -133,9 +140,25 @@ export default function InicioZone({ byType, nexusData, trainingRooms, trainingP
             </p>
           )}
           {labUnlocked && !labDone && !labInProgress && (
-            <p className="text-[13px] text-text-3 mt-0.5">
-              {potionCount > 0 ? `${potionCount} pociones en stock` : 'Sin pociones'}
-            </p>
+            <>
+              {totalReady > 0 && (
+                <p className="flex items-center gap-1 text-[12px] font-bold text-[#16a34a] mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] flex-shrink-0" />
+                  {totalReady} crafteo{totalReady !== 1 ? 's' : ''} listo{totalReady !== 1 ? 's' : ''}
+                </p>
+              )}
+              {totalCrafting > 0 && (
+                <p className="flex items-center gap-1 text-[12px] font-semibold text-[#d97706] mt-1">
+                  <Wrench size={11} strokeWidth={2} />
+                  {totalCrafting} crafteando…
+                </p>
+              )}
+              {totalReady === 0 && totalCrafting === 0 && (
+                <p className="text-[13px] text-text-3 mt-0.5">
+                  {potionCount > 0 ? `${potionCount} pociones en stock` : 'Sin pociones'}
+                </p>
+              )}
+            </>
           )}
           {!labUnlocked && !labDone && !labInProgress && (
             <p className="text-[13px] text-text-3 mt-0.5">Sin construir</p>

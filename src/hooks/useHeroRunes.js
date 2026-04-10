@@ -9,12 +9,13 @@ export function useHeroRunes(heroId) {
       const [catalogRes, inventoryRes, craftingRes] = await Promise.all([
         supabase.from('rune_catalog').select('*').order('min_lab_level'),
         supabase.from('hero_runes').select('rune_id, quantity, rune_catalog(*)').eq('hero_id', heroId),
-        supabase.from('rune_crafting').select('rune_id, craft_ends_at').eq('hero_id', heroId).single(),
+        supabase.from('rune_crafting').select('rune_id, craft_ends_at').eq('hero_id', heroId),
       ])
+      const craftingMap = Object.fromEntries((craftingRes.data ?? []).map(c => [c.rune_id, c]))
       return {
-        catalog:   catalogRes.data   ?? [],
-        inventory: inventoryRes.data ?? [],
-        crafting:  craftingRes.data  ?? null,
+        catalog:     catalogRes.data   ?? [],
+        inventory:   inventoryRes.data ?? [],
+        craftingMap,
       }
     },
     enabled:  !!heroId,
@@ -22,9 +23,9 @@ export function useHeroRunes(heroId) {
   })
 
   return {
-    catalog:   data?.catalog   ?? [],
-    inventory: data?.inventory ?? [],
-    crafting:  data?.crafting  ?? null,
+    catalog:     data?.catalog     ?? [],
+    inventory:   data?.inventory   ?? [],
+    craftingMap: data?.craftingMap ?? {},
     ...rest,
   }
 }

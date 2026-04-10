@@ -78,6 +78,19 @@ export default async function handler(req, res) {
   const slotsToFree = [targetSlot]
   if (catalog.is_two_handed) slotsToFree.push('off_hand')
 
+  // Si equipo off_hand, comprobar si main_hand tiene arma de 2 manos → desplazarla
+  if (targetSlot === 'off_hand') {
+    const { data: mainItem } = await supabase
+      .from('inventory_items')
+      .select('id, item_catalog(is_two_handed)')
+      .eq('hero_id', heroId)
+      .eq('equipped_slot', 'main_hand')
+      .maybeSingle()
+    if (mainItem?.item_catalog?.is_two_handed) {
+      slotsToFree.push('main_hand')
+    }
+  }
+
   // Para accesorios: resolver slot libre
   if (catalog.slot === 'accessory') {
     const { data: occupied } = await supabase
@@ -103,13 +116,11 @@ export default async function handler(req, res) {
     if (bagCount + bagDelta > limit) return res.status(409).json({ error: 'Mochila llena para hacer el cambio' })
   }
 
-  // Stage 3: desequipar desplazados + equipar nuevo en paralelo
-  await Promise.all([
-    toUnequip?.length
-      ? supabase.from('inventory_items').update({ equipped_slot: null }).in('id', toUnequip.map(i => i.id))
-      : Promise.resolve(),
-    supabase.from('inventory_items').update({ equipped_slot: targetSlot }).eq('id', itemId),
-  ])
+  // Stage 3: primero desequipar desplazados, luego equipar nuevo
+  if (toUnequip?.length) {
+    await supabase.from('inventory_items').update({ equipped_slot: null }).in('id', toUnequip.map(i => i.id))
+  }
+  await supabase.from('inventory_items').update({ equipped_slot: targetSlot }).eq('id', itemId)
 
   return res.status(200).json({ ok: true })
 }

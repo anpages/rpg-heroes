@@ -4,12 +4,14 @@ import { toast } from 'sonner'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useResources } from '../hooks/useResources'
+import { useInventory } from '../hooks/useInventory'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
 import {
   Coins, Clock, CheckCircle2, PackageX, Lock,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
 } from 'lucide-react'
+import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
 
 const RARITY_META = {
   common:    { label: 'Común',      color: '#6b7280' },
@@ -50,7 +52,7 @@ function timeUntilMidnight() {
   return `${h}h ${m}m`
 }
 
-function ShopItem({ item, gold, onBuy, buying }) {
+function ShopItem({ item, gold, owned, onBuy, buying }) {
   const rarity    = RARITY_META[item.rarity] ?? RARITY_META.common
   const stats     = STAT_META.filter(s => item[s.key] > 0)
   const sold      = item.purchased >= item.maxStock
@@ -62,14 +64,15 @@ function ShopItem({ item, gold, onBuy, buying }) {
         ${sold ? 'opacity-60' : item.locked ? 'opacity-50 grayscale-[0.3]' : 'hover:shadow-[var(--shadow-md)] hover:border-[color-mix(in_srgb,var(--rarity-color)_40%,var(--border))]'}`}
       style={{ '--rarity-color': rarity.color }}
     >
-      {/* Accent bar */}
-      <div className="w-1 flex-shrink-0 opacity-75" style={{ background: rarity.color }} />
+      {/* Accent bar — class color if class item, rarity color otherwise */}
+      <div className="w-1 flex-shrink-0 opacity-75" style={{ background: item.required_class ? (CLASS_COLORS[item.required_class] ?? rarity.color) : rarity.color }} />
 
       <div className="flex-1 px-4 py-3.5 flex flex-col gap-2.5 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[14px] font-bold leading-[1.3] flex-1 min-w-0" style={{ color: rarity.color }}>
+          <span className="text-[14px] font-bold leading-[1.3] flex-1 min-w-0 flex items-center gap-1.5" style={{ color: rarity.color }}>
             {item.name}
+            {owned && <CheckCircle2 size={14} strokeWidth={2.5} color="#d97706" className="flex-shrink-0" />}
           </span>
           <div className="flex flex-col items-end gap-[3px] flex-shrink-0">
             <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded-[4px] px-[5px] py-px">
@@ -81,11 +84,25 @@ function ShopItem({ item, gold, onBuy, buying }) {
           </div>
         </div>
 
-        {/* Slot */}
-        <span className="self-start text-[11px] font-semibold text-text-2 bg-surface-2 border border-border rounded-full px-[9px] py-0.5">
-          {SLOT_LABEL[item.slot] ?? item.slot}
-          {item.is_two_handed && <span className="font-normal text-text-3"> · 2 manos</span>}
-        </span>
+        {/* Slot + Class */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold text-text-2 bg-surface-2 border border-border rounded-full px-[9px] py-0.5">
+            {SLOT_LABEL[item.slot] ?? item.slot}
+            {item.is_two_handed && <span className="font-normal text-text-3"> · 2 manos</span>}
+          </span>
+          {item.required_class && (
+            <span
+              className="text-[10px] font-bold rounded-full px-[8px] py-0.5 border"
+              style={{
+                color: CLASS_COLORS[item.required_class] ?? '#6b7280',
+                borderColor: `color-mix(in srgb, ${CLASS_COLORS[item.required_class] ?? '#6b7280'} 30%, var(--color-border))`,
+                background: `color-mix(in srgb, ${CLASS_COLORS[item.required_class] ?? '#6b7280'} 8%, var(--color-surface))`,
+              }}
+            >
+              {CLASS_LABELS[item.required_class] ?? item.required_class}
+            </span>
+          )}
+        </div>
 
         {/* Stats */}
         {stats.length > 0 ? (
@@ -142,6 +159,12 @@ export default function Shop() {
   const queryClient = useQueryClient()
   const shopKey     = queryKeys.shop(heroId)
   const { resources } = useResources(userId)
+  const { items: inventoryItems } = useInventory(heroId)
+
+  // Set de catalog_id que el héroe ya posee (equipado o en mochila)
+  const ownedCatalogIds = new Set(
+    (inventoryItems ?? []).map(i => i.catalog_id)
+  )
   const gold        = resources?.gold
   const [renewsIn, setRenewsIn] = useState(timeUntilMidnight())
 
@@ -154,7 +177,8 @@ export default function Shop() {
     queryKey: shopKey,
     queryFn: () => apiGet(`/api/shop-daily?heroId=${heroId}`),
     enabled: !!heroId,
-    staleTime: 30 * 60_000,
+    staleTime: 60 * 60_000,   // 1h — la rotación es diaria, no cambia
+    gcTime:   60 * 60_000,    // mantener en cache 1h tras desmontarse
   })
   const items    = shopData?.items ?? null
   const error    = shopError?.message ?? null
@@ -226,6 +250,7 @@ export default function Shop() {
               key={item.catalogId}
               item={item}
               gold={gold ?? 0}
+              owned={ownedCatalogIds.has(item.catalogId)}
               onBuy={(i) => buyMutation.mutate(i)}
               buying={buyMutation.isPending}
             />

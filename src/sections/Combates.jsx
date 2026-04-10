@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { TowerControl, Scroll, Swords, Trophy } from 'lucide-react'
+import { TowerControl, Scroll, Swords, Trophy, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HeroSelector } from '../components/HeroPicker'
+import ScrollHint from '../components/ScrollHint'
 import Torre from './Torre'
+import QuickCombat from './QuickCombat'
 import CombatHistorial from './CombatHistorial'
 import Torneos from './Torneos'
 import Ranking from './Ranking'
 
 const MODES = [
+  { id: 'practica',       label: 'C. Rápido',      sublabel: 'PvE',      Icon: Zap,          color: '#10b981' },
   { id: 'torre',          label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
   { id: 'torneos',        label: 'Torneo',         sublabel: 'PvE',      Icon: Swords,       color: '#dc2626' },
   { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
@@ -15,7 +18,7 @@ const MODES = [
 ]
 
 export default function Combates() {
-  const [tab, setTab] = useState('torre')
+  const [tab, setTab] = useState('practica')
 
   return (
     <div className="flex flex-col gap-6">
@@ -24,7 +27,8 @@ export default function Combates() {
       <HeroSelector />
 
       {/* Mode selector */}
-      <div className="flex items-stretch gap-1 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="border-b border-border">
+      <ScrollHint>
         {MODES.map(m => {
           const active = tab === m.id
           return (
@@ -52,6 +56,7 @@ export default function Combates() {
             </button>
           )
         })}
+      </ScrollHint>
       </div>
 
       {/* Content */}
@@ -64,6 +69,7 @@ export default function Combates() {
           transition={{ duration: 0.18 }}
         >
           {tab === 'torre'         && <Torre />}
+          {tab === 'practica'      && <QuickCombat />}
           {tab === 'torneos'       && <Torneos />}
           {tab === 'historial'     && <CombatHistorial />}
           {tab === 'clasificacion' && <Ranking />}

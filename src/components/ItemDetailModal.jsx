@@ -22,7 +22,7 @@ const RARITY_META = {
   legendary: { label: 'Legendario',  color: '#d97706' },
 }
 
-const CLASS_LABELS = { caudillo: 'Caudillo', arcanista: 'Arcanista', sombra: 'Sombra', domador: 'Domador' }
+import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
 
 const RUNE_BONUS_LABELS = { attack: 'Ataque', defense: 'Defensa', intelligence: 'Inteligencia', agility: 'Agilidad', max_hp: 'HP', strength: 'Fuerza' }
 const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
@@ -58,7 +58,7 @@ const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 /* ─── runeProps: { hasLab, maxRuneSlots, runeInventory, runePending, isExploring, onInsertRune }
    Si no se pasan, la sección de runas es solo lectura (Ficha).               ── */
 
-export function ItemDetailModal({ item, onClose, runeProps }) {
+export function ItemDetailModal({ item, onClose, runeProps, heroClass }) {
   const [pickingSlot, setPickingSlot] = useState(null)
 
   const catalog  = item.item_catalog
@@ -131,21 +131,33 @@ export function ItemDetailModal({ item, onClose, runeProps }) {
             <div className="flex flex-col gap-4 px-5 py-4">
 
               {/* Badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
-                  style={{ color: rarity.color, borderColor: `color-mix(in srgb,${rarity.color} 30%,var(--border))`, background: `color-mix(in srgb,${rarity.color} 8%,var(--surface))` }}>
-                  {rarity.label}
-                </span>
-                <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
-                <span className="text-[11px] text-text-3">{slot?.label}</span>
-                {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
-                {catalog.required_class && (
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
-                    style={{ color: '#e879f9', borderColor: 'color-mix(in srgb,#e879f9 30%,var(--border))', background: 'color-mix(in srgb,#e879f9 8%,var(--surface))' }}>
-                    {CLASS_LABELS[catalog.required_class] ?? catalog.required_class}
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const classColor = CLASS_COLORS[catalog.required_class] ?? '#6b7280'
+                const isOwn = catalog.required_class && heroClass === catalog.required_class
+                return (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isOwn && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+                        style={{ color: classColor, borderColor: `color-mix(in srgb,${classColor} 30%,var(--border))`, background: `color-mix(in srgb,${classColor} 8%,var(--surface))` }}>
+                        {CLASS_LABELS[catalog.required_class] ?? catalog.required_class}
+                      </span>
+                    )}
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+                      style={{ color: rarity.color, borderColor: `color-mix(in srgb,${rarity.color} 30%,var(--border))`, background: `color-mix(in srgb,${rarity.color} 8%,var(--surface))` }}>
+                      {rarity.label}
+                    </span>
+                    <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border px-2 py-0.5 rounded">T{catalog.tier}</span>
+                    <span className="text-[11px] text-text-3">{slot?.label}</span>
+                    {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+                    {catalog.required_class && !isOwn && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded border"
+                        style={{ color: classColor, borderColor: `color-mix(in srgb,${classColor} 30%,var(--border))`, background: `color-mix(in srgb,${classColor} 8%,var(--surface))` }}>
+                        {CLASS_LABELS[catalog.required_class] ?? catalog.required_class}
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Description */}
               {catalog.description && (

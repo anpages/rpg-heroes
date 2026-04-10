@@ -13,7 +13,7 @@ import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
@@ -49,12 +49,12 @@ const RARITY_LABELS = {
 }
 
 const STAT_CONFIG = [
+  { key: 'max_hp',       label: 'HP Máximo',     bonusKey: 'hp_bonus',           color: '#dc2626', Icon: Heart    },
   { key: 'attack',       label: 'Ataque',       bonusKey: 'attack_bonus',       color: '#d97706', Icon: Sword    },
   { key: 'defense',      label: 'Defensa',       bonusKey: 'defense_bonus',      color: '#6b7280', Icon: Shield   },
   { key: 'strength',     label: 'Fuerza',        bonusKey: 'strength_bonus',     color: '#dc2626', Icon: Dumbbell },
   { key: 'agility',      label: 'Agilidad',      bonusKey: 'agility_bonus',      color: '#2563eb', Icon: Wind     },
   { key: 'intelligence', label: 'Inteligencia',  bonusKey: 'intelligence_bonus', color: '#7c3aed', Icon: Brain    },
-  { key: 'max_hp',       label: 'HP Máximo',     bonusKey: 'hp_bonus',           color: '#dc2626', Icon: Heart    },
 ]
 
 
@@ -207,7 +207,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
             <X size={14} strokeWidth={2} />
           </button>
         </div>
-        <p className="text-[13px] text-text-2">{body}</p>
+        <p className="text-[13px] text-text-2 whitespace-pre-line">{body}</p>
         <div className="flex gap-2 justify-end">
           <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
           <button className="btn btn--primary btn--sm" onClick={onConfirm}>{confirmLabel}</button>
@@ -218,7 +218,7 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading, isExploring }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading, isExploring, heroClass }) {
   const { label, Icon } = SLOT_META[slotKey]
 
   if (!item) {
@@ -239,19 +239,24 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   const runesOnItem = item.item_runes ?? []
   const needsRepair = durPct < 100
   const canUpgrade  = cat.tier < 3 && durPct >= 100
+  const isClassItem = cat.required_class && cat.required_class === heroClass
+  const classColor  = CLASS_COLORS[cat.required_class]
 
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-surface w-full overflow-hidden">
+    <div className="flex rounded-xl border border-border bg-surface w-full overflow-hidden"
+      style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}>
+      {isClassItem && <div className="w-1 flex-shrink-0" style={{ background: `color-mix(in srgb,${classColor} 60%,transparent)` }} />}
+      <div className="flex flex-col flex-1 min-w-0">
       {/* Info */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
           <Icon size={13} strokeWidth={1.8} />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-[12px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
-          <span className="text-[10px] text-text-3 capitalize">{label}</span>
+          <span className="text-[13px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
+          <span className="text-[11px] text-text-3 capitalize">{label}</span>
         </div>
-        <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+        <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
       </div>
 
       <div className="px-3 pb-2">
@@ -259,14 +264,14 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           {runesOnItem.length > 0 ? (
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               {runesOnItem.map((ir, i) => (
-                <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
-                  <Sparkles size={9} strokeWidth={2} />
+                <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
+                  <Sparkles size={10} strokeWidth={2} />
                   {ir.rune_catalog?.name ?? 'Runa'}
                 </span>
               ))}
             </div>
           ) : <span />}
-          <span className="text-[10px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
+          <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
         </div>
         <DurabilityBar current={item.current_durability} max={cat.max_durability} />
       </div>
@@ -304,6 +309,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
         >
           <X size={12} strokeWidth={2.5} /> Quitar
         </button>
+      </div>
       </div>
     </div>
   )
@@ -385,7 +391,10 @@ export default function Equipo() {
           queryClient.setQueryData(key, current.map(i => {
             if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
             if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
+            // 2 manos → desequipa off_hand
             if (item.item_catalog.is_two_handed && i.equipped_slot === 'off_hand') return { ...i, equipped_slot: null }
+            // Equipar off_hand → desequipa arma de 2 manos en main_hand
+            if (targetSlot === 'off_hand' && i.equipped_slot === 'main_hand' && i.item_catalog?.is_two_handed) return { ...i, equipped_slot: null }
             return i
           }))
         }
@@ -562,6 +571,32 @@ export default function Equipo() {
     })
   }
 
+  const damagedEquipped = useMemo(() =>
+    (items ?? []).filter(i => i.equipped_slot && i.current_durability < i.item_catalog.max_durability),
+    [items]
+  )
+
+  function handleRepairAll() {
+    const totalCost = damagedEquipped.reduce((sum, item) => {
+      const cost = estimateRepairCost(item)
+      return { gold: sum.gold + cost.gold, mana: sum.mana + cost.mana }
+    }, { gold: 0, mana: 0 })
+    const lines = damagedEquipped.map(i => {
+      const c = estimateRepairCost(i)
+      return `${i.item_catalog.name}: ${c.gold} oro${c.mana > 0 ? ` · ${c.mana} maná` : ''}`
+    }).join('\n')
+    const totalText = totalCost.mana > 0 ? `${totalCost.gold} oro · ${totalCost.mana} maná` : `${totalCost.gold} oro`
+    setConfirm({
+      title: 'Reparar todo el equipo',
+      body: `${lines}\n\nTotal: ${totalText}`,
+      confirmLabel: 'Reparar todo',
+      onConfirm: () => {
+        setConfirm(null)
+        actionMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })
+      },
+    })
+  }
+
   function handleRuneInsert({ item, slotIndex, runeId }) {
     runeMutation.mutate({ inventoryItemId: item.id, slotIndex, runeId })
   }
@@ -594,15 +629,14 @@ export default function Equipo() {
         <div className="flex flex-col gap-2 order-1 lg:order-2">
           <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Estadísticas</p>
 
-          <div className="grid grid-cols-3 gap-2 p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
-            {STAT_CONFIG.map(({ key, label, color, Icon }) => {
+          <div className="flex items-center justify-around p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
+            {STAT_CONFIG.map(({ key, color, Icon }) => {
               const pen   = key === 'agility' ? weightPenalty : 0
               const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0) - pen
               return (
-                <div key={key} className="flex flex-col items-center gap-0.5 py-1.5">
-                  <Icon size={14} strokeWidth={2} style={{ color }} />
-                  <span className="text-[15px] font-black text-text">{total}</span>
-                  <span className="text-[9px] font-semibold text-text-3 text-center leading-tight">{label}</span>
+                <div key={key} className="flex flex-col items-center gap-0.5 py-1">
+                  <Icon size={13} strokeWidth={2} style={{ color }} />
+                  <span className="text-[14px] font-black text-text">{total}</span>
                 </div>
               )
             })}
@@ -620,7 +654,21 @@ export default function Equipo() {
 
         {/* Equipment slots + Rune slots */}
         <div className="flex flex-col gap-2 order-2 lg:order-1">
-          <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
+            {damagedEquipped.length > 0 && (
+              <button
+                className="btn btn--sm flex items-center gap-1.5 disabled:opacity-40"
+                style={{ fontSize: '11px', padding: '3px 10px', height: '24px', minHeight: 'unset', background: '#d97706', color: '#fff', borderColor: 'transparent' }}
+                onClick={handleRepairAll}
+                disabled={actionMutation.isPending || isExploring}
+                title={isExploring ? 'No disponible durante expedición' : undefined}
+              >
+                <Wrench size={11} strokeWidth={2.5} />
+                Reparar todo ({damagedEquipped.length})
+              </button>
+            )}
+          </div>
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ALL_SLOTS.map(slot => (
@@ -635,6 +683,7 @@ export default function Equipo() {
                   repairLoading={actionMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
                   isExploring={isExploring}
+                  heroClass={hero?.class}
                 />
               ))}
             </div>
@@ -683,22 +732,31 @@ export default function Equipo() {
                 const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
                 const durPct   = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
                 const canEquip = durPct > 0
+                const isClassItem = cat.required_class && cat.required_class === hero?.class
+                const classColor  = CLASS_COLORS[cat.required_class]
                 return (
-                  <div key={item.id} className="rounded-xl border border-border bg-surface-2 overflow-hidden">
+                  <div key={item.id} className="rounded-xl border border-border bg-surface-2 overflow-hidden flex"
+                    style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}>
+                    {isClassItem && <div className="w-1 flex-shrink-0" style={{ background: `color-mix(in srgb,${classColor} 60%,transparent)` }} />}
+                    <div className="flex-1 min-w-0 flex flex-col">
                     {/* Info */}
                     <div className="px-3 pt-3 pb-2 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-[12px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                        <span className="text-[10px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                        <span className="text-[13px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
+                        <span className="text-[11px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
                       </div>
-                      <span className="text-[10px] font-medium" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
+                      <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                        <span style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
+                        <span className="text-text-3">·</span>
+                        <span className="text-text-3">{SLOT_META[cat.slot]?.label ?? cat.slot}</span>
+                      </div>
                       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
                       {/* Runas incrustadas (read-only mientras está en mochila) */}
                       {(item.item_runes ?? []).length > 0 && (
                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                           {(item.item_runes ?? []).map((ir, i) => (
-                            <span key={i} className="flex items-center gap-0.5 text-[10px] font-semibold text-[#7c3aed]">
-                              <Sparkles size={9} strokeWidth={2} />
+                            <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
+                              <Sparkles size={10} strokeWidth={2} />
                               {ir.rune_catalog?.name ?? 'Runa'}
                             </span>
                           ))}
@@ -733,6 +791,7 @@ export default function Equipo() {
                         <Trash2 size={12} strokeWidth={2} /> Desmantelar
                       </button>
                     </div>
+                    </div>
                   </div>
                 )
               })}
@@ -745,6 +804,7 @@ export default function Equipo() {
         <ItemDetailModal
           item={itemDetail}
           onClose={() => setItemDetail(null)}
+          heroClass={hero?.class}
           runeProps={{
             hasLab,
             maxRuneSlots,

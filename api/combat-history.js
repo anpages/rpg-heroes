@@ -19,8 +19,8 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
 
-  // Fetch Torre + brackets del héroe en paralelo
-  const [towerRes, bracketRes] = await Promise.all([
+  // Fetch Torre + brackets + práctica del héroe en paralelo
+  const [towerRes, bracketRes, trainingRes] = await Promise.all([
     supabase
       .from('tower_attempts')
       .select('id, floor, won, rounds, log, hero_name, enemy_name, hero_max_hp, enemy_max_hp, attempted_at')
@@ -32,12 +32,24 @@ export default async function handler(req, res) {
       .from('tournament_brackets')
       .select('id, rivals, week_start')
       .eq('hero_id', heroId),
+
+    supabase
+      .from('training_combats')
+      .select('id, won, rounds, log, hero_name, enemy_name, hero_max_hp, enemy_max_hp, created_at')
+      .eq('hero_id', heroId)
+      .order('created_at', { ascending: false })
+      .limit(25),
   ])
 
   const towerCombats = (towerRes.data ?? []).map(c => ({
     ...c,
     source:     'torre',
     created_at: c.attempted_at,
+  }))
+
+  const trainingCombats = (trainingRes.data ?? []).map(c => ({
+    ...c,
+    source: 'practica',
   }))
 
   // Combates de torneo
@@ -71,9 +83,9 @@ export default async function handler(req, res) {
     })
   }
 
-  const combats = [...towerCombats, ...tournamentCombats]
+  const combats = [...towerCombats, ...tournamentCombats, ...trainingCombats]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 40)
+    .slice(0, 10)
 
   return res.status(200).json({ combats })
 }

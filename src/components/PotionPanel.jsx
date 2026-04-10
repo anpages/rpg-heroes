@@ -30,7 +30,7 @@ export function PotionPanel({ heroId, activeEffects = {} }) {
   })
 
   const combatPotions = potions.filter(p =>
-    p.effect_type === 'atk_boost' || p.effect_type === 'def_boost'
+    (p.effect_type === 'atk_boost' || p.effect_type === 'def_boost') && p.quantity > 0
   )
 
   // Boosts ya activos

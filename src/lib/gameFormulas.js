@@ -111,3 +111,60 @@ export function floorEnemyName(floor) {
   const pool = ENEMY_POOLS.find(p => floor <= p.max)?.names ?? ENEMY_POOLS[ENEMY_POOLS.length - 1].names
   return pool[floor % pool.length]
 }
+
+/* ─── Combate rápido / Práctica ──────────────────────────────────────────────── */
+
+/**
+ * Stats del enemigo de práctica según nivel del héroe.
+ * Escalado ~70-80% de un enemigo de torre equivalente para que sea accesible.
+ * Añade variación aleatoria ±15% para que cada combate se sienta distinto.
+ */
+export function trainingEnemyStats(heroLevel) {
+  const base = Math.max(1, heroLevel * 1.2)
+  const cap  = 25
+  const fast = Math.min(base, cap)
+  const slow = Math.max(0, base - cap)
+  const scale = 0.75  // 75% de dificultad vs torre
+
+  function vary(v) {
+    const variance = 0.85 + Math.random() * 0.30  // 0.85 – 1.15
+    return Math.max(1, Math.round(v * scale * variance))
+  }
+
+  return {
+    max_hp:       vary(80  + fast * 15 + slow * 8),
+    attack:       vary(5   + fast * 2  + slow * 1),
+    defense:      vary(2   + fast * 1  + Math.floor(slow * 0.5)),
+    strength:     vary(2   + Math.floor(fast * 0.5) + Math.floor(slow * 0.25)),
+    agility:      vary(2   + Math.floor(fast * 0.3) + Math.floor(slow * 0.15)),
+    intelligence: vary(1   + Math.floor(fast * 0.3) + Math.floor(slow * 0.15)),
+  }
+}
+
+const TRAINING_ENEMY_POOLS = [
+  { max:  3, names: ['Muñeco de Paja', 'Autómata de Madera', 'Espantapájaros Encantado', 'Golem de Barro', 'Aprendiz Rebelde'] },
+  { max:  6, names: ['Espadachín Errante', 'Cazador Furtivo', 'Duelista Callejero', 'Mercenario Novato', 'Guerrero de Arena'] },
+  { max: 10, names: ['Gladiador Veterano', 'Samurái Ronin', 'Valquiria de Bronce', 'Luchador de Foso', 'Maestro de Armas'] },
+  { max: 20, names: ['Campeón de la Legión', 'Berserker del Norte', 'Mago de Guerra', 'Paladín Oscuro', 'Asesino de Élite', 'Druida Salvaje'] },
+  { max: Infinity, names: ['Avatar de Combate', 'Espectro del Coliseo', 'El Invicto', 'Phantom del Torneo', 'Titán de Práctica', 'Sombra del Maestro'] },
+]
+
+/**
+ * Nombre aleatorio del enemigo de práctica según nivel del héroe.
+ */
+export function trainingEnemyName(heroLevel) {
+  const pool = TRAINING_ENEMY_POOLS.find(p => heroLevel <= p.max)?.names ?? TRAINING_ENEMY_POOLS[TRAINING_ENEMY_POOLS.length - 1].names
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
+/**
+ * Recompensas de combate rápido — ~18% de la torre para piso equivalente.
+ */
+export function trainingRewards(heroLevel) {
+  const equivalentFloor = Math.max(1, Math.round(heroLevel * 1.2))
+  const towerR = floorRewards(equivalentFloor)
+  return {
+    gold:       Math.max(5, Math.round(towerR.gold * 0.18)),
+    experience: Math.max(3, Math.round(towerR.experience * 0.18)),
+  }
+}

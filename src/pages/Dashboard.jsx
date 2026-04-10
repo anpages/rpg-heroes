@@ -8,6 +8,8 @@ import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
 import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
+import { usePotions } from '../hooks/usePotions'
+import { useHeroRunes } from '../hooks/useHeroRunes'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
@@ -20,6 +22,7 @@ import Misiones from '../sections/Misiones'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
+import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
 import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords } from 'lucide-react'
 
@@ -257,6 +260,8 @@ function Dashboard({ session }) {
   const { research }                 = useResearch(session.user.id)
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
+  const { craftingMap: potionCraftingMap } = usePotions(heroId)
+  const { craftingMap: runeCraftingMap }   = useHeroRunes(heroId)
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
@@ -294,6 +299,10 @@ function Dashboard({ session }) {
   const trainingRoomsInProgress = (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
   const trainingRoomsDone       = (trainingRooms ?? []).some(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
 
+  const allCrafts = [...Object.values(potionCraftingMap), ...Object.values(runeCraftingMap)]
+  const craftReady      = allCrafts.some(c => new Date(c.craft_ends_at) <= now)
+  const craftInProgress = !craftReady && allCrafts.some(c => new Date(c.craft_ends_at) > now)
+
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
@@ -303,8 +312,8 @@ function Dashboard({ session }) {
   function badgeState(id) {
     if (id === 'heroes') return anyHeroReady ? 'ready' : anyHeroExploring ? 'active' : null
     if (id === 'base') {
-      const isReady  = buildingUpgradingReady || trainingReady || trainingRoomsDone || researchReady
-      const isActive = !isReady && (buildingUpgradingInProgress || researchInProgress || trainingRoomsInProgress)
+      const isReady  = buildingUpgradingReady || trainingReady || trainingRoomsDone || researchReady || craftReady
+      const isActive = !isReady && (buildingUpgradingInProgress || researchInProgress || trainingRoomsInProgress || craftInProgress)
       return isReady ? 'ready' : isActive ? 'active' : null
     }
     return null
@@ -435,7 +444,7 @@ function Dashboard({ session }) {
                 <HeroSelector />
                 {/* Sub-nav */}
                 <div className="border-b border-border">
-                <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
+                <ScrollHint>
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert    = id === 'expediciones' && anyHeroReady
@@ -461,7 +470,7 @@ function Dashboard({ session }) {
                       </button>
                     )
                   })}
-                </div>
+                </ScrollHint>
                 </div>
                 {/* Sub-content */}
                 <AnimatePresence mode="wait">

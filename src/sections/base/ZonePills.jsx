@@ -1,9 +1,10 @@
 import { ZONES } from './constants.js'
+import ScrollHint from '../../components/ScrollHint'
 
 export default function ZonePills({ active, onChange }) {
   return (
     <div className="border-b border-border">
-      <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
+      <ScrollHint>
       {ZONES.map(z => {
         const Icon = z.icon
         const isActive = active === z.id
@@ -22,7 +23,7 @@ export default function ZonePills({ active, onChange }) {
           </button>
         )
       })}
-      </div>
+      </ScrollHint>
     </div>
   )
 }

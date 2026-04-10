@@ -12,10 +12,12 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
-import { floorEnemyStats, floorRewards, floorEnemyName } from '../lib/gameFormulas'
-import { Swords, Star, Coins, Trophy, ChevronUp } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { floorRewards, floorEnemyName } from '../lib/gameFormulas'
+import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart } from 'lucide-react'
+import { usePotions } from '../hooks/usePotions'
+import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
+import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
 import { showItemDropToast, showDropFullToast } from '../lib/dropToast'
 
@@ -74,46 +76,6 @@ function ProgressStrip({ maxFloor }) {
   )
 }
 
-/* ─── Threat indicator ───────────────────────────────────────────────────────── */
-
-const THREAT_META = [
-  { label: 'Débil',      color: '#16a34a', dots: 1 },
-  { label: 'Moderado',   color: '#65a30d', dots: 2 },
-  { label: 'Equilibrado',color: '#d97706', dots: 3 },
-  { label: 'Peligroso',  color: '#ea580c', dots: 4 },
-  { label: 'Letal',      color: '#dc2626', dots: 5 },
-]
-
-function threatLevel(hero, enemy) {
-  if (!hero || !enemy) return 3
-  const heroScore  = hero.attack + hero.defense + hero.max_hp * 0.04 + hero.strength * 0.5 + hero.agility * 0.3
-  const enemyScore = enemy.attack + enemy.defense + enemy.max_hp * 0.04 + enemy.strength * 0.5 + enemy.agility * 0.3
-  const ratio = enemyScore / Math.max(1, heroScore)
-  if (ratio < 0.7)  return 1
-  if (ratio < 0.9)  return 2
-  if (ratio < 1.15) return 3
-  if (ratio < 1.4)  return 4
-  return 5
-}
-
-function ThreatIndicator({ level }) {
-  const meta = THREAT_META[level - 1] ?? THREAT_META[2]
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex gap-1">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="w-4 h-4 rounded-sm transition-colors"
-            style={{ background: i < meta.dots ? meta.color : 'var(--border)' }}
-          />
-        ))}
-      </div>
-      <span className="text-[13px] font-bold" style={{ color: meta.color }}>{meta.label}</span>
-    </div>
-  )
-}
-
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
 
@@ -125,10 +87,25 @@ export default function Torre() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items } = useInventory(hero?.id)
   const { cards } = useHeroCards(hero?.id)
-  const { maxFloor, loading: towerLoading } = useTowerProgress(hero?.id)
+  const { maxFloor, attemptsByFloor, loading: towerLoading } = useTowerProgress(hero?.id)
   const { research } = useResearch(userId)
+  const { potions } = usePotions(hero?.id)
   const rb = computeResearchBonuses(research.completed)
-  const [result, setResult]   = useState(null)
+  const [result, setResult]       = useState(null)
+  const [showCountdown, setShowCountdown] = useState(false)
+
+  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
+  const potionMutation = useMutation({
+    mutationFn: async (potionId) => {
+      await apiPost('/api/potion-use', { heroId: hero?.id, potionId })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.potions(hero?.id) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
+      ])
+    },
+    onSuccess: () => toast.success('¡Poción usada!'),
+    onError: err => toast.error(err.message),
+  })
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
@@ -188,10 +165,9 @@ export default function Torre() {
   const hasEnoughHp    = hpNow >= minHp
 
   const targetFloor = (maxFloor ?? 0) + 1
-  const enemy       = floorEnemyStats(targetFloor)
   const rewards     = floorRewards(targetFloor)
-  const isBusy      = hero?.status !== 'idle'
-  const threat      = threatLevel(effectiveHero, enemy)
+  const isBusy        = hero?.status !== 'idle'
+  const floorAttempts = attemptsByFloor[targetFloor] ?? 0
 
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
@@ -222,6 +198,12 @@ export default function Torre() {
       </div>
 
       <ProgressStrip maxFloor={maxFloor} />
+
+      <AnimatePresence>
+        {showCountdown && (
+          <CombatCountdown onReady={() => { setShowCountdown(false); attemptMutation.mutate() }} />
+        )}
+      </AnimatePresence>
 
       {result && (
         <CombatReplay
@@ -259,10 +241,12 @@ export default function Torre() {
             <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
             <span className="text-[22px] font-extrabold text-[#ef4444] leading-none">{floorEnemyName(targetFloor)}</span>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Nivel de amenaza</span>
-            <ThreatIndicator level={threat} />
-          </div>
+          {floorAttempts > 0 && (
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3 bg-surface-2 border border-border rounded-full px-2.5 py-1">
+              <ScrollText size={12} strokeWidth={2} />
+              {floorAttempts} {floorAttempts === 1 ? 'combate' : 'combates'}
+            </div>
+          )}
         </div>
 
         {/* Rewards */}
@@ -275,12 +259,55 @@ export default function Torre() {
           </span>
         </div>
 
+        {/* HP bar + heal potions */}
+        {hero && (() => {
+          const pct   = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
+          const color = hero.status === 'idle' ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+          const recovering = hero.status === 'idle'
+          const full = hpNow >= effectiveMaxHp
+          return (
+            <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+              <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
+                <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
+                <span className="font-medium" style={{ color }}>{hpNow} / {effectiveMaxHp}</span>
+              </div>
+              <div className="h-2 bg-border rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-[width,background] duration-[400ms]${recovering ? ' animate-hp-regen-pulse' : ''}`}
+                  style={{ width: `${pct}%`, background: color }}
+                />
+              </div>
+              {hpPotions.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {hpPotions.map(p => {
+                    const disabled = full || isBusy || potionMutation.isPending
+                    return (
+                      <motion.button
+                        key={p.id}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
+                        style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        onClick={() => !disabled && potionMutation.mutate(p.id)}
+                        disabled={disabled}
+                        whileTap={disabled ? {} : { scale: 0.95 }}
+                      >
+                        <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
+                        {p.name}
+                        <span className="opacity-60">×{p.quantity}</span>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         <PotionPanel heroId={heroId} activeEffects={hero?.active_effects ?? {}} />
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"
-          onClick={() => { setResult(null); attemptMutation.mutate() }}
-          disabled={attemptMutation.isPending || isBusy || !hasEnoughHp}
+          onClick={() => { setResult(null); setShowCountdown(true) }}
+          disabled={attemptMutation.isPending || isBusy || !hasEnoughHp || showCountdown}
           whileTap={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
           whileHover={attemptMutation.isPending || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}

@@ -2,7 +2,18 @@ import { useState } from 'react'
 import { useClasses } from '../hooks/useClasses'
 import { apiPost } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import { LogOut } from 'lucide-react'
+import { LogOut, Dices } from 'lucide-react'
+
+const HERO_NAMES = [
+  'Aldric', 'Seraphina', 'Kael', 'Lyra', 'Theron', 'Elara', 'Darius', 'Freya',
+  'Orion', 'Isolde', 'Ragnar', 'Selene', 'Fenris', 'Astrid', 'Cedric', 'Morrigan',
+  'Lucian', 'Brynn', 'Zephyr', 'Rowena', 'Draven', 'Nyx', 'Gareth', 'Sylvana',
+  'Varen', 'Eira', 'Torin', 'Liora', 'Balthazar', 'Vesper', 'Alaric', 'Ignis',
+]
+
+function randomName() {
+  return HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)]
+}
 
 const MAX_STAT = 18
 
@@ -84,17 +95,27 @@ function Onboarding({ onComplete }) {
           <label className="block text-[12px] font-semibold tracking-[0.08em] uppercase text-text-2 mb-2" htmlFor="hero-name">
             Nombre del héroe
           </label>
-          <input
-            id="hero-name"
-            className="w-full px-3.5 py-[11px] bg-surface-2 border-[1.5px] border-border rounded-lg text-text font-[inherit] text-[16px] outline-none transition-[border-color,box-shadow,background] duration-200 placeholder:text-text-3 focus:border-[var(--blue-500)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)] focus:bg-surface"
-            type="text"
-            value={heroName}
-            onChange={e => setHeroName(e.target.value)}
-            placeholder="Escribe un nombre..."
-            maxLength={20}
-            required
-            autoComplete="off"
-          />
+          <div className="flex gap-2.5">
+            <input
+              id="hero-name"
+              className="flex-1 px-3.5 py-[11px] bg-surface-2 border-[1.5px] border-border rounded-lg text-text font-[inherit] text-[16px] outline-none transition-[border-color,box-shadow,background] duration-200 placeholder:text-text-3 focus:border-[var(--blue-500)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)] focus:bg-surface"
+              type="text"
+              value={heroName}
+              onChange={e => setHeroName(e.target.value)}
+              placeholder="Escribe un nombre..."
+              maxLength={20}
+              required
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              className="flex items-center justify-center w-11 h-11 rounded-lg border-[1.5px] border-border bg-surface-2 text-text-3 hover:text-text hover:border-[var(--blue-400)] transition-colors flex-shrink-0"
+              onClick={() => setHeroName(randomName())}
+              title="Nombre aleatorio"
+            >
+              <Dices size={18} strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
         {/* Clase */}

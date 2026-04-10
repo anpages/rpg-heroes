@@ -6,8 +6,37 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { Lock, Plus, ChevronDown } from 'lucide-react'
+import { Lock, Plus, ChevronDown, Dices } from 'lucide-react'
 import { computeBaseLevel, HERO_SLOT_REQUIREMENTS } from '../lib/gameConstants'
+
+const MAX_STAT = 18
+
+function StatBar({ label, value, selected }) {
+  const pct = Math.round((value / MAX_STAT) * 100)
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-semibold tracking-[0.05em] text-text-3 w-[22px] flex-shrink-0">{label}</span>
+      <div className="flex-1 h-1 bg-border rounded-[4px] overflow-hidden">
+        <div
+          className={`h-full rounded-[4px] transition-[width] duration-300 ease-out ${selected ? 'bg-btn-primary' : 'bg-[var(--blue-400)]'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-semibold text-text-3 w-3.5 text-right flex-shrink-0">{value}</span>
+    </div>
+  )
+}
+
+const HERO_NAMES = [
+  'Aldric', 'Seraphina', 'Kael', 'Lyra', 'Theron', 'Elara', 'Darius', 'Freya',
+  'Orion', 'Isolde', 'Ragnar', 'Selene', 'Fenris', 'Astrid', 'Cedric', 'Morrigan',
+  'Lucian', 'Brynn', 'Zephyr', 'Rowena', 'Draven', 'Nyx', 'Gareth', 'Sylvana',
+  'Varen', 'Eira', 'Torin', 'Liora', 'Balthazar', 'Vesper', 'Alaric', 'Ignis',
+]
+
+function randomName() {
+  return HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)]
+}
 
 const SLOT_UNLOCK      = HERO_SLOT_REQUIREMENTS
 const STATUS_COLOR     = { idle: '#16a34a', exploring: '#d97706', ready: '#16a34a' }
@@ -159,35 +188,57 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
             {/* Nombre */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
-              <input
-                className="px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Nombre del héroe"
-                maxLength={20}
-                autoFocus
-                required
-              />
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Nombre del héroe"
+                  maxLength={20}
+                  required
+                />
+                <button
+                  type="button"
+                  className="flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-surface-2 text-text-3 hover:text-text hover:border-border-2 transition-colors flex-shrink-0"
+                  onClick={() => setName(randomName())}
+                  title="Nombre aleatorio"
+                >
+                  <Dices size={16} strokeWidth={2} />
+                </button>
+              </div>
             </div>
 
             {/* Clase */}
             <div className="flex flex-col gap-1.5 pb-2">
               <label className="text-[0.75rem] font-semibold text-text-2">Clase</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {classes?.map(c => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`px-3 py-[0.35rem] border rounded-lg text-[0.78rem] font-semibold cursor-pointer transition-all duration-150
-                      ${classId === c.id
-                        ? 'border-[var(--blue-500)] bg-info-bg text-[var(--blue-600)]'
-                        : 'border-border bg-surface-2 text-text-2 hover:border-border-2'
-                      }`}
-                    onClick={() => setClassId(c.id)}
-                  >
-                    {c.name}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {classes?.map(cls => {
+                  const selected = classId === cls.id
+                  return (
+                    <button
+                      key={cls.id}
+                      type="button"
+                      className={`relative flex flex-col items-start px-3 py-2.5 border-[1.5px] rounded-[10px] text-left cursor-pointer transition-[border-color,background,box-shadow] duration-200
+                        ${selected
+                          ? 'border-[var(--blue-500)] bg-[var(--blue-50)] shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
+                          : 'bg-surface-2 border-border hover:border-[var(--blue-400)] hover:bg-[var(--blue-50)]'
+                        }`}
+                      onClick={() => setClassId(cls.id)}
+                    >
+                      {selected && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--blue-500)]" />
+                      )}
+                      <span className={`text-[13px] font-bold mb-1.5 block ${selected ? 'text-[var(--blue-700)]' : 'text-text'}`}>
+                        {cls.name}
+                      </span>
+                      <div className="w-full flex flex-col gap-[4px]">
+                        <StatBar label="FUE" value={cls.strength}     selected={selected} />
+                        <StatBar label="AGI" value={cls.agility}      selected={selected} />
+                        <StatBar label="INT" value={cls.intelligence} selected={selected} />
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>

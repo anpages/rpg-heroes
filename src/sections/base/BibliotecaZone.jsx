@@ -108,6 +108,7 @@ export default function BibliotecaZone({ byType, research, resources, onResearch
           research={research}
           resources={resources}
           libraryLevel={library.level}
+          libraryUpgrading={!!(library.upgrade_ends_at && new Date(library.upgrade_ends_at) > new Date())}
           onStart={onResearchStart}
           onCollect={onResearchCollect}
           startPending={startPending}

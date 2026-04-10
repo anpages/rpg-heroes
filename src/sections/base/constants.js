@@ -81,11 +81,24 @@ export const BUILDING_META = {
   },
   laboratory: {
     name: 'Laboratorio',
-    description: 'Transforma recursos en pociones y encantamientos. Nv.2 desbloquea recetas avanzadas.',
+    description: 'Transforma recursos en pociones y runas. Cada nivel desbloquea recetas más poderosas.',
     icon: FlaskConical,
     color: '#7c3aed',
-    effect: (level) => level === 0 ? 'Sin construir' : level === 1 ? 'Pociones básicas' : level === 2 ? 'Pociones + recetas avanzadas' : 'Todas las recetas',
-    nextEffect: (level) => level === 0 ? 'Pociones básicas' : level === 1 ? 'Pociones avanzadas' : 'Recetas de gemas',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level === 1) return 'Pociones básicas'
+      if (level === 2) return 'Pociones intermedias + Runas I'
+      if (level === 3) return 'Pociones avanzadas + Runas II'
+      if (level === 4) return 'Pociones superiores + Runas III'
+      return 'Todas las recetas'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Pociones básicas'
+      if (level === 1) return 'Pociones intermedias + Runas I'
+      if (level === 2) return 'Pociones avanzadas + Runas II'
+      if (level === 3) return 'Pociones superiores + Runas III'
+      return 'Recetas maestras'
+    },
     energyPerLevel: 5,
   },
 }

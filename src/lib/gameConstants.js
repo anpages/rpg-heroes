@@ -155,26 +155,26 @@ export function buildingUpgradeCost(type, currentLevel) {
       // 1→2: solo madera (desbloquea la mina, no puede pedir hierro que aún no existe)
       if (currentLevel === 1) return { wood: 80 }
       // 2→5: mismos exponentes que el resto pero base mayor (es el edificio clave)
-      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(17 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(35 * Math.pow(currentLevel, 1.4)) }
     case 'lumber_mill':
-      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(12 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)) }
     case 'gold_mine':
-      if (currentLevel === 0) return { wood: 60, iron: 12 }
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)) }
+      if (currentLevel === 0) return { wood: 60, iron: 25 }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(22 * Math.pow(currentLevel, 1.4)) }
     case 'mana_well':
-      if (currentLevel === 0) return { wood: 60, iron: 15 }
-      return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
+      if (currentLevel === 0) return { wood: 60, iron: 30 }
+      return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
     case 'laboratory':
-      if (currentLevel === 0) return { wood: 80, iron: 21 }
-      return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(18 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
+      if (currentLevel === 0) return { wood: 80, iron: 35 }
+      return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(30 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
     case 'library':
-      if (currentLevel === 0) return { wood: 100, iron: 27,  mana: 30  }
-      if (currentLevel === 1) return { wood: 180, iron: 48,  mana: 70  }
-      if (currentLevel === 2) return { wood: 340, iron: 90,  mana: 150 }
-      if (currentLevel === 3) return { wood: 560, iron: 150, mana: 270 }
-      return                          { wood: 850, iron: 228, mana: 420 }
+      if (currentLevel === 0) return { wood: 100, iron: 45,  mana: 30  }
+      if (currentLevel === 1) return { wood: 180, iron: 80,  mana: 70  }
+      if (currentLevel === 2) return { wood: 340, iron: 150, mana: 150 }
+      if (currentLevel === 3) return { wood: 560, iron: 250, mana: 270 }
+      return                          { wood: 850, iron: 380, mana: 420 }
     default:
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(13 * Math.pow(currentLevel, 1.4)) }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(22 * Math.pow(currentLevel, 1.4)) }
   }
 }
 
@@ -193,7 +193,7 @@ export const TRAINING_ROOM_MAX_LEVEL = 5
 // ── Salas de entrenamiento ────────────────────────────────────────────────────
 
 /** Coste de construir cualquier sala de entrenamiento */
-export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 15 }
+export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 30 }
 
 /** Tiempo de construcción de una sala de entrenamiento nueva */
 export const TRAINING_ROOM_BUILD_TIME_MS = 10 * 60 * 1000
@@ -207,7 +207,7 @@ export function trainingRoomUpgradeDurationMs(currentLevel) {
 export function trainingRoomUpgradeCost(currentLevel) {
   return {
     wood: Math.round(60 * Math.pow(currentLevel, 1.5)),
-    iron: Math.round(17 * Math.pow(currentLevel, 1.4)),
+    iron: Math.round(30 * Math.pow(currentLevel, 1.4)),
   }
 }
 
@@ -382,3 +382,19 @@ export const RUNE_CRAFT_DURATION_MS   = 60 * 60 * 1000  // 1 hora
 
 /** Stats válidas para salas de entrenamiento. */
 export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 'intelligence']
+
+// ── Clases ───────────────────────────────────────────────────────────────────
+
+export const CLASS_COLORS = {
+  caudillo:  '#dc2626',
+  arcanista: '#7c3aed',
+  sombra:    '#0369a1',
+  domador:   '#16a34a',
+}
+
+export const CLASS_LABELS = {
+  caudillo:  'Caudillo',
+  arcanista: 'Arcanista',
+  sombra:    'Sombra',
+  domador:   'Domador',
+}

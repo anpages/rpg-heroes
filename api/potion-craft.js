@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
-import { MAX_POTION_STACK, POTION_CRAFT_DURATION_MS } from './_constants.js'
+import { MAX_POTION_STACK } from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -23,15 +23,16 @@ export default async function handler(req, res) {
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Verificar que no haya un crafteo en curso
+  // Verificar que esta poción no esté ya crafteándose
   const { data: activeCraft } = await supabase
     .from('potion_crafting')
-    .select('potion_id, craft_ends_at')
+    .select('craft_ends_at')
     .eq('hero_id', heroId)
-    .single()
+    .eq('potion_id', potionId)
+    .maybeSingle()
 
   if (activeCraft && new Date(activeCraft.craft_ends_at) > new Date()) {
-    return res.status(409).json({ error: 'Ya hay una poción en proceso. Espera a que termine.' })
+    return res.status(409).json({ error: 'Esta poción ya está en proceso.' })
   }
 
   // Obtener receta
@@ -84,7 +85,8 @@ export default async function handler(req, res) {
   if (snap.fragments < (potion.recipe_fragments ?? 0)) return res.status(402).json({ error: 'Fragmentos insuficientes' })
   if (snap.essence   < (potion.recipe_essence   ?? 0)) return res.status(402).json({ error: 'Esencia insuficiente' })
 
-  const craftEndsAt = new Date(Date.now() + POTION_CRAFT_DURATION_MS).toISOString()
+  const craftMs = (potion.craft_minutes ?? 30) * 60 * 1000
+  const craftEndsAt = new Date(Date.now() + craftMs).toISOString()
 
   const [resourcesResult, craftResult] = await Promise.all([
     supabase.from('resources').update({
@@ -99,7 +101,7 @@ export default async function handler(req, res) {
 
     supabase.from('potion_crafting').upsert(
       { hero_id: heroId, potion_id: potionId, craft_ends_at: craftEndsAt },
-      { onConflict: 'hero_id' }
+      { onConflict: 'hero_id,potion_id' }
     ),
   ])
 

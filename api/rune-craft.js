@@ -1,6 +1,5 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
-import { RUNE_CRAFT_DURATION_MS } from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -16,15 +15,16 @@ export default async function handler(req, res) {
     .from('heroes').select('id').eq('id', heroId).eq('player_id', user.id).maybeSingle()
   if (!hero) return res.status(403).json({ error: 'Forbidden' })
 
-  // Verificar que no haya un crafteo de runa en curso
+  // Verificar que esta runa no esté ya crafteándose
   const { data: activeCraft } = await supabase
     .from('rune_crafting')
-    .select('rune_id, craft_ends_at')
+    .select('craft_ends_at')
     .eq('hero_id', heroId)
-    .single()
+    .eq('rune_id', runeId)
+    .maybeSingle()
 
   if (activeCraft && new Date(activeCraft.craft_ends_at) > new Date()) {
-    return res.status(409).json({ error: 'Ya hay una runa en proceso. Espera a que termine.' })
+    return res.status(409).json({ error: 'Esta runa ya está en proceso.' })
   }
 
   const [runeRes, labRes, resourcesRes] = await Promise.all([
@@ -52,17 +52,21 @@ export default async function handler(req, res) {
 
   const snap = snapshotResources(resources)
 
+  if (snap.gold      < (rune.recipe_gold      ?? 0))    return res.status(400).json({ error: 'Oro insuficiente' })
+  if (snap.wood      < (rune.recipe_wood      ?? 0))    return res.status(400).json({ error: 'Madera insuficiente' })
+  if (snap.mana      < (rune.recipe_mana      ?? 0))    return res.status(400).json({ error: 'Maná insuficiente' })
   if (snap.fragments < (rune.recipe_fragments ?? 0))    return res.status(400).json({ error: 'Fragmentos insuficientes' })
   if (snap.essence   < (rune.recipe_essence   ?? 0))    return res.status(400).json({ error: 'Esencia insuficiente' })
 
-  const craftEndsAt = new Date(Date.now() + RUNE_CRAFT_DURATION_MS).toISOString()
+  const craftMs = (rune.craft_minutes ?? 60) * 60 * 1000
+  const craftEndsAt = new Date(Date.now() + craftMs).toISOString()
 
   const [resourcesResult, craftResult] = await Promise.all([
     supabase.from('resources').update({
       iron:      snap.iron,
-      gold:      snap.gold,
-      wood:      snap.wood,
-      mana:      snap.mana,
+      gold:      snap.gold      - (rune.recipe_gold    ?? 0),
+      wood:      snap.wood      - (rune.recipe_wood    ?? 0),
+      mana:      snap.mana      - (rune.recipe_mana    ?? 0),
       fragments: snap.fragments - (rune.recipe_fragments ?? 0),
       essence:   snap.essence   - (rune.recipe_essence   ?? 0),
       last_collected_at: snap.nowIso,
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
 
     supabase.from('rune_crafting').upsert(
       { hero_id: heroId, rune_id: runeId, craft_ends_at: craftEndsAt },
-      { onConflict: 'hero_id' }
+      { onConflict: 'hero_id,rune_id' }
     ),
   ])
 

@@ -32,14 +32,18 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El edificio ya está mejorando' })
   }
 
-  // Solo se puede mejorar un edificio/sala a la vez
+  // Solo se puede mejorar un edificio a la vez dentro de la misma zona
+  const ZONE_MAP = {
+    energy_nexus: 'recursos', gold_mine: 'recursos', lumber_mill: 'recursos', mana_well: 'recursos',
+    laboratory: 'laboratorio', library: 'biblioteca',
+  }
+  const zone = ZONE_MAP[building.type]
+  const sameZoneTypes = Object.entries(ZONE_MAP).filter(([, z]) => z === zone).map(([t]) => t)
   const queueNow = new Date().toISOString()
-  const [{ data: busyBuildings }, { data: busyRooms }] = await Promise.all([
-    supabase.from('buildings').select('id').eq('player_id', user.id).gt('upgrade_ends_at', queueNow).limit(1),
-    supabase.from('training_rooms').select('stat').eq('player_id', user.id).gt('building_ends_at', queueNow).limit(1),
-  ])
-  if (busyBuildings?.length > 0 || busyRooms?.length > 0) {
-    return res.status(409).json({ error: 'Ya hay una construcción en curso. Espera a que termine.' })
+  const { data: busyBuildings } = await supabase
+    .from('buildings').select('id').eq('player_id', user.id).in('type', sameZoneTypes).gt('upgrade_ends_at', queueNow).limit(1)
+  if (busyBuildings?.length > 0) {
+    return res.status(409).json({ error: 'Ya hay una construcción en curso en esta zona. Espera a que termine.' })
   }
 
   // Laboratorio: requiere nivel de base ≥ 2

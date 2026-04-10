@@ -4,25 +4,22 @@ import { fmtCountdown, fmtHours } from './helpers.js'
 import { RESEARCH_NODES } from '../../lib/gameConstants.js'
 
 function CostRow({ cost, resources }) {
-  const lack = (key) => resources && resources[key] < (cost[key] ?? 0)
+  const has = (key) => resources && resources[key] >= (cost[key] ?? 0)
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {cost.gold > 0 && (
-        <span className={`flex items-center gap-0.5 text-[11px] font-medium ${lack('gold') ? 'text-red-400' : 'text-[#d97706]'}`}>
-          <Coins size={10} strokeWidth={2} />
-          {cost.gold} oro
+        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${has('gold') ? 'text-[#16a34a]' : 'text-error-text'}`}>
+          <Coins size={10} strokeWidth={2} />{cost.gold}
         </span>
       )}
       {cost.iron > 0 && (
-        <span className={`flex items-center gap-0.5 text-[11px] font-medium ${lack('iron') ? 'text-red-400' : 'text-[#64748b]'}`}>
-          <Pickaxe size={10} strokeWidth={2} />
-          {cost.iron} hierro
+        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${has('iron') ? 'text-[#16a34a]' : 'text-error-text'}`}>
+          <Pickaxe size={10} strokeWidth={2} />{cost.iron}
         </span>
       )}
       {cost.mana > 0 && (
-        <span className={`flex items-center gap-0.5 text-[11px] font-medium ${lack('mana') ? 'text-red-400' : 'text-[#7c3aed]'}`}>
-          <Sparkles size={10} strokeWidth={2} />
-          {cost.mana} maná
+        <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${has('mana') ? 'text-[#16a34a]' : 'text-error-text'}`}>
+          <Sparkles size={10} strokeWidth={2} />{cost.mana}
         </span>
       )}
     </div>
@@ -54,7 +51,7 @@ function prereqName(node) {
   return prereq?.name ?? node.prerequisite
 }
 
-function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, hasActiveResearch, onStart, onCollect, startPending, collectPending }) {
+function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, libraryUpgrading, hasActiveResearch, onStart, onCollect, startPending, collectPending }) {
   const bm        = BRANCH_META[node.branch]
   const libReq    = node.library_level_required ?? 1
   const isReady   = state === 'active' && Date.now() >= new Date(activeNode?.ends_at).getTime()
@@ -107,7 +104,7 @@ function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, ha
       </div>
 
       {/* Description */}
-      <p className="text-[11px] text-text-3 leading-snug">{node.description}</p>
+      <p className="text-[13px] text-text-3 leading-snug">{node.description}</p>
 
       {/* Lock por prerequisito */}
       {effectiveState === 'locked' && node.prerequisite && (
@@ -133,8 +130,8 @@ function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, ha
             className="btn btn--primary btn--sm flex-shrink-0"
             style={{ fontSize: '11px', padding: '2px 10px', height: '24px', minHeight: 'unset' }}
             onClick={() => onStart(node.id)}
-            disabled={startPending || !canAfford || hasActiveResearch}
-            title={hasActiveResearch ? 'Ya hay una investigación en curso' : !canAfford ? 'Recursos insuficientes' : undefined}
+            disabled={startPending || !canAfford || hasActiveResearch || libraryUpgrading}
+            title={libraryUpgrading ? 'Biblioteca en mejora' : hasActiveResearch ? 'Ya hay una investigación en curso' : !canAfford ? 'Recursos insuficientes' : undefined}
           >
             Investigar
           </button>
@@ -172,7 +169,7 @@ function ResearchNodeCard({ node, state, activeNode, resources, libraryLevel, ha
   )
 }
 
-function ResearchBranch({ branch, nodesInBranch, completedSet, activeNode, resources, libraryLevel, hasActiveResearch, onStart, onCollect, startPending, collectPending }) {
+function ResearchBranch({ branch, nodesInBranch, completedSet, activeNode, resources, libraryLevel, libraryUpgrading, hasActiveResearch, onStart, onCollect, startPending, collectPending }) {
   const bm = BRANCH_META[branch]
   const BranchIcon = bm.icon
 
@@ -217,6 +214,7 @@ function ResearchBranch({ branch, nodesInBranch, completedSet, activeNode, resou
                 activeNode={activeNode}
                 resources={resources}
                 libraryLevel={libraryLevel}
+                libraryUpgrading={libraryUpgrading}
                 hasActiveResearch={hasActiveResearch}
                 onStart={onStart}
                 onCollect={onCollect}
@@ -231,7 +229,7 @@ function ResearchBranch({ branch, nodesInBranch, completedSet, activeNode, resou
   )
 }
 
-export function ResearchTree({ research, resources, libraryLevel, onStart, onCollect, startPending, collectPending }) {
+export function ResearchTree({ research, resources, libraryLevel, libraryUpgrading, onStart, onCollect, startPending, collectPending }) {
   const completedSet    = new Set(research.completed ?? [])
   const activeNode      = research.active
   const hasActiveResearch = !!activeNode && new Date(activeNode.ends_at) > new Date()
@@ -257,6 +255,7 @@ export function ResearchTree({ research, resources, libraryLevel, onStart, onCol
             activeNode={activeNode}
             resources={resources}
             libraryLevel={libraryLevel}
+            libraryUpgrading={libraryUpgrading}
             hasActiveResearch={hasActiveResearch}
             onStart={onStart}
             onCollect={onCollect}

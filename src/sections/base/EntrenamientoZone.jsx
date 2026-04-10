@@ -19,8 +19,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   const anyReady       = builtRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const needsInit      = heroId && builtRooms.some(r => !progressByStat[r.stat])
 
-  const anyTrainingConstructing = trainingRooms.some(r => r.building_ends_at && new Date(r.building_ends_at) > Date.now())
-  const isQueueBusy = anyUpgrading || anyTrainingConstructing
+  const isQueueBusy = anyUpgrading
 
   useEffect(() => {
     if (!needsInit) return
@@ -31,39 +30,48 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   }, [needsInit, heroId])
 
   const buildMutation = useMutation({
-    mutationFn: (stat) => apiPost('/api/training-room-build', { stat }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      toast.success('¡Construcción iniciada!')
+    mutationFn: async (stat) => {
+      await apiPost('/api/training-room-build', { stat })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.trainingRooms(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
     },
+    onSuccess: () => toast.success('¡Construcción iniciada!'),
     onError: err => toast.error(err.message),
   })
 
   const buildCollectMutation = useMutation({
-    mutationFn: (stat) => apiPost('/api/training-room-build-collect', { stat }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
-      toast.success('¡Sala lista!')
+    mutationFn: async (stat) => {
+      await apiPost('/api/training-room-build-collect', { stat })
+      await queryClient.refetchQueries({ queryKey: queryKeys.trainingRooms(userId) })
     },
+    onSuccess: () => toast.success('¡Sala lista!'),
     onError: err => toast.error(err.message),
   })
 
   const upgradeMutation = useMutation({
-    mutationFn: (stat) => apiPost('/api/training-room-upgrade', { stat }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      toast.success('¡Sala mejorada!')
+    mutationFn: async (stat) => {
+      await apiPost('/api/training-room-upgrade', { stat })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.trainingRooms(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
+      ])
     },
+    onSuccess: () => toast.success('¡Sala mejorada!'),
     onError: err => toast.error(err.message),
   })
 
   const collectMutation = useMutation({
-    mutationFn: (stat) => apiPost('/api/training-collect', { heroId, stat }),
+    mutationFn: async (stat) => {
+      const data = await apiPost('/api/training-collect', { heroId, stat })
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.training(heroId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
+      ])
+      return data
+    },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.training(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       const names = Object.entries(data.gained ?? {}).map(([stat, pts]) => `+${pts} ${STAT_LABEL_MAP[stat]}`)
       toast.success(names.length > 0 ? `¡Entrenamiento! ${names.join(' · ')}` : 'Sincronizado')
     },

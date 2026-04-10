@@ -10,6 +10,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useAppStore } from '../store/appStore'
 import { CombatReplay } from '../components/CombatReplay'
+import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
 import { showCardDropToast } from '../lib/dropToast'
 
@@ -330,7 +331,8 @@ export default function Torneos() {
   const queryClient          = useQueryClient()
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
   const userId               = useAppStore(s => s.userId)
-  const [replay, setReplay]  = useState(null)
+  const [replay, setReplay]              = useState(null)
+  const [showCountdown, setShowCountdown] = useState(false)
 
   const weekStart      = data?.weekStart ?? null
   const availableRound = useMemo(() => getAvailableRound(weekStart), [weekStart])
@@ -579,7 +581,7 @@ export default function Torneos() {
           hero={hero}
           rival={bracket.rivals[nextRound - 1]}
           round={nextRound}
-          onFight={() => fightMutation.mutate()}
+          onFight={() => setShowCountdown(true)}
           isPending={fightMutation.isPending}
           heroExploring={hero?.status === 'exploring'}
           heroId={heroId}
@@ -607,6 +609,12 @@ export default function Torneos() {
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {showCountdown && (
+          <CombatCountdown onReady={() => { setShowCountdown(false); fightMutation.mutate() }} />
+        )}
+      </AnimatePresence>
 
       {replay && (
         <CombatReplay

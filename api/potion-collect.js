@@ -21,19 +21,21 @@ export default async function handler(req, res) {
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Obtener crafteo activo
+  const { potionId } = req.body
+  if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
+
+  // Obtener crafteo activo de esta poción
   const { data: craft } = await supabase
     .from('potion_crafting')
     .select('potion_id, craft_ends_at')
     .eq('hero_id', heroId)
-    .single()
+    .eq('potion_id', potionId)
+    .maybeSingle()
 
   if (!craft) return res.status(404).json({ error: 'No hay ninguna poción en proceso' })
   if (new Date(craft.craft_ends_at) > new Date()) {
     return res.status(409).json({ error: 'La poción aún no está lista' })
   }
-
-  const potionId = craft.potion_id
 
   // Verificar stack actual
   const { data: existing } = await supabase
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
       { hero_id: heroId, potion_id: potionId, quantity: currentQty + 1 },
       { onConflict: 'hero_id,potion_id' }
     ),
-    supabase.from('potion_crafting').delete().eq('hero_id', heroId),
+    supabase.from('potion_crafting').delete().eq('hero_id', heroId).eq('potion_id', potionId),
   ])
 
   if (upsertResult.error) return res.status(500).json({ error: upsertResult.error.message })
