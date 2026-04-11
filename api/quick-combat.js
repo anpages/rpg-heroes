@@ -107,15 +107,22 @@ export default async function handler(req, res) {
   // rápido (+25); si apenas sobrevive, el tier es ajustado y la subida se
   // frena (+5). Paliza → sales del low-tier en decenas de combates en vez de
   // cientos, sin tener que inflar los deltas base.
+  const quickDifficulty = quickCombatDifficulty({
+    won,
+    hpLeftA:   result.hpLeftA,
+    heroMaxHp: heroStats.max_hp,
+  })
   const ratingResult = computeRatingUpdate(hero, {
     won,
-    difficulty: quickCombatDifficulty({
-      won,
-      hpLeftA:   result.hpLeftA,
-      heroMaxHp: heroStats.max_hp,
-    }),
+    difficulty: quickDifficulty,
     nowMs,
   })
+  // Etiqueta narrativa para el cliente: por qué ese delta (solo en victoria).
+  const ratingReason = won
+    ? (quickDifficulty === 'superior' ? 'crush'
+    :  quickDifficulty === 'trivial'  ? 'clutch'
+    :  'fair')
+    : null
 
   const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
@@ -186,6 +193,7 @@ export default async function handler(req, res) {
       prev:      ratingResult.tierBefore.rating,
       current:   ratingResult.updates.combat_rating,
       delta:     ratingResult.delta,
+      reason:    ratingReason,
       decay:     ratingResult.decayApplied,
       graceUsed: ratingResult.graceUsed,
       promoted:  ratingResult.promoted,

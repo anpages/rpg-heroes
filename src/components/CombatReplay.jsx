@@ -169,6 +169,12 @@ function KeyMomentPanel({ decisions, onDecide, loading }) {
   )
 }
 
+const RATING_REASONS = {
+  crush:  { label: '🔥 Paliza',   color: '#16a34a' },
+  fair:   { label: '⚔ Igualado', color: '#f59e0b' },
+  clutch: { label: '😰 Al límite', color: '#7c3aed' },
+}
+
 function RatingPill({ rating }) {
   if (!rating) return null
   const tier = tierForRating(rating.current)
@@ -176,6 +182,7 @@ function RatingPill({ rating }) {
   const DeltaIcon = positive ? TrendingUp : TrendingDown
   const deltaColor = positive ? '#16a34a' : '#dc2626'
   const sign = positive ? '+' : ''
+  const reason = rating.reason ? RATING_REASONS[rating.reason] : null
   return (
     <div className="flex flex-col items-center gap-2">
       <div
@@ -190,6 +197,18 @@ function RatingPill({ rating }) {
         <span className="text-[13px] font-extrabold tracking-wide">{tier.label}</span>
         <span className="text-[11px] font-semibold tabular-nums opacity-80">{rating.current} pts</span>
       </div>
+      {reason && (
+        <div
+          className="px-2 py-[2px] rounded-full border text-[11px] font-bold tracking-wide"
+          style={{
+            color: reason.color,
+            background:  `color-mix(in srgb, ${reason.color} 10%, var(--surface-2))`,
+            borderColor: `color-mix(in srgb, ${reason.color} 35%, var(--border))`,
+          }}
+        >
+          {reason.label}
+        </div>
+      )}
       <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: deltaColor }}>
         <DeltaIcon size={12} strokeWidth={2.5} />
         {sign}{rating.delta} pts
