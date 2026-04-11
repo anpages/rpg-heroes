@@ -3,7 +3,7 @@
  * tanto desde /api/tournament-fight (combate normal) como desde
  * /api/combat-resume (reanudación tras Momento clave).
  */
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { tournamentRoundRewards } from './_tournament.js'
@@ -54,6 +54,13 @@ export async function finalizeTournamentFight({
       ...(ratingResult?.updates ?? {}),
     })
     .eq('id', hero.id)
+
+  // Desgaste del equipo — escalado por ronda (2/3/4). La función SQL escalada
+  // aplica rareza × slot encima del amount nominal. Entre ronda y ronda hay
+  // dos días para que el jugador repare o mejore equipo, ese es el punto.
+  const tournamentWear = WEAR_PROFILE.tournament[nextRound] ?? WEAR_PROFILE.tournament[3]
+  const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: tournamentWear })
+  if (durError) console.error('durability rpc error:', durError.message)
 
   // Actualizar bracket
   await supabase

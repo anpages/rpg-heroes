@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   // status !== 'idle' actúa como lock compartido entre ambos sistemas.
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, class')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, class, active_effects')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -48,10 +48,19 @@ export default async function handler(req, res) {
 
   // Sortear duración entre min y max del tipo elegido
   const cfg = CHAMBER_TYPES[chamberType]
-  const durationMin = cfg.minMinutes + Math.random() * (cfg.maxMinutes - cfg.minMinutes)
+  const baseDurationMin = cfg.minMinutes + Math.random() * (cfg.maxMinutes - cfg.minMinutes)
+  // Poción de tiempo activa: reduce duración por effect_value. Se aplica
+  // sobre el mismo efecto que las expediciones; misma constante reutilizada.
+  const timeReduction = hero.active_effects?.time_reduction ?? 0
+  const durationMin = Math.max(0.1, baseDurationMin * (1 - timeReduction))
   const endsAt = new Date(nowMs + Math.round(durationMin * 60_000))
 
   const difficulty = chamberDifficultyForLevel(hero.level)
+
+  // Consumir time_reduction al iniciar. Otros boosts (loot_boost) se consumen
+  // en chamber-collect porque afectan al roll del cofre.
+  const effectsAfter = { ...(hero.active_effects ?? {}) }
+  if (timeReduction) delete effectsAfter.time_reduction
 
   // Reclamar atómicamente el héroe (mismo patrón que expedition-start):
   // pasa a 'exploring' solo si sigue en 'idle'. Esto evita la condición de
@@ -64,6 +73,7 @@ export default async function handler(req, res) {
       current_hp:         hpAfter,
       hp_last_updated_at: new Date(nowMs).toISOString(),
       status_ends_at:     endsAt.toISOString(),
+      active_effects:     effectsAfter,
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -88,7 +98,8 @@ export default async function handler(req, res) {
     .single()
 
   if (runError) {
-    // Rollback: restaurar idle y HP si la inserción del run falla
+    // Rollback: restaurar idle, HP y active_effects originales si la
+    // inserción del run falla (devolvemos la poción de tiempo consumida).
     await supabase
       .from('heroes')
       .update({
@@ -96,6 +107,7 @@ export default async function handler(req, res) {
         current_hp:         currentHp,
         hp_last_updated_at: hero.hp_last_updated_at,
         status_ends_at:     null,
+        active_effects:     hero.active_effects ?? {},
       })
       .eq('id', hero.id)
     return res.status(500).json({ error: runError.message })

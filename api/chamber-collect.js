@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
   const { data: run } = await supabase
     .from('chamber_runs')
-    .select('*, heroes!inner(id, player_id)')
+    .select('*, heroes!inner(id, player_id, active_effects)')
     .eq('id', runId)
     .single()
 
@@ -40,8 +40,11 @@ export default async function handler(req, res) {
   if (run.status === 'completed')        return res.status(409).json({ error: 'Esta cámara ya fue recogida' })
   if (new Date(run.ends_at) > new Date()) return res.status(409).json({ error: 'La cámara aún no ha terminado' })
 
-  // Sortear 3 cofres del arquetipo de la cámara
-  const chests = rollChamberChests(run.chamber_type, run.difficulty)
+  // loot_boost aumenta la probabilidad de itemHint por cofre. Se consume
+  // solo en la primera llamada; si el jugador reroll tras expiración del
+  // token ya no habrá boost activo (igual que en expediciones).
+  const lootBoost = run.heroes.active_effects?.loot_boost ?? 0
+  const chests = rollChamberChests(run.chamber_type, run.difficulty, lootBoost)
 
   // Marcar como esperando decisión (idempotente — soporta rerolls tras expiración)
   const { error: updateError } = await supabase
@@ -50,6 +53,16 @@ export default async function handler(req, res) {
     .eq('id', runId)
 
   if (updateError) return res.status(500).json({ error: updateError.message })
+
+  // Consumir loot_boost tras rolar (solo si estaba activo).
+  if (lootBoost) {
+    const newEffects = { ...(run.heroes.active_effects ?? {}) }
+    delete newEffects.loot_boost
+    await supabase
+      .from('heroes')
+      .update({ active_effects: newEffects })
+      .eq('id', run.hero_id)
+  }
 
   // Firmar el token con todo lo necesario para chamber-confirm
   const token = signChestToken(

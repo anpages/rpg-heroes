@@ -156,9 +156,11 @@ export default async function handler(req, res) {
 
   if (expUpdateError) return res.status(500).json({ error: expUpdateError.message })
 
-  // Reducir durabilidad del equipo equipado
+  // Reducir durabilidad del equipo equipado — la fórmula dinámica (peligro +
+  // defensa + cartas + research) se queda en este archivo; la función SQL
+  // escalada aplica rareza × slot encima del amount nominal.
   if (durabilityLoss > 0) {
-    const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durabilityLoss })
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durabilityLoss })
     if (durError) console.error('durability rpc error:', durError.message)
   }
 

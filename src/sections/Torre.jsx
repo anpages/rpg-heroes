@@ -13,7 +13,7 @@ import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
 import { floorRewards, floorEnemyName, floorEnemyArchetype, decoratedEnemyName, ENEMY_ARCHETYPES } from '../lib/gameFormulas'
-import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart } from 'lucide-react'
+import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield, Wrench } from 'lucide-react'
 import { usePotions } from '../hooks/usePotions'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -82,6 +82,7 @@ function ProgressStrip({ maxFloor }) {
 export default function Torre() {
   const userId               = useAppStore(s => s.userId)
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const navigateToHeroTab    = useAppStore(s => s.navigateToHeroTab)
   const heroId               = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
@@ -310,12 +311,21 @@ export default function Torre() {
           </span>
         </div>
 
-        {/* HP bar + heal potions */}
+        {/* HP bar + equipment durability + heal potions */}
         {hero && (() => {
           const pct   = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
           const color = hero.status === 'idle' ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
           const recovering = hero.status === 'idle'
           const full = hpNow >= effectiveMaxHp
+          // Durabilidad media del equipo equipado
+          const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
+          const durPct = equipped.length
+            ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
+            : null
+          const durColor = durPct == null ? '#6b7280'
+            : durPct > 60 ? '#16a34a'
+            : durPct > 30 ? '#d97706'
+            : '#dc2626'
           return (
             <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
               <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
@@ -328,6 +338,30 @@ export default function Torre() {
                   style={{ width: `${pct}%`, background: color }}
                 />
               </div>
+              {durPct != null && (
+                <>
+                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
+                    <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                      <button
+                        type="button"
+                        onClick={() => navigateToHeroTab('equipo')}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
+                      >
+                        <Wrench size={10} strokeWidth={2.5} />
+                        Gestionar
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-[width,background] duration-[400ms]"
+                      style={{ width: `${durPct}%`, background: durColor }}
+                    />
+                  </div>
+                </>
+              )}
               {hpPotions.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {hpPotions.map(p => {

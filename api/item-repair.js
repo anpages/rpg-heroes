@@ -1,6 +1,10 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
-import { REPAIR_COST_TABLE as REPAIR_COST } from './_constants.js'
+import {
+  REPAIR_COST_TABLE as REPAIR_COST,
+  REPAIR_IRON_BY_RARITY,
+  REPAIR_IRON_SLOT_MULT,
+} from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -14,7 +18,7 @@ export default async function handler(req, res) {
   // Obtener item con catálogo
   const { data: item } = await supabase
     .from('inventory_items')
-    .select('*, item_catalog(name, rarity, max_durability)')
+    .select('*, item_catalog(name, rarity, slot, max_durability)')
     .eq('id', itemId)
     .single()
 
@@ -45,8 +49,12 @@ export default async function handler(req, res) {
 
   const totalDiscount = Math.min(0.9, -rb.repair_cost_pct)
 
+  const ironPerPoint = REPAIR_IRON_BY_RARITY[catalog.rarity] ?? 0
+  const slotMult     = REPAIR_IRON_SLOT_MULT[catalog.slot] ?? 1
+
   const goldCost = freeRepair ? 0 : Math.ceil(missing * costs.gold * (1 - totalDiscount))
   const manaCost = freeRepair ? 0 : Math.ceil(missing * costs.mana * (1 - totalDiscount))
+  const ironCost = freeRepair ? 0 : Math.ceil(missing * ironPerPoint * slotMult * (1 - totalDiscount))
 
   // Verificar recursos (con interpolación idle)
   const { data: resources } = await supabase
@@ -61,6 +69,7 @@ export default async function handler(req, res) {
 
   if (snap.gold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
   if (snap.mana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
+  if (snap.iron < ironCost) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${ironCost})` })
 
   // Reparar
   await supabase
@@ -72,7 +81,7 @@ export default async function handler(req, res) {
     .from('resources')
     .update({
       gold: snap.gold - goldCost,
-      iron: snap.iron,
+      iron: snap.iron - ironCost,
       wood: snap.wood,
       mana: snap.mana - manaCost,
       last_collected_at: snap.nowIso,
@@ -89,5 +98,5 @@ export default async function handler(req, res) {
     await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', hero.id)
   }
 
-  return res.status(200).json({ ok: true, goldCost, manaCost, freeRepair })
+  return res.status(200).json({ ok: true, goldCost, manaCost, ironCost, freeRepair })
 }

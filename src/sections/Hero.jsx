@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, REPAIR_IRON_BY_RARITY, REPAIR_IRON_SLOT_MULT, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
@@ -357,12 +357,15 @@ const RARITY_META = {
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 
 function estimateRepairCost(item) {
-  const catalog = item.item_catalog
-  const missing = catalog.max_durability - item.current_durability
-  const costs   = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
+  const catalog      = item.item_catalog
+  const missing      = catalog.max_durability - item.current_durability
+  const costs        = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
+  const ironPerPoint = REPAIR_IRON_BY_RARITY[catalog.rarity] ?? 0
+  const slotMult     = REPAIR_IRON_SLOT_MULT[catalog.slot] ?? 1
   return {
     gold: Math.ceil(missing * costs.gold),
     mana: Math.ceil(missing * costs.mana),
+    iron: Math.ceil(missing * ironPerPoint * slotMult),
   }
 }
 
@@ -1005,10 +1008,12 @@ function Hero() {
 
   function handleRepair(item) {
     const cost = estimateRepairCost(item)
-    const costText = cost.mana > 0 ? `${cost.gold} oro · ${cost.mana} maná` : `${cost.gold} oro`
+    const parts = [`${cost.gold} oro`]
+    if (cost.mana > 0) parts.push(`${cost.mana} maná`)
+    if (cost.iron > 0) parts.push(`${cost.iron} hierro`)
     setConfirmModal({
       title: `Reparar ${item.item_catalog.name}`,
-      body: `Coste estimado: ${costText}`,
+      body: `Coste estimado: ${parts.join(' · ')}`,
       confirmLabel: 'Reparar',
       onConfirm: () => {
         setConfirmModal(null)

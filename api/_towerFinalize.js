@@ -12,7 +12,7 @@
  *
  * @returns objeto con la respuesta JSON lista para devolver al cliente
  */
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { COMBAT_HP_COST, towerWearForFloor } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { floorRewards } from './_combat.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
@@ -91,9 +91,10 @@ export async function finalizeTowerAttempt({
   if (hpError)      return { error: hpError.message, status: 500 }
   if (hpCount === 0) return { error: 'El héroe cambió de estado durante el combate', status: 409 }
 
-  // Reducir durabilidad del equipo — escala con el piso
-  const durLossFloor = targetFloor <= 10 ? 1 : targetFloor <= 25 ? 2 : targetFloor <= 40 ? 3 : 4
-  const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLossFloor })
+  // Reducir durabilidad del equipo — escala con el piso (helper centralizado).
+  // La función SQL escalada aplica rareza × slot encima del amount nominal.
+  const durLossFloor = towerWearForFloor(targetFloor)
+  const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durLossFloor })
   if (durError) console.error('durability rpc error:', durError.message)
 
   let rewards = null

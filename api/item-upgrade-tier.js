@@ -87,16 +87,18 @@ export default async function handler(req, res) {
   const curFragments = resources.fragments ?? 0
   const curEssence   = resources.essence   ?? 0
 
-  if (snap.gold    < cost.gold)      return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (curFragments < cost.fragments) return res.status(402).json({ error: `Fragmentos insuficientes (necesitas ${cost.fragments})` })
-  if (curEssence   < cost.essence)   return res.status(402).json({ error: `Esencia insuficiente (necesitas ${cost.essence})` })
+  if (snap.gold    < cost.gold)          return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
+  if (curFragments < cost.fragments)     return res.status(402).json({ error: `Fragmentos insuficientes (necesitas ${cost.fragments})` })
+  if (curEssence   < cost.essence)       return res.status(402).json({ error: `Esencia insuficiente (necesitas ${cost.essence})` })
+  if (snap.iron    < (cost.iron ?? 0))   return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
+  if (snap.wood    < (cost.wood ?? 0))   return res.status(402).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
 
   const { error: resourceUpdateError, count: resCount } = await supabase
     .from('resources')
     .update({
       gold:      snap.gold      - cost.gold,
-      iron:      snap.iron,
-      wood:      snap.wood,
+      iron:      snap.iron      - (cost.iron ?? 0),
+      wood:      snap.wood      - (cost.wood ?? 0),
       mana:      snap.mana,
       fragments: curFragments - cost.fragments,
       essence:   curEssence   - cost.essence,

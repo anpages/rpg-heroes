@@ -1,6 +1,10 @@
 import { requireAuth } from './_auth.js'
 import { snapshotResources } from './_validate.js'
-import { REPAIR_COST_TABLE as REPAIR_COST } from './_constants.js'
+import {
+  REPAIR_COST_TABLE as REPAIR_COST,
+  REPAIR_IRON_BY_RARITY,
+  REPAIR_IRON_SLOT_MULT,
+} from './_constants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -24,7 +28,7 @@ export default async function handler(req, res) {
   // Obtener items equipados con durabilidad < máxima
   const { data: items } = await supabase
     .from('inventory_items')
-    .select('id, current_durability, item_catalog(rarity, max_durability)')
+    .select('id, current_durability, item_catalog(rarity, slot, max_durability)')
     .eq('hero_id', heroId)
     .not('equipped_slot', 'is', null)
 
@@ -38,12 +42,16 @@ export default async function handler(req, res) {
 
   let totalGold = 0
   let totalMana = 0
+  let totalIron = 0
   if (!freeRepair) {
     for (const item of damaged) {
       const missing = item.item_catalog.max_durability - item.current_durability
       const costs = REPAIR_COST[item.item_catalog.rarity] ?? REPAIR_COST.common
+      const ironPerPoint = REPAIR_IRON_BY_RARITY[item.item_catalog.rarity] ?? 0
+      const slotMult     = REPAIR_IRON_SLOT_MULT[item.item_catalog.slot] ?? 1
       totalGold += Math.ceil(missing * costs.gold * (1 - totalDiscount))
       totalMana += Math.ceil(missing * costs.mana * (1 - totalDiscount))
+      totalIron += Math.ceil(missing * ironPerPoint * slotMult * (1 - totalDiscount))
     }
   }
 
@@ -60,6 +68,7 @@ export default async function handler(req, res) {
 
   if (snap.gold < totalGold) return res.status(409).json({ error: `Oro insuficiente (necesitas ${totalGold})` })
   if (snap.mana < totalMana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${totalMana})` })
+  if (snap.iron < totalIron) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${totalIron})` })
 
   // Reparar todos
   await Promise.all(damaged.map(item =>
@@ -73,7 +82,7 @@ export default async function handler(req, res) {
     .from('resources')
     .update({
       gold: snap.gold - totalGold,
-      iron: snap.iron,
+      iron: snap.iron - totalIron,
       wood: snap.wood,
       mana: snap.mana - totalMana,
       last_collected_at: snap.nowIso,
@@ -90,5 +99,5 @@ export default async function handler(req, res) {
     await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', heroId)
   }
 
-  return res.status(200).json({ ok: true, totalGold, totalMana, repaired: damaged.length, freeRepair })
+  return res.status(200).json({ ok: true, totalGold, totalMana, totalIron, repaired: damaged.length, freeRepair })
 }

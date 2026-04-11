@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
@@ -12,10 +11,11 @@ import {
   Coins, Clock, CheckCircle2, PackageX, Lock, RefreshCw,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
   BookOpen, Wrench, Sparkles, Package, Map, Zap, Hammer,
-  Scale, Star, X,
+  Scale, Star,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
+import ItemComparisonModal from '../components/ItemComparisonModal'
 
 const RARITY_META = {
   common:    { label: 'Común',      color: '#6b7280' },
@@ -70,115 +70,6 @@ function timeUntilMidnight() {
   return `${h}h ${m}m`
 }
 
-function ComparisonModal({ item, isNewSlot, equipped, diffs, totalDiff, slotLabel, onClose }) {
-  const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
-
-  let verdictColor = '#6b7280'
-  let verdictLabel = 'Stats similares'
-  let verdictDetail = null
-
-  if (isNewSlot) {
-    verdictColor = '#16a34a'
-    verdictLabel = 'Compra recomendada'
-    verdictDetail = `No tienes ningún ítem de ${slotLabel.toLowerCase()}.`
-  } else if (!equipped) {
-    verdictColor = '#6b7280'
-    verdictLabel = 'Sin ítem equipado'
-    verdictDetail = `Tienes ${slotLabel.toLowerCase()} en la mochila, pero ninguno equipado.`
-  } else {
-    verdictColor =
-      totalDiff > 0 ? '#16a34a' :
-      totalDiff < 0 ? '#dc2626' :
-      '#6b7280'
-    verdictLabel =
-      totalDiff > 0 ? 'Mejora el equipado' :
-      totalDiff < 0 ? 'Peor que el equipado' :
-      'Stats similares'
-  }
-
-  return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onClose}>
-      <div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(420px, 94vw)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-text-3">Comparar con equipado</span>
-            <span className="text-[15px] font-bold truncate" style={{ color: rarity.color }} title={item.name}>
-              {item.name}
-            </span>
-            <span className="text-[11px] text-text-3">
-              {slotLabel} · {rarity.label} · T{item.tier}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors flex-shrink-0"
-            onClick={onClose}
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Verdict banner */}
-        <div
-          className="rounded-lg border px-3 py-2.5 flex items-start gap-2"
-          style={{
-            borderColor: `color-mix(in srgb, ${verdictColor} 40%, var(--color-border))`,
-            background:  `color-mix(in srgb, ${verdictColor} 8%, var(--color-surface))`,
-          }}
-        >
-          {isNewSlot
-            ? <Star size={14} strokeWidth={2.5} className="mt-[2px] flex-shrink-0" style={{ color: verdictColor }} />
-            : <Scale size={14} strokeWidth={2.5} className="mt-[2px] flex-shrink-0" style={{ color: verdictColor }} />
-          }
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-bold" style={{ color: verdictColor }}>{verdictLabel}</div>
-            {verdictDetail && <div className="text-[11px] text-text-3 mt-[2px]">{verdictDetail}</div>}
-            {equipped && !isNewSlot && (
-              <div className="text-[11px] text-text-3 mt-[2px] truncate" title={equipped.item_catalog?.name}>
-                vs {equipped.item_catalog?.name} · T{equipped.item_catalog?.tier}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Stat diffs table (only when comparing vs equipped) */}
-        {equipped && diffs && diffs.length > 0 && (
-          <div className="rounded-lg border border-border bg-surface overflow-hidden">
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 px-3 py-2.5 text-[11px]">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3">Stat</div>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Equipado</div>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Tienda</div>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Δ</div>
-              {diffs.map(({ key, label, Icon, equipped: eq, shop, diff }) => {
-                const diffColor = diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : 'var(--color-text-3)'
-                const sign = diff > 0 ? '+' : ''
-                return (
-                  <div key={key} className="contents">
-                    <div className="flex items-center gap-1.5 text-text-2">
-                      <Icon size={12} strokeWidth={2} className="text-text-3 flex-shrink-0" />
-                      <span>{label}</span>
-                    </div>
-                    <div className="text-right tabular-nums text-text-2">{eq}</div>
-                    <div className="text-right tabular-nums font-semibold text-text">{shop}</div>
-                    <div className="text-right tabular-nums font-bold" style={{ color: diffColor }}>
-                      {diff === 0 ? '·' : `${sign}${diff}`}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
-  )
-}
 
 function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
   const rarity    = RARITY_META[item.rarity] ?? RARITY_META.common
@@ -202,11 +93,11 @@ function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
           key: s.key,
           label: s.label,
           Icon: s.Icon,
-          shop:     item[s.key] ?? 0,
-          equipped: equipped.item_catalog?.[s.key] ?? 0,
+          candidate: item[s.key] ?? 0,
+          equipped:  equipped.item_catalog?.[s.key] ?? 0,
         }))
-        .filter(d => d.shop !== 0 || d.equipped !== 0)
-        .map(d => ({ ...d, diff: d.shop - d.equipped }))
+        .filter(d => d.candidate !== 0 || d.equipped !== 0)
+        .map(d => ({ ...d, diff: d.candidate - d.equipped }))
     : null
   const totalDiff = diffs ? diffs.reduce((a, d) => a + d.diff, 0) : 0
 
@@ -298,13 +189,14 @@ function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
         )}
 
         {showCompare && (
-          <ComparisonModal
+          <ItemComparisonModal
             item={item}
             isNewSlot={isNewSlot}
             equipped={equipped}
             diffs={diffs}
             totalDiff={totalDiff}
             slotLabel={SLOT_LABEL[item.slot] ?? item.slot}
+            candidateLabel="Tienda"
             onClose={() => setShowCompare(false)}
           />
         )}

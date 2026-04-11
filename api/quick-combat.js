@@ -13,7 +13,7 @@ import {
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, quickCombatDifficulty, quickCombatVirtualLevel } from './_rating.js'
 
 export default async function handler(req, res) {
@@ -138,18 +138,17 @@ export default async function handler(req, res) {
   if (hpError) return res.status(500).json({ error: hpError.message })
   if (hpCount === 0) return res.status(409).json({ error: 'El héroe cambió de estado durante el combate' })
 
-  // Desgaste del equipo — alineado con quickDifficulty para coherencia narrativa:
-  //   paliza (>70% HP)  → 0 (dominaste, el equipo no sufre)
-  //   fair  (30-70% HP) → 1
-  //   al límite (<30%)  → 2
-  //   derrota           → 2
-  // Consecuencia: farmear en low-tier (palizas) no destroza el equipo, pero
-  // al llegar al tier justo los combates cobran su precio → loop reparar/mejorar.
-  const durLoss = won
-    ? (quickDifficulty === 'superior' ? 0 : quickDifficulty === 'trivial' ? 2 : 1)
-    : 2
+  // Desgaste del equipo — cantidad nominal por WEAR_PROFILE.quick según el
+  // resultado. La función SQL escalada lo multiplica luego por rareza × slot.
+  // Paliza (>70% HP) → 0: dominaste, el equipo no sufre. Fair → 1. Al límite
+  // o derrota → 2. Así farmear low-tier no destroza equipo, pero al llegar al
+  // tier justo los combates cobran su precio → loop reparar/mejorar.
+  const durKey = won
+    ? (quickDifficulty === 'superior' ? 'crush' : quickDifficulty === 'trivial' ? 'clutch' : 'fair')
+    : 'loss'
+  const durLoss = WEAR_PROFILE.quick[durKey]
   if (durLoss > 0) {
-    const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLoss })
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durLoss })
     if (durError) console.error('durability rpc error:', durError.message)
   }
 

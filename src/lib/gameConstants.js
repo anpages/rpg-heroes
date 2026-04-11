@@ -287,6 +287,35 @@ export const REPAIR_COST_TABLE = {
 }
 
 /**
+ * Iron consumido por punto de durabilidad reparado, según rareza.
+ * Común no pide iron — el early game sigue con gold puro. A partir de
+ * uncommon cada reparación consume iron, que escala fuerte con rareza.
+ * Diseñado para dar sumidero recurrente a la producción de la mina.
+ */
+export const REPAIR_IRON_BY_RARITY = {
+  common:    0,
+  uncommon:  2,
+  rare:      4,
+  epic:      8,
+  legendary: 12,
+}
+
+/**
+ * Multiplicador de iron por slot. Las armas (metal pesado) consumen más,
+ * las armaduras estándar, los accesorios son mágicos → solo mana, 0 iron.
+ */
+export const REPAIR_IRON_SLOT_MULT = {
+  main_hand: 1.5,
+  off_hand:  1.2,
+  helmet:    1.0,
+  chest:     1.0,
+  arms:      1.0,
+  legs:      1.0,
+  feet:      1.0,
+  accessory: 0,
+}
+
+/**
  * Oro base obtenido al desmantelar un ítem, multiplicado por el tier.
  * `oro = DISMANTLE_GOLD_TABLE[rarity] * tier`
  */
@@ -370,10 +399,12 @@ export function computeResearchBonuses(completedIds = []) {
 }
 
 /** Costes de mejora de tier. key = tier actual → siguiente.
- *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos). */
+ *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos).
+ *  Además pide iron/wood para dar uso al excedente de la mina/aserradero
+ *  — mejorar equipo es el sumidero puntual más grande del juego. */
 export const ITEM_TIER_UPGRADE_COST = {
-  1: { gold: 800,  fragments: 3, essence: 1 },
-  2: { gold: 2500, fragments: 8, essence: 3 },
+  1: { gold: 800,  fragments: 3, essence: 1, iron: 150, wood: 100 },
+  2: { gold: 2500, fragments: 8, essence: 3, iron: 500, wood: 350 },
 }
 
 // ── Héroes ────────────────────────────────────────────────────────────────────
@@ -398,6 +429,33 @@ export const COMBAT_HP_COST = {
   tournament: { win: 0.08, loss: 0.14 },
   tower:      { win: 0.10, loss: 0.17 },
   squad:      { win: 0.12, loss: 0.20 },
+}
+
+/**
+ * Desgaste base de equipo por actividad. Los valores son "cantidad nominal"
+ * — la función SQL `reduce_equipment_durability_scaled` los multiplica luego
+ * por rareza × slot del ítem para escalar por calidad del equipo.
+ *
+ * Expedición NO está aquí: usa su propia fórmula dinámica (peligro + defensa
+ * + cartas + research) en expedition-collect.js, ya suficientemente granular.
+ */
+export const WEAR_PROFILE = {
+  quick:      { crush: 0, fair: 1, clutch: 2, loss: 2 },
+  tournament: { 1: 2, 2: 3, 3: 4 },              // por ronda (1, 2, 3=final)
+  squad:      2,                                 // aplicado a cada uno de los 3 héroes
+  chamber:    { mercader: 1, erudito: 2, cazador: 2 },
+  bounty:     2,                                 // caza de botín — aplicado por intento
+}
+
+/**
+ * Desgaste de un piso de torre (escalonado por tramo).
+ * Helper que encapsula la regla inline que antes vivía en _towerFinalize.js.
+ */
+export function towerWearForFloor(floor) {
+  if (floor <= 10) return 1
+  if (floor <= 25) return 2
+  if (floor <= 40) return 3
+  return 4
 }
 
 // ── Cámaras: incursiones rápidas ─────────────────────────────────────────────
@@ -425,17 +483,17 @@ export const CHAMBER_TYPES = {
     label:      'Cámara del Erudito',
     icon:       '📜',
     color:      '#0369a1',
-    minMinutes: 4,
-    maxMinutes: 7,
-    hpCostPct:  0.18,
+    minMinutes: 5,
+    maxMinutes: 8,
+    hpCostPct:  0.22,
   },
   cazador: {
     label:      'Cámara del Cazador',
     icon:       '⚔️',
     color:      '#7c3aed',
-    minMinutes: 6,
-    maxMinutes: 10,
-    hpCostPct:  0.28,
+    minMinutes: 5,
+    maxMinutes: 8,
+    hpCostPct:  0.22,
   },
 }
 
@@ -473,10 +531,14 @@ export const CHAMBER_ITEM_KIND = {
  * arquetipo (3 rolls del mismo perfil). Las cantidades concretas de oro/xp
  * se calculan multiplicando los multiplicadores por chamberBaseReward(difficulty).
  *
- * Diferenciación incremental:
- *   mercader (3-5 min, 12% HP)  → básico, todo poco
- *   erudito  (4-7 min, 18% HP)  → intermedio, sesgado a armadura
- *   cazador  (6-10 min, 28% HP) → mayor, sesgado a armas
+ * Diferenciación:
+ *   mercader (3-5 min, 12% HP)  → básico, todo poco, pool de slot amplio
+ *   erudito  (5-8 min, 22% HP)  → armadura (helmet/chest/arms/legs)
+ *   cazador  (5-8 min, 22% HP)  → armas (main_hand/off_hand)
+ *
+ * Erudito y cazador comparten tiempo, coste HP, probabilidades y mults —
+ * la única diferencia entre ellos es qué tipo de equipo puede dropear
+ * (decidido en CHAMBER_ITEM_SLOTS).
  *
  * Los items siguen siendo tier 1-2 (nunca tier 3 — eso queda para expediciones).
  * Las cartas NUNCA salen de cámaras (cardChance siempre 0).
@@ -486,23 +548,23 @@ export const CHAMBER_CHEST_REWARDS = {
     label:          'Cofre del Mercader',
     icon:           '🪙',
     color:          '#d97706',
-    description:    'Oro y, con suerte, cualquier pieza de equipo',
-    goldMult:       1.0,
-    xpMult:         0.6,
-    itemChance:     0.05,  // baja, pero puede ser cualquier slot (incluye accesorios)
-    fragmentChance: 0.12,  // gateado por dificultad ≥ 2
+    description:    'La cámara del oro — y la única con accesorios',
+    goldMult:       1.4,
+    xpMult:         0.8,
+    itemChance:     0.14,  // por debajo de erudito/cazador, compensa con pool amplio + accesorios
+    fragmentChance: 0.20,  // gateado por dificultad ≥ 2
     fragmentMin:    1,
-    fragmentMax:    1,
+    fragmentMax:    2,
   },
   erudito: {
     label:          'Cofre del Erudito',
     icon:           '📜',
     color:          '#0369a1',
-    description:    'Más XP y armadura para el héroe estudioso',
-    goldMult:       1.2,
-    xpMult:         1.0,
-    itemChance:     0.18,  // armadura (helmet/chest/arms/legs)
-    fragmentChance: 0.22,
+    description:    'Armadura para el héroe estudioso',
+    goldMult:       1.1,
+    xpMult:         0.9,
+    itemChance:     0.22,  // armadura (helmet/chest/arms/legs)
+    fragmentChance: 0.26,
     fragmentMin:    1,
     fragmentMax:    2,
   },
@@ -510,11 +572,11 @@ export const CHAMBER_CHEST_REWARDS = {
     label:          'Cofre del Cazador',
     icon:           '⚔️',
     color:          '#7c3aed',
-    description:    'Armas y materiales para el cazador veterano',
-    goldMult:       1.0,
-    xpMult:         0.8,
-    itemChance:     0.28,  // armas (main_hand/off_hand)
-    fragmentChance: 0.30,
+    description:    'Armas para el cazador veterano',
+    goldMult:       1.1,
+    xpMult:         0.9,
+    itemChance:     0.22,  // armas (main_hand/off_hand)
+    fragmentChance: 0.26,
     fragmentMin:    1,
     fragmentMax:    2,
   },
@@ -597,4 +659,81 @@ export const CLASS_LABELS = {
   arcanista: 'Arcanista',
   sombra:    'Sombra',
   domador:   'Domador',
+}
+
+// ── Caza de Botín ────────────────────────────────────────────────────────────
+
+/**
+ * Rutas de caza: el jugador elige un slot y, si tiene suerte, obtiene una pieza
+ * de ese slot con rareza escalada al nivel del héroe. Las rutas rotan a diario
+ * (pool de 3) y pueden regenerarse pagando oro.
+ */
+export const BOUNTY_ROUTES_CATALOG = [
+  { key: 'cuevas_yunque',     slot: 'main_hand', label: 'Cuevas del Yunque',    icon: '⚔️' },
+  { key: 'bastion_roto',      slot: 'off_hand',  label: 'Bastión Roto',         icon: '🛡️' },
+  { key: 'cumbre_halcon',     slot: 'helmet',    label: 'Cumbre del Halcón',    icon: '🪖' },
+  { key: 'santuario_olvidado',slot: 'chest',     label: 'Santuario Olvidado',   icon: '🎽' },
+  { key: 'taller_abandonado', slot: 'arms',      label: 'Taller Abandonado',    icon: '🧤' },
+  { key: 'senda_cazador',     slot: 'legs',      label: 'Senda del Cazador',    icon: '👖' },
+  { key: 'ruinas_peregrino',  slot: 'feet',      label: 'Ruinas del Peregrino', icon: '🥾' },
+  { key: 'mercado_fantasma',  slot: 'accessory', label: 'Mercado Fantasma',     icon: '💍' },
+]
+
+/** Número de rutas visibles en el pool diario */
+export const BOUNTY_POOL_SIZE = 3
+
+/** Duración en minutos de un intento de caza */
+export const BOUNTY_DURATION_MIN = 15
+
+/** Coste en recursos por intento (independiente de la rareza, fijo). Solo oro:
+ *  iron/wood ya tienen sink en reparar y tier-upgrade; la caza es sumidero de oro. */
+export const BOUNTY_COST = { gold: 3000 }
+
+/** Porcentaje de max_hp consumido por intento */
+export const BOUNTY_HP_COST_PCT = 0.20
+
+/** Probabilidad base de éxito de la tirada */
+export const BOUNTY_SUCCESS_RATE = 0.40
+
+/** Fragmentos de consuelo al fallar (rango min-max) */
+export const BOUNTY_CONSOLATION_FRAGMENTS = { min: 3, max: 5 }
+
+/** Costes escalonados para regenerar el pool de rutas (índice = regens previos) */
+export const BOUNTY_REGEN_COSTS = [1500, 4000, 10000]
+
+/** Número máximo de regeneraciones por ventana diaria */
+export const BOUNTY_REGEN_MAX = BOUNTY_REGEN_COSTS.length
+
+/** Milisegundos hasta el próximo reset automático del pool */
+export const BOUNTY_RESET_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Distribución de rareza del ítem obtenido según el nivel del héroe.
+ * Garantiza que una pieza nunca sea "basura" para el nivel actual.
+ * Cada tramo es un objeto { common, uncommon, rare, epic, legendary }
+ * con los pesos relativos (sumarán 100).
+ */
+export const BOUNTY_RARITY_BY_LEVEL = [
+  { maxLevel:  2, weights: { common: 70, uncommon: 30, rare: 0,  epic: 0,  legendary: 0  } },
+  { maxLevel:  4, weights: { common: 25, uncommon: 55, rare: 20, epic: 0,  legendary: 0  } },
+  { maxLevel:  6, weights: { common: 0,  uncommon: 30, rare: 55, epic: 15, legendary: 0  } },
+  { maxLevel:  8, weights: { common: 0,  uncommon: 0,  rare: 45, epic: 45, legendary: 10 } },
+  { maxLevel: 99, weights: { common: 0,  uncommon: 0,  rare: 20, epic: 55, legendary: 25 } },
+]
+
+/** Helper: devuelve los pesos de rareza para el nivel del héroe */
+export function bountyRarityWeightsForLevel(heroLevel) {
+  const tier = BOUNTY_RARITY_BY_LEVEL.find(t => heroLevel <= t.maxLevel) ?? BOUNTY_RARITY_BY_LEVEL[BOUNTY_RARITY_BY_LEVEL.length - 1]
+  return tier.weights
+}
+
+/** Helper: coste de HP absoluto para un intento dado max_hp */
+export function bountyHpCost(heroMaxHp) {
+  return Math.max(1, Math.round(heroMaxHp * BOUNTY_HP_COST_PCT))
+}
+
+/** Helper: coste de la próxima regeneración dados los regens ya usados */
+export function bountyRegenCost(regensUsed) {
+  if (regensUsed >= BOUNTY_REGEN_MAX) return null
+  return BOUNTY_REGEN_COSTS[regensUsed]
 }

@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, active_effects')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -73,7 +73,13 @@ export default async function handler(req, res) {
   // Agilidad reduce duración (hasta −25%)
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
   const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
-  const effectiveDuration = Math.round(baseDuration * mods.durationMult)
+  // Poción de tiempo activa: reduce la duración en effect_value (ej. 0.40 → −40%).
+  // Se aplica sobre el resultado ya ajustado por agilidad y modificador semanal.
+  const timeReduction = hero.active_effects?.time_reduction ?? 0
+  const effectiveDuration = Math.max(
+    1,
+    Math.round(baseDuration * mods.durationMult * (1 - timeReduction)),
+  )
 
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
   const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
@@ -93,6 +99,11 @@ export default async function handler(req, res) {
   }
   const hpAfterExpedition = Math.max(1, currentHp - hpDamage)
 
+  // Consumir time_reduction si estaba activo. Los demás boosts (xp/loot/gold)
+  // se consumen en expedition-collect porque afectan al resultado final.
+  const effectsAfter = { ...(hero.active_effects ?? {}) }
+  if (timeReduction) delete effectsAfter.time_reduction
+
   // Reclamar el héroe atómicamente: solo actualiza si sigue en idle.
   // Evita la condición de carrera donde dos peticiones simultáneas ambas
   // pasan la comprobación de status pero solo una debe continuar.
@@ -103,6 +114,7 @@ export default async function handler(req, res) {
       current_hp:         hpAfterExpedition,
       hp_last_updated_at: new Date(nowMs).toISOString(),
       status_ends_at:     endsAt.toISOString(),
+      active_effects:     effectsAfter,
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -128,7 +140,9 @@ export default async function handler(req, res) {
     })
 
   if (expError) {
-    // Rollback: restaurar estado idle si la expedición no se pudo crear
+    // Rollback: restaurar estado idle + active_effects originales si la
+    // expedición no se pudo crear. Devolvemos la poción de tiempo gastada
+    // para que el jugador pueda reintentar sin perderla.
     await supabase
       .from('heroes')
       .update({
@@ -136,6 +150,7 @@ export default async function handler(req, res) {
         current_hp: currentHp,
         hp_last_updated_at: hero.hp_last_updated_at,
         status_ends_at: null,
+        active_effects: hero.active_effects ?? {},
       })
       .eq('id', hero.id)
     return res.status(500).json({ error: expError.message })

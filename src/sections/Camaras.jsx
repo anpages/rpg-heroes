@@ -113,7 +113,7 @@ function ChamberTypeCard({
               Tiempo restante
             </div>
             <div
-              className="text-[38px] font-extrabold tabular-nums leading-none"
+              className="text-[26px] font-extrabold tabular-nums leading-none"
               style={{ color: cfg.color }}
             >
               {fmtTime(secondsLeft ?? 0)}
@@ -321,8 +321,87 @@ function MysteryRevealView({ chest, index }) {
   )
 }
 
-function ChestPickerModal({ chests, onPick, picking, onClose, revealedChest, revealedIndex }) {
-  const isRevealing = revealedChest != null
+/* Vista de resultado final: se muestra tras confirmar el cofre elegido y
+ * permanece abierta hasta que el jugador pulsa Cerrar. Incluye tanto las
+ * recompensas "ya conocidas" del cofre (oro/xp/fragmentos/hint) como el
+ * item concreto rolado por chamber-confirm si hubo drop. */
+function FinalResultView({ chest, drop, onClose }) {
+  const cfg = CHAMBER_CHEST_REWARDS[chest.archetype]
+  const dropCat = drop?.item_catalog
+  const dropColor = dropCat ? (RARITY_COLORS[dropCat.rarity] ?? '#6b7280') : null
+
+  return (
+    <motion.div
+      key="result"
+      className="flex flex-col"
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+    >
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+        <div className="min-w-0">
+          <p className="text-[18px] font-extrabold text-text leading-tight">Recompensa</p>
+          <p className="text-[12px] text-text-3 mt-0.5 truncate">{cfg.label}</p>
+        </div>
+        <button
+          type="button"
+          className="btn btn--ghost btn--icon flex-shrink-0"
+          onClick={onClose}
+          title="Cerrar"
+        >
+          <X size={16} strokeWidth={2} />
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center gap-3 px-5 py-5">
+        <motion.div
+          className="text-[48px] leading-none select-none"
+          initial={{ rotate: -10, scale: 0.5 }}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ duration: 0.4, type: 'spring', stiffness: 200 }}
+        >
+          {cfg.icon}
+        </motion.div>
+        <ChestRewardPills chest={chest} />
+
+        {dropCat && (
+          <motion.div
+            className="w-full rounded-xl border-2 px-4 py-3 flex flex-col gap-1"
+            style={{
+              borderColor: `color-mix(in srgb, ${dropColor} 45%, var(--border))`,
+              background: `color-mix(in srgb, ${dropColor} 8%, var(--surface))`,
+            }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wide text-text-3">Ítem conseguido</p>
+            <p className="text-[15px] font-extrabold leading-tight" style={{ color: dropColor }}>
+              {dropCat.name}
+            </p>
+            <p className="text-[11px] text-text-3">
+              {RARITY_LABELS[dropCat.rarity] ?? dropCat.rarity} · T{dropCat.tier}
+            </p>
+          </motion.div>
+        )}
+      </div>
+
+      <div className="px-5 py-3 border-t border-border">
+        <button
+          type="button"
+          className="btn btn--primary w-full"
+          onClick={onClose}
+        >
+          Cerrar
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
+function ChestPickerModal({ chests, onPick, picking, onClose, revealedChest, revealedIndex, finalResult }) {
+  const isRevealing = revealedChest != null && finalResult == null
+  const isFinal     = finalResult != null
   return createPortal(
     <div
       className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-4"
@@ -334,7 +413,13 @@ function ChestPickerModal({ chests, onPick, picking, onClose, revealedChest, rev
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
       >
-        {isRevealing ? (
+        {isFinal ? (
+          <FinalResultView
+            chest={finalResult.chest}
+            drop={finalResult.drop}
+            onClose={onClose}
+          />
+        ) : isRevealing ? (
           <MysteryRevealView chest={revealedChest} index={revealedIndex} />
         ) : (
           <>
@@ -400,6 +485,7 @@ export default function Camaras() {
   const [pickerToken,  setPickerToken]  = useState(null)
   const [revealedChest, setRevealedChest] = useState(null)
   const [revealedIndex, setRevealedIndex] = useState(null)
+  const [finalResult,  setFinalResult]  = useState(null)  // { chest, drop }
 
   const startMutation = useMutation({
     mutationFn: (chamberType) => apiPost('/api/chamber-start', { heroId, chamberType }),
@@ -422,26 +508,27 @@ export default function Camaras() {
 
   const confirmMutation = useMutation({
     mutationFn: (chosenIndex) => apiPost('/api/chamber-confirm', { token: pickerToken, chosenIndex }),
-    onSuccess: (_data, chosenIndex) => {
+    onSuccess: (data, chosenIndex) => {
       // Refrescar cámara, recursos, héroe e inventario inmediatamente.
-      // Sin toasts: el feedback visual es el reveal (si era misterioso) o
-      // el cierre del modal (si era visible).
       setChamber(null)
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(hero?.player_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(hero?.player_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
 
-      // Si fue un cofre misterioso ya estamos mostrando el reveal — lo dejamos
-      // visible 2.5s antes de cerrar el modal. Si fue un visible, cierre directo.
-      const wasMystery = pickerChests?.[chosenIndex]?.mystery === true
-      const delayMs = wasMystery ? 2500 : 0
-      setTimeout(() => {
-        setPickerChests(null)
-        setPickerToken(null)
-        setRevealedChest(null)
-        setRevealedIndex(null)
-      }, delayMs)
+      // Dejar el modal abierto con la vista de resultado hasta que el
+      // jugador pulse Cerrar. Limpiamos la reveal intermedia del misterioso
+      // — el FinalResultView ya muestra el contenido del cofre elegido.
+      const chosenChest = pickerChests?.[chosenIndex] ?? null
+      setFinalResult({ chest: chosenChest, drop: data?.drop ?? null })
+      setRevealedChest(null)
+      setRevealedIndex(null)
+
+      // Notificación de drop: el inventario sigue siendo silencioso salvo
+      // que el jugador haya conseguido un item — eso sí merece toast.
+      if (data?.drop?.item_catalog?.name) {
+        notify.success(`¡${data.drop.item_catalog.name} conseguido!`)
+      }
     },
     onError: (err) => {
       // Revertir el reveal si la mutación falló
@@ -514,6 +601,7 @@ export default function Camaras() {
             picking={confirmMutation.isPending}
             revealedChest={revealedChest}
             revealedIndex={revealedIndex}
+            finalResult={finalResult}
             onPick={handlePickChest}
             onClose={() => {
               if (confirmMutation.isPending) return
@@ -521,6 +609,7 @@ export default function Camaras() {
               setPickerToken(null)
               setRevealedChest(null)
               setRevealedIndex(null)
+              setFinalResult(null)
             }}
           />
         )}

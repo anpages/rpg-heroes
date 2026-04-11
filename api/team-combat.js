@@ -4,7 +4,7 @@ import { simulateTeamCombat } from './_teamCombat.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, teamCombatDifficulty } from './_rating.js'
 import { computeSynergy, applySynergyToStats } from '../src/lib/teamSynergy.js'
 import {
@@ -169,6 +169,13 @@ export default async function handler(req, res) {
       .eq('id', id)
       .eq('status', 'idle')
     if (error) return res.status(500).json({ error: error.message })
+  }
+
+  // Desgaste del equipo — 3v3 es duro, cada héroe sufre WEAR_PROFILE.squad.
+  // La función SQL escalada aplica rareza × slot encima del amount nominal.
+  for (const hero of heroesOrdered) {
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: WEAR_PROFILE.squad })
+    if (durError) console.error('durability rpc error:', durError.message)
   }
 
   // Recompensas solo si gana

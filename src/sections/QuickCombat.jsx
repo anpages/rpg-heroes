@@ -12,7 +12,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { trainingRewards } from '../lib/gameFormulas'
-import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame } from 'lucide-react'
+import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame, Wrench } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import RatingBanner from '../components/RatingBanner'
@@ -184,6 +184,7 @@ function MatchmakingOverlay({ enemyName, onReady }) {
 export default function QuickCombat() {
   const userId               = useAppStore(s => s.userId)
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const navigateToHeroTab    = useAppStore(s => s.navigateToHeroTab)
   const heroId               = useHeroId()
   const queryClient          = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
@@ -400,7 +401,17 @@ export default function QuickCombat() {
                 <>
                   <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
                     <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                    <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                      <button
+                        type="button"
+                        onClick={() => navigateToHeroTab('equipo')}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
+                      >
+                        <Wrench size={10} strokeWidth={2.5} />
+                        Gestionar
+                      </button>
+                    </div>
                   </div>
                   <div className="h-2 bg-border rounded-full overflow-hidden">
                     <div

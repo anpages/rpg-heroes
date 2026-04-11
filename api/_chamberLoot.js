@@ -83,7 +83,7 @@ function rollFragments(cfg) {
  * probabilidad de fragmento (sigue gateado por dificultad). itemChance
  * sin tocar — la economía de items intacta respecto a expediciones.
  */
-function rollSingleChest(chamberType, difficulty, isMystery) {
+function rollSingleChest(chamberType, difficulty, isMystery, lootBoost = 0) {
   const cfg = CHAMBER_CHEST_REWARDS[chamberType]
   const base = chamberBaseReward(difficulty)
   const weights = chamberRarityWeights(difficulty)
@@ -100,7 +100,8 @@ function rollSingleChest(chamberType, difficulty, isMystery) {
   const material = fragmentsAllowed && Math.random() < fragmentChance
     ? rollFragments(cfg)
     : null
-  const itemHint = Math.random() < cfg.itemChance
+  const itemChance = Math.min(1, cfg.itemChance * (1 + lootBoost))
+  const itemHint = Math.random() < itemChance
     ? { rarity: pickWeighted(RARITIES, weights) }
     : null
 
@@ -126,13 +127,13 @@ function rollSingleChest(chamberType, difficulty, isMystery) {
  *   - itemHint: { rarity } | null   — el item real se rolea en confirm
  *   - mystery: boolean              — flag para que la UI oculte el contenido
  */
-export function rollChamberChests(chamberType, difficulty) {
+export function rollChamberChests(chamberType, difficulty, lootBoost = 0) {
   const cfg = CHAMBER_CHEST_REWARDS[chamberType]
   if (!cfg) throw new Error(`chamberType inválido: ${chamberType}`)
 
   const mysteryIndex = Math.floor(Math.random() * CHAMBER_CHEST_COUNT)
   return Array.from({ length: CHAMBER_CHEST_COUNT }, (_, i) =>
-    rollSingleChest(chamberType, difficulty, i === mysteryIndex),
+    rollSingleChest(chamberType, difficulty, i === mysteryIndex, lootBoost),
   )
 }
 

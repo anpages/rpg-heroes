@@ -5,6 +5,7 @@ import { applyChamberChestLoot } from './_chamberLoot.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { interpolateHP } from './_hp.js'
+import { WEAR_PROFILE } from '../src/lib/gameConstants.js'
 
 /**
  * Aplica la elección de cofre del jugador.
@@ -129,6 +130,15 @@ export default async function handler(req, res) {
 
   // ── 7. Rolear el item concreto a partir del hint firmado ─────────────────
   const { drop } = await applyChamberChestLoot(supabase, hero, chest)
+
+  // Desgaste del equipo — depende del tipo de cámara: Mercader 1 (ligero),
+  // Erudito 2 (medio), Cazador 3 (duro, es la que simula combate). La función
+  // SQL escalada aplica rareza × slot encima del amount nominal.
+  const chamberWear = WEAR_PROFILE.chamber[run.chamber_type] ?? 1
+  if (chamberWear > 0) {
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: chamberWear })
+    if (durError) console.error('durability rpc error:', durError.message)
+  }
 
   // ── 8. Marcar el run como completado ──────────────────────────────────────
   const reward = {
