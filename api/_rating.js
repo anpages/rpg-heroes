@@ -62,6 +62,24 @@ export function tierForRating(rating) {
 }
 
 /**
+ * Virtual level asociado al tier/división del héroe (1..21).
+ * TIERS está ordenado de mayor a menor → VL = TIERS.length - idx.
+ *   Hierro III → 1   (novato)
+ *   Bronce II  → 5
+ *   Platino I  → 15
+ *   Leyenda    → 21
+ *
+ * Usado por quick combat para generar enemigos anclados al tier, no al poder
+ * real del jugador: gear progression = tier progression.
+ */
+export function virtualLevelForRating(rating) {
+  const tier = tierForRating(rating)
+  const idx = TIERS.findIndex(([min]) => min === tier.min)
+  if (idx < 0) return 1
+  return TIERS.length - idx
+}
+
+/**
  * Aplica el resultado de un combate al rating del héroe.
  * Gestiona decay por inactividad, gracia anti-yo-yo y promoción/democión.
  *
@@ -150,9 +168,9 @@ export function towerDifficulty(floor, heroLevel) {
  *   - Último tercio (cerca de promocionar)          → superior (+25/−10)
  *
  * Así empezar un tier es un respiro y rematarlo cuesta, emulando el grinder
- * de promoción típico de MOBA. El enemigo en sí se genera al poder real del
- * héroe (ver trainingEnemyStatsFromPlayer) — esta dificultad solo ajusta el
- * delta de rating, no la fuerza del rival.
+ * de promoción típico de MOBA. El enemigo en sí se genera anclado al tier
+ * (ver tierAnchoredEnemyStats) — esta dificultad solo ajusta el delta de
+ * rating, no la fuerza del rival.
  */
 export function quickCombatDifficulty(heroRow) {
   const rating = Math.max(0, heroRow?.combat_rating ?? 0)

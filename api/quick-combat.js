@@ -2,7 +2,7 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import {
-  trainingEnemyStatsFromPlayer,
+  tierAnchoredEnemyStats,
   trainingEnemyName,
   trainingRewards,
   xpRequiredForLevel,
@@ -14,7 +14,7 @@ import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
-import { computeRatingUpdate, quickCombatDifficulty } from './_rating.js'
+import { computeRatingUpdate, quickCombatDifficulty, virtualLevelForRating } from './_rating.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -61,10 +61,12 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Generar enemigo escalado al poder REAL del héroe (incluye equipo, cartas,
-  // runas, research y desgaste — todo vía getEffectiveStats) y aplicar un
-  // arquetipo aleatorio que redistribuye esos stats en un perfil de combate.
-  const baseEnemyStats = trainingEnemyStatsFromPlayer(heroStats)
+  // Enemigo anclado al TIER del héroe, no a su poder real. El virtual level
+  // (1..21) sale del rating actual — representa "un héroe bien equipado de
+  // ese tramo". Si tu equipo es pobre para el tier, pierdes: ese es el
+  // incentivo para expediciones/cámaras/reparar. Gear → tier progression.
+  const virtualLevel   = virtualLevelForRating(hero.combat_rating ?? 0)
+  const baseEnemyStats = tierAnchoredEnemyStats(virtualLevel)
   const archetypeKey   = randomArchetype()
   const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
   const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)

@@ -237,31 +237,30 @@ export function trainingEnemyStats(heroLevel) {
 }
 
 /**
- * Genera stats del enemigo de quick combat ancladas al poder real del héroe.
- * Usa las effective stats del jugador (base + equipo con desgaste + cartas +
- * runas + research) como ancla:
- *   - Factor de poder global 0.85–0.97 (el enemigo es un poco más débil en
- *     valor esperado → winrate objetivo ~60%).
- *   - Varianza individual por stat ±15% para que cada combate se sienta
- *     distinto y a veces el enemigo sorprenda con un stat puntual superior.
+ * Stats del enemigo de quick combat anclados al TIER del héroe (virtual level).
+ * El enemigo representa "un héroe bien equipado de ese tramo" — independiente
+ * del poder real del jugador. Consecuencia: si tu equipo es pobre para el tier
+ * en el que estás, pierdes; ese es precisamente el empujón hacia expediciones,
+ * cámaras y reparar/mejorar. Gear progression = tier progression.
  *
- * Consecuencia directa: si el jugador tiene el equipo roto (durabilidad baja),
- * `getEffectiveStats` ya ha recortado sus bonos, y el enemigo se genera sobre
- * esos valores menores — el desgaste se propaga al balance automáticamente.
+ * El caller (quick-combat.js) obtiene el virtual level vía `virtualLevelForRating`
+ * en _rating.js (Hierro III=1 ... Leyenda=21) y lo pasa aquí.
+ *
+ * Usa `floorEnemyStats(vl)` como baseline + varianza ±15% por stat.
  */
-export function trainingEnemyStatsFromPlayer(playerStats) {
-  const powerFactor = 0.85 + Math.random() * 0.12   // 0.85 – 0.97
+export function tierAnchoredEnemyStats(virtualLevel) {
+  const base = floorEnemyStats(Math.max(1, virtualLevel))
   function vary(v) {
     const variance = 0.85 + Math.random() * 0.30    // 0.85 – 1.15
-    return Math.max(1, Math.round((v ?? 0) * powerFactor * variance))
+    return Math.max(1, Math.round((v ?? 0) * variance))
   }
   return {
-    max_hp:       vary(playerStats.max_hp),
-    attack:       vary(playerStats.attack),
-    defense:      vary(playerStats.defense),
-    strength:     vary(playerStats.strength),
-    agility:      vary(playerStats.agility),
-    intelligence: vary(playerStats.intelligence),
+    max_hp:       vary(base.max_hp),
+    attack:       vary(base.attack),
+    defense:      vary(base.defense),
+    strength:     vary(base.strength),
+    agility:      vary(base.agility),
+    intelligence: vary(base.intelligence),
   }
 }
 
