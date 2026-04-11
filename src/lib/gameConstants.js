@@ -394,7 +394,7 @@ export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
  * el héroe está idle, así que sesiones consecutivas no se penalizan.
  */
 export const COMBAT_HP_COST = {
-  quick:      { win: 0.07, loss: 0.13 },
+  quick:      { win: 0.10, loss: 0.18 },
   tournament: { win: 0.08, loss: 0.14 },
   tower:      { win: 0.10, loss: 0.17 },
   squad:      { win: 0.12, loss: 0.20 },

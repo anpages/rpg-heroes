@@ -236,6 +236,35 @@ export function trainingEnemyStats(heroLevel) {
   }
 }
 
+/**
+ * Genera stats del enemigo de quick combat ancladas al poder real del héroe.
+ * Usa las effective stats del jugador (base + equipo con desgaste + cartas +
+ * runas + research) como ancla:
+ *   - Factor de poder global 0.85–0.97 (el enemigo es un poco más débil en
+ *     valor esperado → winrate objetivo ~60%).
+ *   - Varianza individual por stat ±15% para que cada combate se sienta
+ *     distinto y a veces el enemigo sorprenda con un stat puntual superior.
+ *
+ * Consecuencia directa: si el jugador tiene el equipo roto (durabilidad baja),
+ * `getEffectiveStats` ya ha recortado sus bonos, y el enemigo se genera sobre
+ * esos valores menores — el desgaste se propaga al balance automáticamente.
+ */
+export function trainingEnemyStatsFromPlayer(playerStats) {
+  const powerFactor = 0.85 + Math.random() * 0.12   // 0.85 – 0.97
+  function vary(v) {
+    const variance = 0.85 + Math.random() * 0.30    // 0.85 – 1.15
+    return Math.max(1, Math.round((v ?? 0) * powerFactor * variance))
+  }
+  return {
+    max_hp:       vary(playerStats.max_hp),
+    attack:       vary(playerStats.attack),
+    defense:      vary(playerStats.defense),
+    strength:     vary(playerStats.strength),
+    agility:      vary(playerStats.agility),
+    intelligence: vary(playerStats.intelligence),
+  }
+}
+
 const TRAINING_ENEMY_POOLS = [
   { max:  3, names: ['Muñeco de Paja', 'Autómata de Madera', 'Espantapájaros Encantado', 'Golem de Barro', 'Aprendiz Rebelde'] },
   { max:  6, names: ['Espadachín Errante', 'Cazador Furtivo', 'Duelista Callejero', 'Mercenario Novato', 'Guerrero de Arena'] },

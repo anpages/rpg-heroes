@@ -143,10 +143,34 @@ export function towerDifficulty(floor, heroLevel) {
 }
 
 /**
- * Combate rápido: el enemigo se genera al nivel del héroe → siempre "acorde".
+ * Combate rápido: la dificultad escala con el progreso dentro del tier actual.
+ *
+ *   - Primer tercio del tier (recién promocionado)  → trivial  (+5/−10)
+ *   - Tercio medio                                  → acorde   (+15/−10)
+ *   - Último tercio (cerca de promocionar)          → superior (+25/−10)
+ *
+ * Así empezar un tier es un respiro y rematarlo cuesta, emulando el grinder
+ * de promoción típico de MOBA. El enemigo en sí se genera al poder real del
+ * héroe (ver trainingEnemyStatsFromPlayer) — esta dificultad solo ajusta el
+ * delta de rating, no la fuerza del rival.
  */
-export function quickCombatDifficulty() {
-  return 'acorde'
+export function quickCombatDifficulty(heroRow) {
+  const rating = Math.max(0, heroRow?.combat_rating ?? 0)
+  const tier   = tierForRating(rating)
+
+  // TIERS está ordenado de mayor a menor → el tier inmediatamente superior
+  // está en idx-1. Si estamos en el tope (Leyenda), no hay siguiente.
+  const idx = TIERS.findIndex(([min]) => min === tier.min)
+  if (idx <= 0) return 'superior'
+
+  const nextMin = TIERS[idx - 1][0]
+  const range   = nextMin - tier.min
+  if (range <= 0) return 'acorde'
+
+  const progress = (rating - tier.min) / range
+  if (progress < 0.34) return 'trivial'
+  if (progress < 0.67) return 'acorde'
+  return 'superior'
 }
 
 /**

@@ -2,7 +2,7 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import {
-  trainingEnemyStats,
+  trainingEnemyStatsFromPlayer,
   trainingEnemyName,
   trainingRewards,
   xpRequiredForLevel,
@@ -61,8 +61,10 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Generar enemigo escalado al nivel del héroe + arquetipo aleatorio
-  const baseEnemyStats = trainingEnemyStats(hero.level)
+  // Generar enemigo escalado al poder REAL del héroe (incluye equipo, cartas,
+  // runas, research y desgaste — todo vía getEffectiveStats) y aplicar un
+  // arquetipo aleatorio que redistribuye esos stats en un perfil de combate.
+  const baseEnemyStats = trainingEnemyStatsFromPlayer(heroStats)
   const archetypeKey   = randomArchetype()
   const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
   const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)
@@ -97,10 +99,11 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   Object.keys(usedBoosts).forEach(k => delete newEffects[k])
 
-  // Rating de combate
+  // Rating de combate — la dificultad se calcula a partir del progreso del
+  // héroe dentro de su tier actual (suave al empezar, duro al promocionar).
   const ratingResult = computeRatingUpdate(hero, {
     won,
-    difficulty: quickCombatDifficulty(),
+    difficulty: quickCombatDifficulty(hero),
     nowMs,
   })
 
