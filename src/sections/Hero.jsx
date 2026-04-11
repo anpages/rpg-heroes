@@ -1373,31 +1373,33 @@ function Hero() {
         )}
       </AnimatePresence>
 
-      {dismantleTarget && (
-        <DismantleChoiceModal
-          item={dismantleTarget}
-          gold={resources?.gold ?? 0}
-          onSell={() => {
-            const item = dismantleTarget
-            setDismantleTarget(null)
-            itemMutation.mutate({
-              endpoint: '/api/item-dismantle',
-              body: { itemId: item.id },
-              optimisticUpdate: items?.filter(i => i.id !== item.id),
-            })
-          }}
-          onTransmute={() => {
-            const item = dismantleTarget
-            setDismantleTarget(null)
-            itemMutation.mutate({
-              endpoint: '/api/item-transmute',
-              body: { itemId: item.id },
-              optimisticUpdate: items?.filter(i => i.id !== item.id),
-            })
-          }}
-          onCancel={() => setDismantleTarget(null)}
-        />
-      )}
+      <AnimatePresence>
+        {dismantleTarget && (
+          <DismantleChoiceModal
+            item={dismantleTarget}
+            gold={resources?.gold ?? 0}
+            onSell={() => {
+              const item = dismantleTarget
+              setDismantleTarget(null)
+              itemMutation.mutate({
+                endpoint: '/api/item-dismantle',
+                body: { itemId: item.id },
+                optimisticUpdate: items?.filter(i => i.id !== item.id),
+              })
+            }}
+            onTransmute={() => {
+              const item = dismantleTarget
+              setDismantleTarget(null)
+              itemMutation.mutate({
+                endpoint: '/api/item-transmute',
+                body: { itemId: item.id },
+                optimisticUpdate: items?.filter(i => i.id !== item.id),
+              })
+            }}
+            onCancel={() => setDismantleTarget(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} heroClass={hero?.class} />}

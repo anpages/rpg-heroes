@@ -1041,23 +1041,25 @@ export default function Equipo() {
         />
       )}
 
-      {dismantleTarget && (
-        <DismantleChoiceModal
-          item={dismantleTarget}
-          gold={resources?.gold ?? 0}
-          onSell={() => {
-            const item = dismantleTarget
-            setDismantleTarget(null)
-            actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
-          }}
-          onTransmute={() => {
-            const item = dismantleTarget
-            setDismantleTarget(null)
-            actionMutation.mutate({ endpoint: '/api/item-transmute', body: { itemId: item.id, _dismantle: true } })
-          }}
-          onCancel={() => setDismantleTarget(null)}
-        />
-      )}
+      <AnimatePresence>
+        {dismantleTarget && (
+          <DismantleChoiceModal
+            item={dismantleTarget}
+            gold={resources?.gold ?? 0}
+            onSell={() => {
+              const item = dismantleTarget
+              setDismantleTarget(null)
+              actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
+            }}
+            onTransmute={() => {
+              const item = dismantleTarget
+              setDismantleTarget(null)
+              actionMutation.mutate({ endpoint: '/api/item-transmute', body: { itemId: item.id, _dismantle: true } })
+            }}
+            onCancel={() => setDismantleTarget(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {tierUpgradeTarget && (
         <TierUpgradeModal

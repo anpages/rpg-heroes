@@ -1,6 +1,35 @@
 import { createPortal } from 'react-dom'
+import { motion } from 'framer-motion'
 import { Coins, Layers, Sparkles, Flame, X } from 'lucide-react'
 import { DISMANTLE_GOLD_TABLE, DISMANTLE_TRANSMUTE_TABLE } from '../lib/gameConstants'
+
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
+
+const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
+const EASE_IN  = [0.55, 0,    0.75, 0.06]
+
+function sheetVariants() {
+  if (isMobile()) {
+    return {
+      initial: { y: '100vh' },
+      animate: { y: 0,       transition: { type: 'tween', ease: EASE_OUT, duration: 0.38 } },
+      exit:    { y: '100vh', transition: { type: 'tween', ease: EASE_IN,  duration: 0.26 } },
+    }
+  }
+  return {
+    initial: { opacity: 0, scale: 0.97, y: 10 },
+    animate: { opacity: 1, scale: 1,    y: 0,  transition: { type: 'spring', stiffness: 260, damping: 26 } },
+    exit:    { opacity: 0, scale: 0.98, y: 4,  transition: { type: 'tween', ease: EASE_IN, duration: 0.18 } },
+  }
+}
+
+const overlayVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+}
+
+const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 
 function estimateSellGold(item) {
   const base = DISMANTLE_GOLD_TABLE[item.item_catalog.rarity] ?? DISMANTLE_GOLD_TABLE.common
@@ -24,10 +53,16 @@ export default function DismantleChoiceModal({ item, gold = 0, onSell, onTransmu
   const canAfford = gold >= trans.cost
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
-      <div
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+      onClick={onCancel}
+    >
+      <motion.div
         className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
         style={{ width: 'min(380px, 92vw)' }}
+        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -87,8 +122,8 @@ export default function DismantleChoiceModal({ item, gold = 0, onSell, onTransmu
         <div className="flex justify-end">
           <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body
   )
 }
