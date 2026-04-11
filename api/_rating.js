@@ -193,34 +193,29 @@ export function towerDifficulty(floor, heroLevel) {
 }
 
 /**
- * Combate rápido: la dificultad escala con el progreso dentro del tier actual.
+ * Combate rápido: dificultad basada en el RESULTADO real del combate, no en
+ * el progreso del tier. Con enemigos tier-anchored, la escala de poder ya la
+ * impone el tier — lo que nos dice si el jugador está en su sitio es cómo
+ * terminó el combate:
  *
- *   - Primer tercio del tier (recién promocionado)  → trivial  (+5/−10)
- *   - Tercio medio                                  → acorde   (+15/−10)
- *   - Último tercio (cerca de promocionar)          → superior (+25/−10)
+ *   - Paliza    (HP héroe >70%)  → superior (+25): estás por debajo del tier,
+ *                                  sube rápido
+ *   - Fair      (HP héroe 30-70%) → acorde   (+15): tier ajustado
+ *   - Al límite (HP héroe <30%)   → trivial  (+5):  apenas sobreviviste,
+ *                                  freno de escalada
+ *   - Derrota                     → acorde (delta de derrota es flat -10 de
+ *                                   todas formas; el valor aquí no importa)
  *
- * Así empezar un tier es un respiro y rematarlo cuesta, emulando el grinder
- * de promoción típico de MOBA. El enemigo en sí se genera anclado al tier
- * (ver tierAnchoredEnemyStats) — esta dificultad solo ajusta el delta de
- * rating, no la fuerza del rival.
+ * Así un jugador que domina escapa del low-tier en decenas de combates en vez
+ * de cientos, y cuando las peleas se ajustan (HP final medio-bajo) la subida
+ * se frena sola sin necesidad de tocar nada.
  */
-export function quickCombatDifficulty(heroRow) {
-  const rating = Math.max(0, heroRow?.combat_rating ?? 0)
-  const tier   = tierForRating(rating)
-
-  // TIERS está ordenado de mayor a menor → el tier inmediatamente superior
-  // está en idx-1. Si estamos en el tope (Leyenda), no hay siguiente.
-  const idx = TIERS.findIndex(([min]) => min === tier.min)
-  if (idx <= 0) return 'superior'
-
-  const nextMin = TIERS[idx - 1][0]
-  const range   = nextMin - tier.min
-  if (range <= 0) return 'acorde'
-
-  const progress = (rating - tier.min) / range
-  if (progress < 0.34) return 'trivial'
-  if (progress < 0.67) return 'acorde'
-  return 'superior'
+export function quickCombatDifficulty({ won, hpLeftA, heroMaxHp }) {
+  if (!won) return 'acorde'
+  const pct = heroMaxHp > 0 ? hpLeftA / heroMaxHp : 0
+  if (pct > 0.70) return 'superior'
+  if (pct >= 0.30) return 'acorde'
+  return 'trivial'
 }
 
 /**

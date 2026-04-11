@@ -102,11 +102,18 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   Object.keys(usedBoosts).forEach(k => delete newEffects[k])
 
-  // Rating de combate — la dificultad se calcula a partir del progreso del
-  // héroe dentro de su tier actual (suave al empezar, duro al promocionar).
+  // Rating de combate — la dificultad se calcula a partir del RESULTADO real:
+  // si el héroe termina con casi toda la HP, está por debajo de su tier y sube
+  // rápido (+25); si apenas sobrevive, el tier es ajustado y la subida se
+  // frena (+5). Paliza → sales del low-tier en decenas de combates en vez de
+  // cientos, sin tener que inflar los deltas base.
   const ratingResult = computeRatingUpdate(hero, {
     won,
-    difficulty: quickCombatDifficulty(hero),
+    difficulty: quickCombatDifficulty({
+      won,
+      hpLeftA:   result.hpLeftA,
+      heroMaxHp: heroStats.max_hp,
+    }),
     nowMs,
   })
 
