@@ -2,7 +2,7 @@ import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
@@ -290,7 +290,22 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
         </div>
         <div className="flex-1 min-w-0">
           <span className="text-[13px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
-          <span className="text-[11px] text-text-3 capitalize">{label}</span>
+          <span className="text-[11px] text-text-3 capitalize flex items-center gap-1.5">
+            {label}
+            {cat.is_two_handed && (
+              <span
+                className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-[1px] rounded"
+                style={{
+                  color: '#b45309',
+                  background: 'color-mix(in srgb,#b45309 10%,transparent)',
+                  border: '1px solid color-mix(in srgb,#b45309 30%,transparent)',
+                }}
+                title="Ocupa ambas manos"
+              >
+                2 manos
+              </span>
+            )}
+          </span>
         </div>
         <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
       </div>
@@ -865,7 +880,7 @@ export default function Equipo() {
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
-            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {unequipped.map(item => {
                 const cat      = item.item_catalog
                 const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
@@ -952,7 +967,8 @@ export default function Equipo() {
         )}
       </div>
 
-      {compareTarget && (() => {
+      <AnimatePresence>
+        {compareTarget && (() => {
         const { item: candidate, rival } = compareTarget
         const cat = candidate.item_catalog
         const diffs = COMPARE_STAT_META
@@ -976,25 +992,42 @@ export default function Equipo() {
             slotLabel={SLOT_META[cat.slot]?.label ?? cat.slot}
             candidateLabel="Mochila"
             onClose={() => setCompareTarget(null)}
+            onEquip={() => {
+              handleEquip(candidate.id)
+              setCompareTarget(null)
+            }}
+            equipLabel="Equipar este"
+            equipDisabled={
+              isExploring ||
+              (candidate.current_durability <= 0)
+            }
+            equipDisabledReason={
+              isExploring ? 'Héroe en expedición'
+              : candidate.current_durability <= 0 ? 'Repara el ítem antes de equiparlo'
+              : undefined
+            }
           />
         )
       })()}
+      </AnimatePresence>
 
-      {itemDetail && (
-        <ItemDetailModal
-          item={itemDetail}
-          onClose={() => setItemDetail(null)}
-          heroClass={hero?.class}
-          runeProps={{
-            hasLab,
-            maxRuneSlots,
-            runeInventory,
-            runePending: runeMutation.isPending,
-            isExploring,
-            onInsertRune: handleRuneInsert,
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {itemDetail && (
+          <ItemDetailModal
+            item={itemDetail}
+            onClose={() => setItemDetail(null)}
+            heroClass={hero?.class}
+            runeProps={{
+              hasLab,
+              maxRuneSlots,
+              runeInventory,
+              runePending: runeMutation.isPending,
+              isExploring,
+              onInsertRune: handleRuneInsert,
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {confirm && (
         <ConfirmModal

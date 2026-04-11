@@ -14,8 +14,7 @@ import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
 import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles, FlaskConical, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { usePotions } from '../hooks/usePotions'
-import { useMutation } from '@tanstack/react-query'
+import { PotionPanel } from '../components/PotionPanel'
 
 const listVariants = {
   animate: { transition: { staggerChildren: 0.07 } },
@@ -103,79 +102,13 @@ function useExpeditionTimer(expedition) {
 }
 
 
-function ExpeditionPotionPanel({ heroId, userId, activeEffects = {}, isExploring = false }) {
-  const queryClient = useQueryClient()
-  const { potions } = usePotions(userId)
-
-  const useMut = useMutation({
-    mutationFn: (potionId) => apiPost('/api/potion-use', { heroId, potionId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-    },
-    onError: err => notify.error(err.message),
-  })
-
-  const xpPotions = potions.filter(p => p.effect_type === 'xp_boost' && p.quantity > 0)
-  const activeXp  = activeEffects?.xp_boost
-
-  if (xpPotions.length === 0 && !activeXp) return null
-  if (isExploring && !activeXp) return null
-
-  return (
-    <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg mb-3.5">
-      <div className="flex items-center gap-1.5">
-        <FlaskConical size={12} strokeWidth={2} className="text-text-3" />
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Pociones de expedición</span>
-        {activeXp && (
-          <span
-            className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-md ml-auto"
-            style={{
-              color: '#0369a1',
-              background: 'color-mix(in srgb, #0369a1 12%, var(--surface))',
-            }}
-          >
-            <Star size={10} strokeWidth={2.5} />
-            +{Math.round(activeXp * 100)}% XP activo
-          </span>
-        )}
-      </div>
-
-      {xpPotions.length > 0 && !isExploring && (
-        <div className="flex gap-2 flex-wrap">
-          {xpPotions.map(p => {
-            const alreadyActive = !!activeXp
-            const disabled = alreadyActive || useMut.isPending
-
-            return (
-              <motion.button
-                key={p.id}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
-                style={{
-                  color:       alreadyActive ? '#0369a1' : 'var(--text-2)',
-                  borderColor: alreadyActive
-                    ? 'color-mix(in srgb, #0369a1 40%, var(--border))'
-                    : 'var(--border)',
-                  background: alreadyActive
-                    ? 'color-mix(in srgb, #0369a1 8%, var(--surface))'
-                    : 'var(--surface)',
-                }}
-                onClick={() => !disabled && useMut.mutate(p.id)}
-                disabled={disabled}
-                whileTap={disabled ? {} : { scale: 0.95 }}
-              >
-                <Star size={11} strokeWidth={2.5} style={{ color: '#0369a1' }} />
-                {p.name}
-                <span className="opacity-60">×{p.quantity}</span>
-                {alreadyActive && <span className="text-[10px]">✓</span>}
-              </motion.button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
+const EXPEDITION_POTION_EFFECTS = [
+  'time_reduction',
+  'xp_boost',
+  'loot_boost',
+  'gold_boost',
+  'card_guaranteed',
+]
 
 function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1, heroStrength = 0, weeklyModifier = null }) {
   const locked   = heroLevel < dungeon.min_hero_level
@@ -515,13 +448,17 @@ function Dungeons() {
         document.body
       )}
 
-      {/* Expedition potions (xp_boost) */}
-      <ExpeditionPotionPanel
-        heroId={heroId}
-        userId={userId}
-        activeEffects={hero?.active_effects}
-        isExploring={heroStatus === 'exploring'}
-      />
+      {/* Pociones pre-expedición: tiempo, XP, botín, oro, carta garantizada */}
+      <div className="mb-3.5">
+        <PotionPanel
+          heroId={heroId}
+          userId={userId}
+          activeEffects={hero?.active_effects}
+          effectTypes={EXPEDITION_POTION_EFFECTS}
+          title="Pociones de expedición"
+          isExploring={heroStatus === 'exploring'}
+        />
+      </div>
 
       {/* Grid */}
       <motion.div

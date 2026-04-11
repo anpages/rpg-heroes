@@ -13,7 +13,7 @@ import {
   BookOpen, Wrench, Sparkles, Package, Map, Zap, Hammer,
   Scale, Star,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
 import ItemComparisonModal from '../components/ItemComparisonModal'
 
@@ -188,18 +188,20 @@ function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
           </button>
         )}
 
-        {showCompare && (
-          <ItemComparisonModal
-            item={item}
-            isNewSlot={isNewSlot}
-            equipped={equipped}
-            diffs={diffs}
-            totalDiff={totalDiff}
-            slotLabel={SLOT_LABEL[item.slot] ?? item.slot}
-            candidateLabel="Tienda"
-            onClose={() => setShowCompare(false)}
-          />
-        )}
+        <AnimatePresence>
+          {showCompare && (
+            <ItemComparisonModal
+              item={item}
+              isNewSlot={isNewSlot}
+              equipped={equipped}
+              diffs={diffs}
+              totalDiff={totalDiff}
+              slotLabel={SLOT_LABEL[item.slot] ?? item.slot}
+              candidateLabel="Tienda"
+              onClose={() => setShowCompare(false)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border mt-auto">

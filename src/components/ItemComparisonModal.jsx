@@ -1,5 +1,34 @@
 import { createPortal } from 'react-dom'
-import { X, Scale, Star } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { X, Scale, Star, Check } from 'lucide-react'
+
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
+
+const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
+const EASE_IN  = [0.55, 0,    0.75, 0.06]
+
+function sheetVariants() {
+  if (isMobile()) {
+    return {
+      initial: { y: '100vh' },
+      animate: { y: 0,       transition: { type: 'tween', ease: EASE_OUT, duration: 0.38 } },
+      exit:    { y: '100vh', transition: { type: 'tween', ease: EASE_IN,  duration: 0.26 } },
+    }
+  }
+  return {
+    initial: { opacity: 0, scale: 0.97, y: 10 },
+    animate: { opacity: 1, scale: 1,    y: 0,  transition: { type: 'spring', stiffness: 260, damping: 26 } },
+    exit:    { opacity: 0, scale: 0.98, y: 4,  transition: { type: 'tween', ease: EASE_IN, duration: 0.18 } },
+  }
+}
+
+const overlayVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+}
+
+const overlayTransition = { duration: 0.25, ease: 'easeOut' }
 
 const RARITY_META = {
   common:    { label: 'Común',      color: '#6b7280' },
@@ -31,6 +60,10 @@ export default function ItemComparisonModal({
   slotLabel,
   candidateLabel = 'Nuevo',
   onClose,
+  onEquip,               // opcional: si se pasa, se muestra el botón de equipar
+  equipLabel = 'Equipar',
+  equipDisabled = false,
+  equipDisabledReason,
 }) {
   const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
 
@@ -58,10 +91,16 @@ export default function ItemComparisonModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onClose}>
-      <div
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
+      onClick={onClose}
+    >
+      <motion.div
         className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
         style={{ width: 'min(420px, 94vw)' }}
+        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -135,8 +174,21 @@ export default function ItemComparisonModal({
             </div>
           </div>
         )}
-      </div>
-    </div>,
+
+        {onEquip && (
+          <button
+            type="button"
+            className="btn btn--primary w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+            onClick={() => { onEquip(); onClose() }}
+            disabled={equipDisabled}
+            title={equipDisabled ? equipDisabledReason : undefined}
+          >
+            <Check size={14} strokeWidth={2.5} />
+            {equipLabel}
+          </button>
+        )}
+      </motion.div>
+    </motion.div>,
     document.body
   )
 }

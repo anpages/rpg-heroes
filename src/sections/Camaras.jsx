@@ -7,6 +7,7 @@ import { Coins, Star, Clock, Heart, X, Layers, Package, Sword, Shield } from 'lu
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useActiveChamber } from '../hooks/useActiveChamber'
+import { PotionPanel } from '../components/PotionPanel'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
@@ -284,43 +285,6 @@ function ChestChoice({ chest, index }) {
   )
 }
 
-/* Vista de revelado para cuando el jugador elige el cofre misterioso */
-function MysteryRevealView({ chest, index }) {
-  const cfg = CHAMBER_CHEST_REWARDS[chest.archetype]
-  return (
-    <motion.div
-      key="reveal"
-      className="flex flex-col items-center gap-4 px-6 py-8"
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-    >
-      <motion.div
-        className="text-[56px] leading-none select-none"
-        initial={{ rotate: -10, scale: 0.5 }}
-        animate={{ rotate: 0, scale: 1 }}
-        transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
-      >
-        {cfg.icon}
-      </motion.div>
-      <div className="text-center">
-        <p className="text-[18px] font-extrabold text-text leading-tight">
-          ¡Cofre misterioso revelado!
-        </p>
-        <p className="text-[12px] text-text-3 mt-1">Cofre #{index + 1}</p>
-      </div>
-      <motion.div
-        className="flex justify-center"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.3 }}
-      >
-        <ChestRewardPills chest={chest} />
-      </motion.div>
-    </motion.div>
-  )
-}
-
 /* Vista de resultado final: se muestra tras confirmar el cofre elegido y
  * permanece abierta hasta que el jugador pulsa Cerrar. Incluye tanto las
  * recompensas "ya conocidas" del cofre (oro/xp/fragmentos/hint) como el
@@ -399,9 +363,8 @@ function FinalResultView({ chest, drop, onClose }) {
   )
 }
 
-function ChestPickerModal({ chests, onPick, picking, onClose, revealedChest, revealedIndex, finalResult }) {
-  const isRevealing = revealedChest != null && finalResult == null
-  const isFinal     = finalResult != null
+function ChestPickerModal({ chests, onPick, picking, onClose, finalResult }) {
+  const isFinal = finalResult != null
   return createPortal(
     <div
       className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-4"
@@ -419,8 +382,6 @@ function ChestPickerModal({ chests, onPick, picking, onClose, revealedChest, rev
             drop={finalResult.drop}
             onClose={onClose}
           />
-        ) : isRevealing ? (
-          <MysteryRevealView chest={revealedChest} index={revealedIndex} />
         ) : (
           <>
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
@@ -483,8 +444,6 @@ export default function Camaras() {
 
   const [pickerChests, setPickerChests] = useState(null)
   const [pickerToken,  setPickerToken]  = useState(null)
-  const [revealedChest, setRevealedChest] = useState(null)
-  const [revealedIndex, setRevealedIndex] = useState(null)
   const [finalResult,  setFinalResult]  = useState(null)  // { chest, drop }
 
   const startMutation = useMutation({
@@ -508,7 +467,7 @@ export default function Camaras() {
 
   const confirmMutation = useMutation({
     mutationFn: (chosenIndex) => apiPost('/api/chamber-confirm', { token: pickerToken, chosenIndex }),
-    onSuccess: (data, chosenIndex) => {
+    onSuccess: (data) => {
       // Refrescar cámara, recursos, héroe e inventario inmediatamente.
       setChamber(null)
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(hero?.player_id) })
@@ -516,24 +475,18 @@ export default function Camaras() {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(hero?.player_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
 
-      // Dejar el modal abierto con la vista de resultado hasta que el
-      // jugador pulse Cerrar. Limpiamos la reveal intermedia del misterioso
-      // — el FinalResultView ya muestra el contenido del cofre elegido.
-      const chosenChest = pickerChests?.[chosenIndex] ?? null
-      setFinalResult({ chest: chosenChest, drop: data?.drop ?? null })
-      setRevealedChest(null)
-      setRevealedIndex(null)
+      // Rellena el drop en la modal optimista si el jugador aún la tiene
+      // abierta. Si ya cerró, el toast de drop se encarga de avisarle.
+      setFinalResult(prev => prev ? { ...prev, drop: data?.drop ?? null } : prev)
 
-      // Notificación de drop: el inventario sigue siendo silencioso salvo
-      // que el jugador haya conseguido un item — eso sí merece toast.
-      if (data?.drop?.item_catalog?.name) {
-        notify.success(`¡${data.drop.item_catalog.name} conseguido!`)
+      if (data?.drop?.item_catalog) {
+        notify.itemDrop(data.drop.item_catalog)
       }
     },
     onError: (err) => {
-      // Revertir el reveal si la mutación falló
-      setRevealedChest(null)
-      setRevealedIndex(null)
+      // El API falló tras mostrar el resultado optimista — retiramos la
+      // modal final para que el jugador pueda ver el error y volver a intentar.
+      setFinalResult(null)
       notify.error(err.message)
     },
   })
@@ -541,10 +494,10 @@ export default function Camaras() {
   function handlePickChest(idx) {
     if (confirmMutation.isPending) return
     const chest = pickerChests?.[idx]
-    if (chest?.mystery) {
-      setRevealedChest(chest)
-      setRevealedIndex(idx)
-    }
+    if (!chest) return
+    // Optimista: mostramos la vista final inmediatamente con el botón Cerrar
+    // visible. El drop (si toca) se rellenará cuando chamber-confirm responda.
+    setFinalResult({ chest, drop: null })
     confirmMutation.mutate(idx)
   }
 
@@ -571,6 +524,15 @@ export default function Camaras() {
           <span className="text-[12px] font-bold text-text tabular-nums">{currentHp}/{hero.max_hp}</span>
         </div>
       </div>
+
+      <PotionPanel
+        heroId={heroId}
+        userId={hero.player_id}
+        activeEffects={hero.active_effects}
+        effectTypes={['time_reduction', 'loot_boost']}
+        title="Pociones de cámara"
+        isExploring={!!chamber}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {Object.entries(CHAMBER_TYPES).map(([type, cfg]) => {
@@ -599,16 +561,11 @@ export default function Camaras() {
           <ChestPickerModal
             chests={pickerChests}
             picking={confirmMutation.isPending}
-            revealedChest={revealedChest}
-            revealedIndex={revealedIndex}
             finalResult={finalResult}
             onPick={handlePickChest}
             onClose={() => {
-              if (confirmMutation.isPending) return
               setPickerChests(null)
               setPickerToken(null)
-              setRevealedChest(null)
-              setRevealedIndex(null)
               setFinalResult(null)
             }}
           />

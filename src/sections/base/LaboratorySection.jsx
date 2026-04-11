@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer } from 'react'
 import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle, Package, ArrowUp, Gem } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
+import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS, describePotionEffect } from './constants.js'
 import { LAB_INVENTORY_PER_UPGRADE, LAB_INVENTORY_MAX_UPGRADES, LAB_INVENTORY_UPGRADE_COSTS, MAX_POTION_STACK } from '../../lib/gameConstants.js'
 import ScrollHint from '../../components/ScrollHint.jsx'
 
@@ -50,12 +50,20 @@ function FilterPills({ options, value, onChange }) {
 /* ─── Constantes de filtros ──────────────────────────────────────────────────── */
 
 const POTION_FILTER_LABELS = {
-  all:        'Todas',
-  hp_restore: 'Vida',
-  atk_boost:  'Ataque',
-  def_boost:  'Defensa',
-  xp_boost:   'Experiencia',
+  all:             'Todas',
+  hp_restore:      'Vida',
+  atk_boost:       'Ataque',
+  def_boost:       'Defensa',
+  xp_boost:        'Experiencia',
+  time_reduction:  'Tiempo',
+  loot_boost:      'Botín',
+  gold_boost:      'Oro',
+  card_guaranteed: 'Cartas',
+  free_repair:     'Reparación',
 }
+
+// Effect types ocultos en la UI de crafteo (no se eliminan del catálogo).
+const HIDDEN_POTION_EFFECT_TYPES = new Set(['atk_boost', 'def_boost'])
 
 const RUNE_FILTER_LABELS = {
   all:          'Todas',
@@ -252,8 +260,8 @@ export function LabInventory({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-semibold text-text truncate">{item.name}</p>
-                    <p className="text-[10px] text-text-3 truncate">
-                      {isRune ? 'Runa' : 'Poción'}
+                    <p className="text-[10px] text-text-3 truncate" style={isRune ? undefined : { color }}>
+                      {isRune ? 'Runa' : describePotionEffect(item.effect_type, item.effect_value)}
                     </p>
                   </div>
                 </div>
@@ -294,7 +302,9 @@ export function LabInventory({
 /* ─── Sección de Pociones ────────────────────────────────────────────────────── */
 
 export function LaboratorySection({ labLevel, potions, craftingMap, craftPending, resources, onCraft, isUpgrading = false, inventoryFull = false }) {
-  const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
+  const availablePotions = potions.filter(p =>
+    p.min_lab_level <= labLevel && !HIDDEN_POTION_EFFECT_TYPES.has(p.effect_type)
+  )
 
   // Ordenar categorías por min_lab_level de su primera aparición
   const typeFirst = {}
