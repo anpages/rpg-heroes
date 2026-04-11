@@ -101,7 +101,7 @@ async function resumeTower(req, res, supabase, user, payload, decisionDef) {
 /* ─── Tournament resume ──────────────────────────────────────────────────── */
 
 async function resumeTournament(req, res, supabase, user, payload, decisionDef) {
-  const { heroId, bracketId, nextRound, heroStats, rival, state, newEffects } = payload
+  const { heroId, bracketId, nextRound, heroStats, rival, state, combatOpts, newEffects } = payload
 
   const { data: hero } = await supabase
     .from('heroes')
@@ -131,7 +131,7 @@ async function resumeTournament(req, res, supabase, user, payload, decisionDef) 
   const applied = decisionDef.apply(heroStats, rival.stats, state.hpA, state.hpB)
   const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }
 
-  const result = resumeCombat(applied.a, applied.b, newState, {})
+  const result = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
 
   // El rival mantiene sus stats originales para los registros (rival.stats)
   // pero para el cálculo se usaron las modificadas — por eso pasamos el rival original.

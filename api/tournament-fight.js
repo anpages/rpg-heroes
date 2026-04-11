@@ -84,11 +84,18 @@ export default async function handler(req, res) {
   delete newEffects.atk_boost
   delete newEffects.def_boost
 
+  // Bonos de investigación de combate (crit + dmg) — igual que torre y quick
+  const { getResearchBonuses } = await import('./_research.js')
+  const rb = await getResearchBonuses(supabase, user.id)
+
   // Final del torneo (ronda 3) → activa Momento clave
   const isKeyMomentRound = nextRound === 3
-  const result = simulateCombat(heroStats, rival.stats, {
+  const combatOpts = {
+    critBonus:        rb.crit_pct,
+    dmgMultiplier:    rb.tower_dmg_pct,
     keyMomentEnabled: isKeyMomentRound,
-  })
+  }
+  const result = simulateCombat(heroStats, rival.stats, combatOpts)
 
   if (result.paused) {
     const token = signCombatToken({
@@ -100,6 +107,7 @@ export default async function handler(req, res) {
       heroStats,
       rival,
       state:       result.state,
+      combatOpts:  { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct },
       newEffects,
     })
     return res.status(200).json({
