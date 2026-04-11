@@ -138,6 +138,21 @@ export default async function handler(req, res) {
   if (hpError) return res.status(500).json({ error: hpError.message })
   if (hpCount === 0) return res.status(409).json({ error: 'El héroe cambió de estado durante el combate' })
 
+  // Desgaste del equipo — alineado con quickDifficulty para coherencia narrativa:
+  //   paliza (>70% HP)  → 0 (dominaste, el equipo no sufre)
+  //   fair  (30-70% HP) → 1
+  //   al límite (<30%)  → 2
+  //   derrota           → 2
+  // Consecuencia: farmear en low-tier (palizas) no destroza el equipo, pero
+  // al llegar al tier justo los combates cobran su precio → loop reparar/mejorar.
+  const durLoss = won
+    ? (quickDifficulty === 'superior' ? 0 : quickDifficulty === 'trivial' ? 2 : 1)
+    : 2
+  if (durLoss > 0) {
+    const { error: durError } = await supabase.rpc('reduce_equipment_durability', { p_hero_id: hero.id, amount: durLoss })
+    if (durError) console.error('durability rpc error:', durError.message)
+  }
+
   // Recompensas solo si gana
   if (won) {
     // Oro
@@ -186,6 +201,7 @@ export default async function handler(req, res) {
     enemyName,
     archetype:    archetypeKey,
     tierShift:    shift,
+    durabilityLoss: durLoss,
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,

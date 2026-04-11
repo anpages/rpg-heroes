@@ -292,6 +292,9 @@ export default function QuickCombat() {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     }
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    if (data.durabilityLoss > 0) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    }
   }
 
   useEffect(() => {
@@ -312,7 +315,7 @@ export default function QuickCombat() {
     <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
         <h2 className="section-title">Combate Rápido</h2>
-        <p className="section-subtitle">Enfréntate a rivales aleatorios para probar tu héroe. Recompensas modestas, sin desgaste de equipo.</p>
+        <p className="section-subtitle">Enfréntate a rivales aleatorios anclados a tu tier. Recompensas modestas, desgaste según el combate.</p>
       </div>
 
       <div className="-mt-5">
@@ -368,8 +371,11 @@ export default function QuickCombat() {
 
         {/* Perks */}
         <div className="flex flex-wrap gap-2">
-          <span className="text-[11px] font-semibold text-[#16a34a] bg-[color-mix(in_srgb,#16a34a_10%,var(--surface-2))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))] px-2 py-1 rounded-md">
-            Sin desgaste de equipo
+          <span
+            className="text-[11px] font-semibold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] px-2 py-1 rounded-md"
+            title="Paliza: 0 · Igualado: 1 · Al límite o derrota: 2"
+          >
+            Desgaste según combate
           </span>
           <span className="text-[11px] font-semibold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] px-2 py-1 rounded-md">
             HP se consume
