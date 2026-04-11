@@ -1,0 +1,168 @@
+/**
+ * Sistema de Rating de Combate (PvE).
+ *
+ * Solo se aplica a: torre, combate rápido y torneo.
+ *
+ * applyCombatResult(supabase, heroRow, { won, difficulty })
+ *   heroRow debe incluir: id, combat_rating, combats_played, combats_won,
+ *                         last_combat_at, tier_grace_remaining
+ *   difficulty: 'trivial' | 'acorde' | 'superior'
+ *
+ * Devuelve el objeto con el nuevo rating, delta aplicado y tier resultante.
+ */
+
+// Deltas de puntos por combate
+export const RATING_DELTA = {
+  win:  { trivial: 5,  acorde: 15, superior: 25 },
+  loss: -10,
+}
+
+// Decay por inactividad
+export const RATING_DECAY = {
+  graceDays:        3,    // no hay decay durante los primeros 3 días de inactividad
+  pointsPerDay:     5,    // -5 por día adicional
+}
+
+// Gracia anti-yo-yo al promocionar
+const PROMOTION_GRACE = 2
+
+// Tramos de rating → tier / división
+// Cada entrada: [minPoints, tier, division|null, label]
+// Ordenada de mayor a menor para búsqueda lineal.
+export const TIERS = [
+  [2500, 'legend',       null, 'Leyenda'],
+  [2100, 'grandmaster',  null, 'Gran Maestro'],
+  [1800, 'master',       null, 'Maestro'],
+  [1700, 'diamond',      1,    'Diamante I'],
+  [1600, 'diamond',      2,    'Diamante II'],
+  [1500, 'diamond',      3,    'Diamante III'],
+  [1400, 'platinum',     1,    'Platino I'],
+  [1300, 'platinum',     2,    'Platino II'],
+  [1200, 'platinum',     3,    'Platino III'],
+  [1100, 'gold',         1,    'Oro I'],
+  [1000, 'gold',         2,    'Oro II'],
+  [ 900, 'gold',         3,    'Oro III'],
+  [ 800, 'silver',       1,    'Plata I'],
+  [ 700, 'silver',       2,    'Plata II'],
+  [ 600, 'silver',       3,    'Plata III'],
+  [ 500, 'bronze',       1,    'Bronce I'],
+  [ 400, 'bronze',       2,    'Bronce II'],
+  [ 300, 'bronze',       3,    'Bronce III'],
+  [ 200, 'iron',         1,    'Hierro I'],
+  [ 100, 'iron',         2,    'Hierro II'],
+  [   0, 'iron',         3,    'Hierro III'],
+]
+
+export function tierForRating(rating) {
+  const r = Math.max(0, rating)
+  for (const [min, tier, division, label] of TIERS) {
+    if (r >= min) return { rating: r, min, tier, division, label }
+  }
+  return { rating: 0, min: 0, tier: 'iron', division: 3, label: 'Hierro III' }
+}
+
+/**
+ * Aplica el resultado de un combate al rating del héroe.
+ * Gestiona decay por inactividad, gracia anti-yo-yo y promoción/democión.
+ *
+ * No hace la llamada de UPDATE por sí solo — devuelve los campos a escribir
+ * para que el caller los aplique como parte de su propia query de heroes.
+ */
+export function computeRatingUpdate(heroRow, { won, difficulty = 'acorde', nowMs = Date.now() }) {
+  const prevRating = heroRow.combat_rating ?? 0
+  const prevPlayed = heroRow.combats_played ?? 0
+  const prevWon    = heroRow.combats_won ?? 0
+  const prevGrace  = heroRow.tier_grace_remaining ?? 0
+  const lastAt     = heroRow.last_combat_at ? new Date(heroRow.last_combat_at).getTime() : null
+
+  // 1) Decay por inactividad (si aplica)
+  let afterDecay = prevRating
+  let decayApplied = 0
+  if (lastAt && prevRating > 0) {
+    const daysInactive = Math.floor((nowMs - lastAt) / (24 * 3600 * 1000))
+    if (daysInactive > RATING_DECAY.graceDays) {
+      const extraDays = daysInactive - RATING_DECAY.graceDays
+      decayApplied = Math.min(prevRating, extraDays * RATING_DECAY.pointsPerDay)
+      afterDecay = prevRating - decayApplied
+    }
+  }
+
+  // 2) Delta del combate
+  const delta = won ? (RATING_DELTA.win[difficulty] ?? RATING_DELTA.win.acorde) : RATING_DELTA.loss
+
+  // Tier antes del combate (tras decay) y después
+  const tierBefore = tierForRating(afterDecay)
+  let newRating = Math.max(0, afterDecay + delta)
+  let tierAfter = tierForRating(newRating)
+
+  // 3) Gracia anti-yo-yo: si el jugador tiene gracia y este combate lo degradaría,
+  //    se hace clamp al mínimo del tier previo.
+  let graceUsed = false
+  if (!won && prevGrace > 0 && newRating < tierBefore.min) {
+    newRating = tierBefore.min
+    tierAfter = tierForRating(newRating)
+    graceUsed = true
+  }
+
+  // 4) Calcular nueva gracia:
+  //    - Si promocionó (subió de tier o división) → PROMOTION_GRACE
+  //    - Si tenía gracia → prevGrace - 1 (se consume por combate, independientemente del resultado)
+  //    - Si no → 0
+  const promoted = tierAfter.min > tierBefore.min
+  let newGrace
+  if (promoted)              newGrace = PROMOTION_GRACE
+  else if (prevGrace > 0)    newGrace = Math.max(0, prevGrace - 1)
+  else                       newGrace = 0
+
+  return {
+    updates: {
+      combat_rating:        newRating,
+      combats_played:       prevPlayed + 1,
+      combats_won:          prevWon + (won ? 1 : 0),
+      last_combat_at:       new Date(nowMs).toISOString(),
+      tier_grace_remaining: newGrace,
+    },
+    delta,
+    decayApplied,
+    graceUsed,
+    promoted,
+    tierBefore,
+    tierAfter,
+  }
+}
+
+/**
+ * Helper para clasificar dificultad de Torre según piso vs nivel del héroe.
+ * El piso se escala como "nivel equivalente" = piso (los pisos altos son duros).
+ */
+export function towerDifficulty(floor, heroLevel) {
+  const delta = floor - heroLevel
+  if (delta >= 3) return 'superior'
+  if (delta <= -3) return 'trivial'
+  return 'acorde'
+}
+
+/**
+ * Combate rápido: el enemigo se genera al nivel del héroe → siempre "acorde".
+ */
+export function quickCombatDifficulty() {
+  return 'acorde'
+}
+
+/**
+ * Torneo: la dificultad escala por ronda.
+ *   ronda 1 → trivial, ronda 2 → acorde, ronda 3 (final) → superior.
+ */
+export function tournamentDifficulty(round) {
+  if (round >= 3) return 'superior'
+  if (round <= 1) return 'trivial'
+  return 'acorde'
+}
+
+/**
+ * Escuadrón (3v3): arriesgas 3 héroes a la vez → siempre "superior" para
+ * premiar más el éxito (×1.5 frente a un combate 1v1 "acorde").
+ */
+export function teamCombatDifficulty() {
+  return 'superior'
+}

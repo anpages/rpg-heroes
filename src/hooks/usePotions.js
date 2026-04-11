@@ -17,12 +17,17 @@ export function usePotions(userId) {
           .order('min_lab_level'),
         supabase
           .from('player_potion_crafting')
-          .select('potion_id, craft_ends_at')
-          .eq('player_id', userId),
+          .select('id, potion_id, craft_ends_at')
+          .eq('player_id', userId)
+          .order('craft_ends_at', { ascending: true }),
       ])
       const stockById = Object.fromEntries((inventory ?? []).map(r => [r.potion_id, r.quantity]))
       const potions = (catalog ?? []).map(p => ({ ...p, quantity: stockById[p.id] ?? 0 }))
-      const craftingMap = Object.fromEntries((crafting ?? []).map(c => [c.potion_id, c]))
+      // Agrupa por potion_id para que cada receta pueda tener varios crafts simultáneos.
+      const craftingMap = {}
+      for (const c of crafting ?? []) {
+        (craftingMap[c.potion_id] ??= []).push(c)
+      }
       return { potions, craftingMap }
     },
     enabled:   !!userId,

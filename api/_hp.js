@@ -1,9 +1,12 @@
 /**
  * HP interpolation utilities.
  *
- * HP regenerates passively over time when the hero is idle:
- *   idle      → 100% of max_hp per hour (full recovery from 0 in ~1h)
- *   exploring → no regeneration (in combat)
+ * HP regenerates passively over time:
+ *   idle      → 100%/hr desde hp_last_updated_at
+ *   exploring → sin regen mientras la actividad está en curso;
+ *               al llegar status_ends_at la regen se reanuda automáticamente
+ *               aunque el jugador aún no haya recogido. Así una expedición
+ *               nocturna no castiga al jugador idle que vuelve horas más tarde.
  *
  * Minimum HP to play: 20% of max_hp
  */
@@ -12,18 +15,26 @@ export const REGEN_IDLE_PCT_PER_MIN = 100 / 60  // 100%/hr → per minute
 export const MIN_HP_PCT             = 0.20       // 20% of max_hp required to play
 
 /**
- * Calculate current HP including passive regeneration since hp_last_updated_at.
- * @param {object} hero - must have current_hp, max_hp, status, hp_last_updated_at
+ * Calculate current HP including passive regeneration.
+ * @param {object} hero - must have current_hp, max_hp, status, hp_last_updated_at, status_ends_at
  * @param {number} nowMs - current timestamp in ms
  * @returns {number} current HP (capped at max_hp)
  */
 export function interpolateHP(hero, nowMs) {
-  const lastMs = hero.hp_last_updated_at
-    ? new Date(hero.hp_last_updated_at).getTime()
-    : nowMs
-  const elapsedMin   = Math.max(0, (nowMs - lastMs) / 60000)
-  const regenPerMin  = hero.status === 'exploring' ? 0 : REGEN_IDLE_PCT_PER_MIN
-  const regen        = elapsedMin * regenPerMin * hero.max_hp / 100
+  let regenFromMs
+  if (hero.status === 'exploring') {
+    // Regen se reanuda cuando la actividad termina (status_ends_at).
+    // Si aún está en curso (status_ends_at > now) o no hay ends_at → 0 regen.
+    regenFromMs = hero.status_ends_at
+      ? new Date(hero.status_ends_at).getTime()
+      : nowMs
+  } else {
+    regenFromMs = hero.hp_last_updated_at
+      ? new Date(hero.hp_last_updated_at).getTime()
+      : nowMs
+  }
+  const elapsedMin = Math.max(0, (nowMs - regenFromMs) / 60000)
+  const regen      = elapsedMin * REGEN_IDLE_PCT_PER_MIN * hero.max_hp / 100
   return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
 }
 

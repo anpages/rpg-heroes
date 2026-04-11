@@ -5,6 +5,7 @@ import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollCardDrop, rollMaterialDrop } from './_loot.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
+import { interpolateHP } from './_hp.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al usuario
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
-    .select('id, player_id, experience, level, active_effects, class')
+    .select('id, player_id, experience, level, active_effects, class, status, current_hp, max_hp, hp_last_updated_at, status_ends_at')
     .eq('id', expedition.hero_id)
     .single()
 
@@ -63,11 +64,20 @@ export default async function handler(req, res) {
 
   // Ataque escala oro y XP (hasta +100%)
   const attackMultiplier = calcAttackMultiplier(stats?.attack)
-  const xpBoost  = hero.active_effects?.xp_boost ?? 0
+  const xpBoost        = hero.active_effects?.xp_boost ?? 0
+  const lootBoost      = hero.active_effects?.loot_boost ?? 0
+  const goldBoost      = hero.active_effects?.gold_boost ?? 0
+  const cardGuaranteed = hero.active_effects?.card_guaranteed ?? 0
   const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
-  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult)
+  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult * (1 + goldBoost))
+  const finalGoldNoBoost = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult)
+  const goldBonus = goldBoost > 0 ? Math.max(0, finalGold - finalGoldNoBoost) : 0
+
   const xpBase    = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
   const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct) * mods.xpMult)
+  const xpBaseNoBoost  = Math.round((expedition.experience_earned ?? 0) * attackMultiplier)
+  const finalXpNoBoost = Math.round(xpBaseNoBoost * (1 + rb.expedition_xp_pct) * mods.xpMult)
+  const xpBonus = xpBoost > 0 ? Math.max(0, finalXp - finalXpNoBoost) : 0
 
   // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa y cartas
   // Peligro 1 → base 1, peligro 9 → base 5; defensa y carta Herrero reducen, Destrozador aumenta
@@ -110,9 +120,18 @@ export default async function handler(req, res) {
   const xpForLevel = xpRequiredForLevel(hero.level)
   const levelUp = newXp >= xpForLevel
 
-  // Consumir xp_boost si se usó
+  // Consumir boosts de un solo uso
   const newEffects = { ...(hero.active_effects ?? {}) }
-  if (xpBoost) delete newEffects.xp_boost
+  if (xpBoost)        delete newEffects.xp_boost
+  if (lootBoost)      delete newEffects.loot_boost
+  if (goldBoost)      delete newEffects.gold_boost
+  if (cardGuaranteed) delete newEffects.card_guaranteed
+
+  // Aplicar regen pasiva acumulada desde que terminó la expedición (status_ends_at).
+  // Si el jugador recoge inmediatamente, regenFromMs ≈ now → 0 regen. Si tarda,
+  // el héroe regenera normalmente durante ese tiempo.
+  const nowIso = new Date().toISOString()
+  const regeneratedHp = interpolateHP(hero, Date.now())
 
   const { error: updateHeroError } = await supabase
     .from('heroes')
@@ -121,7 +140,9 @@ export default async function handler(req, res) {
       experience:         levelUp ? newXp - xpForLevel : newXp,
       level:              levelUp ? hero.level + 1 : hero.level,
       active_effects:     newEffects,
-      hp_last_updated_at: new Date().toISOString(),
+      current_hp:         regeneratedHp,
+      hp_last_updated_at: nowIso,
+      status_ends_at:     null,
     })
     .eq('id', hero.id)
 
@@ -141,8 +162,8 @@ export default async function handler(req, res) {
     if (durError) console.error('durability rpc error:', durError.message)
   }
 
-  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult, heroClass: hero.class }) : null
-  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class) : null
+  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult * (1 + lootBoost), heroClass: hero.class }) : null
+  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class, { force: !!cardGuaranteed }) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
   // Progreso de misiones diarias (no bloquean la respuesta)
@@ -159,6 +180,8 @@ export default async function handler(req, res) {
     rewards: {
       gold: finalGold,
       experience: finalXp,
+      goldBonus,
+      xpBonus,
     },
     levelUp,
     drop:         drop         ?? null,

@@ -8,7 +8,9 @@ export function useRanking() {
     queryFn: async () => {
       const { data } = await supabase
         .from('heroes')
-        .select('level, class, name, player_id, players(username), classes(name, color, bg_color, border_color)')
+        .select('level, class, name, player_id, combat_rating, combats_played, players(username), classes(name, color, bg_color, border_color)')
+        .order('combat_rating', { ascending: false })
+        .order('combats_played', { ascending: false })
         .order('level', { ascending: false })
         .limit(100)
       return data ?? []

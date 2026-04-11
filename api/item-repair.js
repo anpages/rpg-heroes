@@ -23,12 +23,14 @@ export default async function handler(req, res) {
   // Verificar propiedad
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status')
+    .select('id, player_id, status, active_effects')
     .eq('id', item.hero_id)
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
+
+  const freeRepair = !!hero.active_effects?.free_repair
 
   const catalog = item.item_catalog
   const missing = catalog.max_durability - item.current_durability
@@ -43,8 +45,8 @@ export default async function handler(req, res) {
 
   const totalDiscount = Math.min(0.9, -rb.repair_cost_pct)
 
-  const goldCost = Math.ceil(missing * costs.gold * (1 - totalDiscount))
-  const manaCost = Math.ceil(missing * costs.mana * (1 - totalDiscount))
+  const goldCost = freeRepair ? 0 : Math.ceil(missing * costs.gold * (1 - totalDiscount))
+  const manaCost = freeRepair ? 0 : Math.ceil(missing * costs.mana * (1 - totalDiscount))
 
   // Verificar recursos (con interpolación idle)
   const { data: resources } = await supabase
@@ -81,5 +83,11 @@ export default async function handler(req, res) {
   if (resErr) return res.status(500).json({ error: resErr.message })
   if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
-  return res.status(200).json({ ok: true, goldCost, manaCost })
+  if (freeRepair) {
+    const newEffects = { ...(hero.active_effects ?? {}) }
+    delete newEffects.free_repair
+    await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', hero.id)
+  }
+
+  return res.status(200).json({ ok: true, goldCost, manaCost, freeRepair })
 }

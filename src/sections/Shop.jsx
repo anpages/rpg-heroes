@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useResources } from '../hooks/useResources'
@@ -8,9 +9,12 @@ import { useInventory } from '../hooks/useInventory'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost, apiGet } from '../lib/api'
 import {
-  Coins, Clock, CheckCircle2, PackageX, Lock,
+  Coins, Clock, CheckCircle2, PackageX, Lock, RefreshCw,
   Sword, Shield, Gem, Dumbbell, Wind, Brain, Heart,
+  BookOpen, Wrench, Sparkles, Package, Map, Zap, Hammer,
+  Scale, Star, X,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
 
 const RARITY_META = {
@@ -33,6 +37,20 @@ const SLOT_LABEL = {
 
 const MERCHANT_ICON = { weapons: Sword, armor: Shield, relics: Gem }
 
+const SPECIAL_ICON = {
+  'book-open': BookOpen,
+  wrench:      Wrench,
+  sparkles:    Sparkles,
+  heart:       Heart,
+  package:     Package,
+  coins:       Coins,
+  gem:         Gem,
+  dumbbell:    Dumbbell,
+  map:         Map,
+  zap:         Zap,
+  hammer:      Hammer,
+}
+
 const STAT_META = [
   { key: 'attack_bonus',       label: 'Ataque',       Icon: Sword    },
   { key: 'defense_bonus',      label: 'Defensa',      Icon: Shield   },
@@ -52,11 +70,145 @@ function timeUntilMidnight() {
   return `${h}h ${m}m`
 }
 
-function ShopItem({ item, gold, owned, onBuy, buying }) {
+function ComparisonModal({ item, isNewSlot, equipped, diffs, totalDiff, slotLabel, onClose }) {
+  const rarity = RARITY_META[item.rarity] ?? RARITY_META.common
+
+  let verdictColor = '#6b7280'
+  let verdictLabel = 'Stats similares'
+  let verdictDetail = null
+
+  if (isNewSlot) {
+    verdictColor = '#16a34a'
+    verdictLabel = 'Compra recomendada'
+    verdictDetail = `No tienes ningún ítem de ${slotLabel.toLowerCase()}.`
+  } else if (!equipped) {
+    verdictColor = '#6b7280'
+    verdictLabel = 'Sin ítem equipado'
+    verdictDetail = `Tienes ${slotLabel.toLowerCase()} en la mochila, pero ninguno equipado.`
+  } else {
+    verdictColor =
+      totalDiff > 0 ? '#16a34a' :
+      totalDiff < 0 ? '#dc2626' :
+      '#6b7280'
+    verdictLabel =
+      totalDiff > 0 ? 'Mejora el equipado' :
+      totalDiff < 0 ? 'Peor que el equipado' :
+      'Stats similares'
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onClose}>
+      <div
+        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
+        style={{ width: 'min(420px, 94vw)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-text-3">Comparar con equipado</span>
+            <span className="text-[15px] font-bold truncate" style={{ color: rarity.color }} title={item.name}>
+              {item.name}
+            </span>
+            <span className="text-[11px] text-text-3">
+              {slotLabel} · {rarity.label} · T{item.tier}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors flex-shrink-0"
+            onClick={onClose}
+          >
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Verdict banner */}
+        <div
+          className="rounded-lg border px-3 py-2.5 flex items-start gap-2"
+          style={{
+            borderColor: `color-mix(in srgb, ${verdictColor} 40%, var(--color-border))`,
+            background:  `color-mix(in srgb, ${verdictColor} 8%, var(--color-surface))`,
+          }}
+        >
+          {isNewSlot
+            ? <Star size={14} strokeWidth={2.5} className="mt-[2px] flex-shrink-0" style={{ color: verdictColor }} />
+            : <Scale size={14} strokeWidth={2.5} className="mt-[2px] flex-shrink-0" style={{ color: verdictColor }} />
+          }
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-bold" style={{ color: verdictColor }}>{verdictLabel}</div>
+            {verdictDetail && <div className="text-[11px] text-text-3 mt-[2px]">{verdictDetail}</div>}
+            {equipped && !isNewSlot && (
+              <div className="text-[11px] text-text-3 mt-[2px] truncate" title={equipped.item_catalog?.name}>
+                vs {equipped.item_catalog?.name} · T{equipped.item_catalog?.tier}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stat diffs table (only when comparing vs equipped) */}
+        {equipped && diffs && diffs.length > 0 && (
+          <div className="rounded-lg border border-border bg-surface overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 px-3 py-2.5 text-[11px]">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3">Stat</div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Equipado</div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Tienda</div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 text-right">Δ</div>
+              {diffs.map(({ key, label, Icon, equipped: eq, shop, diff }) => {
+                const diffColor = diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : 'var(--color-text-3)'
+                const sign = diff > 0 ? '+' : ''
+                return (
+                  <div key={key} className="contents">
+                    <div className="flex items-center gap-1.5 text-text-2">
+                      <Icon size={12} strokeWidth={2} className="text-text-3 flex-shrink-0" />
+                      <span>{label}</span>
+                    </div>
+                    <div className="text-right tabular-nums text-text-2">{eq}</div>
+                    <div className="text-right tabular-nums font-semibold text-text">{shop}</div>
+                    <div className="text-right tabular-nums font-bold" style={{ color: diffColor }}>
+                      {diff === 0 ? '·' : `${sign}${diff}`}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
   const rarity    = RARITY_META[item.rarity] ?? RARITY_META.common
   const stats     = STAT_META.filter(s => item[s.key] > 0)
   const sold      = item.purchased >= item.maxStock
   const canAfford = gold >= item.goldPrice
+  const [showCompare, setShowCompare] = useState(false)
+
+  // Comparación con inventario (mismo slot)
+  const inventoryReady = inventoryItems != null
+  const sameSlot = inventoryReady
+    ? inventoryItems.filter(i => i.item_catalog?.slot === item.slot)
+    : []
+  const equipped  = sameSlot.find(i => i.equipped_slot != null) ?? null
+  const anyOfSlot = sameSlot.length > 0
+  const isNewSlot = inventoryReady && !anyOfSlot
+
+  const diffs = equipped
+    ? STAT_META
+        .map(s => ({
+          key: s.key,
+          label: s.label,
+          Icon: s.Icon,
+          shop:     item[s.key] ?? 0,
+          equipped: equipped.item_catalog?.[s.key] ?? 0,
+        }))
+        .filter(d => d.shop !== 0 || d.equipped !== 0)
+        .map(d => ({ ...d, diff: d.shop - d.equipped }))
+    : null
+  const totalDiff = diffs ? diffs.reduce((a, d) => a + d.diff, 0) : 0
 
   return (
     <div
@@ -73,6 +225,20 @@ function ShopItem({ item, gold, owned, onBuy, buying }) {
           <span className="text-[14px] font-bold leading-[1.3] flex-1 min-w-0 flex items-center gap-1.5" style={{ color: rarity.color }}>
             {item.name}
             {owned && <CheckCircle2 size={14} strokeWidth={2.5} color="#d97706" className="flex-shrink-0" />}
+            {isNewSlot && !owned && (
+              <span
+                className="flex-shrink-0 flex items-center gap-[3px] text-[9px] font-extrabold uppercase tracking-wide rounded-full px-[6px] py-[2px] border"
+                style={{
+                  color: '#16a34a',
+                  borderColor: 'color-mix(in srgb, #16a34a 40%, var(--color-border))',
+                  background: 'color-mix(in srgb, #16a34a 10%, var(--color-surface))',
+                }}
+                title="No tienes ningún ítem de este slot"
+              >
+                <Star size={9} strokeWidth={2.5} />
+                Nuevo
+              </span>
+            )}
           </span>
           <div className="flex flex-col items-end gap-[3px] flex-shrink-0">
             <span className="text-[10px] font-bold text-text-3 bg-surface-2 border border-border rounded-[4px] px-[5px] py-px">
@@ -119,6 +285,30 @@ function ShopItem({ item, gold, owned, onBuy, buying }) {
           <p className="text-[11px] text-text-3 flex-1">Sin bonificaciones</p>
         )}
 
+        {/* Comparar con equipado */}
+        {inventoryReady && !sold && !item.locked && (
+          <button
+            type="button"
+            onClick={() => setShowCompare(true)}
+            className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-text-3 hover:text-text-2 transition-colors py-1 rounded-md border border-dashed border-border hover:border-[color-mix(in_srgb,var(--rarity-color)_35%,var(--border))]"
+          >
+            <Scale size={11} strokeWidth={2.5} />
+            Comparar con equipado
+          </button>
+        )}
+
+        {showCompare && (
+          <ComparisonModal
+            item={item}
+            isNewSlot={isNewSlot}
+            equipped={equipped}
+            diffs={diffs}
+            totalDiff={totalDiff}
+            slotLabel={SLOT_LABEL[item.slot] ?? item.slot}
+            onClose={() => setShowCompare(false)}
+          />
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border mt-auto">
           {item.locked ? (
@@ -141,6 +331,58 @@ function ShopItem({ item, gold, owned, onBuy, buying }) {
                 className="btn btn--primary btn--sm"
                 disabled={!canAfford || buying}
                 onClick={() => onBuy(item)}
+                title={!canAfford ? 'Oro insuficiente' : undefined}
+              >
+                Comprar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SpecialCard({ special, gold, onBuy, buying }) {
+  const Icon = SPECIAL_ICON[special.icon] ?? Sparkles
+  const sold = special.purchased
+  const canAfford = gold >= special.goldPrice
+
+  return (
+    <div
+      className={`relative flex overflow-hidden rounded-xl border border-[color-mix(in_srgb,#d97706_30%,var(--border))] bg-[linear-gradient(135deg,color-mix(in_srgb,#d97706_6%,var(--surface)),var(--surface))] shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-[180ms]
+        ${sold ? 'opacity-60' : 'hover:shadow-[var(--shadow-md)] hover:border-[color-mix(in_srgb,#d97706_55%,var(--border))]'}`}
+    >
+      <div className="w-1 flex-shrink-0 bg-[#d97706] opacity-80" />
+      <div className="flex-1 px-4 py-3.5 flex flex-col gap-2.5 min-w-0">
+        <div className="flex items-start gap-2.5">
+          <div className="flex-shrink-0 w-9 h-9 rounded-lg border border-[color-mix(in_srgb,#d97706_35%,var(--border))] bg-[color-mix(in_srgb,#d97706_10%,var(--surface))] flex items-center justify-center">
+            <Icon size={18} strokeWidth={2} color="#d97706" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-bold leading-[1.3] text-[#d97706]">{special.name}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-text-3 mt-[2px]">Oferta especial</div>
+          </div>
+        </div>
+
+        <p className="text-[12px] leading-[1.4] text-text-2 flex-1">{special.description}</p>
+
+        <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border mt-auto">
+          {sold ? (
+            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#16a34a] dark:text-[#4ade80] w-full justify-center">
+              <CheckCircle2 size={14} strokeWidth={2} />
+              <span>Comprado</span>
+            </div>
+          ) : (
+            <>
+              <span className={`flex items-center gap-[5px] text-[15px] font-extrabold ${!canAfford ? 'text-error-text opacity-80' : 'text-text'}`}>
+                <Coins size={14} strokeWidth={2} />
+                {special.goldPrice.toLocaleString('es-ES')}
+              </span>
+              <button
+                className="btn btn--primary btn--sm"
+                disabled={!canAfford || buying}
+                onClick={() => onBuy(special)}
                 title={!canAfford ? 'Oro insuficiente' : undefined}
               >
                 Comprar
@@ -180,8 +422,45 @@ export default function Shop() {
     staleTime: 60 * 60_000,   // 1h — la rotación es diaria, no cambia
     gcTime:   60 * 60_000,    // mantener en cache 1h tras desmontarse
   })
-  const items    = shopData?.items ?? null
-  const error    = shopError?.message ?? null
+  const items        = shopData?.items ?? null
+  const specials     = shopData?.specials ?? []
+  const error        = shopError?.message ?? null
+  const refreshCost  = shopData?.refreshCost  ?? 500
+  const refreshCount = shopData?.refreshCount ?? 0
+
+  const refreshMutation = useMutation({
+    mutationFn: () => apiPost('/api/shop-refresh', { heroId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: shopKey })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
+    onError: err => notify.error(err.message),
+  })
+
+  const buySpecialMutation = useMutation({
+    mutationFn: (special) => apiPost('/api/shop-buy-special', { heroId, specialId: special.id }),
+    onMutate: async (special) => {
+      await queryClient.cancelQueries({ queryKey: shopKey })
+      const previous = queryClient.getQueryData(shopKey)
+      queryClient.setQueryData(shopKey, (old) => ({
+        ...old,
+        specials: old?.specials?.map(s =>
+          s.id === special.id ? { ...s, purchased: true } : s
+        ),
+      }))
+      return { previous }
+    },
+    onError: (err, _special, context) => {
+      queryClient.setQueryData(shopKey, context.previous)
+      notify.error(err.message)
+    },
+    onSuccess: (_data, special) => {
+      notify.success(`${special.name} aplicado`)
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+    },
+  })
 
   const buyMutation = useMutation({
     mutationFn: (item) => apiPost('/api/shop-buy', { heroId, catalogId: item.catalogId }),
@@ -198,10 +477,10 @@ export default function Shop() {
     },
     onError: (err, _item, context) => {
       queryClient.setQueryData(shopKey, context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSuccess: (_data, item) => {
-      toast.success(`${item.name} añadido al inventario`)
+      notify.success(`${item.name} añadido al inventario`)
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
@@ -225,9 +504,25 @@ export default function Shop() {
             <span className="text-[15px] font-extrabold text-text tabular-nums">{(gold ?? 0).toLocaleString('es-ES')}</span>
           </div>
         )}
-        <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap ml-auto">
-          <Clock size={13} strokeWidth={2} />
-          Renueva en {renewsIn}
+        <div className="flex items-center gap-2 ml-auto">
+          <motion.button
+            type="button"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-surface text-[12px] font-semibold text-text-2 hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => refreshMutation.mutate()}
+            disabled={refreshMutation.isPending || (gold ?? 0) < refreshCost}
+            whileTap={refreshMutation.isPending || (gold ?? 0) < refreshCost ? {} : { scale: 0.97 }}
+            title={(gold ?? 0) < refreshCost ? 'Oro insuficiente' : `Cambia la oferta del día (${refreshCount > 0 ? `${refreshCount} usos hoy` : 'primer uso'})`}
+          >
+            <RefreshCw size={12} strokeWidth={2.5} className={refreshMutation.isPending ? 'animate-spin' : ''} />
+            <span className="flex items-center gap-[3px]">
+              <Coins size={11} strokeWidth={2} />
+              {refreshCost}
+            </span>
+          </motion.button>
+          <div className="flex items-center gap-[5px] text-[12px] font-medium text-text-3 whitespace-nowrap">
+            <Clock size={13} strokeWidth={2} />
+            Renueva en {renewsIn}
+          </div>
         </div>
       </div>
 
@@ -238,13 +533,22 @@ export default function Shop() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {[...Array(6)].map((_, i) => (
             <div key={i} className="h-[200px] sm:h-[180px] rounded-xl bg-surface-2 animate-skeleton-pulse" />
           ))}
         </div>
       ) : items && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {specials.map(s => (
+            <SpecialCard
+              key={`sp-${s.id}`}
+              special={s}
+              gold={gold ?? 0}
+              onBuy={(sp) => buySpecialMutation.mutate(sp)}
+              buying={buySpecialMutation.isPending}
+            />
+          ))}
           {items.map(item => (
             <ShopItem
               key={item.catalogId}
@@ -253,6 +557,7 @@ export default function Shop() {
               owned={ownedCatalogIds.has(item.catalogId)}
               onBuy={(i) => buyMutation.mutate(i)}
               buying={buyMutation.isPending}
+              inventoryItems={inventoryItems}
             />
           ))}
         </div>

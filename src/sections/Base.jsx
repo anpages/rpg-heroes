@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
@@ -13,7 +13,6 @@ import { useHeroRunes } from '../hooks/useHeroRunes'
 import { useResearch } from '../hooks/useResearch'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { RESEARCH_NODES } from '../lib/gameConstants.js'
 import { PRODUCTION_TYPES } from './base/constants.js'
 import BaseHeader from './base/BaseHeader.jsx'
 import ZonePills from './base/ZonePills.jsx'
@@ -63,17 +62,15 @@ export default function Base({ mainRef }) {
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => {},
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const collectPotionMutation = useMutation({
-    mutationFn: async (potionId) => {
-      await apiPost('/api/potion-collect', { potionId })
+    mutationFn: async (craftId) => {
+      await apiPost('/api/potion-collect', { craftId })
       await queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) })
     },
-    onSuccess: () => toast.success('¡Poción recogida!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const runeCraftMutation = useMutation({
@@ -84,8 +81,7 @@ export default function Base({ mainRef }) {
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => {},
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const collectRuneMutation = useMutation({
@@ -93,8 +89,7 @@ export default function Base({ mainRef }) {
       await apiPost('/api/rune-collect', { runeId })
       await queryClient.refetchQueries({ queryKey: queryKeys.heroRunes(userId) })
     },
-    onSuccess: () => toast.success('¡Runa recogida!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const labInventoryUpgradeMutation = useMutation({
@@ -102,8 +97,8 @@ export default function Base({ mainRef }) {
       await apiPost('/api/lab-inventory-upgrade', {})
       await queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) })
     },
-    onSuccess: () => toast.success('¡Inventario del laboratorio ampliado!'),
-    onError: err => toast.error(err.message),
+    onSuccess: () => notify.success('Inventario del laboratorio ampliado'),
+    onError: err => notify.error(err.message),
   })
 
   const researchStartMutation = useMutation({
@@ -115,11 +110,7 @@ export default function Base({ mainRef }) {
       ])
       return nodeId
     },
-    onSuccess: (nodeId) => {
-      const node = RESEARCH_NODES.find(n => n.id === nodeId)
-      toast.success(`Investigando: ${node?.name ?? nodeId}`)
-    },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const researchCollectMutation = useMutation({
@@ -131,11 +122,7 @@ export default function Base({ mainRef }) {
       ])
       return nodeId
     },
-    onSuccess: (nodeId) => {
-      const node = RESEARCH_NODES.find(n => n.id === nodeId)
-      toast.success(`¡${node?.name ?? nodeId} completado!`)
-    },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const effectiveResources = resources

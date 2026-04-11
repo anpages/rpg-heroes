@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../../lib/notifications.js'
 import { motion } from 'framer-motion'
 import { apiPost } from '../../lib/api.js'
 import { queryKeys } from '../../lib/queryKeys.js'
@@ -37,8 +37,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Construcción iniciada!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const buildCollectMutation = useMutation({
@@ -46,8 +45,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       await apiPost('/api/training-room-build-collect', { stat })
       await queryClient.refetchQueries({ queryKey: queryKeys.trainingRooms(userId) })
     },
-    onSuccess: () => toast.success('¡Sala lista!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const upgradeMutation = useMutation({
@@ -58,8 +56,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
         queryClient.refetchQueries({ queryKey: queryKeys.resources(userId) }),
       ])
     },
-    onSuccess: () => {},
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const collectMutation = useMutation({
@@ -67,16 +64,15 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       const data = await apiPost('/api/training-collect', { heroId, stat })
       await Promise.all([
         queryClient.refetchQueries({ queryKey: queryKeys.training(heroId) }),
-        // Invalidar hero de todos los héroes (el backend aplica a todos)
         queryClient.invalidateQueries({ queryKey: ['hero'] }),
       ])
       return data
     },
     onSuccess: (data) => {
       const names = Object.entries(data.gained ?? {}).map(([stat, pts]) => `+${pts} ${STAT_LABEL_MAP[stat]}`)
-      toast.success(names.length > 0 ? `¡Entrenamiento! ${names.join(' · ')}` : 'Sincronizado')
+      if (names.length > 0) notify.success(`¡Entrenamiento! ${names.join(' · ')}`)
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const mutPending = buildMutation.isPending || upgradeMutation.isPending || collectMutation.isPending

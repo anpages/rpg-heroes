@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   // Obtener todos los héroes del jugador
   const { data: heroes } = await supabase
     .from('heroes')
-    .select('id, strength, agility, attack, defense, intelligence, max_hp')
+    .select('id, strength, agility, attack, defense, intelligence, max_hp, active_effects')
     .eq('player_id', user.id)
 
   if (!heroes?.length) return res.status(404).json({ error: 'No hay héroes' })
@@ -74,6 +74,7 @@ export default async function handler(req, res) {
     const gains       = {}
     const updates     = []
     const heroUpdates = {}
+    const trainingBoost = hero.active_effects?.training_boost ?? 0
 
     for (const stat of availableStats) {
       const row = rowsByStat[stat]
@@ -89,7 +90,7 @@ export default async function handler(req, res) {
       const hoursElapsed     = (now - lastCollected) / 3_600_000
       const effectiveHours   = Math.min(hoursElapsed, hoursToThreshold)
 
-      let pendingXp    = row.xp_bank + effectiveHours * rate
+      let pendingXp    = row.xp_bank + effectiveHours * rate * (1 + trainingBoost)
       let totalGained  = row.total_gained
       let statGains    = 0
 
@@ -117,6 +118,13 @@ export default async function handler(req, res) {
       await supabase
         .from('hero_training')
         .upsert(updates, { onConflict: 'hero_id,stat' })
+    }
+
+    // Consumir training_boost si se usó y se ganó algo
+    if (trainingBoost && Object.keys(gains).length > 0) {
+      const newEffects = { ...(hero.active_effects ?? {}) }
+      delete newEffects.training_boost
+      heroUpdates.active_effects = newEffects
     }
 
     if (Object.keys(heroUpdates).length > 0) {

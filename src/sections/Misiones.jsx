@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useMissions } from '../hooks/useMissions'
 import { queryKeys } from '../lib/queryKeys'
@@ -45,7 +45,7 @@ function MissionCard({ mission }) {
     },
     onError: (err, _, context) => {
       queryClient.setQueryData(queryKeys.missions(), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })

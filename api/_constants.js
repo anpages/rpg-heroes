@@ -16,14 +16,17 @@ export {
   CARD_MAX_RANK,
   REPAIR_COST_TABLE,
   DISMANTLE_GOLD_TABLE,
+  DISMANTLE_TRANSMUTE_TABLE,
   LAB_INVENTORY_BASE,
   LAB_INVENTORY_PER_UPGRADE,
   LAB_INVENTORY_MAX_UPGRADES,
   LAB_INVENTORY_UPGRADE_COSTS,
 } from '../src/lib/gameConstants.js'
 
-export const SHOP_SIZE      = 8
-export const SHOP_MAX_STOCK = 1   // unidades por item por héroe por día
+export const SHOP_SIZE           = 7    // items regulares de equipo por día (+ 2 specials = 9 cards, 3×3 grid)
+export const SHOP_SPECIAL_COUNT  = 2    // ofertas especiales rotativas por día
+export const SHOP_MAX_STOCK      = 1    // unidades por item por héroe por día
+export const SHOP_REFRESH_COST   = 500  // oro fijo por refresh manual del stock
 
 export const MERCHANT_TYPES = [
   { key: 'weapons', label: 'Armero',     slots: ['main_hand', 'off_hand'] },

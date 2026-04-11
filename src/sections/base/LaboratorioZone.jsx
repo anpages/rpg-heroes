@@ -1,6 +1,6 @@
 import { Lock, Gem } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { LAB_BASE_LEVEL_REQUIRED, RUNE_MIN_LAB_LEVEL } from '../../lib/gameConstants.js'
+import { LAB_BASE_LEVEL_REQUIRED, RUNE_MIN_LAB_LEVEL, LAB_INVENTORY_BASE, LAB_INVENTORY_PER_UPGRADE } from '../../lib/gameConstants.js'
 import { cardVariants, BUILDING_META } from './constants.js'
 import { baseLevelFromMap } from './helpers.js'
 import { BuildingCard } from './BuildingCard.jsx'
@@ -9,6 +9,16 @@ import { LaboratorySection, RunesSection, LabInventory } from './LaboratorySecti
 export default function LaboratorioZone({ byType, effectiveResources, potions, potionCraftingMap, runesCatalog, runesInventory, runeCraftingMap, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, craftPending, collectPending, onCraft, onCollect, onRuneCraft, runeCraftPending, runeCollectPending, onRuneCollect, onLabInventoryUpgrade, labInventoryUpgradePending }) {
   const lab       = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
+
+  // Cómputo de capacidad unificado — activos (crafteando/listos) cuentan
+  const labUpgrades  = effectiveResources?.lab_inventory_upgrades ?? 0
+  const labCapacity  = LAB_INVENTORY_BASE + labUpgrades * LAB_INVENTORY_PER_UPGRADE
+  const potionQty    = (potions ?? []).reduce((s, p) => s + (p.quantity ?? 0), 0)
+  const runeQty      = (runesInventory ?? []).reduce((s, r) => s + (r.quantity ?? 0), 0)
+  const potionCraftCount = Object.values(potionCraftingMap ?? {}).reduce((s, arr) => s + (arr?.length ?? 0), 0)
+  const activeCrafts = potionCraftCount + Object.keys(runeCraftingMap ?? {}).length
+  const labInventoryUsed = potionQty + runeQty + activeCrafts
+  const labInventoryFull = labInventoryUsed >= labCapacity
 
   if (!lab) return null
 
@@ -67,6 +77,14 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, p
               resources={effectiveResources}
               onUpgrade={onLabInventoryUpgrade}
               upgradePending={labInventoryUpgradePending}
+              potionCraftingMap={potionCraftingMap}
+              runeCraftingMap={runeCraftingMap}
+              onPotionCollect={onCollect}
+              onRuneCollect={onRuneCollect}
+              potionCollectPending={collectPending}
+              runeCollectPending={runeCollectPending}
+              inventoryUsed={labInventoryUsed}
+              capacity={labCapacity}
             />
           </div>
 
@@ -76,11 +94,10 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, p
               potions={potions}
               craftingMap={potionCraftingMap}
               craftPending={craftPending}
-              collectPending={collectPending}
               resources={effectiveResources}
               onCraft={onCraft}
-              onCollect={onCollect}
               isUpgrading={!!lab.upgrade_ends_at}
+              inventoryFull={labInventoryFull}
             />
           </div>
 
@@ -92,10 +109,9 @@ export default function LaboratorioZone({ byType, effectiveResources, potions, p
                 resources={effectiveResources}
                 craftingMap={runeCraftingMap}
                 craftPending={runeCraftPending}
-                collectPending={runeCollectPending}
                 onCraft={onRuneCraft}
-                onCollect={onRuneCollect}
                 isUpgrading={!!lab.upgrade_ends_at}
+                inventoryFull={labInventoryFull}
               />
             </div>
           ) : (

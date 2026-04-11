@@ -18,6 +18,7 @@ import Camaras from '../sections/Camaras'
 import Equipo from '../sections/Equipo'
 import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
+import Escuadron from '../sections/Escuadron'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import ErrorBoundary from '../components/ErrorBoundary'
@@ -25,7 +26,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, DoorOpen } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, DoorOpen, Users } from 'lucide-react'
 
 function DiscordIcon({ size = 20 }) {
   return (
@@ -257,10 +258,11 @@ function getHeroDerivedStatus(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'base',   label: 'Base',   icon: Castle },
-  { id: 'heroes', label: 'Héroes', icon: Sword  },
-  { id: 'mundo',  label: 'Combate', icon: Globe  },
-  { id: 'arena',  label: 'Arena',  icon: Swords },
+  { id: 'base',      label: 'Base',      icon: Castle },
+  { id: 'heroes',    label: 'Héroes',    icon: Sword  },
+  { id: 'mundo',     label: 'Duelos',    icon: Globe  },
+  { id: 'escuadron', label: 'Escuadrón', icon: Users,  minHeroes: 3 },
+  { id: 'arena',     label: 'Arena',     icon: Swords },
 ]
 
 const HERO_SUB_TABS = [
@@ -348,6 +350,9 @@ function Dashboard({ session }) {
 
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
+  const heroCount = heroes?.length ?? 0
+  const visibleNavItems = NAV_ITEMS.filter(n => !n.minHeroes || heroCount >= n.minHeroes)
+
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
   async function handleLogout() { await supabase.auth.signOut() }
@@ -427,7 +432,7 @@ function Dashboard({ session }) {
         {/* Sidebar — desktop only */}
         <aside className="hidden md:flex w-[220px] flex-shrink-0 glass-sidebar border-r-0 flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
           <nav className="flex flex-col gap-1">
-            {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
+            {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
               const badge    = badgeState(id)
               const isActive = activeTab === id
               const iconColor = isActive ? 'var(--blue-700)' : (accent ?? undefined)
@@ -567,6 +572,11 @@ function Dashboard({ session }) {
             {mountedTabs.has('mundo') && <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>}
           </div>
 
+          {/* Escuadrón */}
+          <div className={activeTab === 'escuadron' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('escuadron') && <ErrorBoundary><Escuadron /></ErrorBoundary>}
+          </div>
+
           {/* Arena */}
           <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
             <div className="flex flex-col items-center gap-4 py-20 px-6 text-center">
@@ -597,7 +607,7 @@ function Dashboard({ session }) {
 
       {/* Bottom nav — mobile only */}
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 glass-nav z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: '4rem' }}>
-        {NAV_ITEMS.map(({ id, label, icon: Icon, accent }) => {
+        {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
           const badge = badgeState(id)
           const isActive = activeTab === id
           const iconColor = isActive ? 'var(--blue-600)' : (accent ?? undefined)

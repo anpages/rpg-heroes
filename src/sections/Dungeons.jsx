@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
@@ -12,7 +12,6 @@ import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
-import { showItemDropToast, showCardDropToast, showDropFullToast } from '../lib/dropToast'
 import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles, FlaskConical, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { usePotions } from '../hooks/usePotions'
@@ -104,7 +103,7 @@ function useExpeditionTimer(expedition) {
 }
 
 
-function ExpeditionPotionPanel({ heroId, userId, activeEffects = {} }) {
+function ExpeditionPotionPanel({ heroId, userId, activeEffects = {}, isExploring = false }) {
   const queryClient = useQueryClient()
   const { potions } = usePotions(userId)
 
@@ -113,15 +112,15 @@ function ExpeditionPotionPanel({ heroId, userId, activeEffects = {} }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      toast.success('¡Poción activada!')
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const xpPotions = potions.filter(p => p.effect_type === 'xp_boost' && p.quantity > 0)
   const activeXp  = activeEffects?.xp_boost
 
   if (xpPotions.length === 0 && !activeXp) return null
+  if (isExploring && !activeXp) return null
 
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg mb-3.5">
@@ -142,7 +141,7 @@ function ExpeditionPotionPanel({ heroId, userId, activeEffects = {} }) {
         )}
       </div>
 
-      {xpPotions.length > 0 && (
+      {xpPotions.length > 0 && !isExploring && (
         <div className="flex gap-2 flex-wrap">
           {xpPotions.map(p => {
             const alreadyActive = !!activeXp
@@ -199,7 +198,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
       onCollect(data)
       setCollecting(false)
     } catch (err) {
-      toast.error(err.message)
+      notify.error(err.message)
       setCollecting(false)
     }
   }
@@ -387,6 +386,12 @@ function RewardModal({ reward, onClose }) {
             <div>
               <p className="text-[18px] font-bold text-text leading-none">{reward.gold}</p>
               <p className="text-[11px] text-text-3 mt-0.5">Oro</p>
+              {reward.goldBonus > 0 && (
+                <p className="flex items-center gap-1 text-[10px] font-bold mt-1" style={{ color: '#d97706' }}>
+                  <FlaskConical size={10} strokeWidth={2.5} />
+                  +{reward.goldBonus} poción
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#0369a1_8%,var(--bg))] border border-[color-mix(in_srgb,#0369a1_25%,var(--border))] rounded-xl px-3.5 py-3">
@@ -394,6 +399,12 @@ function RewardModal({ reward, onClose }) {
             <div>
               <p className="text-[18px] font-bold text-text leading-none">{reward.experience}</p>
               <p className="text-[11px] text-text-3 mt-0.5">XP</p>
+              {reward.xpBonus > 0 && (
+                <p className="flex items-center gap-1 text-[10px] font-bold mt-1" style={{ color: '#0369a1' }}>
+                  <FlaskConical size={10} strokeWidth={2.5} />
+                  +{reward.xpBonus} poción
+                </p>
+              )}
             </div>
           </div>
           {reward.materialDrop && (() => {
@@ -465,15 +476,15 @@ function Dungeons() {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     } catch (err) {
       setExpedition(null)
-      toast.error(err.message)
+      notify.error(err.message)
     }
   }
 
   function handleCollect(data) {
     setReward({ ...(data.rewards ?? {}), materialDrop: data.materialDrop ?? null })
-    if (data.drop?.item_catalog)      showItemDropToast(data.drop.item_catalog)
-    if (data.drop?.full)              showDropFullToast()
-    if (data.cardDrop?.skill_cards)   showCardDropToast(data.cardDrop.skill_cards)
+    if (data.drop?.item_catalog)      notify.itemDrop(data.drop.item_catalog)
+    if (data.drop?.full)              notify.bagFull()
+    if (data.cardDrop?.skill_cards)   notify.cardDrop(data.cardDrop.skill_cards)
     triggerResourceFlash()
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
@@ -505,9 +516,12 @@ function Dungeons() {
       )}
 
       {/* Expedition potions (xp_boost) */}
-      {heroStatus === 'idle' && (
-        <ExpeditionPotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects} />
-      )}
+      <ExpeditionPotionPanel
+        heroId={heroId}
+        userId={userId}
+        activeEffects={hero?.active_effects}
+        isExploring={heroStatus === 'exploring'}
+      />
 
       {/* Grid */}
       <motion.div

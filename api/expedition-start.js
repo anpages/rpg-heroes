@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -102,6 +102,7 @@ export default async function handler(req, res) {
       status:             'exploring',
       current_hp:         hpAfterExpedition,
       hp_last_updated_at: new Date(nowMs).toISOString(),
+      status_ends_at:     endsAt.toISOString(),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -130,7 +131,12 @@ export default async function handler(req, res) {
     // Rollback: restaurar estado idle si la expedición no se pudo crear
     await supabase
       .from('heroes')
-      .update({ status: 'idle', current_hp: currentHp, hp_last_updated_at: hero.hp_last_updated_at })
+      .update({
+        status: 'idle',
+        current_hp: currentHp,
+        hp_last_updated_at: hero.hp_last_updated_at,
+        status_ends_at: null,
+      })
       .eq('id', hero.id)
     return res.status(500).json({ error: expError.message })
   }

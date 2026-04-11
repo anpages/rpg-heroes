@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
@@ -304,7 +304,7 @@ export default function Cartas() {
     },
     onError: (err, _vars, context) => {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(heroId), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSettled: () => {
       equipPending.current--
@@ -327,7 +327,7 @@ export default function Cartas() {
     },
     onError: (err, _vars, context) => {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.heroCards(heroId), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
@@ -385,7 +385,7 @@ export default function Cartas() {
     const usedSlots = new Set(equippedCards.filter(Boolean).map(c => c.slot_index))
     const freeSlot  = [0, 1, 2, 3, 4].find(i => !usedSlots.has(i))
     if (freeSlot === undefined) {
-      toast.error('Slots llenos. Desequipa una carta primero.')
+      notify.error('Slots llenos. Desequipa una carta primero.')
       return
     }
     equipMutation.mutate({ endpoint: '/api/card-equip', body: { cardId, slotIndex: freeSlot } })

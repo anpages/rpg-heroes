@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Axe, Pickaxe, Sparkles, ChevronRight, Clock, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { toast } from 'sonner'
+import { notify } from '../../lib/notifications.js'
 import { buildingUpgradeCost, buildingUpgradeDurationMs, BUILDING_MAX_LEVEL } from '../../lib/gameConstants.js'
 import { apiPost } from '../../lib/api.js'
 import { BUILDING_META, PRODUCTION_TYPES, UNLOCK_REQUIREMENTS } from './constants.js'
@@ -35,7 +35,7 @@ function useUpgradeTimer(building, onUpgradeCollect) {
         onUpgradeCollect()
         setLoading(false)
       } catch (err) {
-        toast.error(err.message)
+        notify.error(err.message)
         setLoading(false)
         collectingRef.current = false
       }
@@ -102,7 +102,7 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
       setOptimisticEndsAt(null)
       onOptimisticDeduct({ wood: -(cost.wood ?? 0), iron: -(cost.iron ?? 0), mana: -(cost.mana ?? 0) })
       onUpgradePending(false)
-      toast.error(err.message)
+      notify.error(err.message)
     }
   }
 

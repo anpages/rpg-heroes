@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { Trophy, Swords, Shield, Skull, Coins, Sparkles, Clock, Flame, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useHeroId } from '../hooks/useHeroId'
@@ -12,7 +12,6 @@ import { useAppStore } from '../store/appStore'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
-import { showCardDropToast } from '../lib/dropToast'
 
 const ROUND_LABELS = ['Cuartos', 'Semifinal', 'Final']
 const ROUND_COLORS = ['#2563eb', '#d97706', '#dc2626']
@@ -343,9 +342,8 @@ export default function Torneos() {
     mutationFn: () => apiPost('/api/tournament-register', { heroId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
-      toast.success('¡Inscrito en el torneo!')
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const [pauseToken, setPauseToken] = useState(null)
@@ -367,14 +365,14 @@ export default function Torneos() {
         return
       }
       if (data.rewards) triggerResourceFlash()
-      if (data.rewards?.card?.name) showCardDropToast(data.rewards.card)
+      if (data.rewards?.card?.name) notify.cardDrop(data.rewards.card)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
       if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const resumeMutation = useMutation({
@@ -382,7 +380,7 @@ export default function Torneos() {
     onSuccess: data => {
       setPauseToken(null)
       if (data.rewards) triggerResourceFlash()
-      if (data.rewards?.card?.name) showCardDropToast(data.rewards.card)
+      if (data.rewards?.card?.name) notify.cardDrop(data.rewards.card)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
@@ -390,7 +388,7 @@ export default function Torneos() {
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
     onError: err => {
-      toast.error(err.message)
+      notify.error(err.message)
       setPauseToken(null)
     },
   })
@@ -659,6 +657,7 @@ export default function Torneos() {
           log={replay.log}
           won={replay.won}
           rewards={replay.rewards}
+          rating={replay.rating}
           onClose={() => { setReplay(null); setPauseToken(null) }}
           keyMomentPause={replay.paused === true}
           decisions={replay.decisions}

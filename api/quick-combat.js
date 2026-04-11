@@ -14,6 +14,7 @@ import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { computeRatingUpdate, quickCombatDifficulty } from './_rating.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -96,12 +97,20 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   Object.keys(usedBoosts).forEach(k => delete newEffects[k])
 
+  // Rating de combate
+  const ratingResult = computeRatingUpdate(hero, {
+    won,
+    difficulty: quickCombatDifficulty(),
+    nowMs,
+  })
+
   const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
     .update({
       current_hp:         hpAfterCombat,
       hp_last_updated_at: new Date(nowMs).toISOString(),
       active_effects:     newEffects,
+      ...ratingResult.updates,
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -159,5 +168,16 @@ export default async function handler(req, res) {
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,
+    rating: {
+      prev:      ratingResult.tierBefore.rating,
+      current:   ratingResult.updates.combat_rating,
+      delta:     ratingResult.delta,
+      decay:     ratingResult.decayApplied,
+      graceUsed: ratingResult.graceUsed,
+      promoted:  ratingResult.promoted,
+      tier:      ratingResult.tierAfter.tier,
+      division:  ratingResult.tierAfter.division,
+      label:     ratingResult.tierAfter.label,
+    },
   })
 }

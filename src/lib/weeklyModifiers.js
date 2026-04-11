@@ -39,6 +39,19 @@ export const WEEKLY_MODIFIERS = {
 }
 
 /**
+ * Devuelve el lunes 00:00 UTC de la semana actual como string YYYY-MM-DD.
+ * Usado para claves de fila en weekly_dungeon_modifier.
+ */
+export function getWeekStart(date = new Date()) {
+  const d = new Date(date)
+  d.setUTCHours(0, 0, 0, 0)
+  const dayOfWeek = d.getUTCDay()
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  d.setUTCDate(d.getUTCDate() - daysFromMonday)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
  * Devuelve los multiplicadores activos para una mazmorra concreta.
  * Si la mazmorra no es la del desafío, devuelve multiplicadores neutros.
  */

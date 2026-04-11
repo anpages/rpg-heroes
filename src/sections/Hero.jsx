@@ -1,12 +1,13 @@
 import { useState, useEffect, useReducer } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useHeroCards } from '../hooks/useHeroCards'
@@ -18,6 +19,7 @@ import {
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
   BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check, Sparkles, Telescope,
 } from 'lucide-react'
+import { tierForRating } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -354,11 +356,6 @@ const RARITY_META = {
 
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 
-function estimateDismantleGold(item) {
-  const base = DISMANTLE_GOLD_TABLE[item.item_catalog.rarity] ?? DISMANTLE_GOLD_TABLE.common
-  return base * (item.item_catalog.tier ?? 1)
-}
-
 function estimateRepairCost(item) {
   const catalog = item.item_catalog
   const missing = catalog.max_durability - item.current_durability
@@ -390,7 +387,6 @@ function XpBar({ level, experience }) {
 function HpBar({ current, max, recovering = false }) {
   const pct   = Math.min(100, Math.round((current / max) * 100))
   const color = recovering ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-  const lowHpCombat  = pct < 20
   const lowHpExplore = current < 7
   return (
     <div className="flex flex-col gap-1.5">
@@ -404,11 +400,9 @@ function HpBar({ current, max, recovering = false }) {
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      {lowHpCombat && !recovering && (
+      {lowHpExplore && !recovering && (
         <p className="text-[12px] text-[#dc2626] font-medium -mt-0.5">
-          {lowHpExplore
-            ? 'HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!'
-            : 'HP bajo — el héroe no puede combatir. Las expediciones aún son posibles.'}
+          HP bajo — el héroe no puede combatir ni explorar. ¡Descansa!
         </p>
       )}
     </div>
@@ -842,6 +836,7 @@ function Hero() {
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
   const [confirmModal,   setConfirmModal]   = useState(null)
+  const [dismantleTarget, setDismantleTarget] = useState(null)
   const [itemDetail,     setItemDetail]     = useState(null)
   const [cardDetail,     setCardDetail]     = useState(null)
   const [statsDetailOpen, setStatsDetailOpen] = useState(false)
@@ -856,7 +851,7 @@ function Hero() {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
       setRenameOpen(false)
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   const itemMutation = useMutation({
@@ -871,7 +866,7 @@ function Hero() {
     },
     onError: (err, vars, context) => {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(hero?.id), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(hero?.id) })
@@ -884,9 +879,8 @@ function Hero() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      toast.success('¡Poción usada!')
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const { potions } = usePotions(userId)
@@ -1024,20 +1018,7 @@ function Hero() {
   }
 
   function handleDiscard(item) {
-    const gold = estimateDismantleGold(item)
-    setConfirmModal({
-      title: `Desmantelar ${item.item_catalog.name}`,
-      body: `El item se destruirá y recuperarás ${gold} oro.`,
-      confirmLabel: 'Desmantelar',
-      onConfirm: () => {
-        setConfirmModal(null)
-        itemMutation.mutate({
-          endpoint: '/api/item-dismantle',
-          body: { itemId: item.id },
-          optimisticUpdate: items?.filter(i => i.id !== item.id),
-        })
-      },
-    })
+    setDismantleTarget(item)
   }
 
   return (
@@ -1106,6 +1087,23 @@ function Hero() {
                   >
                     {cls?.name}
                   </span>
+                  {(() => {
+                    const t = tierForRating(hero.combat_rating ?? 0)
+                    return (
+                      <span
+                        className="flex items-center gap-1 text-[10px] font-bold tracking-[0.06em] uppercase px-2 py-0.5 rounded-[6px] border"
+                        style={{
+                          color: t.color,
+                          background:  `color-mix(in srgb, ${t.color} 10%, var(--surface))`,
+                          borderColor: `color-mix(in srgb, ${t.color} 30%, var(--border))`,
+                        }}
+                        title={`Rating: ${hero.combat_rating ?? 0} pts · ${hero.combats_played ?? 0} combates`}
+                      >
+                        <Shield size={10} strokeWidth={2.5} />
+                        {t.label}
+                      </span>
+                    )
+                  })()}
                   <span className="flex items-center gap-1 text-[13px] font-medium text-text-3" style={{ color: status.color }}>
                     <CircleDot size={10} strokeWidth={2.5} />
                     {status.label}
@@ -1369,6 +1367,32 @@ function Hero() {
           />
         )}
       </AnimatePresence>
+
+      {dismantleTarget && (
+        <DismantleChoiceModal
+          item={dismantleTarget}
+          gold={resources?.gold ?? 0}
+          onSell={() => {
+            const item = dismantleTarget
+            setDismantleTarget(null)
+            itemMutation.mutate({
+              endpoint: '/api/item-dismantle',
+              body: { itemId: item.id },
+              optimisticUpdate: items?.filter(i => i.id !== item.id),
+            })
+          }}
+          onTransmute={() => {
+            const item = dismantleTarget
+            setDismantleTarget(null)
+            itemMutation.mutate({
+              endpoint: '/api/item-transmute',
+              body: { itemId: item.id },
+              optimisticUpdate: items?.filter(i => i.id !== item.id),
+            })
+          }}
+          onCancel={() => setDismantleTarget(null)}
+        />
+      )}
 
       <AnimatePresence>
         {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} heroClass={hero?.class} />}

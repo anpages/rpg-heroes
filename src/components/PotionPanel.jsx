@@ -3,7 +3,7 @@
  * Se usa en Torre y Torneos, antes del botón de combatir.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { Swords, ShieldCheck, FlaskConical } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { usePotions } from '../hooks/usePotions'
@@ -24,9 +24,8 @@ export function PotionPanel({ heroId, userId, activeEffects = {} }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      toast.success('¡Poción activada!')
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const combatPotions = potions.filter(p =>

@@ -1,4 +1,5 @@
 import { requireAuth } from './_auth.js'
+import { isUUID } from './_validate.js'
 import { MAX_POTION_STACK } from './_constants.js'
 
 export default async function handler(req, res) {
@@ -6,21 +7,24 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { potionId } = req.body
-  if (!potionId) return res.status(400).json({ error: 'potionId requerido' })
+  const { craftId } = req.body
+  if (!craftId) return res.status(400).json({ error: 'craftId requerido' })
+  if (!isUUID(craftId)) return res.status(400).json({ error: 'craftId inválido' })
 
-  // Obtener crafteo activo de esta poción
+  // Obtener crafteo activo por id (acotado al jugador para evitar leaks)
   const { data: craft } = await supabase
     .from('player_potion_crafting')
-    .select('potion_id, craft_ends_at')
+    .select('id, potion_id, craft_ends_at')
+    .eq('id', craftId)
     .eq('player_id', user.id)
-    .eq('potion_id', potionId)
     .maybeSingle()
 
-  if (!craft) return res.status(404).json({ error: 'No hay ninguna poción en proceso' })
+  if (!craft) return res.status(404).json({ error: 'Crafteo no encontrado' })
   if (new Date(craft.craft_ends_at) > new Date()) {
     return res.status(409).json({ error: 'La poción aún no está lista' })
   }
+
+  const { potion_id: potionId } = craft
 
   // Verificar stack actual
   const { data: existing } = await supabase
@@ -28,7 +32,7 @@ export default async function handler(req, res) {
     .select('quantity')
     .eq('player_id', user.id)
     .eq('potion_id', potionId)
-    .single()
+    .maybeSingle()
 
   const currentQty = existing?.quantity ?? 0
   if (currentQty >= MAX_POTION_STACK) {
@@ -40,7 +44,7 @@ export default async function handler(req, res) {
       { player_id: user.id, potion_id: potionId, quantity: currentQty + 1 },
       { onConflict: 'player_id,potion_id' }
     ),
-    supabase.from('player_potion_crafting').delete().eq('player_id', user.id).eq('potion_id', potionId),
+    supabase.from('player_potion_crafting').delete().eq('id', craftId).eq('player_id', user.id),
   ])
 
   if (upsertResult.error) return res.status(500).json({ error: upsertResult.error.message })

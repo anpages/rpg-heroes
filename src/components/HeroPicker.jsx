@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
@@ -91,7 +91,9 @@ export function HeroSelector() {
   const navigateToWorldTab = useAppStore(s => s.navigateToWorldTab)
 
   function handleSelectHero(id) {
+    const isSameHero = id === (selectedHeroId ?? heroes?.[0]?.id)
     setSelectedHeroId(id)
+    if (!isSameHero) return
     if (activeTab === 'mundo')       navigateToWorldTab('practica')
     else if (activeTab === 'heroes') navigateToHeroTab('ficha')
   }
@@ -194,7 +196,7 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
       onRecruit()
       onClose()
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   function handleSubmit(e) {

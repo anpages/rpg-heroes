@@ -100,9 +100,10 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   return newItem
 }
 
-export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBonus = 0, heroClass = null) {
+export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBonus = 0, heroClass = null, { force = false } = {}) {
   const cfg = CARD_DROP_BY_TYPE[dungeonType]
-  if (!cfg || Math.random() > cfg.chance + intelligenceBonus) return null
+  if (!cfg) return null
+  if (!force && Math.random() > cfg.chance + intelligenceBonus) return null
 
   const category = cfg.categoryPool[Math.floor(Math.random() * cfg.categoryPool.length)]
   const intShift = intelligenceBonus * 100

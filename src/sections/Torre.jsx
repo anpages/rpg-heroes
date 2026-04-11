@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
@@ -18,8 +18,8 @@ import { usePotions } from '../hooks/usePotions'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
+import RatingBanner from '../components/RatingBanner'
 import { PotionPanel } from '../components/PotionPanel'
-import { showItemDropToast, showDropFullToast } from '../lib/dropToast'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -103,8 +103,7 @@ export default function Torre() {
         queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Poción usada!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
@@ -171,49 +170,42 @@ export default function Torre() {
 
   const [pauseToken, setPauseToken] = useState(null)
 
+  // Side-effects del combate: se aplazan hasta que el jugador cierra el replay
+  // para no spoilear el resultado (barra de torre, recursos, HP, toasts).
+  const applyPostCombat = (data) => {
+    if (!data) return
+    if (data.rewards?.drop?.item_catalog) notify.itemDrop(data.rewards.drop.item_catalog)
+    if (data.rewards?.drop?.full) notify.bagFull()
+    if (data.won) {
+      triggerResourceFlash()
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
+  }
+
   const attemptMutation = useMutation({
     mutationFn: () => apiPost('/api/tower-attempt', { heroId: hero?.id }),
     onSuccess: (data) => {
       if (data.paused) {
-        // Combate pausado por Momento clave: guardamos el token y mostramos
-        // el log parcial para que el jugador elija una decisión.
         setPauseToken(data.token)
         setResult(data)
         return
       }
-      if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
-      if (data.rewards?.drop?.full) showDropFullToast()
       setResult(data)
-      if (data.won) {
-        triggerResourceFlash()
-        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   const resumeMutation = useMutation({
     mutationFn: (decision) => apiPost('/api/combat-resume', { token: pauseToken, decision }),
     onSuccess: (data) => {
-      // El servidor devuelve el combate completo (log final) y las recompensas.
-      // Sustituimos el log parcial por el completo y limpiamos el token.
       setPauseToken(null)
-      if (data.rewards?.drop?.item_catalog) showItemDropToast(data.rewards.drop.item_catalog)
-      if (data.rewards?.drop?.full) showDropFullToast()
       setResult(data)
-      if (data.won) {
-        triggerResourceFlash()
-        queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.towerProgress(hero?.id) })
     },
     onError: (err) => {
-      toast.error(err.message)
+      notify.error(err.message)
       setPauseToken(null)
     },
   })
@@ -225,6 +217,10 @@ export default function Torre() {
       <div className="section-header">
         <h2 className="section-title">Torre de Desafíos</h2>
         <p className="section-subtitle">Escala la torre para medir el poder de tu héroe. Cada piso es más difícil que el anterior.</p>
+      </div>
+
+      <div className="-mt-5">
+        <RatingBanner hero={hero} />
       </div>
 
       <ProgressStrip maxFloor={maxFloor} />
@@ -244,7 +240,8 @@ export default function Torre() {
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          onClose={() => { setResult(null); setPauseToken(null) }}
+          rating={result.rating}
+          onClose={() => { applyPostCombat(result); setResult(null); setPauseToken(null) }}
           keyMomentPause={result.paused === true}
           decisions={result.decisions}
           onDecide={(d) => resumeMutation.mutate(d)}

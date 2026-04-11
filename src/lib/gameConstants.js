@@ -279,11 +279,11 @@ export const RUNE_MIN_LAB_LEVEL = 2
  * El frontend usa estos valores como estimación para el diálogo de confirmación.
  */
 export const REPAIR_COST_TABLE = {
-  common:    { gold: 2,  mana: 0  },
-  uncommon:  { gold: 3,  mana: 1  },
-  rare:      { gold: 5,  mana: 3  },
-  epic:      { gold: 8,  mana: 6  },
-  legendary: { gold: 12, mana: 10 },
+  common:    { gold: 8,  mana: 0  },
+  uncommon:  { gold: 16, mana: 1  },
+  rare:      { gold: 28, mana: 3  },
+  epic:      { gold: 45, mana: 6  },
+  legendary: { gold: 70, mana: 10 },
 }
 
 /**
@@ -296,6 +296,20 @@ export const DISMANTLE_GOLD_TABLE = {
   rare:      60,
   epic:      150,
   legendary: 400,
+}
+
+/**
+ * Transmutación alternativa al desmantelar: en vez de vender por oro, el
+ * jugador paga oro al laboratorio y obtiene materiales de crafteo
+ * (fragmentos/esencia/maná). Los retornos están deliberadamente por debajo
+ * del farmeo directo para que sea un atajo de conveniencia, no un exploit.
+ */
+export const DISMANTLE_TRANSMUTE_TABLE = {
+  common:    { cost: 50,   fragments: 2,  essence: 0,  mana: 0  },
+  uncommon:  { cost: 120,  fragments: 4,  essence: 1,  mana: 0  },
+  rare:      { cost: 300,  fragments: 8,  essence: 2,  mana: 10 },
+  epic:      { cost: 700,  fragments: 15, essence: 5,  mana: 30 },
+  legendary: { cost: 1500, fragments: 30, essence: 10, mana: 80 },
 }
 
 // ── Entrenamiento: XP ─────────────────────────────────────────────────────────
@@ -358,8 +372,8 @@ export function computeResearchBonuses(completedIds = []) {
 /** Costes de mejora de tier. key = tier actual → siguiente.
  *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos). */
 export const ITEM_TIER_UPGRADE_COST = {
-  1: { gold: 150, fragments: 5,  essence: 2 },
-  2: { gold: 350, fragments: 15, essence: 6 },
+  1: { gold: 800,  fragments: 3, essence: 1 },
+  2: { gold: 2500, fragments: 8, essence: 3 },
 }
 
 // ── Héroes ────────────────────────────────────────────────────────────────────
@@ -383,6 +397,7 @@ export const COMBAT_HP_COST = {
   quick:      { win: 0.07, loss: 0.13 },
   tournament: { win: 0.08, loss: 0.14 },
   tower:      { win: 0.10, loss: 0.17 },
+  squad:      { win: 0.12, loss: 0.20 },
 }
 
 // ── Cámaras: incursiones rápidas ─────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Coins, Star, Clock, Heart, X, Layers, Package, Sword, Shield } from 'lucide-react'
 import { useHeroId } from '../hooks/useHeroId'
@@ -408,7 +408,7 @@ export default function Camaras() {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(hero?.player_id) })
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   const collectMutation = useMutation({
@@ -417,7 +417,7 @@ export default function Camaras() {
       setPickerChests(data.chests)
       setPickerToken(data.token)
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   const confirmMutation = useMutation({
@@ -447,7 +447,7 @@ export default function Camaras() {
       // Revertir el reveal si la mutación falló
       setRevealedChest(null)
       setRevealedIndex(null)
-      toast.error(err.message)
+      notify.error(err.message)
     },
   })
 

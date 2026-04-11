@@ -149,6 +149,8 @@ function EntrenamientoCard({ trainingRooms, trainingProgress, onGoTo }) {
   const builtRooms = trainingRooms.filter(r => r.built_at !== null)
   const readyRooms = builtRooms.filter(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const constructing = trainingRooms.filter(r => r.building_ends_at && new Date(r.building_ends_at) > now)
+  const building  = constructing.filter(r => r.built_at === null)
+  const upgrading = constructing.filter(r => r.built_at !== null)
   const constructionDone = trainingRooms.filter(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
 
   const alert = (readyRooms.length > 0 || constructionDone.length > 0) ? 'ready'
@@ -205,9 +207,14 @@ function EntrenamientoCard({ trainingRooms, trainingProgress, onGoTo }) {
             {constructionDone.length > 1 ? 'Salas listas' : 'Sala lista'}
           </StatusLine>
         )}
-        {constructing.length > 0 && readyRooms.length === 0 && constructionDone.length === 0 && (
+        {building.length > 0 && readyRooms.length === 0 && constructionDone.length === 0 && (
           <StatusLine icon={Wrench} color="#d97706">
-            {constructing.length > 1 ? 'Salas construyéndose…' : 'Sala construyéndose…'}
+            {building.length > 1 ? 'Salas construyéndose…' : 'Sala construyéndose…'}
+          </StatusLine>
+        )}
+        {upgrading.length > 0 && readyRooms.length === 0 && constructionDone.length === 0 && building.length === 0 && (
+          <StatusLine icon={Wrench} color="#d97706">
+            {upgrading.length > 1 ? 'Salas mejorándose…' : 'Sala mejorándose…'}
           </StatusLine>
         )}
         {builtRooms.length === 0 && constructing.length === 0 && constructionDone.length === 0 && (
@@ -227,8 +234,10 @@ function LaboratorioCard({ byType, potions, potionCraftingMap, runeCraftingMap, 
   const labDone = labBuilding?.upgrade_ends_at && new Date(labBuilding.upgrade_ends_at) <= now
   const labInProgress = labBuilding?.upgrade_ends_at && new Date(labBuilding.upgrade_ends_at) > now
 
-  const activePotionCrafts = Object.values(potionCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) > now)
-  const readyPotionCrafts = Object.values(potionCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) <= now)
+  // potionCraftingMap: valores son arrays (multi-craft). Runas siguen siendo 1 por receta.
+  const allPotionCrafts = Object.values(potionCraftingMap ?? {}).flat()
+  const activePotionCrafts = allPotionCrafts.filter(c => new Date(c.craft_ends_at) > now)
+  const readyPotionCrafts = allPotionCrafts.filter(c => new Date(c.craft_ends_at) <= now)
   const activeRuneCrafts = Object.values(runeCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) > now)
   const readyRuneCrafts = Object.values(runeCraftingMap ?? {}).filter(c => new Date(c.craft_ends_at) <= now)
   const totalCrafting = activePotionCrafts.length + activeRuneCrafts.length
@@ -286,7 +295,7 @@ function LaboratorioCard({ byType, potions, potionCraftingMap, runeCraftingMap, 
             {/* Nearest completion */}
             {nearest && (
               <StatusLine icon={Clock} color="#d97706">
-                Próximo: {fmtCountdown(nearest.craft_ends_at)}
+                {totalCrafting > 1 ? 'Próximo' : 'Listo'} en {fmtCountdown(nearest.craft_ends_at)}
               </StatusLine>
             )}
 

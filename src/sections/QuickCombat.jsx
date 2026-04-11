@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
@@ -15,6 +15,7 @@ import { trainingRewards } from '../lib/gameFormulas'
 import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
+import RatingBanner from '../components/RatingBanner'
 import { PotionPanel } from '../components/PotionPanel'
 
 /* ─── Matchmaking animation (solo C. Rápido y futuro PvP) ────────────────────── */
@@ -203,8 +204,7 @@ export default function QuickCombat() {
         queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
       ])
     },
-    onSuccess: () => toast.success('¡Poción usada!'),
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function QuickCombat() {
     },
     onError: (err) => {
       setMatchmaking(false)
-      toast.error(err.message)
+      notify.error(err.message)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     },
   })
@@ -281,25 +281,29 @@ export default function QuickCombat() {
     setResult(data)
     setPendingResult(null)
     setWaitingForApi(false)
-    if (data.won) triggerResourceFlash()
-    // Refrescar HP y recursos solo al revelar el resultado, no antes
+  }
+
+  // Side-effects del combate: se aplazan hasta que el jugador cierra el replay
+  // para no spoilear el resultado (banner de rating, recursos, HP).
+  function applyPostCombat(data) {
+    if (!data) return
+    if (data.won) {
+      triggerResourceFlash()
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    }
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
   }
 
   useEffect(() => {
     if (waitingForApi && pendingResult) revealResult(pendingResult)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waitingForApi, pendingResult])
 
   const handleAnimationDone = useCallback(() => {
     if (pendingResult) {
       revealResult(pendingResult)
     } else {
-      // API still loading — wait
       setWaitingForApi(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingResult])
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
@@ -309,6 +313,10 @@ export default function QuickCombat() {
       <div className="section-header">
         <h2 className="section-title">Combate Rápido</h2>
         <p className="section-subtitle">Enfréntate a rivales aleatorios para probar tu héroe. Recompensas modestas, sin desgaste de equipo.</p>
+      </div>
+
+      <div className="-mt-5">
+        <RatingBanner hero={hero} />
       </div>
 
       {/* Matchmaking overlay */}
@@ -331,7 +339,8 @@ export default function QuickCombat() {
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          onClose={() => setResult(null)}
+          rating={result.rating}
+          onClose={() => { applyPostCombat(result); setResult(null) }}
         />
       )}
 

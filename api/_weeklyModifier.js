@@ -11,24 +11,11 @@
  *   - expedition-collect → goldMult, xpMult, dropMult, materialMult
  */
 
-import { WEEKLY_MODIFIERS, getModifierForDungeon } from '../src/lib/weeklyModifiers.js'
+import { WEEKLY_MODIFIERS, getModifierForDungeon, getWeekStart } from '../src/lib/weeklyModifiers.js'
 
-export { WEEKLY_MODIFIERS, getModifierForDungeon }
+export { WEEKLY_MODIFIERS, getModifierForDungeon, getWeekStart }
 
 const MODIFIER_IDS = Object.keys(WEEKLY_MODIFIERS)
-
-/**
- * Devuelve el lunes 00:00 UTC de la semana actual como string YYYY-MM-DD.
- */
-export function getWeekStart(date = new Date()) {
-  const d = new Date(date)
-  d.setUTCHours(0, 0, 0, 0)
-  // getUTCDay: 0 = domingo, 1 = lunes, ..., 6 = sábado
-  const dayOfWeek = d.getUTCDay()
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  d.setUTCDate(d.getUTCDate() - daysFromMonday)
-  return d.toISOString().slice(0, 10)
-}
 
 /**
  * Obtiene el modificador semanal activo para un héroe, creándolo si no existe.

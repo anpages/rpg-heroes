@@ -21,40 +21,9 @@
  * Cada evento: { actor:'a'|'b', damage, crit, hpA, hpB }
  */
 
-function physDamage(atk, str, def) {
-  const raw = atk + Math.floor(str * 0.3)
-  const reduction = def / (def + 60)
-  return Math.max(1, Math.round(raw * (1 - reduction)))
-}
+import { physDamage, magicDamage, critPeriod, rollFirstAttacker } from './_combatMath.js'
 
-function magicDamage(intel) {
-  return Math.floor(intel * 0.04)
-}
-
-/** Período de crítico: cada N rondas el combatiente acierta un crítico (×1.5).
- *  Soft-cap: mínimo 5 rondas entre críticos, escala más lento (cada 10 AGI). */
-function critPeriod(agility) {
-  return Math.max(5, 10 - Math.floor((agility ?? 0) / 10))
-}
-
-/**
- * Decide quién ataca primero en función de la diferencia de agility.
- *  - Diferencia ≥ 20  → siempre golpea primero el más rápido (skill claro).
- *  - Diferencia 5–20  → 75% favor del rápido, 25% sorpresa del lento.
- *  - Diferencia < 5   → 50/50, completamente abierto.
- *
- * Permite inyectar `rng` para tests reproducibles.
- */
-export function rollFirstAttacker(agiA, agiB, rng = Math.random) {
-  const diff = (agiA ?? 0) - (agiB ?? 0)
-  const abs  = Math.abs(diff)
-  if (abs >= 20) return diff >= 0 ? 'a' : 'b'
-  if (abs >= 5) {
-    const fasterIsA = diff > 0
-    return rng() < 0.75 ? (fasterIsA ? 'a' : 'b') : (fasterIsA ? 'b' : 'a')
-  }
-  return rng() < 0.5 ? 'a' : 'b'
-}
+export { rollFirstAttacker }
 
 /**
  * Simula un combate entre dos combatientes desde el principio.

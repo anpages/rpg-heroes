@@ -13,7 +13,7 @@ const MODES = [
   { id: 'practica',       label: 'C. Rápido',      sublabel: 'PvE',      Icon: Zap,          color: '#10b981' },
   { id: 'torre',          label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#2563eb' },
   { id: 'torneos',        label: 'Torneo',         sublabel: 'PvE',      Icon: Swords,       color: '#dc2626' },
-  { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#7c3aed' },
+  { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#a855f7' },
   { id: 'clasificacion',  label: 'Clasificación',  sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
 ]
 

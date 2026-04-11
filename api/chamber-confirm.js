@@ -4,6 +4,7 @@ import { verifyChestToken } from './_combatSign.js'
 import { applyChamberChestLoot } from './_chamberLoot.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
+import { interpolateHP } from './_hp.js'
 
 /**
  * Aplica la elección de cofre del jugador.
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
   // ── 4. Cargar héroe y recursos ────────────────────────────────────────────
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, level, experience, class, active_effects')
+    .select('id, player_id, level, experience, class, active_effects, status, current_hp, max_hp, hp_last_updated_at, status_ends_at')
     .eq('id', run.hero_id)
     .single()
 
@@ -109,14 +110,18 @@ export default async function handler(req, res) {
   const xpForLevel = xpRequiredForLevel(hero.level)
   const levelUp = newXp >= xpForLevel
 
-  // Devuelve al héroe a idle (chamber-start lo dejó en 'exploring' como lock)
+  // Devuelve al héroe a idle (chamber-start lo dejó en 'exploring' como lock).
+  // Aplica regen pasiva acumulada desde que terminó la cámara (status_ends_at).
+  const regeneratedHp = interpolateHP(hero, Date.now())
   const { error: heroError } = await supabase
     .from('heroes')
     .update({
       status:             'idle',
       experience:         levelUp ? newXp - xpForLevel : newXp,
       level:              levelUp ? hero.level + 1     : hero.level,
+      current_hp:         regeneratedHp,
       hp_last_updated_at: new Date().toISOString(),
+      status_ends_at:     null,
     })
     .eq('id', hero.id)
 

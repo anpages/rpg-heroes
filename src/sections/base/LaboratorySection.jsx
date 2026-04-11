@@ -1,8 +1,8 @@
 import { useState, useEffect, useReducer } from 'react'
-import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle, Package, ArrowUp } from 'lucide-react'
+import { Coins, Axe, Sparkles, Layers, Flame, Plus, Clock, CheckCircle, Package, ArrowUp, Gem } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EFFECT_COLOR, RUNE_BONUS_LABELS, RUNE_BONUS_COLORS } from './constants.js'
-import { LAB_INVENTORY_BASE, LAB_INVENTORY_PER_UPGRADE, LAB_INVENTORY_MAX_UPGRADES, LAB_INVENTORY_UPGRADE_COSTS, MAX_POTION_STACK } from '../../lib/gameConstants.js'
+import { LAB_INVENTORY_PER_UPGRADE, LAB_INVENTORY_MAX_UPGRADES, LAB_INVENTORY_UPGRADE_COSTS, MAX_POTION_STACK } from '../../lib/gameConstants.js'
 import ScrollHint from '../../components/ScrollHint.jsx'
 
 function formatMs(ms) {
@@ -29,25 +29,17 @@ function FilterPills({ options, value, onChange }) {
     <ScrollHint>
       {options.map(o => {
         const active = value === o.value
-        // craft: 'ready' | 'crafting' | null
-        const dot = o.craft === 'ready' ? '#16a34a' : o.craft === 'crafting' ? '#d97706' : null
         return (
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className={`relative flex-shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold transition-colors duration-150 ${
+            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold transition-colors duration-150 ${
               active
                 ? 'bg-[#2563eb] text-white'
                 : 'bg-surface-2 text-text-3 hover:text-text-2'
             }`}
           >
             {o.label}{o.count != null ? ` (${o.count})` : ''}
-            {dot && (
-              <span
-                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-surface"
-                style={{ background: dot }}
-              />
-            )}
           </button>
         )
       })}
@@ -77,12 +69,26 @@ const RUNE_FILTER_LABELS = {
 
 /* ─── Inventario del Laboratorio ─────────────────────────────────────────────── */
 
-export function LabInventory({ potions, runesCatalog, runesInventory, resources, onUpgrade, upgradePending }) {
+export function LabInventory({
+  potions,
+  runesCatalog,
+  runesInventory,
+  resources,
+  onUpgrade,
+  upgradePending,
+  potionCraftingMap,
+  runeCraftingMap,
+  onPotionCollect,
+  onRuneCollect,
+  potionCollectPending,
+  runeCollectPending,
+  inventoryUsed,
+  capacity,
+}) {
   const upgrades = resources?.lab_inventory_upgrades ?? 0
-  const capacity = LAB_INVENTORY_BASE + upgrades * LAB_INVENTORY_PER_UPGRADE
   const canUpgrade = upgrades < LAB_INVENTORY_MAX_UPGRADES
 
-  // Items con stock > 0
+  // Items con stock > 0 (completados)
   const potionItems = (potions ?? []).filter(p => p.quantity > 0)
   const runeInvMap = Object.fromEntries((runesInventory ?? []).map(r => [r.rune_id, r.quantity]))
   const runeItems = (runesCatalog ?? []).filter(r => (runeInvMap[r.id] ?? 0) > 0).map(r => ({
@@ -95,12 +101,53 @@ export function LabInventory({ potions, runesCatalog, runesInventory, resources,
     ...potionItems.map(p => ({ ...p, _isRune: false })),
     ...runeItems,
   ]
-  const totalUsed = allItems.reduce((s, i) => s + i.quantity, 0)
+
+  // Activos (crafteando/listos) — se renderizan en subsección propia
+  const potionById = Object.fromEntries((potions ?? []).map(p => [p.id, p]))
+  const runeById = Object.fromEntries((runesCatalog ?? []).map(r => [r.id, r]))
+  const now = Date.now()
+
+  const activeItems = []
+  for (const [potionId, crafts] of Object.entries(potionCraftingMap ?? {})) {
+    const potion = potionById[potionId]
+    if (!potion) continue
+    for (const craft of crafts) {
+      const remaining = Math.max(0, new Date(craft.craft_ends_at) - now)
+      activeItems.push({
+        kind: 'potion',
+        key: `a-p-${craft.id}`,
+        id: craft.id,
+        name: potion.name,
+        color: EFFECT_COLOR[potion.effect_type] ?? '#475569',
+        remaining,
+      })
+    }
+  }
+  for (const [runeId, craft] of Object.entries(runeCraftingMap ?? {})) {
+    const rune = runeById[runeId]
+    if (!rune) continue
+    const remaining = Math.max(0, new Date(craft.craft_ends_at) - now)
+    activeItems.push({
+      kind: 'rune',
+      key: `a-r-${runeId}`,
+      id: runeId,
+      name: rune.name,
+      color: RUNE_BONUS_COLORS[rune.bonuses?.[0]?.stat] ?? '#475569',
+      remaining,
+    })
+  }
+  // Listos primero, luego por remaining ascendente
+  activeItems.sort((a, b) => a.remaining - b.remaining)
+
+  const hasActive = activeItems.length > 0
+  useTickWhileActive(hasActive)
 
   const upgradeCost = canUpgrade ? LAB_INVENTORY_UPGRADE_COSTS[upgrades] : null
   const canAffordUpgrade = upgradeCost && resources
     && (resources.gold ?? 0) >= (upgradeCost.gold ?? 0)
     && (resources.mana ?? 0) >= (upgradeCost.mana ?? 0)
+
+  const isEmpty = allItems.length === 0 && !hasActive
 
   return (
     <div className="flex flex-col gap-3">
@@ -110,7 +157,7 @@ export function LabInventory({ potions, runesCatalog, runesInventory, resources,
           Inventario
         </p>
         <span className="text-[12px] font-semibold text-text-2">
-          {totalUsed} <span className="text-text-3">/ {capacity}</span>
+          {inventoryUsed} <span className="text-text-3">/ {capacity}</span>
         </span>
       </div>
 
@@ -119,46 +166,102 @@ export function LabInventory({ potions, runesCatalog, runesInventory, resources,
         <div
           className="h-full rounded-full transition-[width] duration-300"
           style={{
-            width: `${Math.min(100, (totalUsed / capacity) * 100)}%`,
-            background: totalUsed >= capacity ? '#dc2626' : totalUsed >= capacity * 0.8 ? '#d97706' : '#2563eb',
+            width: `${Math.min(100, (inventoryUsed / capacity) * 100)}%`,
+            background: inventoryUsed >= capacity ? '#dc2626' : inventoryUsed >= capacity * 0.8 ? '#d97706' : '#2563eb',
           }}
         />
       </div>
 
-      {allItems.length === 0 ? (
+      {/* Subsección: En proceso */}
+      {hasActive && (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-text-3 mt-1">
+            En proceso ({activeItems.length})
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {activeItems.map(item => {
+              const isReady = item.remaining <= 0
+              const collectPending = item.kind === 'potion' ? potionCollectPending : runeCollectPending
+              const onCollect = item.kind === 'potion' ? onPotionCollect : onRuneCollect
+              const Icon = item.kind === 'potion' ? Flame : Gem
+              return (
+                <motion.button
+                  key={item.key}
+                  type="button"
+                  onClick={isReady && !collectPending ? () => onCollect(item.id) : undefined}
+                  disabled={!isReady || collectPending}
+                  whileTap={isReady && !collectPending ? { scale: 0.97 } : {}}
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border bg-surface text-left transition-colors ${
+                    isReady
+                      ? 'border-[#16a34a] cursor-pointer hover:bg-[color-mix(in_srgb,#16a34a_6%,var(--surface))]'
+                      : 'border-[#d97706] cursor-default'
+                  }`}
+                >
+                  <div
+                    className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+                    style={{ background: `color-mix(in srgb,${item.color} 12%,var(--surface-2))`, color: item.color }}
+                  >
+                    {isReady ? <CheckCircle size={14} strokeWidth={2.5} /> : <Icon size={14} strokeWidth={2} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-semibold text-text truncate">{item.name}</p>
+                    <p className={`flex items-center gap-1 text-[10px] font-bold ${isReady ? 'text-[#16a34a]' : 'text-[#d97706]'}`}>
+                      {isReady ? (
+                        '¡Recoger!'
+                      ) : (
+                        <>
+                          <Clock size={9} strokeWidth={2.5} />
+                          {formatMs(item.remaining)}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {isEmpty ? (
         <p className="text-[13px] text-text-3 text-center py-4">
           Aún no has crafteado nada
         </p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {allItems.map(item => {
-            const isRune = item._isRune
-            const color = isRune
-              ? (RUNE_BONUS_COLORS[item.bonuses?.[0]?.stat] ?? '#475569')
-              : (EFFECT_COLOR[item.effect_type] ?? '#475569')
+      ) : allItems.length > 0 ? (
+        <>
+          {hasActive && (
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-text-3 mt-1">Completados</p>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {allItems.map(item => {
+              const isRune = item._isRune
+              const color = isRune
+                ? (RUNE_BONUS_COLORS[item.bonuses?.[0]?.stat] ?? '#475569')
+                : (EFFECT_COLOR[item.effect_type] ?? '#475569')
 
-            return (
-              <div
-                key={isRune ? `r-${item.id}` : `p-${item.id}`}
-                className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-surface"
-              >
+              return (
                 <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-[12px] font-extrabold"
-                  style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
+                  key={isRune ? `r-${item.id}` : `p-${item.id}`}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-surface"
                 >
-                  {item.quantity}
+                  <div
+                    className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-[12px] font-extrabold"
+                    style={{ background: `color-mix(in srgb,${color} 10%,var(--surface-2))`, color }}
+                  >
+                    {item.quantity}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-semibold text-text truncate">{item.name}</p>
+                    <p className="text-[10px] text-text-3 truncate">
+                      {isRune ? 'Runa' : 'Poción'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-text truncate">{item.name}</p>
-                  <p className="text-[10px] text-text-3 truncate">
-                    {isRune ? 'Runa' : 'Poción'}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+              )
+            })}
+          </div>
+        </>
+      ) : null}
 
       {/* Botón de ampliar */}
       {canUpgrade && (
@@ -190,10 +293,8 @@ export function LabInventory({ potions, runesCatalog, runesInventory, resources,
 
 /* ─── Sección de Pociones ────────────────────────────────────────────────────── */
 
-export function LaboratorySection({ labLevel, potions, craftingMap, craftPending, collectPending, resources, onCraft, onCollect, isUpgrading = false }) {
+export function LaboratorySection({ labLevel, potions, craftingMap, craftPending, resources, onCraft, isUpgrading = false, inventoryFull = false }) {
   const availablePotions = potions.filter(p => p.min_lab_level <= labLevel)
-  const hasAnyCrafting = Object.values(craftingMap).some(c => new Date(c.craft_ends_at) > new Date())
-  useTickWhileActive(hasAnyCrafting)
 
   // Ordenar categorías por min_lab_level de su primera aparición
   const typeFirst = {}
@@ -206,26 +307,12 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
   for (const p of availablePotions) {
     typeCounts[p.effect_type] = (typeCounts[p.effect_type] ?? 0) + 1
   }
-  // Estado de crafteo por categoría
-  const typeCraft = {}
-  const now = Date.now()
-  for (const p of availablePotions) {
-    const craft = craftingMap[p.id]
-    if (!craft) continue
-    const remaining = new Date(craft.craft_ends_at) - now
-    const state = remaining <= 0 ? 'ready' : 'crafting'
-    // ready tiene prioridad sobre crafting
-    if (!typeCraft[p.effect_type] || state === 'ready') {
-      typeCraft[p.effect_type] = state
-    }
-  }
 
   const sortedTypes = Object.keys(typeFirst).sort((a, b) => typeFirst[a] - typeFirst[b])
   const filterOptions = sortedTypes.map(type => ({
     value: type,
     label: POTION_FILTER_LABELS[type] ?? type,
     count: typeCounts[type] ?? 0,
-    craft: typeCraft[type] ?? null,
   }))
 
   const [filter, setFilter] = useState(() => sortedTypes[0] ?? 'hp_restore')
@@ -251,29 +338,18 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {filtered.map(p => {
-          const craft      = craftingMap[p.id]
-          const remaining  = craft ? Math.max(0, new Date(craft.craft_ends_at) - Date.now()) : null
-          const isReady    = remaining !== null && remaining <= 0
-          const isCrafting = remaining !== null && remaining > 0
+          const activeForThis = (craftingMap[p.id] ?? []).length
           const affordable = canAfford(p)
-          const stackFull  = p.quantity >= MAX_POTION_STACK
-          const disabled   = !affordable || stackFull || isCrafting || craftPending || isUpgrading
+          // Incluye crafts en proceso: si stock + activos ya son el máximo, no
+          // tiene sentido iniciar otro craft porque no se podría recoger.
+          const stackFull  = p.quantity + activeForThis >= MAX_POTION_STACK
+          const disabled   = !affordable || stackFull || craftPending || isUpgrading || inventoryFull
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
-
-          const totalMs  = (p.craft_minutes ?? 30) * 60_000
-          const progress = isCrafting
-            ? Math.min(100, ((totalMs - remaining) / totalMs) * 100)
-            : isReady ? 100 : 0
-
-          const borderColor = craft
-            ? (isReady ? '#16a34a' : isCrafting ? '#d97706' : undefined)
-            : undefined
 
           return (
             <div
               key={p.id}
-              className="flex flex-col rounded-xl overflow-hidden border bg-surface transition-[border-color] duration-150"
-              style={{ borderColor: borderColor ?? 'var(--border)' }}
+              className="flex flex-col rounded-xl overflow-hidden border border-border bg-surface"
             >
               <div className="flex items-center gap-3 px-3 py-2.5">
                 <div
@@ -285,85 +361,54 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
 
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-bold text-text truncate">{p.name}</p>
-                  {isCrafting ? (
-                    <p className="flex items-center gap-1 text-[12px] font-semibold text-[#d97706] mt-0.5">
-                      <Clock size={11} strokeWidth={2} />
-                      {formatMs(remaining)}
-                    </p>
-                  ) : isReady ? (
-                    <p className="text-[12px] font-semibold text-[#16a34a] mt-0.5">¡Lista para recoger!</p>
-                  ) : (
-                    <>
-                      {p.description && <p className="text-[13px] text-text-3 mt-0.5 line-clamp-2 leading-snug">{p.description}</p>}
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {p.recipe_gold > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Coins size={10} strokeWidth={2} />{p.recipe_gold}
-                          </span>
-                        )}
-                        {p.recipe_mana > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= p.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Sparkles size={10} strokeWidth={2} />{p.recipe_mana}
-                          </span>
-                        )}
-                        {p.recipe_wood > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= p.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Axe size={10} strokeWidth={2} />{p.recipe_wood}
-                          </span>
-                        )}
-                        {p.recipe_fragments > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= p.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Layers size={10} strokeWidth={2} />{p.recipe_fragments}
-                          </span>
-                        )}
-                        {p.recipe_essence > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= p.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Flame size={10} strokeWidth={2} />{p.recipe_essence}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-[3px] text-[11px] text-text-3 opacity-60">
-                          <Clock size={9} strokeWidth={2} />{p.craft_minutes ?? 30}m
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  {p.description && <p className="text-[13px] text-text-3 mt-0.5 line-clamp-2 leading-snug">{p.description}</p>}
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {p.recipe_gold > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= p.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Coins size={10} strokeWidth={2} />{p.recipe_gold}
+                      </span>
+                    )}
+                    {p.recipe_mana > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= p.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Sparkles size={10} strokeWidth={2} />{p.recipe_mana}
+                      </span>
+                    )}
+                    {p.recipe_wood > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= p.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Axe size={10} strokeWidth={2} />{p.recipe_wood}
+                      </span>
+                    )}
+                    {p.recipe_fragments > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= p.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Layers size={10} strokeWidth={2} />{p.recipe_fragments}
+                      </span>
+                    )}
+                    {p.recipe_essence > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= p.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Flame size={10} strokeWidth={2} />{p.recipe_essence}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-[3px] text-[11px] text-text-3 opacity-60">
+                      <Clock size={9} strokeWidth={2} />{p.craft_minutes ?? 30}m
+                    </span>
+                  </div>
                 </div>
 
-                {isReady ? (
-                  <motion.button
-                    className="btn btn--sm flex-shrink-0 font-semibold"
-                    style={{ background: '#16a34a', color: '#fff', borderColor: 'transparent' }}
-                    onClick={() => onCollect(p.id)}
-                    disabled={collectPending}
-                    whileTap={collectPending ? {} : { scale: 0.96 }}
-                  >
-                    <CheckCircle size={13} strokeWidth={2.5} />
-                    Recoger
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    className="btn btn--primary btn--sm flex-shrink-0"
-                    onClick={() => onCraft(p.id)}
-                    disabled={disabled}
-                    whileTap={disabled ? {} : { scale: 0.96 }}
-                    title={stackFull ? 'Máximo alcanzado' : isCrafting ? 'Crafteando...' : !affordable ? 'Recursos insuficientes' : undefined}
-                  >
-                    <Plus size={13} strokeWidth={2.5} />
-                  </motion.button>
-                )}
+                <motion.button
+                  className="btn btn--primary btn--sm flex-shrink-0"
+                  onClick={() => onCraft(p.id)}
+                  disabled={disabled}
+                  whileTap={disabled ? {} : { scale: 0.96 }}
+                  title={
+                    stackFull ? 'Máximo alcanzado' :
+                    inventoryFull ? 'Inventario lleno' :
+                    !affordable ? 'Recursos insuficientes' :
+                    undefined
+                  }
+                >
+                  <Plus size={13} strokeWidth={2.5} />
+                </motion.button>
               </div>
-
-              {(isCrafting || isReady) && (
-                <div className="h-1 bg-[var(--surface-2)]">
-                  <div
-                    className="h-full transition-[width] duration-1000"
-                    style={{
-                      width: `${progress}%`,
-                      background: isReady ? '#16a34a' : '#d97706',
-                    }}
-                  />
-                </div>
-              )}
             </div>
           )
         })}
@@ -386,10 +431,8 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
 
 /* ─── Sección de Runas ───────────────────────────────────────────────────────── */
 
-export function RunesSection({ labLevel, catalog, resources, craftingMap, craftPending, collectPending, onCraft, onCollect, isUpgrading = false }) {
+export function RunesSection({ labLevel, catalog, resources, craftingMap, craftPending, onCraft, isUpgrading = false, inventoryFull = false }) {
   const availableRunes = catalog.filter(r => r.min_lab_level <= labLevel)
-  const hasAnyCrafting = Object.values(craftingMap).some(c => new Date(c.craft_ends_at) > new Date())
-  useTickWhileActive(hasAnyCrafting)
 
   // Clasificar: multi = más de 1 stat, single = stat principal
   function runeCategory(r) {
@@ -410,26 +453,12 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
     const cat = runeCategory(r)
     catCounts[cat] = (catCounts[cat] ?? 0) + 1
   }
-  // Estado de crafteo por categoría
-  const catCraft = {}
-  const now = Date.now()
-  for (const r of availableRunes) {
-    const craft = craftingMap[r.id]
-    if (!craft) continue
-    const remaining = new Date(craft.craft_ends_at) - now
-    const state = remaining <= 0 ? 'ready' : 'crafting'
-    const cat = runeCategory(r)
-    if (!catCraft[cat] || state === 'ready') {
-      catCraft[cat] = state
-    }
-  }
 
   const sortedCats = Object.keys(catFirst).sort((a, b) => catFirst[a] - catFirst[b])
   const filterOptions = sortedCats.map(cat => ({
     value: cat,
     label: RUNE_FILTER_LABELS[cat] ?? cat,
     count: catCounts[cat] ?? 0,
-    craft: catCraft[cat] ?? null,
   }))
 
   const [filter, setFilter] = useState(() => sortedCats[0] ?? 'attack')
@@ -459,29 +488,16 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {filtered.map(r => {
-          const craft      = craftingMap[r.id]
-          const remaining  = craft ? Math.max(0, new Date(craft.craft_ends_at) - Date.now()) : null
-          const isReady    = remaining !== null && remaining <= 0
-          const isCrafting = remaining !== null && remaining > 0
+          const isCrafting = !!craftingMap[r.id]
           const affordable = canAfford(r)
           const mainBonus  = r.bonuses?.[0]
           const color      = RUNE_BONUS_COLORS[mainBonus?.stat] ?? '#475569'
-          const disabled   = !affordable || isCrafting || craftPending || isUpgrading
-
-          const totalMs  = (r.craft_minutes ?? 60) * 60_000
-          const progress = isCrafting
-            ? Math.min(100, ((totalMs - remaining) / totalMs) * 100)
-            : isReady ? 100 : 0
-
-          const borderColor = craft
-            ? (isReady ? '#16a34a' : isCrafting ? '#d97706' : undefined)
-            : undefined
+          const disabled   = !affordable || isCrafting || craftPending || isUpgrading || inventoryFull
 
           return (
             <div
               key={r.id}
-              className="flex flex-col rounded-xl overflow-hidden border bg-surface transition-[border-color] duration-150"
-              style={{ borderColor: borderColor ?? 'var(--border)' }}
+              className="flex flex-col rounded-xl overflow-hidden border border-border bg-surface"
             >
               <div className="flex items-center gap-3 px-3 py-2.5">
                 <div
@@ -493,85 +509,54 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
 
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-bold text-text truncate">{r.name}</p>
-                  {isCrafting ? (
-                    <p className="flex items-center gap-1 text-[12px] font-semibold text-[#d97706] mt-0.5">
-                      <Clock size={11} strokeWidth={2} />
-                      {formatMs(remaining)}
-                    </p>
-                  ) : isReady ? (
-                    <p className="text-[12px] font-semibold text-[#16a34a] mt-0.5">¡Lista para recoger!</p>
-                  ) : (
-                    <>
-                      <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {(r.recipe_gold ?? 0) > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Coins size={10} strokeWidth={2} />{r.recipe_gold}
-                          </span>
-                        )}
-                        {(r.recipe_mana ?? 0) > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
-                          </span>
-                        )}
-                        {(r.recipe_wood ?? 0) > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Axe size={10} strokeWidth={2} />{r.recipe_wood}
-                          </span>
-                        )}
-                        {(r.recipe_fragments ?? 0) > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= r.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Layers size={10} strokeWidth={2} />{r.recipe_fragments}
-                          </span>
-                        )}
-                        {(r.recipe_essence ?? 0) > 0 && (
-                          <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= r.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
-                            <Flame size={10} strokeWidth={2} />{r.recipe_essence}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-[3px] text-[11px] text-text-3 opacity-60">
-                          <Clock size={9} strokeWidth={2} />{r.craft_minutes ?? 60}m
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  <p className="text-[11px] text-text-3 mt-0.5">{bonusText(r.bonuses)}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {(r.recipe_gold ?? 0) > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.gold >= r.recipe_gold ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Coins size={10} strokeWidth={2} />{r.recipe_gold}
+                      </span>
+                    )}
+                    {(r.recipe_mana ?? 0) > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.mana >= r.recipe_mana ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Sparkles size={10} strokeWidth={2} />{r.recipe_mana}
+                      </span>
+                    )}
+                    {(r.recipe_wood ?? 0) > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${resources?.wood >= r.recipe_wood ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Axe size={10} strokeWidth={2} />{r.recipe_wood}
+                      </span>
+                    )}
+                    {(r.recipe_fragments ?? 0) > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.fragments ?? 0) >= r.recipe_fragments ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Layers size={10} strokeWidth={2} />{r.recipe_fragments}
+                      </span>
+                    )}
+                    {(r.recipe_essence ?? 0) > 0 && (
+                      <span className={`flex items-center gap-[3px] text-[11px] font-semibold ${(resources?.essence ?? 0) >= r.recipe_essence ? 'text-[#16a34a]' : 'text-error-text'}`}>
+                        <Flame size={10} strokeWidth={2} />{r.recipe_essence}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-[3px] text-[11px] text-text-3 opacity-60">
+                      <Clock size={9} strokeWidth={2} />{r.craft_minutes ?? 60}m
+                    </span>
+                  </div>
                 </div>
 
-                {isReady ? (
-                  <motion.button
-                    className="btn btn--sm flex-shrink-0 font-semibold"
-                    style={{ background: '#16a34a', color: '#fff', borderColor: 'transparent' }}
-                    onClick={() => onCollect(r.id)}
-                    disabled={collectPending}
-                    whileTap={collectPending ? {} : { scale: 0.96 }}
-                  >
-                    <CheckCircle size={13} strokeWidth={2.5} />
-                    Recoger
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    className="btn btn--primary btn--sm flex-shrink-0"
-                    onClick={() => onCraft(r.id)}
-                    disabled={disabled}
-                    whileTap={disabled ? {} : { scale: 0.96 }}
-                    title={isCrafting ? 'Crafteando...' : !affordable ? 'Recursos insuficientes' : undefined}
-                  >
-                    <Plus size={13} strokeWidth={2.5} />
-                  </motion.button>
-                )}
+                <motion.button
+                  className="btn btn--primary btn--sm flex-shrink-0"
+                  onClick={() => onCraft(r.id)}
+                  disabled={disabled}
+                  whileTap={disabled ? {} : { scale: 0.96 }}
+                  title={
+                    isCrafting ? 'Ya crafteando' :
+                    inventoryFull ? 'Inventario lleno' :
+                    !affordable ? 'Recursos insuficientes' :
+                    undefined
+                  }
+                >
+                  <Plus size={13} strokeWidth={2.5} />
+                </motion.button>
               </div>
-
-              {(isCrafting || isReady) && (
-                <div className="h-1 bg-[var(--surface-2)]">
-                  <div
-                    className="h-full transition-[width] duration-1000"
-                    style={{
-                      width: `${progress}%`,
-                      background: isReady ? '#16a34a' : '#d97706',
-                    }}
-                  />
-                </div>
-              )}
             </div>
           )
         })}

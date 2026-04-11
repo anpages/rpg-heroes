@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   // status !== 'idle' actúa como lock compartido entre ambos sistemas.
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, class')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, class')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       status:             'exploring',
       current_hp:         hpAfter,
       hp_last_updated_at: new Date(nowMs).toISOString(),
+      status_ends_at:     endsAt.toISOString(),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -94,6 +95,7 @@ export default async function handler(req, res) {
         status:             'idle',
         current_hp:         currentHp,
         hp_last_updated_at: hero.hp_last_updated_at,
+        status_ends_at:     null,
       })
       .eq('id', hero.id)
     return res.status(500).json({ error: runError.message })

@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { notify } from '../lib/notifications'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
@@ -13,8 +13,9 @@ import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, DISMANTLE_GOLD_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
+import { REPAIR_COST_TABLE, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
 import { ItemDetailModal } from '../components/ItemDetailModal'
+import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
   Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Sparkles, ArrowUp,
@@ -68,11 +69,6 @@ function estimateRepairCost(item) {
     gold: Math.ceil(missing * costs.gold),
     mana: Math.ceil(missing * costs.mana),
   }
-}
-
-function estimateDismantleGold(item) {
-  const base = DISMANTLE_GOLD_TABLE[item.item_catalog.rarity] ?? DISMANTLE_GOLD_TABLE.common
-  return base * (item.item_catalog.tier ?? 1)
 }
 
 
@@ -368,6 +364,7 @@ export default function Equipo() {
   const { resources } = useResources(userId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
+  const [dismantleTarget, setDismantleTarget] = useState(null)
   const [tierUpgradeTarget, setTierUpgradeTarget] = useState(null)
   const [itemDetail, setItemDetail] = useState(null)
   const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
@@ -407,7 +404,7 @@ export default function Equipo() {
     },
     onError: (err, _vars, context) => {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSettled: () => {
       equipPending.current--
@@ -433,7 +430,7 @@ export default function Equipo() {
     },
     onError: (err, _vars, context) => {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
-      toast.error(err.message)
+      notify.error(err.message)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
@@ -447,9 +444,9 @@ export default function Equipo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(userId) })
-      toast.success('¡Runa incrustada!')
+      notify.success('Runa incrustada')
     },
-    onError: err => toast.error(err.message),
+    onError: err => notify.error(err.message),
   })
 
   const tierUpgradeMutation = useMutation({
@@ -458,7 +455,7 @@ export default function Equipo() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       setTierUpgradeTarget(null)
-      toast.success(`¡Ítem mejorado a ${data.newItemName ?? `T${data.newTier}`}!`)
+      notify.success(`Ítem mejorado a ${data.newItemName ?? `T${data.newTier}`}`)
     },
     // El error se muestra inline en TierUpgradeModal, no como toast
   })
@@ -483,10 +480,10 @@ export default function Equipo() {
   const bagUpgradeMutation = useMutation({
     mutationFn: () => apiPost('/api/bag-upgrade', {}),
     onSuccess: () => {
-      toast.success(`Mochila ampliada a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots`)
+      notify.success(`Mochila ampliada a ${bagLimit + BAG_SLOTS_PER_UPGRADE} slots`)
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => notify.error(err.message),
   })
 
   const { equipBonus, runeBonus, weightPenalty } = useMemo(() => {
@@ -607,16 +604,7 @@ export default function Equipo() {
   }
 
   function handleDismantle(item) {
-    const gold = estimateDismantleGold(item)
-    setConfirm({
-      title: `Desmantelar ${item.item_catalog.name}`,
-      body: `El ítem se destruirá y recuperarás ${gold} oro.`,
-      confirmLabel: 'Desmantelar',
-      onConfirm: () => {
-        setConfirm(null)
-        actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
-      },
-    })
+    setDismantleTarget(item)
   }
 
   return (
@@ -786,7 +774,7 @@ export default function Equipo() {
                       <button
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
                         onClick={() => handleDismantle(item)}
-                        disabled={actionMutation.isPending || isExploring}
+                        disabled={actionMutation.isPending}
                       >
                         <Trash2 size={12} strokeWidth={2} /> Desmantelar
                       </button>
@@ -823,6 +811,24 @@ export default function Equipo() {
           confirmLabel={confirm.confirmLabel}
           onConfirm={confirm.onConfirm}
           onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {dismantleTarget && (
+        <DismantleChoiceModal
+          item={dismantleTarget}
+          gold={resources?.gold ?? 0}
+          onSell={() => {
+            const item = dismantleTarget
+            setDismantleTarget(null)
+            actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
+          }}
+          onTransmute={() => {
+            const item = dismantleTarget
+            setDismantleTarget(null)
+            actionMutation.mutate({ endpoint: '/api/item-transmute', body: { itemId: item.id, _dismantle: true } })
+          }}
+          onCancel={() => setDismantleTarget(null)}
         />
       )}
 

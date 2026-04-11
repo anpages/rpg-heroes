@@ -12,12 +12,14 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status')
+    .select('id, player_id, status, active_effects')
     .eq('id', heroId)
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
+
+  const freeRepair = !!hero.active_effects?.free_repair
 
   // Obtener items equipados con durabilidad < máxima
   const { data: items } = await supabase
@@ -36,11 +38,13 @@ export default async function handler(req, res) {
 
   let totalGold = 0
   let totalMana = 0
-  for (const item of damaged) {
-    const missing = item.item_catalog.max_durability - item.current_durability
-    const costs = REPAIR_COST[item.item_catalog.rarity] ?? REPAIR_COST.common
-    totalGold += Math.ceil(missing * costs.gold * (1 - totalDiscount))
-    totalMana += Math.ceil(missing * costs.mana * (1 - totalDiscount))
+  if (!freeRepair) {
+    for (const item of damaged) {
+      const missing = item.item_catalog.max_durability - item.current_durability
+      const costs = REPAIR_COST[item.item_catalog.rarity] ?? REPAIR_COST.common
+      totalGold += Math.ceil(missing * costs.gold * (1 - totalDiscount))
+      totalMana += Math.ceil(missing * costs.mana * (1 - totalDiscount))
+    }
   }
 
   // Verificar recursos
@@ -80,5 +84,11 @@ export default async function handler(req, res) {
   if (resErr) return res.status(500).json({ error: resErr.message })
   if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
-  return res.status(200).json({ ok: true, totalGold, totalMana, repaired: damaged.length })
+  if (freeRepair) {
+    const newEffects = { ...(hero.active_effects ?? {}) }
+    delete newEffects.free_repair
+    await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', heroId)
+  }
+
+  return res.status(200).json({ ok: true, totalGold, totalMana, repaired: damaged.length, freeRepair })
 }

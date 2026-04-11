@@ -19,6 +19,7 @@ import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { rollItemDrop, floorToDifficulty } from './_loot.js'
 import { progressMissions } from './_missions.js'
 import { snapshotResources } from './_validate.js'
+import { computeRatingUpdate, towerDifficulty } from './_rating.js'
 
 export async function finalizeTowerAttempt({
   supabase,
@@ -36,6 +37,21 @@ export async function finalizeTowerAttempt({
   prevMaxFloor,
 }) {
   const won = result.winner === 'a'
+
+  // Rating de combate: leemos los campos relevantes para computar la actualización
+  const { data: ratingRow } = await supabase
+    .from('heroes')
+    .select('combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining')
+    .eq('id', hero.id)
+    .single()
+
+  const ratingResult = ratingRow
+    ? computeRatingUpdate(ratingRow, {
+        won,
+        difficulty: towerDifficulty(targetFloor, hero.level),
+        nowMs,
+      })
+    : null
 
   // Registrar intento con log completo para replay
   await supabase.from('tower_attempts').insert({
@@ -67,6 +83,7 @@ export async function finalizeTowerAttempt({
       current_hp:          hpAfterCombat,
       hp_last_updated_at:  new Date(nowMs).toISOString(),
       active_effects:      newEffects,
+      ...(ratingResult?.updates ?? {}),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -154,6 +171,17 @@ export async function finalizeTowerAttempt({
       rewards,
       heroCurrentHp: hpAfterCombat,
       heroRealMaxHp: hero.max_hp,
+      rating: ratingResult ? {
+        prev:      ratingResult.tierBefore.rating,
+        current:   ratingResult.updates.combat_rating,
+        delta:     ratingResult.delta,
+        decay:     ratingResult.decayApplied,
+        graceUsed: ratingResult.graceUsed,
+        promoted:  ratingResult.promoted,
+        tier:      ratingResult.tierAfter.tier,
+        division:  ratingResult.tierAfter.division,
+        label:     ratingResult.tierAfter.label,
+      } : null,
     },
   }
 }
