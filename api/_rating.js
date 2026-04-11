@@ -68,15 +68,47 @@ export function tierForRating(rating) {
  *   Bronce II  → 5
  *   Platino I  → 15
  *   Leyenda    → 21
- *
- * Usado por quick combat para generar enemigos anclados al tier, no al poder
- * real del jugador: gear progression = tier progression.
  */
 export function virtualLevelForRating(rating) {
   const tier = tierForRating(rating)
   const idx = TIERS.findIndex(([min]) => min === tier.min)
   if (idx < 0) return 1
   return TIERS.length - idx
+}
+
+/**
+ * Virtual level para el enemigo de un quick combat, con mezcla por progreso
+ * dentro del tier (estilo LoL/CS):
+ *   - Tramo bajo (<34%)   → 30% de probabilidad de caer un VL por debajo
+ *   - Tramo medio (34-67%) → VL exacto
+ *   - Tramo alto (≥67%)   → 30% de probabilidad de subir un VL (preview
+ *                           del siguiente tier cuando estás cerca de promocionar)
+ *
+ * Devuelve { vl, shift } donde shift ∈ {-1, 0, +1} — útil para mostrar en UI
+ * "te tocó un rival del tramo superior/inferior".
+ */
+export function quickCombatVirtualLevel(heroRow) {
+  const rating = Math.max(0, heroRow?.combat_rating ?? 0)
+  const tier   = tierForRating(rating)
+  const idx    = TIERS.findIndex(([min]) => min === tier.min)
+  const maxVL  = TIERS.length
+  const baseVL = idx < 0 ? 1 : (maxVL - idx)
+
+  // Leyenda (idx 0): sin siguiente tier, siempre VL exacto.
+  if (idx <= 0) return { vl: baseVL, shift: 0 }
+
+  const nextMin = TIERS[idx - 1][0]
+  const range   = nextMin - tier.min
+  if (range <= 0) return { vl: baseVL, shift: 0 }
+  const progress = (rating - tier.min) / range
+
+  if (progress < 0.34 && Math.random() < 0.30) {
+    return { vl: Math.max(1, baseVL - 1), shift: -1 }
+  }
+  if (progress >= 0.67 && Math.random() < 0.30) {
+    return { vl: Math.min(maxVL, baseVL + 1), shift: +1 }
+  }
+  return { vl: baseVL, shift: 0 }
 }
 
 /**

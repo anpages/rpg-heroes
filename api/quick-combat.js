@@ -14,7 +14,7 @@ import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
-import { computeRatingUpdate, quickCombatDifficulty, virtualLevelForRating } from './_rating.js'
+import { computeRatingUpdate, quickCombatDifficulty, quickCombatVirtualLevel } from './_rating.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -61,12 +61,13 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Enemigo anclado al TIER del héroe, no a su poder real. El virtual level
-  // (1..21) sale del rating actual — representa "un héroe bien equipado de
-  // ese tramo". Si tu equipo es pobre para el tier, pierdes: ese es el
-  // incentivo para expediciones/cámaras/reparar. Gear → tier progression.
-  const virtualLevel   = virtualLevelForRating(hero.combat_rating ?? 0)
-  const baseEnemyStats = tierAnchoredEnemyStats(virtualLevel)
+  // Enemigo anclado al TIER del héroe con mezcla por progreso (estilo LoL):
+  //   - Tramo bajo: a veces te cruzas con un rival del tier inferior
+  //   - Tramo alto: a veces te cruzas con uno del tier superior (preview)
+  // Si tu equipo es pobre para el tier, pierdes: ese es el incentivo para
+  // expediciones/cámaras/reparar. Gear → tier progression.
+  const { vl, shift }  = quickCombatVirtualLevel(hero)
+  const baseEnemyStats = tierAnchoredEnemyStats(vl)
   const archetypeKey   = randomArchetype()
   const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
   const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)
@@ -170,6 +171,7 @@ export default async function handler(req, res) {
     enemyMaxHp:   enemyStats.max_hp,
     enemyName,
     archetype:    archetypeKey,
+    tierShift:    shift,
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,
