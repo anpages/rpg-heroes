@@ -369,25 +369,21 @@ export default function QuickCombat() {
           </span>
         </div>
 
-        {/* Perks */}
-        <div className="flex flex-wrap gap-2">
-          <span
-            className="text-[11px] font-semibold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] px-2 py-1 rounded-md"
-            title="Paliza: 0 · Igualado: 1 · Al límite o derrota: 2"
-          >
-            Desgaste según combate
-          </span>
-          <span className="text-[11px] font-semibold text-[#d97706] bg-[color-mix(in_srgb,#d97706_10%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] px-2 py-1 rounded-md">
-            HP se consume
-          </span>
-        </div>
-
         {/* HP bar + heal potions */}
         {hero && (() => {
           const pct   = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
           const color = hero.status === 'idle' ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
           const recovering = hero.status === 'idle'
           const full = hpNow >= effectiveMaxHp
+          // Durabilidad media del equipo equipado (solo ítems con max_durability > 0)
+          const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
+          const durPct = equipped.length
+            ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
+            : null
+          const durColor = durPct == null ? '#6b7280'
+            : durPct > 60 ? '#16a34a'
+            : durPct > 30 ? '#d97706'
+            : '#dc2626'
           return (
             <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
               <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
@@ -400,6 +396,20 @@ export default function QuickCombat() {
                   style={{ width: `${pct}%`, background: color }}
                 />
               </div>
+              {durPct != null && (
+                <>
+                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
+                    <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
+                    <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                  </div>
+                  <div className="h-2 bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-[width,background] duration-[400ms]"
+                      style={{ width: `${durPct}%`, background: durColor }}
+                    />
+                  </div>
+                </>
+              )}
               {hpPotions.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {hpPotions.map(p => {
