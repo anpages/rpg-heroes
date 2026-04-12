@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { DISMANTLE_TRANSMUTE_TABLE } from './_constants.js'
 
 /**
@@ -41,34 +41,21 @@ export default async function handler(req, res) {
   const rarity = item.item_catalog.rarity
   const entry = DISMANTLE_TRANSMUTE_TABLE[rarity] ?? DISMANTLE_TRANSMUTE_TABLE.common
 
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  // Deducir oro (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: entry.cost })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: 'Oro insuficiente para transmutar' })
 
-  if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-  if (snap.gold < entry.cost) {
-    return res.status(402).json({ error: 'Oro insuficiente para transmutar' })
-  }
-
-  const [deleteResult, updateResult] = await Promise.all([
+  // Borrar item y añadir recursos ganados en paralelo
+  const [deleteResult, addResult] = await Promise.all([
     supabase.from('inventory_items').delete().eq('id', itemId),
-    supabase.from('resources').update({
-      gold:      snap.gold - entry.cost,
-      iron:      snap.iron,
-      wood:      snap.wood,
-      mana:      snap.mana + entry.mana,
-      fragments: (resources.fragments ?? 0) + entry.fragments,
-      essence:   (resources.essence   ?? 0) + entry.essence,
-      last_collected_at: snap.nowIso,
-    }).eq('player_id', user.id),
+    supabase.rpc('add_resources', {
+      p_player_id: user.id, p_mana: entry.mana, p_fragments: entry.fragments, p_essence: entry.essence,
+    }),
   ])
 
   if (deleteResult.error) return res.status(500).json({ error: deleteResult.error.message })
-  if (updateResult.error) return res.status(500).json({ error: updateResult.error.message })
+  if (addResult.error) return res.status(500).json({ error: addResult.error.message })
 
   return res.status(200).json({
     ok: true,

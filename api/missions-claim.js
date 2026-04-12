@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 
 export default async function handler(req, res) {
@@ -31,16 +31,7 @@ export default async function handler(req, res) {
     .order('slot')
   const hero = heroes?.[0]
 
-  // Obtener recursos (con rates para interpolar el idle acumulado y hacer snapshot)
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (!hero || !resources) return res.status(500).json({ error: 'Error al obtener datos' })
-
-  const snap = snapshotResources(resources)
+  if (!hero) return res.status(500).json({ error: 'Error al obtener datos' })
 
   // Aplicar recompensas — misiones solo dan oro y XP
   const newXp = hero.experience + mission.reward_xp
@@ -48,16 +39,7 @@ export default async function handler(req, res) {
   const levelUp = newXp >= xpForLevel
 
   const results = await Promise.all([
-    supabase
-      .from('resources')
-      .update({
-        gold: snap.gold + mission.reward_gold,
-        iron: snap.iron,
-        wood: snap.wood,
-        mana: snap.mana,
-        last_collected_at: snap.nowIso,
-      })
-      .eq('player_id', user.id),
+    supabase.rpc('add_resources', { p_player_id: user.id, p_gold: mission.reward_gold }),
 
     supabase
       .from('heroes')

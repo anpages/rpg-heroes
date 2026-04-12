@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useRef, useCallback } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -86,45 +86,17 @@ export default function Base({ mainRef }) {
     for (const k of keys) queryClient.invalidateQueries({ queryKey: k })
   }
 
-  // Debounced reconcile: agrupa llamadas rápidas (recoger 4 edificios seguidos)
-  // en un solo invalidateQueries tras 600ms de inactividad.
-  // No reconcilia mientras haya mutations en vuelo para evitar parpadeo.
-  const reconcileTimerRef = useRef(null)
-  const reconcilePendingRef = useRef(new Set())
-  const activeMutationsRef = useRef(0)
-
-  const flushReconcile = useCallback(() => {
-    if (reconcilePendingRef.current.size === 0) return
-    for (const k of reconcilePendingRef.current) {
-      queryClient.invalidateQueries({ queryKey: JSON.parse(k) })
-    }
-    reconcilePendingRef.current.clear()
-  }, [queryClient])
-
-  const debouncedReconcile = useCallback((...keys) => {
-    for (const k of keys) reconcilePendingRef.current.add(JSON.stringify(k))
-    clearTimeout(reconcileTimerRef.current)
-    // Solo reconcilia si no hay más mutations en vuelo
-    if (activeMutationsRef.current <= 0) {
-      reconcileTimerRef.current = setTimeout(flushReconcile, 600)
-    }
-  }, [flushReconcile])
-
-  function mutationStarted() {
-    activeMutationsRef.current += 1
-    clearTimeout(reconcileTimerRef.current)
-  }
-  function mutationSettled(...keys) {
-    activeMutationsRef.current = Math.max(0, activeMutationsRef.current - 1)
-    debouncedReconcile(...keys)
-  }
 
   // ── Mutations: Recolección ──────────────────────────────────────────────────
 
+  // mutationKey compartida con useRealtimeSync: Realtime no invalida buildings/resources
+  // mientras haya recolecciones pendientes — el onSettled de la última reconcilia.
+  const COLLECT_KEY = ['building-collect']
+
   const collectMutation = useMutation({
+    mutationKey: COLLECT_KEY,
     mutationFn: (buildingType) => apiPost('/api/building-collect', { buildingType }),
     onMutate: async (buildingType) => {
-      mutationStarted()
       const snap = cancelAndSnapshot(bKey, rKey)
       const blds = queryClient.getQueryData(bKey)
       const res  = queryClient.getQueryData(rKey)
@@ -153,13 +125,20 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(bKey, rKey),
+    onSettled: () => {
+      // Solo reconciliar cuando la última recolección en vuelo aterriza.
+      // React Query ya ha decrementado isMutating antes de llamar onSettled,
+      // así que si es 0, no queda ninguna recolección pendiente.
+      if (queryClient.isMutating({ mutationKey: COLLECT_KEY }) === 0) {
+        reconcile(bKey, rKey)
+      }
+    },
   })
 
   const _collectAllMutation = useMutation({
+    mutationKey: COLLECT_KEY,
     mutationFn: () => apiPost('/api/building-collect-all', {}),
     onMutate: async () => {
-      mutationStarted()
       const snap = cancelAndSnapshot(bKey, rKey)
       const blds = queryClient.getQueryData(bKey)
       const res  = queryClient.getQueryData(rKey)
@@ -184,7 +163,11 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(bKey, rKey),
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: COLLECT_KEY }) === 0) {
+        reconcile(bKey, rKey)
+      }
+    },
   })
 
   // ── Mutations: Crafteo de items ─────────────────────────────────────────────
@@ -192,7 +175,6 @@ export default function Base({ mainRef }) {
   const craftItemMutation = useMutation({
     mutationFn: (recipeId) => apiPost('/api/craft-start', { recipeId }),
     onMutate: async (recipeId) => {
-      mutationStarted()
       const snap = cancelAndSnapshot(cKey, rKey)
       const crafted = queryClient.getQueryData(cKey)
       const res     = queryClient.getQueryData(rKey)
@@ -222,13 +204,12 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(cKey, rKey),
+    onSettled: () => reconcile(cKey, rKey),
   })
 
   const collectItemMutation = useMutation({
     mutationFn: (craftId) => apiPost('/api/craft-collect', { craftId }),
     onMutate: async (craftId) => {
-      mutationStarted()
       const snap = cancelAndSnapshot(cKey)
       const crafted = queryClient.getQueryData(cKey)
       if (crafted) {
@@ -248,7 +229,7 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(cKey),
+    onSettled: () => reconcile(cKey),
   })
 
   // ── Mutations: Pociones ─────────────────────────────────────────────────────
@@ -256,7 +237,6 @@ export default function Base({ mainRef }) {
   const craftPotionMutation = useMutation({
     mutationFn: (potionId) => apiPost('/api/potion-craft', { potionId }),
     onMutate: async (potionId) => {
-      mutationStarted()
       const snap = cancelAndSnapshot(pKey, rKey, cKey)
       const potionData = queryClient.getQueryData(pKey)
       const res        = queryClient.getQueryData(rKey)
@@ -285,13 +265,12 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(pKey, rKey, cKey),
+    onSettled: () => reconcile(pKey, rKey, cKey),
   })
 
   const collectPotionMutation = useMutation({
     mutationFn: (craftId) => apiPost('/api/potion-collect', { craftId }),
     onMutate: async (craftId) => {
-      mutationStarted()
       const snap = cancelAndSnapshot(pKey)
       const potionData = queryClient.getQueryData(pKey)
       if (potionData) {
@@ -311,7 +290,7 @@ export default function Base({ mainRef }) {
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => mutationSettled(pKey),
+    onSettled: () => reconcile(pKey),
   })
 
   const labInventoryUpgradeMutation = useMutation({

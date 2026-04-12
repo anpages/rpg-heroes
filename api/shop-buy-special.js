@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { isUUID, snapshotResources, effectiveBagLimit } from './_validate.js'
+import { isUUID, effectiveBagLimit } from './_validate.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 
 function tierForLevel(level) {
@@ -39,11 +39,8 @@ export default async function handler(req, res) {
   if (alreadyBought) return res.status(409).json({ error: 'Ya compraste esta oferta hoy' })
 
   const { data: resources } = await supabase
-    .from('resources').select('*').eq('player_id', user.id).single()
+    .from('resources').select('bag_extra_slots').eq('player_id', user.id).single()
   if (!resources) return res.status(500).json({ error: 'Sin recursos' })
-
-  const snap = snapshotResources(resources)
-  if (snap.gold < special.gold_price) return res.status(409).json({ error: 'Oro insuficiente' })
 
   if (special.effect_type === 'repair_all' && hero.status === 'exploring') {
     return res.status(409).json({ error: 'El héroe está en expedición' })
@@ -133,19 +130,11 @@ export default async function handler(req, res) {
   }
   else if (special.effect_type === 'fragments_grant') {
     const amount = special.effect_value ?? 10
-    // Cobrar + sumar fragmentos en una única UPDATE para no perder el CAS.
-    const { error: errFrag, count: countFrag } = await supabase
-      .from('resources')
-      .update({
-        gold: snap.gold - special.gold_price,
-        iron: snap.iron, wood: snap.wood, mana: snap.mana,
-        fragments: (resources.fragments ?? 0) + amount,
-        last_collected_at: snap.nowIso,
-      }, { count: 'exact' })
-      .eq('player_id', user.id)
-      .eq('last_collected_at', snap.prevCollectedAt)
-    if (errFrag) return res.status(500).json({ error: errFrag.message })
-    if (countFrag === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
+    // Deducir oro y sumar fragmentos (atómico via RPCs)
+    const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: special.gold_price })
+    if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+    if (!ok) return res.status(409).json({ error: 'Oro insuficiente' })
+    await supabase.rpc('add_resources', { p_player_id: user.id, p_fragments: amount })
     await supabase.from('hero_shop_special_purchases')
       .insert({ hero_id: heroId, special_id: specialId, purchase_date: dateStr })
     return res.status(200).json({ ok: true, goldSpent: special.gold_price, effect: 'fragments_grant', fragmentsGained: amount })
@@ -181,18 +170,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Efecto desconocido: ${special.effect_type}` })
   }
 
-  const { error: resErr, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold: snap.gold - special.gold_price,
-      iron: snap.iron, wood: snap.wood, mana: snap.mana,
-      last_collected_at: snap.nowIso,
-    }, { count: 'exact' })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
+  // Deducir oro (atómico via RPC)
+  const { data: deductOk, error: resErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: special.gold_price })
   if (resErr) return res.status(500).json({ error: resErr.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
+  if (!deductOk) return res.status(409).json({ error: 'Oro insuficiente' })
 
   await supabase.from('hero_shop_special_purchases')
     .insert({ hero_id: heroId, special_id: specialId, purchase_date: dateStr })

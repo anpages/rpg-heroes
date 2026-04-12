@@ -29,26 +29,3 @@ export function effectiveBagLimit(bagExtraSlots = 0) {
   return INVENTORY_BASE_LIMIT + bagExtraSlots * BAG_SLOTS_PER_UPGRADE
 }
 
-/**
- * Snapshot de recursos para transacciones. Sin interpolación pasiva —
- * la producción idle se acumula en edificios y se recolecta manualmente.
- * CAS: incluir `prevCollectedAt` en .eq() para evitar sobreescrituras concurrentes.
- */
-export function snapshotResources(resources, nowMs = Date.now()) {
-  return {
-    gold:        Math.floor(resources.gold),
-    iron:        Math.floor(resources.iron),
-    wood:        Math.floor(resources.wood),
-    mana:        Math.floor(resources.mana),
-    fragments:   resources.fragments   ?? 0,
-    essence:     resources.essence     ?? 0,
-    coal:        resources.coal        ?? 0,
-    fiber:       resources.fiber       ?? 0,
-    arcane_dust: resources.arcane_dust ?? 0,
-    herbs:       resources.herbs       ?? 0,
-    flowers:     resources.flowers     ?? 0,
-    nowMs,
-    nowIso: new Date(nowMs).toISOString(),
-    prevCollectedAt: resources.last_collected_at,
-  }
-}

@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources } from './_validate.js'
 import { LAB_INVENTORY_MAX_UPGRADES, LAB_INVENTORY_UPGRADE_COSTS } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -9,7 +8,7 @@ export default async function handler(req, res) {
 
   const { data: resources } = await supabase
     .from('resources')
-    .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at, lab_inventory_upgrades')
+    .select('lab_inventory_upgrades')
     .eq('player_id', user.id)
     .single()
 
@@ -23,21 +22,18 @@ export default async function handler(req, res) {
   const cost = LAB_INVENTORY_UPGRADE_COSTS[current]
   if (!cost) return res.status(500).json({ error: 'Coste no definido' })
 
-  const snap = snapshotResources(resources)
+  // Deducir recursos (atómico via RPC)
+  const deductArgs = { p_player_id: user.id }
+  if (cost.gold) deductArgs.p_gold = cost.gold
+  if (cost.mana) deductArgs.p_mana = cost.mana
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', deductArgs)
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: 'Recursos insuficientes' })
 
-  if (snap.gold < (cost.gold ?? 0)) return res.status(402).json({ error: 'Oro insuficiente' })
-  if (snap.mana < (cost.mana ?? 0)) return res.status(402).json({ error: 'Maná insuficiente' })
-
-  const { error } = await supabase.from('resources').update({
-    gold: snap.gold - (cost.gold ?? 0),
-    iron: snap.iron,
-    wood: snap.wood,
-    mana: snap.mana - (cost.mana ?? 0),
-    fragments: snap.fragments,
-    essence: snap.essence,
-    lab_inventory_upgrades: current + 1,
-    last_collected_at: snap.nowIso,
-  }).eq('player_id', user.id).eq('last_collected_at', snap.prevCollectedAt)
+  // Incrementar contador
+  const { error } = await supabase.from('resources')
+    .update({ lab_inventory_upgrades: current + 1 })
+    .eq('player_id', user.id)
 
   if (error) return res.status(500).json({ error: error.message })
 

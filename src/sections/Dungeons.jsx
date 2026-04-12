@@ -22,19 +22,21 @@ import {
   MATERIAL_DROP_DATA,
 } from '../lib/gameFormulas'
 import {
-  Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword,
+  Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Shield,
   Layers, Sparkles, FlaskConical, Zap, Heart, Brain,
-  Wrench, AlertTriangle, Crosshair, Lock,
+  Wrench, AlertTriangle, Lock, Compass, Info,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { PotionPanel } from '../components/PotionPanel'
 
-const listVariants = {
-  animate: { transition: { staggerChildren: 0.07 } },
-}
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  Constantes                                                                *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const listVariants = { animate: { transition: { staggerChildren: 0.06 } } }
 const cardVariants = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
 }
 
 function fmtTime(seconds) {
@@ -46,8 +48,11 @@ function fmtTime(seconds) {
   if (m > 0) return s > 0 ? `${m}m ${s}s` : `${m}m`
   return `${s}s`
 }
-
 function fmtPct(n) { return `${Math.round(n * 100)}%` }
+function fmtDuration(mins) {
+  if (mins >= 60) { const h = Math.floor(mins / 60), m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h` }
+  return `${mins}m`
+}
 
 const DUNGEON_TYPE_META = {
   combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas y escudos'              },
@@ -57,24 +62,55 @@ const DUNGEON_TYPE_META = {
   mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas y armadura de brazos'     },
   ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Accesorios y yelmos antiguos'   },
 }
-
 const MATERIAL_META = {
   fragments: { label: 'Fragmentos', Icon: Layers,   color: '#b45309' },
   essence:   { label: 'Esencia',    Icon: Sparkles, color: '#7c3aed' },
 }
 
-function DifficultyDots({ value }) {
-  return (
-    <div className="flex gap-[3px]">
-      {Array.from({ length: 10 }, (_, i) => (
-        <span
-          key={i}
-          className={`w-[7px] h-[7px] rounded-full ${i < value ? 'bg-[#dc2626]' : 'bg-border'}`}
-        />
-      ))}
-    </div>
-  )
+const WEAPON_TYPES  = ['combat', 'mine']
+const ARMOR_TYPES   = ['wilderness', 'magic', 'crypt', 'ancient']
+
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  Filtros                                                                   *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const FILTERS = [
+  { id: 'active',    label: 'En curso',    icon: Compass  },
+  { id: 'weapons',   label: 'Armas',       icon: Sword    },
+  { id: 'armor',     label: 'Armaduras',   icon: Shield   },
+  { id: 'tactics',   label: 'Tácticas',    icon: Brain    },
+  { id: 'fragments', label: 'Fragmentos',  icon: Layers   },
+  { id: 'essence',   label: 'Esencia',     icon: Sparkles },
+  { id: 'quick',     label: 'Rápidas',     icon: Zap      },
+]
+
+function filterDungeons(dungeons, filter, heroLevel) {
+  if (!dungeons) return []
+  const available = dungeons.filter(d => heroLevel >= d.min_hero_level)
+
+  switch (filter) {
+    case 'weapons':
+      return available.filter(d => WEAPON_TYPES.includes(d.type)).sort((a, b) => a.difficulty - b.difficulty)
+    case 'armor':
+      return available.filter(d => ARMOR_TYPES.includes(d.type)).sort((a, b) => a.difficulty - b.difficulty)
+    case 'tactics':
+      return available.slice().sort((a, b) => b.difficulty - a.difficulty)
+    case 'fragments':
+      return available.filter(d => MATERIAL_DROP_DATA[d.name]?.resource === 'fragments').sort((a, b) => (MATERIAL_DROP_DATA[b.name]?.chance ?? 0) - (MATERIAL_DROP_DATA[a.name]?.chance ?? 0))
+    case 'essence':
+      return available.filter(d => MATERIAL_DROP_DATA[d.name]?.resource === 'essence').sort((a, b) => (MATERIAL_DROP_DATA[b.name]?.chance ?? 0) - (MATERIAL_DROP_DATA[a.name]?.chance ?? 0))
+    case 'quick':
+      return available.filter(d => d.duration_minutes <= 20).sort((a, b) => a.duration_minutes - b.duration_minutes)
+    case 'locked':
+      return dungeons.filter(d => heroLevel < d.min_hero_level).sort((a, b) => a.min_hero_level - b.min_hero_level)
+    default:
+      return available.slice().sort((a, b) => a.difficulty - b.difficulty)
+  }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  Hooks                                                                     *
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 function useExpeditionTimer(expedition) {
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -104,7 +140,6 @@ function useExpeditionTimer(expedition) {
   return { secondsLeft, canCollect, isMounted, pct }
 }
 
-/** Computes average equipment durability % across equipped items */
 function useEquipmentHealth(items) {
   return useMemo(() => {
     if (!items) return { avgDurPct: 1, hasDamagedGear: false, equippedCount: 0 }
@@ -119,344 +154,412 @@ function useEquipmentHealth(items) {
   }, [items])
 }
 
-
 const EXPEDITION_POTION_EFFECTS = [
-  'time_reduction',
-  'xp_boost',
-  'loot_boost',
-  'gold_boost',
-  'card_guaranteed',
+  'time_reduction', 'xp_boost', 'loot_boost', 'gold_boost', 'card_guaranteed',
 ]
 
-/* ─── Filtros ─────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  DifficultyDots                                                            *
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
-const FILTERS_BASE = [
-  { id: 'recommended', label: 'Recomendadas', icon: Crosshair },
-  { id: 'equipment',   label: 'Equipo',       icon: Sword     },
-  { id: 'materials',   label: 'Materiales',   icon: Layers    },
-  { id: 'tactics',     label: 'Tácticas',     icon: Brain     },
-]
-
-/** Filtra y ordena las mazmorras según el filtro activo */
-function filterDungeons(dungeons, filter, heroLevel) {
-  if (!dungeons) return []
-
-  switch (filter) {
-    case 'recommended': {
-      // Available dungeons near hero level + always include short dungeons (≤20 min)
-      return dungeons
-        .filter(d => heroLevel >= d.min_hero_level)
-        .filter(d => d.duration_minutes <= 20 || d.min_hero_level >= Math.max(1, heroLevel - 4))
-        .sort((a, b) => a.difficulty - b.difficulty)
-    }
-    case 'equipment': {
-      // Dungeons known for equipment (all available ones, sorted by drop chance = difficulty)
-      return dungeons
-        .filter(d => heroLevel >= d.min_hero_level)
-        .sort((a, b) => b.difficulty - a.difficulty)
-    }
-    case 'materials': {
-      // Only dungeons that drop materials
-      return dungeons
-        .filter(d => heroLevel >= d.min_hero_level && MATERIAL_DROP_DATA[d.name])
-        .sort((a, b) => {
-          const ca = MATERIAL_DROP_DATA[a.name]?.chance ?? 0
-          const cb = MATERIAL_DROP_DATA[b.name]?.chance ?? 0
-          return cb - ca
-        })
-    }
-    case 'tactics': {
-      // All available, sorted by difficulty (higher = more tactic XP context)
-      return dungeons
-        .filter(d => heroLevel >= d.min_hero_level)
-        .sort((a, b) => b.difficulty - a.difficulty)
-    }
-    case 'locked': {
-      return dungeons
-        .filter(d => heroLevel < d.min_hero_level)
-        .sort((a, b) => a.min_hero_level - b.min_hero_level)
-    }
-    case 'all':
-    default: {
-      return [...dungeons].sort((a, b) => a.difficulty - b.difficulty)
-    }
-  }
-}
-
-/** A single stat line in the dungeon preview */
-function StatLine({ icon: Icon, iconColor, label, value, baseValue, bonusLabel, bonusColor, warning }) {
-  const hasBonus = baseValue != null && value !== baseValue
+function DifficultyDots({ value, size = 7 }) {
   return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <Icon size={14} strokeWidth={2} color={iconColor} className="flex-shrink-0" />
-      <span className="text-[13px] font-semibold text-text-2">{label}</span>
-      <span className="text-[14px] font-bold text-text">{value}</span>
-      {hasBonus && (
-        <>
-          <span className="text-[12px] text-text-3 line-through">{baseValue}</span>
-          <span className="text-[11px] font-bold" style={{ color: bonusColor ?? '#16a34a' }}>
-            {bonusLabel}
-          </span>
-        </>
-      )}
-      {warning && (
-        <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#dc2626]">
-          <AlertTriangle size={11} strokeWidth={2.5} />
-          {warning}
-        </span>
-      )}
+    <div className="flex gap-[3px]">
+      {Array.from({ length: 10 }, (_, i) => (
+        <span key={i} className="rounded-full" style={{ width: size, height: size, background: i < value ? '#dc2626' : 'var(--border)' }} />
+      ))}
     </div>
   )
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  DungeonCard — versión compacta                                            *
+ *  Muestra solo lo esencial: tiempo, coste HP, recompensas.                  *
+ *  Tap en la card abre DungeonDetailModal para ver todo el desglose.         *
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 function DungeonCard({
-  dungeon, heroLevel, heroStatus, expedition, onStart, onCollect,
-  heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1,
-  heroStrength = 0, heroDefense = 0, heroIntelligence = 0,
-  weeklyModifier = null, equipHealth,
+  dungeon, effectiveMins, hpCost, goldMin, goldMax, xpReward,
+  equipChance, tacticChance, materialData,
+  isWeekly, weeklyMeta, isShort, locked, busy, lowHp,
+  onStart, onDetail,
 }) {
-  const locked   = heroLevel < dungeon.min_hero_level
-  const isActive = expedition?.dungeon_id === dungeon.id
-  const busy     = heroStatus !== 'idle' && !isActive
-  const hpCost   = expeditionHpCost(heroMaxHp, dungeon.duration_minutes, dungeon.difficulty, heroStrength)
-  const lowHp    = !isActive && !locked && !busy && (heroHpNow ?? 0) <= hpCost
   const disabled = locked || busy || lowHp
-  const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
-  const isWeekly = weeklyModifier?.dungeon_id === dungeon.id
-  const weeklyMeta = isWeekly ? weeklyModifier?.modifier : null
-  const isShort  = dungeon.duration_minutes <= 20
+  const meta     = DUNGEON_TYPE_META[dungeon.type]
+  const matMeta  = materialData ? MATERIAL_META[materialData.resource] : null
 
-  // Computed preview values
-  const durMult      = isWeekly && weeklyMeta?.durationMult ? weeklyMeta.durationMult : 1
-  const effectiveMins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1) * durMult)
-  const baseMins      = dungeon.duration_minutes
-  const agilityPct    = agilityFactor < 1 ? Math.round((1 - agilityFactor) * 100) : 0
+  return (
+    <div
+      className={`group relative flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] overflow-hidden cursor-pointer
+        transition-[box-shadow,border-color] duration-200
+        ${locked ? 'border-border opacity-55' : 'border-border hover:shadow-[var(--shadow-md)] hover:border-border-2'}`}
+      style={isWeekly && weeklyMeta && !locked ? {
+        borderColor: `color-mix(in srgb, ${weeklyMeta.color} 50%, var(--border))`,
+        boxShadow:   `0 0 0 1px color-mix(in srgb, ${weeklyMeta.color} 25%, transparent), var(--shadow-sm)`,
+        background:  `color-mix(in srgb, ${weeklyMeta.color} 3%, var(--surface))`,
+      } : undefined}
+      onClick={() => !locked && onDetail(dungeon)}
+    >
+      {/* Accent bar — type color */}
+      {meta && <div className="h-[3px] w-full" style={{ background: meta.color }} />}
 
-  const goldMin       = Math.round(dungeon.gold_min * atkMultiplier)
-  const goldMax       = Math.round(dungeon.gold_max * atkMultiplier)
-  const atkPct        = atkMultiplier > 1 ? Math.round((atkMultiplier - 1) * 100) : 0
+      {/* Header */}
+      <div className="px-4 pt-3 pb-1">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h3 className="text-[15px] font-bold text-text leading-tight">{dungeon.name}</h3>
+          <DifficultyDots value={dungeon.difficulty} />
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {meta && <span className="text-[11px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>{meta.label}</span>}
+          {isShort && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,#16a34a_10%,var(--bg))] text-[#16a34a] border border-[color-mix(in_srgb,#16a34a_20%,var(--border))]">
+              Rápida
+            </span>
+          )}
+          {isWeekly && weeklyMeta && (
+            <span className="flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-0.5 rounded border"
+              style={{ color: weeklyMeta.color, background: `color-mix(in srgb, ${weeklyMeta.color} 10%, var(--bg))`, borderColor: `color-mix(in srgb, ${weeklyMeta.color} 25%, var(--border))` }}>
+              <Zap size={9} strokeWidth={2.5} />{weeklyMeta.name}
+            </span>
+          )}
+        </div>
+      </div>
 
-  const baseHpCost    = expeditionHpCost(heroMaxHp, dungeon.duration_minutes, dungeon.difficulty, 0)
-  const strReduction  = baseHpCost > hpCost ? baseHpCost - hpCost : 0
+      {/* Stats compactos — 2 filas */}
+      {!locked && (
+        <div className="px-4 pt-1.5 pb-2.5 flex flex-col gap-1.5">
+          {/* Fila 1: costes y recompensas base */}
+          <div className="flex items-center gap-3 flex-wrap text-[13px]">
+            <span className="flex items-center gap-1 text-text-2"><Clock size={13} strokeWidth={2} color="#6366f1" /><span className="font-semibold">{fmtDuration(effectiveMins)}</span></span>
+            <span className="flex items-center gap-1 text-text-2"><Heart size={13} strokeWidth={2} color="#dc2626" /><span className="font-semibold">-{hpCost}</span></span>
+            <span className="flex items-center gap-1 text-text-2"><Coins size={13} strokeWidth={2} color="#d97706" /><span className="font-semibold">{goldMin}–{goldMax}</span></span>
+            <span className="flex items-center gap-1 text-text-2"><Star size={13} strokeWidth={2} color="#0369a1" /><span className="font-semibold">{xpReward}</span></span>
+          </div>
 
-  const equipChance   = itemDropChance(dungeon.difficulty)
-  const tacticChance  = tacticDropChance(heroIntelligence)
-  const baseTacticCh  = tacticDropChance(0)
-  const intellBonus   = tacticChance > baseTacticCh ? Math.round((tacticChance - baseTacticCh) * 100) : 0
+          {/* Fila 2: drop chances */}
+          <div className="flex items-center gap-3 text-[12px] text-text-3">
+            <span className="flex items-center gap-1"><Sword size={12} strokeWidth={2} color="#7c3aed" />{fmtPct(equipChance)}</span>
+            <span className="flex items-center gap-1"><Brain size={12} strokeWidth={2} color="#0891b2" />{fmtPct(tacticChance)}</span>
+            {materialData && matMeta && (
+              <span className="flex items-center gap-1" style={{ color: matMeta.color }}>
+                <matMeta.Icon size={12} strokeWidth={2} />{fmtPct(materialData.chance)} <span className="text-text-3">×{materialData.min}–{materialData.max}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
-  const durLoss       = calcDurabilityLoss(dungeon.difficulty, heroDefense)
-  const durLossBase   = calcDurabilityLoss(dungeon.difficulty, 0)
-  const defReduction  = durLossBase > durLoss ? durLossBase - durLoss : 0
+      {/* Locked: info mínima */}
+      {locked && meta && (
+        <div className="px-4 pb-3 pt-1 flex items-center gap-2">
+          <span className="text-[12px] font-semibold text-text-3">
+            <Lock size={11} strokeWidth={2.5} className="inline mr-1" />Nv. {dungeon.min_hero_level}+
+          </span>
+          <span className="text-[12px] font-semibold opacity-70" style={{ color: meta.color }}>{meta.loot}</span>
+        </div>
+      )}
 
-  const materialData  = MATERIAL_DROP_DATA[dungeon.name]
-  const matMeta       = materialData ? MATERIAL_META[materialData.resource] : null
+      {/* Footer */}
+      <div className="flex items-center justify-end px-4 py-2.5 border-t border-border mt-auto">
+        {locked ? (
+          <span className="text-[13px] font-semibold text-text-3">Nv. {dungeon.min_hero_level} requerido</span>
+        ) : (
+          <motion.button
+            className="btn btn--primary flex-shrink-0"
+            onClick={e => { e.stopPropagation(); onStart(dungeon) }}
+            disabled={disabled}
+            whileTap={disabled ? {} : { scale: 0.96 }}
+          >
+            {busy ? 'Héroe ocupado' : lowHp ? 'HP insuficiente' : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>}
+          </motion.button>
+        )}
+      </div>
+    </div>
+  )
+}
 
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  ActiveExpeditionView — vista "En curso"                                   *
+ *  Card prominente con progreso, timer y botón de recolección.               *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function ActiveExpeditionView({ expedition, activeDungeon, onCollect, weeklyModifier }) {
   const [collecting, setCollecting] = useState(false)
-  const timer = useExpeditionTimer(isActive ? expedition : null)
+  const timer = useExpeditionTimer(expedition)
+
+  if (!expedition) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <Compass size={40} strokeWidth={1.5} className="text-text-3 mb-3 opacity-40" />
+        <p className="text-[15px] font-semibold text-text-2 mb-1">Sin expediciones en curso</p>
+        <p className="text-[13px] text-text-3">Elige una mazmorra en las otras pestañas para empezar a explorar.</p>
+      </div>
+    )
+  }
+
+  const meta      = activeDungeon ? DUNGEON_TYPE_META[activeDungeon.type] : null
+  const isWeekly  = weeklyModifier?.dungeon_id === expedition.dungeon_id
+  const weekMeta  = isWeekly ? weeklyModifier?.modifier : null
+  const accentColor = timer.canCollect ? '#16a34a' : 'var(--blue-500)'
 
   async function handleCollect() {
     setCollecting(true)
     try {
       const data = await apiPost('/api/expedition-collect', { expeditionId: expedition.id })
       onCollect(data)
-      setCollecting(false)
     } catch (err) {
       notify.error(err.message)
-      setCollecting(false)
     }
+    setCollecting(false)
   }
 
   return (
-    <div
-      className={`flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200 overflow-hidden
-      ${isActive
-        ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-300)] dark:bg-[color-mix(in_srgb,var(--blue-300)_8%,var(--surface))]'
-        : locked
-          ? 'border-border opacity-55'
-          : 'border-border hover:shadow-[var(--shadow-md)] hover:border-border-2'
-      }`}
-      style={isWeekly && weeklyMeta && !isActive ? {
-        borderColor: `color-mix(in srgb, ${weeklyMeta.color} 55%, var(--border))`,
-        boxShadow:   `0 0 0 1px color-mix(in srgb, ${weeklyMeta.color} 30%, transparent), var(--shadow-sm)`,
-        background:  `color-mix(in srgb, ${weeklyMeta.color} 4%, var(--surface))`,
-      } : undefined}
+    <motion.div
+      className="max-w-md mx-auto w-full"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
     >
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <h3 className="text-[16px] font-bold text-text">{dungeon.name}</h3>
-            {isShort && (
-              <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,#16a34a_12%,var(--bg))] text-[#16a34a] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))]">
-                Rápida
+      <div
+        className="relative flex flex-col bg-surface border-2 rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden"
+        style={{
+          borderColor: accentColor,
+          boxShadow: `0 0 0 1px color-mix(in srgb, ${accentColor} 20%, transparent), 0 8px 32px -8px color-mix(in srgb, ${accentColor} 20%, transparent)`,
+        }}
+      >
+        {/* Status banner */}
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {timer.canCollect ? (
+              <span className="flex items-center gap-1.5 text-[13px] font-bold text-[#16a34a]">
+                <PackageOpen size={15} strokeWidth={2} />
+                ¡Expedición lista!
               </span>
-            )}
-            {meta && (
-              <span className="text-[11px] font-bold uppercase tracking-[0.07em] opacity-85" style={{ color: meta.color }}>
-                {meta.label}
-              </span>
-            )}
-            {isWeekly && weeklyMeta && (
-              <span
-                className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em]"
-                style={{ color: weeklyMeta.color }}
-                title={`Desafío semanal · ${weeklyMeta.name} — ${weeklyMeta.description}`}
-              >
-                <Zap size={11} strokeWidth={2.5} />
-                {weeklyMeta.name}
+            ) : (
+              <span className="flex items-center gap-1.5 text-[13px] font-bold text-[var(--blue-500)]">
+                <Compass size={15} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" />
+                Explorando...
               </span>
             )}
           </div>
-          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <DifficultyDots value={dungeon.difficulty} />
+          {isWeekly && weekMeta && (
+            <span className="flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-0.5 rounded border"
+              style={{ color: weekMeta.color, background: `color-mix(in srgb, ${weekMeta.color} 10%, var(--bg))`, borderColor: `color-mix(in srgb, ${weekMeta.color} 25%, var(--border))` }}>
+              <Zap size={9} strokeWidth={2.5} />{weekMeta.name}
+            </span>
+          )}
+        </div>
+
+        {/* Dungeon name */}
+        <div className="px-5 pb-3">
+          <h3 className="text-[18px] font-bold text-text">{activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'}</h3>
+          {meta && (
+            <span className="text-[12px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>{meta.label}</span>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div className="px-5 pb-4">
+          <div className="h-3 bg-surface-2 rounded-full overflow-hidden border border-border">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: accentColor }}
+              initial={false}
+              animate={{ width: `${timer.pct}%` }}
+              transition={{ duration: timer.isMounted ? 1 : 0, ease: 'linear' }}
+            />
           </div>
-        </div>
-        <p className="text-[13px] text-text-3 leading-[1.45] line-clamp-2">{dungeon.description}</p>
-      </div>
-
-      {/* Stat preview grid — only when not active */}
-      {!isActive && !locked && (
-        <div className="px-4 pb-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {/* Duration */}
-          <StatLine
-            icon={Clock} iconColor="#6366f1"
-            label="" value={effectiveMins >= 60 ? `${Math.floor(effectiveMins / 60)}h${effectiveMins % 60 > 0 ? ` ${effectiveMins % 60}m` : ''}` : `${effectiveMins}m`}
-            baseValue={agilityPct > 0 ? `${baseMins}m` : null}
-            bonusLabel={agilityPct > 0 ? `−${agilityPct}% Agi` : null}
-            bonusColor="#16a34a"
-          />
-
-          {/* Gold range */}
-          <StatLine
-            icon={Coins} iconColor="#d97706"
-            label="" value={`${goldMin}–${goldMax}`}
-            baseValue={atkPct > 0 ? `${dungeon.gold_min}–${dungeon.gold_max}` : null}
-            bonusLabel={atkPct > 0 ? `+${atkPct}% Atq` : null}
-            bonusColor="#d97706"
-          />
-
-          {/* HP cost */}
-          <StatLine
-            icon={Heart} iconColor="#dc2626"
-            label="" value={`−${hpCost} HP`}
-            baseValue={strReduction > 0 ? `−${baseHpCost}` : null}
-            bonusLabel={strReduction > 0 ? `−${strReduction} Fza` : null}
-            bonusColor="#16a34a"
-          />
-
-          {/* XP */}
-          <StatLine
-            icon={Star} iconColor="#0369a1"
-            label="" value={`${Math.round(dungeon.experience_reward * atkMultiplier)} XP`}
-            baseValue={atkPct > 0 ? `${dungeon.experience_reward}` : null}
-            bonusLabel={atkPct > 0 ? `+${atkPct}% Atq` : null}
-            bonusColor="#0369a1"
-          />
-
-          {/* Equipment drop */}
-          <StatLine
-            icon={Sword} iconColor="#7c3aed"
-            label="Equipo" value={fmtPct(equipChance)}
-            warning={equipHealth?.hasDamagedGear ? 'Dañado' : null}
-          />
-
-          {/* Tactic drop */}
-          <StatLine
-            icon={Brain} iconColor="#0891b2"
-            label="Táctica" value={fmtPct(tacticChance)}
-            baseValue={intellBonus > 0 ? fmtPct(baseTacticCh) : null}
-            bonusLabel={intellBonus > 0 ? `+${intellBonus}% Int` : null}
-            bonusColor="#0891b2"
-          />
-
-          {/* Durability loss */}
-          {durLoss > 0 && (
-            <StatLine
-              icon={Wrench} iconColor="#78716c"
-              label="Desgaste" value={`${durLoss} pts`}
-              baseValue={defReduction > 0 ? `${durLossBase}` : null}
-              bonusLabel={defReduction > 0 ? `−${defReduction} Def` : null}
-              bonusColor="#16a34a"
-            />
-          )}
-
-          {/* Material drop */}
-          {materialData && matMeta && (
-            <StatLine
-              icon={matMeta.Icon} iconColor={matMeta.color}
-              label={matMeta.label} value={`${fmtPct(materialData.chance)} (${materialData.min}–${materialData.max})`}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Loot type badge — when locked, show minimal info */}
-      {locked && meta && (
-        <div className="px-4 pb-3 flex gap-2 flex-wrap">
-          <span className="text-[12px] font-semibold text-text-3">
-            <Star size={12} strokeWidth={2} className="inline mr-1" />
-            Nv. {dungeon.min_hero_level}+
-          </span>
-          <span className="text-[12px] font-semibold opacity-75" style={{ color: meta.color }}>
-            {meta.loot}
-          </span>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border mt-auto">
-        {isActive ? (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex-1 h-1.5 bg-[var(--blue-100)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[var(--blue-400)] rounded-full"
-                style={{ width: `${timer.pct}%`, transition: timer.isMounted ? 'width 1s linear' : 'none' }}
-              />
-            </div>
-            <span className={`text-[13px] font-semibold whitespace-nowrap flex-shrink-0 ${timer.canCollect ? 'text-[#16a34a]' : 'text-text-3'}`}>
-              {timer.canCollect ? '¡Lista!' : timer.secondsLeft !== null ? fmtTime(timer.secondsLeft) : '...'}
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[13px] font-semibold text-text-3">{timer.pct}%</span>
+            <span className={`text-[14px] font-bold ${timer.canCollect ? 'text-[#16a34a]' : 'text-text-2'}`}>
+              {timer.canCollect ? 'Completada' : timer.secondsLeft !== null ? fmtTime(timer.secondsLeft) : '...'}
             </span>
           </div>
-        ) : (
-          <div className="flex-1" />
-        )}
+        </div>
 
-        {isActive ? (
+        {/* Action */}
+        <div className="px-5 pb-5">
           <motion.button
-            className="btn btn--primary flex-shrink-0"
+            className={`w-full py-3 rounded-xl font-bold text-[15px] border-0 text-white transition-opacity ${timer.canCollect ? '' : 'opacity-40 cursor-not-allowed'}`}
+            style={{ background: timer.canCollect ? 'linear-gradient(135deg, #16a34a, #15803d)' : 'var(--surface-3)' }}
             onClick={handleCollect}
             disabled={!timer.canCollect || collecting}
-            whileTap={(!timer.canCollect || collecting) ? {} : { scale: 0.96 }}
-            whileHover={(!timer.canCollect || collecting) ? {} : { scale: 1.02 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            whileTap={timer.canCollect && !collecting ? { scale: 0.97 } : {}}
           >
-            <PackageOpen size={15} strokeWidth={2} />
-            {collecting ? 'Recogiendo...' : 'Recoger'}
+            <span className="flex items-center justify-center gap-2">
+              <PackageOpen size={17} strokeWidth={2} />
+              {collecting ? 'Recogiendo...' : timer.canCollect ? 'Recoger recompensas' : 'En progreso...'}
+            </span>
           </motion.button>
-        ) : (
-          <motion.button
-            className="btn btn--primary flex-shrink-0"
-            onClick={() => onStart(dungeon)}
-            disabled={disabled}
-            whileTap={disabled ? {} : { scale: 0.96 }}
-            whileHover={disabled ? {} : { scale: 1.02 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          >
-            {locked
-              ? `Nv. ${dungeon.min_hero_level} requerido`
-              : busy
-                ? 'Héroe ocupado'
-                : lowHp
-                  ? 'HP insuficiente'
-                  : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>
-            }
-          </motion.button>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  ReadyBanner — banner sutil cuando hay expedición lista y no estás        *
+ *  en la pestaña "En curso". Click → te lleva allí.                          *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function ReadyBanner({ onSwitch }) {
+  return (
+    <motion.button
+      className="w-full flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl border-2 border-[#16a34a] text-left cursor-pointer
+        bg-[color-mix(in_srgb,#16a34a_6%,var(--surface))]"
+      onClick={onSwitch}
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <PackageOpen size={18} strokeWidth={2} color="#16a34a" />
+      <span className="flex-1 text-[14px] font-bold text-[#16a34a]">¡Tu expedición está lista!</span>
+      <ChevronRight size={16} strokeWidth={2.5} color="#16a34a" />
+    </motion.button>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  DungeonDetailModal — desglose completo al pulsar una card                 *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function DetailRow({ icon: Icon, iconColor, label, value, bonus, bonusColor, warning }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon size={15} strokeWidth={2} color={iconColor} className="flex-shrink-0" />
+        <span className="text-[13px] font-semibold text-text-2">{label}</span>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-[14px] font-bold text-text">{value}</span>
+        {bonus && <span className="text-[11px] font-bold" style={{ color: bonusColor ?? '#16a34a' }}>{bonus}</span>}
+        {warning && (
+          <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#dc2626]">
+            <AlertTriangle size={10} strokeWidth={2.5} />{warning}
+          </span>
         )}
       </div>
     </div>
   )
 }
+
+function DungeonDetailModal({
+  dungeon, onClose, onStart,
+  effectiveMins, baseMins, agilityPct,
+  hpCost, baseHpCost, strReduction,
+  goldMin, goldMax, baseGoldMin, baseGoldMax, atkPct,
+  xpReward, baseXp,
+  equipChance, tacticChance, baseTacticChance, intellBonus,
+  durLoss, durLossBase, defReduction,
+  materialData, isWeekly, weeklyMeta, equipHealth,
+  disabled, disabledReason,
+}) {
+  const meta    = DUNGEON_TYPE_META[dungeon.type]
+  const matMeta = materialData ? MATERIAL_META[materialData.resource] : null
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-lg)] w-full sm:max-w-md max-h-[85vh] overflow-y-auto"
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-surface border-b border-border px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[18px] font-bold text-text">{dungeon.name}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              {meta && <span className="text-[12px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>{meta.label}</span>}
+              <DifficultyDots value={dungeon.difficulty} size={6} />
+            </div>
+          </div>
+          <button className="btn btn--ghost btn--icon flex-shrink-0" onClick={onClose} aria-label="Cerrar"><X size={16} strokeWidth={2} /></button>
+        </div>
+
+        {/* Description */}
+        <div className="px-5 pt-3 pb-2">
+          <p className="text-[13px] text-text-3 leading-[1.5]">{dungeon.description}</p>
+        </div>
+
+        {/* Weekly badge */}
+        {isWeekly && weeklyMeta && (
+          <div className="mx-5 mb-2 px-3 py-2 rounded-lg border flex items-center gap-2"
+            style={{ background: `color-mix(in srgb, ${weeklyMeta.color} 6%, var(--bg))`, borderColor: `color-mix(in srgb, ${weeklyMeta.color} 30%, var(--border))` }}>
+            <Zap size={14} strokeWidth={2.5} color={weeklyMeta.color} />
+            <div>
+              <span className="text-[12px] font-bold" style={{ color: weeklyMeta.color }}>{weeklyMeta.name}</span>
+              <p className="text-[11px] text-text-3">{weeklyMeta.description}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Stats breakdown */}
+        <div className="px-5 py-3 flex flex-col divide-y divide-border">
+          {/* Costes */}
+          <div className="pb-2">
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-1">Costes</p>
+            <DetailRow icon={Clock} iconColor="#6366f1" label="Duración" value={fmtDuration(effectiveMins)}
+              bonus={agilityPct > 0 ? `−${agilityPct}% Agi` : null} />
+            <DetailRow icon={Heart} iconColor="#dc2626" label="Vida" value={`-${hpCost} HP`}
+              bonus={strReduction > 0 ? `−${strReduction} Fza` : null} />
+            {durLoss > 0 && (
+              <DetailRow icon={Wrench} iconColor="#78716c" label="Desgaste" value={`${durLoss} pts`}
+                bonus={defReduction > 0 ? `−${defReduction} Def` : null}
+                warning={equipHealth?.hasDamagedGear ? 'Dañado' : null} />
+            )}
+          </div>
+
+          {/* Recompensas */}
+          <div className="pt-2">
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-1">Recompensas</p>
+            <DetailRow icon={Coins} iconColor="#d97706" label="Oro" value={`${goldMin}–${goldMax}`}
+              bonus={atkPct > 0 ? `+${atkPct}% Atq` : null} bonusColor="#d97706" />
+            <DetailRow icon={Star} iconColor="#0369a1" label="Experiencia" value={`${xpReward} XP`}
+              bonus={atkPct > 0 ? `+${atkPct}% Atq` : null} bonusColor="#0369a1" />
+            <DetailRow icon={Sword} iconColor="#7c3aed" label="Equipo" value={fmtPct(equipChance)} />
+            <DetailRow icon={Brain} iconColor="#0891b2" label="Táctica" value={fmtPct(tacticChance)}
+              bonus={intellBonus > 0 ? `+${intellBonus}% Int` : null} bonusColor="#0891b2" />
+            {materialData && matMeta && (
+              <DetailRow icon={matMeta.Icon} iconColor={matMeta.color} label={matMeta.label}
+                value={`${fmtPct(materialData.chance)} (×${materialData.min}–${materialData.max})`} />
+            )}
+          </div>
+        </div>
+
+        {/* Loot types */}
+        {meta && (
+          <div className="px-5 pb-3">
+            <p className="text-[12px] text-text-3"><span className="font-semibold" style={{ color: meta.color }}>Loot:</span> {meta.loot}</p>
+          </div>
+        )}
+
+        {/* Action */}
+        <div className="sticky bottom-0 bg-surface border-t border-border px-5 py-4">
+          <motion.button
+            className="btn btn--primary btn--full"
+            onClick={() => { onStart(dungeon); onClose() }}
+            disabled={disabled}
+            whileTap={disabled ? {} : { scale: 0.97 }}
+          >
+            {disabledReason ?? <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>}
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  RewardModal — sin cambios                                                 *
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 function RewardModal({ reward, onClose }) {
   return (
@@ -473,18 +576,13 @@ function RewardModal({ reward, onClose }) {
         transition={{ duration: 0.22, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
           <div>
             <p className="text-[17px] font-bold text-text">¡Expedición completada!</p>
             <p className="text-[13px] text-text-3 mt-0.5">Has vuelto con recompensas</p>
           </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar">
-            <X size={16} strokeWidth={2} />
-          </button>
+          <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar"><X size={16} strokeWidth={2} /></button>
         </div>
-
-        {/* Resources */}
         <div className="grid grid-cols-2 gap-3 px-5 py-4">
           <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#d97706_8%,var(--bg))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-xl px-3.5 py-3">
             <Coins size={18} color="#d97706" strokeWidth={2} />
@@ -493,8 +591,7 @@ function RewardModal({ reward, onClose }) {
               <p className="text-[11px] text-text-3 mt-0.5">Oro</p>
               {reward.goldBonus > 0 && (
                 <p className="flex items-center gap-1 text-[10px] font-bold mt-1" style={{ color: '#d97706' }}>
-                  <FlaskConical size={10} strokeWidth={2.5} />
-                  +{reward.goldBonus} poción
+                  <FlaskConical size={10} strokeWidth={2.5} />+{reward.goldBonus} poción
                 </p>
               )}
             </div>
@@ -506,23 +603,19 @@ function RewardModal({ reward, onClose }) {
               <p className="text-[11px] text-text-3 mt-0.5">XP</p>
               {reward.xpBonus > 0 && (
                 <p className="flex items-center gap-1 text-[10px] font-bold mt-1" style={{ color: '#0369a1' }}>
-                  <FlaskConical size={10} strokeWidth={2.5} />
-                  +{reward.xpBonus} poción
+                  <FlaskConical size={10} strokeWidth={2.5} />+{reward.xpBonus} poción
                 </p>
               )}
             </div>
           </div>
           {reward.materialDrop && (() => {
-            const mat  = MATERIAL_META[reward.materialDrop.resource]
+            const mat = MATERIAL_META[reward.materialDrop.resource]
             if (!mat) return null
-            const Icon = mat.Icon
+            const MIcon = mat.Icon
             return (
               <div className="col-span-2 flex items-center gap-2.5 rounded-xl px-3.5 py-3 border"
-                style={{
-                  background:   `color-mix(in srgb, ${mat.color} 8%, var(--bg))`,
-                  borderColor:  `color-mix(in srgb, ${mat.color} 25%, var(--border))`,
-                }}>
-                <Icon size={18} color={mat.color} strokeWidth={2} />
+                style={{ background: `color-mix(in srgb, ${mat.color} 8%, var(--bg))`, borderColor: `color-mix(in srgb, ${mat.color} 25%, var(--border))` }}>
+                <MIcon size={18} color={mat.color} strokeWidth={2} />
                 <div>
                   <p className="text-[18px] font-bold text-text leading-none">+{reward.materialDrop.qty}</p>
                   <p className="text-[11px] text-text-3 mt-0.5">{mat.label}</p>
@@ -531,38 +624,43 @@ function RewardModal({ reward, onClose }) {
             )
           })()}
         </div>
-
-        {/* Footer */}
         <div className="px-5 pb-5">
-          <button className="btn btn--primary btn--full" onClick={onClose}>
-            Continuar
-          </button>
+          <button className="btn btn--primary btn--full" onClick={onClose}>Continuar</button>
         </div>
       </motion.div>
     </div>
   )
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ *
+ *  Dungeons — componente principal                                           *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 function Dungeons() {
   const userId                = useAppStore(s => s.userId)
   const triggerResourceFlash  = useAppStore(s => s.triggerResourceFlash)
   const heroId                = useHeroId()
-  const queryClient = useQueryClient()
-  const { hero, loading: heroLoading } = useHero(heroId)
+  const queryClient           = useQueryClient()
+  const { hero, loading: heroLoading }       = useHero(heroId)
   const { dungeons, loading: dungeonsLoading, weeklyModifier, weeklyLoading } = useDungeons(heroId)
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
-  const { items } = useInventory(heroId)
-  const equipHealth = useEquipmentHealth(items)
-  const [reward, setReward] = useState(null)
-  const [filter, setFilter] = useState('recommended')
-  const [, forceUpdate] = useReducer(x => x + 1, 0)
+  const { items }             = useInventory(heroId)
+  const equipHealth           = useEquipmentHealth(items)
+  const [reward, setReward]   = useState(null)
+  const [filter, setFilter]   = useState(null) // null = pendiente de inicializar
+  const [detailDungeon, setDetailDungeon] = useState(null)
+  const [, forceUpdate]       = useReducer(x => x + 1, 0)
 
-  useEffect(() => {
-    const id = setInterval(forceUpdate, 10000)
-    return () => clearInterval(id)
-  }, [])
+  // Tick cada 10s para actualizar timers
+  useEffect(() => { const id = setInterval(forceUpdate, 10000); return () => clearInterval(id) }, [])
 
   useWakeLock(!!expedition)
+
+  // Auto-seleccionar filtro al montar: "En curso" si hay expedición, si no "Armas"
+  useEffect(() => {
+    if (filter !== null) return
+    setFilter(expedition ? 'active' : 'weapons')
+  }, [expedition, filter])
 
   const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
   const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
@@ -578,11 +676,67 @@ function Dungeons() {
     [dungeons, heroLevel],
   )
 
-  // Si el filtro activo ya no tiene sentido, volver a recomendadas
-  useEffect(() => {
-    if (filter === 'locked' && lockedCount === 0) setFilter('recommended')
-    if (filter === 'all') setFilter('recommended')
-  }, [filter, lockedCount])
+  // Timer para saber si la expedición está lista (para badge y banner)
+  const expeditionTimer = useExpeditionTimer(expedition ?? null)
+  const expeditionReady = expeditionTimer.canCollect
+
+  // Dungeon activa (para ActiveExpeditionView)
+  const activeDungeon = useMemo(
+    () => expedition ? dungeons?.find(d => d.id === expedition.dungeon_id) : null,
+    [expedition, dungeons],
+  )
+
+  // Helpers de stat por mazmorra
+  function computePreview(d) {
+    const isWeekly   = weeklyModifier?.dungeon_id === d.id
+    const weekMeta   = isWeekly ? weeklyModifier?.modifier : null
+    const durMult    = isWeekly && weekMeta?.durationMult ? weekMeta.durationMult : 1
+    const effectiveMins = Math.round(d.duration_minutes * agilityFactor * durMult)
+    const baseMins      = d.duration_minutes
+    const agilityPct    = agilityFactor < 1 ? Math.round((1 - agilityFactor) * 100) : 0
+
+    const hpCost     = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, hero?.strength ?? 0)
+    const baseHpCost = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, 0)
+    const strReduction = baseHpCost > hpCost ? baseHpCost - hpCost : 0
+
+    const goldMin    = Math.round(d.gold_min * atkMultiplier)
+    const goldMax    = Math.round(d.gold_max * atkMultiplier)
+    const atkPct     = atkMultiplier > 1 ? Math.round((atkMultiplier - 1) * 100) : 0
+    const xpReward   = Math.round(d.experience_reward * atkMultiplier)
+
+    const equipChance     = itemDropChance(d.difficulty)
+    const tacticChance    = tacticDropChance(hero?.intelligence ?? 0)
+    const baseTacticCh    = tacticDropChance(0)
+    const intellBonus     = tacticChance > baseTacticCh ? Math.round((tacticChance - baseTacticCh) * 100) : 0
+
+    const durLoss     = calcDurabilityLoss(d.difficulty, hero?.defense ?? 0)
+    const durLossBase = calcDurabilityLoss(d.difficulty, 0)
+    const defReduction = durLossBase > durLoss ? durLossBase - durLoss : 0
+
+    const materialData = MATERIAL_DROP_DATA[d.name] ?? null
+
+    const heroHpNow   = interpolateHp(hero, Date.now())
+    const locked      = heroLevel < d.min_hero_level
+    const busy        = (expedition ? 'exploring' : hero?.status ?? 'idle') !== 'idle'
+    const lowHp       = !locked && !busy && (heroHpNow ?? 0) <= hpCost
+
+    let disabledReason = null
+    if (locked)   disabledReason = `Nv. ${d.min_hero_level} requerido`
+    else if (busy) disabledReason = 'Héroe ocupado'
+    else if (lowHp) disabledReason = 'HP insuficiente'
+
+    return {
+      effectiveMins, baseMins, agilityPct,
+      hpCost, baseHpCost, strReduction,
+      goldMin, goldMax, baseGoldMin: d.gold_min, baseGoldMax: d.gold_max, atkPct,
+      xpReward, baseXp: d.experience_reward,
+      equipChance, tacticChance, baseTacticChance: baseTacticCh, intellBonus,
+      durLoss, durLossBase, defReduction,
+      materialData, isWeekly, weeklyMeta: weekMeta,
+      isShort: d.duration_minutes <= 20,
+      locked, busy, lowHp, disabled: !!disabledReason, disabledReason,
+    }
+  }
 
   async function handleStart(dungeon) {
     const now = Date.now()
@@ -595,6 +749,8 @@ function Dungeons() {
       started_at: new Date(now).toISOString(),
       ends_at: new Date(now + effectiveMs).toISOString(),
     })
+    setFilter('active')
+    setDetailDungeon(null)
 
     try {
       const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
@@ -604,17 +760,19 @@ function Dungeons() {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     } catch (err) {
       setExpedition(null)
+      setFilter('weapons')
       notify.error(err.message)
     }
   }
 
   function handleCollect(data) {
     setReward({ ...(data.rewards ?? {}), materialDrop: data.materialDrop ?? null })
-    if (data.drop?.item_catalog)      notify.itemDrop(data.drop.item_catalog)
-    if (data.drop?.full)              notify.bagFull()
+    if (data.drop?.item_catalog)        notify.itemDrop(data.drop.item_catalog)
+    if (data.drop?.full)                notify.bagFull()
     if (data.tacticDrop?.tactic_catalog) notify.tacticDrop(data.tacticDrop.tactic_catalog)
     triggerResourceFlash()
     setExpedition(null)
+    setFilter('weapons')
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
@@ -627,7 +785,6 @@ function Dungeons() {
   }
 
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
-  const heroHpNow  = interpolateHp(hero, Date.now())
 
   return (
     <div className="dungeons-section">
@@ -637,28 +794,56 @@ function Dungeons() {
         document.body
       )}
 
+      {/* Detail modal */}
+      <AnimatePresence>
+        {detailDungeon && (() => {
+          const p = computePreview(detailDungeon)
+          return createPortal(
+            <DungeonDetailModal
+              dungeon={detailDungeon}
+              onClose={() => setDetailDungeon(null)}
+              onStart={handleStart}
+              equipHealth={equipHealth}
+              {...p}
+            />,
+            document.body
+          )
+        })()}
+      </AnimatePresence>
+
       {/* Pociones pre-expedición */}
-      <div className="mb-3.5">
-        <PotionPanel
-          heroId={heroId}
-          userId={userId}
-          activeEffects={hero?.active_effects}
-          effectTypes={EXPEDITION_POTION_EFFECTS}
-          title="Pociones de expedición"
-          isExploring={heroStatus === 'exploring'}
-        />
-      </div>
+      {filter !== 'active' && (
+        <div className="mb-3.5">
+          <PotionPanel
+            heroId={heroId}
+            userId={userId}
+            activeEffects={hero?.active_effects}
+            effectTypes={EXPEDITION_POTION_EFFECTS}
+            title="Pociones de expedición"
+            isExploring={heroStatus === 'exploring'}
+          />
+        </div>
+      )}
+
+      {/* Ready banner — cuando no estás en "En curso" pero hay expedición lista */}
+      {filter !== 'active' && expedition && expeditionReady && (
+        <ReadyBanner onSwitch={() => setFilter('active')} />
+      )}
 
       {/* Filter bar */}
       <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-        {[...FILTERS_BASE, ...(lockedCount > 0 ? [{ id: 'locked', label: 'Bloqueadas', icon: Lock }] : [])].map(f => {
+        {[...FILTERS, ...(lockedCount > 0 ? [{ id: 'locked', label: 'Bloqueadas', icon: Lock }] : [])].map(f => {
           const active = filter === f.id
-          const FIcon = f.icon
-          const badge = f.id === 'locked' ? lockedCount : null
+          const FIcon  = f.icon
+          const isActiveFilter = f.id === 'active'
+          // Badge indicador en "En curso"
+          const hasExpedition = isActiveFilter && !!expedition
+          const dotColor = hasExpedition ? (expeditionReady ? '#16a34a' : 'var(--blue-500)') : null
+
           return (
             <button
               key={f.id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap border transition-colors
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap border transition-colors
                 ${active
                   ? 'bg-[color-mix(in_srgb,var(--blue-500)_12%,var(--surface))] border-[var(--blue-300)] text-[var(--blue-600)]'
                   : 'bg-surface border-border text-text-3 hover:text-text-2 hover:border-border-2'
@@ -667,59 +852,74 @@ function Dungeons() {
             >
               <FIcon size={14} strokeWidth={2} />
               {f.label}
-              {badge != null && (
-                <span className="text-[11px] bg-text-3/15 text-text-3 rounded-full px-1.5 py-0 font-bold leading-[18px]">
-                  {badge}
-                </span>
+              {f.id === 'locked' && <span className="text-[11px] bg-text-3/15 text-text-3 rounded-full px-1.5 py-0 font-bold leading-[18px]">{lockedCount}</span>}
+              {dotColor && !active && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface animate-pulse" style={{ background: dotColor }} />
               )}
             </button>
           )
         })}
       </div>
 
-      {/* Empty state */}
-      {filtered.length === 0 && (
-        <div className="text-text-3 text-[14px] p-8 text-center">
-          {filter === 'recommended'
-            ? 'No hay mazmorras recomendadas para tu nivel actual.'
-            : filter === 'materials'
-              ? 'No hay mazmorras de materiales disponibles para tu nivel.'
-              : filter === 'locked'
-                ? 'Todas las mazmorras están desbloqueadas.'
-                : 'No se encontraron mazmorras.'}
-        </div>
+      {/* ── Vista "En curso" ── */}
+      {filter === 'active' && (
+        <ActiveExpeditionView
+          expedition={expedition}
+          activeDungeon={activeDungeon}
+          onCollect={handleCollect}
+          weeklyModifier={weeklyModifier}
+        />
       )}
 
-      {/* Grid */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-3.5"
-        variants={listVariants}
-        initial="initial"
-        animate="animate"
-        key={filter}
-      >
-        {filtered.map(dungeon => (
-          <motion.div key={dungeon.id} variants={cardVariants}>
-            <DungeonCard
-              dungeon={dungeon}
-              heroLevel={heroLevel}
-              heroStatus={heroStatus}
-              onStart={handleStart}
-              expedition={expedition}
-              onCollect={handleCollect}
-              heroHpNow={heroHpNow}
-              heroMaxHp={hero?.max_hp ?? 100}
-              agilityFactor={agilityFactor}
-              atkMultiplier={atkMultiplier}
-              heroStrength={hero?.strength ?? 0}
-              heroDefense={hero?.defense ?? 0}
-              heroIntelligence={hero?.intelligence ?? 0}
-              weeklyModifier={weeklyModifier}
-              equipHealth={equipHealth}
-            />
+      {/* ── Vista normal: grid de mazmorras ── */}
+      {filter !== 'active' && (
+        <>
+          {filtered.length === 0 && (
+            <div className="text-text-3 text-[14px] p-8 text-center">
+              {filter === 'fragments' ? 'No hay mazmorras de fragmentos para tu nivel.'
+                : filter === 'essence' ? 'No hay mazmorras de esencia para tu nivel.'
+                : filter === 'quick' ? 'No hay expediciones rápidas disponibles.'
+                : filter === 'locked' ? 'Todas las mazmorras están desbloqueadas.'
+                : 'No se encontraron mazmorras.'}
+            </div>
+          )}
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 gap-3"
+            variants={listVariants}
+            initial="initial"
+            animate="animate"
+            key={filter}
+          >
+            {filtered.map(dungeon => {
+              const p = computePreview(dungeon)
+              return (
+                <motion.div key={dungeon.id} variants={cardVariants}>
+                  <DungeonCard
+                    dungeon={dungeon}
+                    effectiveMins={p.effectiveMins}
+                    hpCost={p.hpCost}
+                    goldMin={p.goldMin}
+                    goldMax={p.goldMax}
+                    xpReward={p.xpReward}
+                    equipChance={p.equipChance}
+                    tacticChance={p.tacticChance}
+                    materialData={p.materialData}
+                    isWeekly={p.isWeekly}
+                    weeklyMeta={p.weeklyMeta}
+                    isShort={p.isShort}
+                    locked={p.locked}
+                    busy={p.busy}
+                    lowHp={p.lowHp}
+                    onStart={handleStart}
+                    onDetail={setDetailDungeon}
+                  />
+                </motion.div>
+              )
+            })}
           </motion.div>
-        ))}
-      </motion.div>
+        </>
+      )}
     </div>
   )
 }

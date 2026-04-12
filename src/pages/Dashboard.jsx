@@ -9,6 +9,7 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
 import { usePotions } from '../hooks/usePotions'
+import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
@@ -199,6 +200,7 @@ function Dashboard({ session }) {
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
   const { craftingMap: potionCraftingMap } = usePotions(session.user.id)
+  useRealtimeSync(session.user.id, heroId)
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)

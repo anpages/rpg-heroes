@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources } from './_validate.js'
 import { trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs, TRAINING_ROOM_MAX_LEVEL } from '../src/lib/gameConstants.js'
 import { TRAINING_ROOM_STATS } from './_constants.js'
 
@@ -36,33 +35,14 @@ export default async function handler(req, res) {
 
   const cost = trainingRoomUpgradeCost(room.level)
 
-  // Verificar y descontar recursos
-  const { data: resources, error: resourcesError } = await supabase
-    .from('resources')
-    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  // Deducir recursos (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', {
+    p_player_id: user.id, p_wood: cost.wood, p_iron: cost.iron,
+  })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: 'Recursos insuficientes' })
 
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-
-  if (snap.wood < cost.wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (snap.iron < cost.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
-
-  const { error: updateResourcesErr } = await supabase
-    .from('resources')
-    .update({
-      wood: snap.wood - cost.wood,
-      iron: snap.iron - cost.iron,
-      mana: snap.mana,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-
-  if (updateResourcesErr) return res.status(500).json({ error: updateResourcesErr.message })
-
-  const endsAt = new Date(snap.nowMs + trainingRoomUpgradeDurationMs(room.level)).toISOString()
+  const endsAt = new Date(Date.now() + trainingRoomUpgradeDurationMs(room.level)).toISOString()
 
   const { error: upgradeErr } = await supabase
     .from('training_rooms')

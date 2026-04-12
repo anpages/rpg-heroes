@@ -18,7 +18,6 @@ export function useBountyState(heroId) {
     queryFn:  () => apiPost('/api/bounty-state', { heroId }),
     enabled:  !!heroId,
     staleTime: 10_000,
-    refetchInterval: 30_000,
   })
 
   return {

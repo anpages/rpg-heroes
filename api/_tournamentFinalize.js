@@ -7,7 +7,6 @@ import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { tournamentRoundRewards } from './_tournament.js'
-import { snapshotResources } from './_validate.js'
 import { computeRatingUpdate, tournamentDifficulty } from './_rating.js'
 import { rollTacticDrop } from './_loot.js'
 
@@ -76,19 +75,7 @@ export async function finalizeTournamentFight({
   let rewards = null
   if (won) {
     rewards = tournamentRoundRewards(nextRound, champion)
-    const { data: resources } = await supabase
-      .from('resources')
-      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-      .eq('player_id', user.id)
-      .single()
-
-    if (resources) {
-      const snap = snapshotResources(resources)
-      await supabase
-        .from('resources')
-        .update({ gold: snap.gold + rewards.gold, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-        .eq('player_id', user.id)
-    }
+    await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: rewards.gold })
 
     const newXp      = hero.experience + rewards.experience
     const xpForLevel = xpRequiredForLevel(hero.level)

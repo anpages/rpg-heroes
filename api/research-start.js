@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources } from './_validate.js'
 import { RESEARCH_NODES } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -73,39 +72,16 @@ export default async function handler(req, res) {
     }
   }
 
-  // Snapshot de recursos y verificar costes
-  const { data: resources, error: resourcesError } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-
+  // Deducir recursos (atómico via RPC)
   const { cost } = node
-  if (snap.gold < cost.gold) return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (snap.iron < cost.iron) return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (snap.mana < cost.mana) return res.status(402).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
-
-  const { error: updateError, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold: snap.gold - cost.gold,
-      iron: snap.iron - cost.iron,
-      wood: snap.wood,
-      mana: snap.mana - cost.mana,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (updateError) return res.status(500).json({ error: updateError.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', {
+    p_player_id: user.id, p_gold: cost.gold, p_iron: cost.iron, p_mana: cost.mana,
+  })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: 'Recursos insuficientes' })
 
   // Calcular ends_at
-  const endsAt = new Date(snap.nowMs + node.duration_hours * 3_600_000)
+  const endsAt = new Date(Date.now() + node.duration_hours * 3_600_000)
 
   // Upsert (si había una fila activa expirada o nueva)
   const { error: insertError } = await supabase

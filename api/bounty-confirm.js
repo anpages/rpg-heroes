@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { interpolateHP } from './_hp.js'
 import { getEffectiveStats } from './_stats.js'
 import {
@@ -95,26 +95,8 @@ export default async function handler(req, res) {
     const max = BOUNTY_CONSOLATION_FRAGMENTS.max
     fragmentsGained = min + Math.floor(Math.random() * (max - min + 1))
 
-    const { data: resources } = await supabase
-      .from('resources')
-      .select('gold, iron, wood, mana, fragments, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-      .eq('player_id', user.id)
-      .single()
-
-    if (resources) {
-      const snap = snapshotResources(resources)
-      await supabase
-        .from('resources')
-        .update({
-          gold:              snap.gold,
-          iron:              snap.iron,
-          wood:              snap.wood,
-          mana:              snap.mana,
-          fragments:         (resources.fragments ?? 0) + fragmentsGained,
-          last_collected_at: snap.nowIso,
-        })
-        .eq('player_id', user.id)
-        .eq('last_collected_at', snap.prevCollectedAt)
+    if (fragmentsGained > 0) {
+      await supabase.rpc('add_resources', { p_player_id: user.id, p_fragments: fragmentsGained })
     }
   }
 

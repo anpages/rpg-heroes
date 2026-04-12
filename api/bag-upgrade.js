@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources, effectiveBagLimit } from './_validate.js'
+import { effectiveBagLimit } from './_validate.js'
 import { BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, BAG_SLOTS_PER_UPGRADE } from './_constants.js'
 
 export default async function handler(req, res) {
@@ -21,27 +21,18 @@ export default async function handler(req, res) {
   }
 
   const cost = BAG_UPGRADE_COSTS[currentLevel]
-  const snap = snapshotResources(resources)
 
-  if (snap.gold < cost) {
-    return res.status(409).json({ error: `Oro insuficiente (necesitas ${cost})` })
-  }
+  // Deducir oro (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: cost })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(409).json({ error: `Oro insuficiente (necesitas ${cost})` })
 
-  const { error: updateErr, count } = await supabase
-    .from('resources')
-    .update({
-      gold: snap.gold - cost,
-      iron: snap.iron,
-      wood: snap.wood,
-      mana: snap.mana,
-      bag_extra_slots: currentLevel + 1,
-      last_collected_at: snap.nowIso,
-    })
+  // Incrementar contador
+  const { error: updateErr } = await supabase.from('resources')
+    .update({ bag_extra_slots: currentLevel + 1 })
     .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
 
   if (updateErr) return res.status(500).json({ error: updateErr.message })
-  if (count === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   const newLimit = effectiveBagLimit(currentLevel + 1)
 

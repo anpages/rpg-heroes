@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { SHOP_MAX_STOCK, getItemMinLevel } from './_constants.js'
-import { isUUID, snapshotResources, effectiveBagLimit } from './_validate.js'
+import { isUUID, effectiveBagLimit } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -49,35 +49,20 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Stock agotado para hoy' })
   }
 
-  // Verificar oro — interpolar acumulado idle para no perder el gold generado
-  const { data: resources } = await supabase
-    .from('resources').select('*').eq('player_id', user.id).single()
-
-  const snap = resources ? snapshotResources(resources) : { gold: 0, iron: 0, wood: 0, mana: 0, nowIso: new Date().toISOString() }
-
-  if (snap.gold < shopEntry.gold_price) {
-    return res.status(409).json({ error: 'Oro insuficiente' })
-  }
-
   // Verificar inventario
-  const { count: bagCount } = await supabase
-    .from('inventory_items')
-    .select('id', { count: 'exact', head: true })
-    .eq('hero_id', heroId)
-    .is('equipped_slot', null)
+  const [{ data: resources }, { count: bagCount }] = await Promise.all([
+    supabase.from('resources').select('bag_extra_slots').eq('player_id', user.id).single(),
+    supabase.from('inventory_items').select('id', { count: 'exact', head: true }).eq('hero_id', heroId).is('equipped_slot', null),
+  ])
 
   if ((bagCount ?? 0) >= effectiveBagLimit(resources?.bag_extra_slots)) {
     return res.status(409).json({ error: 'Inventario lleno' })
   }
 
-  const { error: resErr, count: resCount } = await supabase
-    .from('resources')
-    .update({ gold: snap.gold - shopEntry.gold_price, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (resErr) return res.status(500).json({ error: resErr.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos actualizados por otra operación, reintenta' })
+  // Deducir oro (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: shopEntry.gold_price })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(409).json({ error: 'Oro insuficiente' })
 
   // Comprobar si auto-equipar: slot libre → siempre; slot ocupado → solo si es mejor
   const STAT_KEYS = ['attack_bonus', 'defense_bonus', 'hp_bonus', 'strength_bonus', 'agility_bonus', 'intelligence_bonus']

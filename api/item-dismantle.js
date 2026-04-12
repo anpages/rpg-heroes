@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { DISMANTLE_GOLD_TABLE as DISMANTLE_GOLD } from './_constants.js'
 
 export default async function handler(req, res) {
@@ -32,31 +32,14 @@ export default async function handler(req, res) {
   const baseRate  = DISMANTLE_GOLD[item.item_catalog.rarity] ?? DISMANTLE_GOLD.common
   const goldGained = baseRate * (item.item_catalog.tier ?? 1)
 
-  // Obtener recursos actuales con interpolación
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-
-  // Desmantelar item y añadir oro
-  const [deleteResult, updateResult] = await Promise.all([
+  // Desmantelar item y añadir oro en paralelo
+  const [deleteResult, addResult] = await Promise.all([
     supabase.from('inventory_items').delete().eq('id', itemId),
-    supabase.from('resources').update({
-      gold: snap.gold + goldGained,
-      iron: snap.iron,
-      wood: snap.wood,
-      mana: snap.mana,
-      last_collected_at: snap.nowIso,
-    }).eq('player_id', user.id),
+    supabase.rpc('add_resources', { p_player_id: user.id, p_gold: goldGained }),
   ])
 
   if (deleteResult.error) return res.status(500).json({ error: deleteResult.error.message })
-  if (updateResult.error) return res.status(500).json({ error: updateResult.error.message })
+  if (addResult.error) return res.status(500).json({ error: addResult.error.message })
 
   return res.status(200).json({ ok: true, gold: goldGained })
 }

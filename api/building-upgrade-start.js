@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import {
   computeBaseLevel,
   buildingUpgradeCost,
@@ -71,41 +71,22 @@ export default async function handler(req, res) {
   const cost       = buildingUpgradeCost(building.type, building.level)
   const durationMs = buildingUpgradeDurationMs(building.level, building.type)
 
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('wood, iron, mana, wood_rate, iron_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  const endsAt = new Date(Date.now() + durationMs).toISOString()
 
-  if (!resources) return res.status(404).json({ error: 'Recursos no encontrados' })
+  // Deducir recursos (atómico via RPC)
+  const deductArgs = { p_player_id: user.id }
+  if (cost.wood) deductArgs.p_wood = cost.wood
+  if (cost.iron) deductArgs.p_iron = cost.iron
+  if (cost.mana) deductArgs.p_mana = cost.mana
 
-  const snap = snapshotResources(resources)
-
-  if (cost.wood && snap.wood < cost.wood) return res.status(409).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
-  if (cost.iron && snap.iron < cost.iron) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (cost.mana && snap.mana < cost.mana) return res.status(409).json({ error: `Maná insuficiente (necesitas ${cost.mana})` })
-
-  const endsAt = new Date(snap.nowMs + durationMs).toISOString()
-
-  // Descontar recursos (snapshot en este momento, optimistic lock via last_collected_at)
-  const { error: resourcesError, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      wood: snap.wood - (cost.wood ?? 0),
-      iron: snap.iron - (cost.iron ?? 0),
-      mana: snap.mana - (cost.mana ?? 0),
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (resourcesError) return res.status(500).json({ error: resourcesError.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', deductArgs)
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(409).json({ error: 'Recursos insuficientes' })
 
   // Iniciar mejora
   const { error: buildingError } = await supabase
     .from('buildings')
-    .update({ upgrade_started_at: snap.nowIso, upgrade_ends_at: endsAt })
+    .update({ upgrade_started_at: new Date().toISOString(), upgrade_ends_at: endsAt })
     .eq('id', buildingId)
 
   if (buildingError) return res.status(500).json({ error: buildingError.message })

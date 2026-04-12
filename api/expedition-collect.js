@@ -3,7 +3,7 @@ import { getEffectiveStats } from './_stats.js'
 import { attackMultiplier as calcAttackMultiplier, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollTacticDrop, rollMaterialDrop } from './_loot.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 import { interpolateHP } from './_hp.js'
 
@@ -36,15 +36,6 @@ export default async function handler(req, res) {
 
   if (heroError || !hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-
-  // Obtener recursos actuales — se hace snapshot de todos los recursos pasivos antes de mover last_collected_at
-  const { data: resources, error: resourcesError } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, fragments, essence, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
 
   // Obtener dungeon (necesario para peligro y loot)
   const { data: dungeon } = await supabase
@@ -99,21 +90,11 @@ export default async function handler(req, res) {
     ? { ...baseMaterialDrop, qty: Math.round(baseMaterialDrop.qty * mods.materialMult) }
     : baseMaterialDrop
 
-  const snap = snapshotResources(resources)
-  const { error: updateResourcesError } = await supabase
-    .from('resources')
-    .update({
-      gold:      snap.gold + finalGold,
-      iron:      snap.iron,
-      wood:      snap.wood,
-      mana:      snap.mana,
-      fragments: (resources.fragments ?? 0) + (materialDrop?.resource === 'fragments' ? materialDrop.qty : 0),
-      essence:   (resources.essence   ?? 0) + (materialDrop?.resource === 'essence'   ? materialDrop.qty : 0),
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-
-  if (updateResourcesError) return res.status(500).json({ error: updateResourcesError.message })
+  const addArgs = { p_player_id: user.id, p_gold: finalGold }
+  if (materialDrop?.resource === 'fragments') addArgs.p_fragments = materialDrop.qty
+  if (materialDrop?.resource === 'essence')   addArgs.p_essence   = materialDrop.qty
+  const { error: addResErr } = await supabase.rpc('add_resources', addArgs)
+  if (addResErr) return res.status(500).json({ error: addResErr.message })
 
   // Añadir XP y subir nivel si corresponde
   const newXp = hero.experience + finalXp

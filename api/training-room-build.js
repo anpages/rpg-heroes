@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources } from './_validate.js'
 import {
   computeBaseLevel,
   TRAINING_ROOM_BUILD_COST,
@@ -47,33 +46,14 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Ya hay una sala en construcción' })
   }
 
-  // Verificar y descontar recursos (con interpolación idle)
-  const { data: resources, error: resourcesError } = await supabase
-    .from('resources')
-    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  // Deducir recursos (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', {
+    p_player_id: user.id, p_wood: TRAINING_ROOM_BUILD_COST.wood, p_iron: TRAINING_ROOM_BUILD_COST.iron,
+  })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: 'Recursos insuficientes' })
 
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-
-  if (snap.wood < TRAINING_ROOM_BUILD_COST.wood) return res.status(402).json({ error: 'Madera insuficiente' })
-  if (snap.iron < TRAINING_ROOM_BUILD_COST.iron) return res.status(402).json({ error: 'Hierro insuficiente' })
-
-  const { error: updateErr } = await supabase
-    .from('resources')
-    .update({
-      wood: snap.wood - TRAINING_ROOM_BUILD_COST.wood,
-      iron: snap.iron - TRAINING_ROOM_BUILD_COST.iron,
-      mana: snap.mana,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-
-  if (updateErr) return res.status(500).json({ error: updateErr.message })
-
-  const endsAt = new Date(snap.nowMs + TRAINING_ROOM_BUILD_TIME_MS).toISOString()
+  const endsAt = new Date(Date.now() + TRAINING_ROOM_BUILD_TIME_MS).toISOString()
 
   const { error: insertErr } = await supabase
     .from('training_rooms')

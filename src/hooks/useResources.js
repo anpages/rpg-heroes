@@ -33,8 +33,6 @@ export function useResources(userId) {
       }
     },
     enabled:         !!userId,
-    staleTime:       55_000,
-    refetchInterval: 60_000,
   })
 
   return { resources, loading, refetch }

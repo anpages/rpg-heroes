@@ -18,7 +18,6 @@ import { floorRewards } from './_combat.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { rollItemDrop, rollTacticDrop, floorToDifficulty } from './_loot.js'
 import { progressMissions } from './_missions.js'
-import { snapshotResources } from './_validate.js'
 import { computeRatingUpdate, towerDifficulty } from './_rating.js'
 
 export async function finalizeTowerAttempt({
@@ -110,21 +109,9 @@ export async function finalizeTowerAttempt({
 
     rewards = floorRewards(targetFloor)
 
-    // Oro — interpolar idle antes de sumar
-    const { data: resources } = await supabase
-      .from('resources')
-      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-      .eq('player_id', user.id)
-      .single()
-
-    if (resources) {
-      const snap = snapshotResources(resources)
-      const { error: resError } = await supabase
-        .from('resources')
-        .update({ gold: snap.gold + rewards.gold, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-        .eq('player_id', user.id)
-      if (resError) return { error: resError.message, status: 500 }
-    }
+    // Oro (atómico via RPC)
+    const { error: resError } = await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: rewards.gold })
+    if (resError) return { error: resError.message, status: 500 }
 
     // XP
     const newXp      = hero.experience + rewards.experience

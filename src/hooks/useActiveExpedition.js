@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
@@ -25,21 +25,8 @@ export function useActiveExpedition(heroId) {
     staleTime: 10_000,
   })
 
-  // Realtime: trigger refetch en cualquier cambio de expedición del héroe
-  useEffect(() => {
-    if (!heroId) return
-    const channel = supabase
-      .channel(`expeditions:${heroId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'expeditions', filter: `hero_id=eq.${heroId}` },
-        () => refetch()
-      )
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [heroId, refetch])
+  // Realtime ahora gestionado por useRealtimeSync (centralizado en Dashboard)
 
-  // Para optimistic updates: sobreescribe la caché sin esperar al servidor
   const setExpedition = useCallback((value) => {
     queryClient.setQueryData(key, value)
   }, [queryClient, key])

@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import {
   bountyRegenCost,
   BOUNTY_REGEN_MAX,
@@ -51,50 +51,21 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'No puedes regenerar más veces hoy' })
   }
 
-  // Verificar oro (con interpolación idle)
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  // Deducir oro (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: cost })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  if (!ok) return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost})` })
 
-  if (!resources) return res.status(500).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-  if (snap.gold < cost) {
-    return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost})` })
-  }
-
-  // Rolar pool nuevo — sin incluir slots repetidos con el pool actual, mejor
-  // usar el rolado estándar (el usuario quería variedad, no continuidad)
+  // Rolar pool nuevo
   const newRoutes = rollPool()
 
   // Actualizar fila: pool nuevo + regens_today++ (dejamos reset_at intacto)
   const { error: updateError } = await supabase
     .from('bounty_hunts')
-    .update({
-      routes:       newRoutes,
-      regens_today: regensUsed + 1,
-    })
+    .update({ routes: newRoutes, regens_today: regensUsed + 1 })
     .eq('hero_id', heroId)
 
   if (updateError) return res.status(500).json({ error: updateError.message })
-
-  // Descontar oro — con guard optimistic del last_collected_at
-  const { error: resError, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold:              snap.gold - cost,
-      iron:              snap.iron,
-      wood:              snap.wood,
-      mana:              snap.mana,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (resError) return res.status(500).json({ error: resError.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
 
   return res.status(200).json({
     ok:          true,

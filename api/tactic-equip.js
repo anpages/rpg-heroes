@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { TACTIC_SWAP_COST } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -48,18 +48,9 @@ export default async function handler(req, res) {
   // Cobrar gold si es un cambio (no si es la primera vez que equipa en un slot vacio)
   const isSwap = heroTactic.slot_index !== null && targetSlot !== null
   if (isSwap && TACTIC_SWAP_COST > 0) {
-    const { data: resources } = await supabase
-      .from('resources').select('*').eq('player_id', user.id).single()
-    const snap = snapshotResources(resources)
-    if (snap.gold < TACTIC_SWAP_COST) {
-      return res.status(409).json({ error: `Necesitas ${TACTIC_SWAP_COST} oro para cambiar la tactica de slot` })
-    }
-    const { error: resErr, count } = await supabase
-      .from('resources')
-      .update({ gold: snap.gold - TACTIC_SWAP_COST, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-      .eq('player_id', user.id)
-      .eq('last_collected_at', snap.prevCollectedAt)
-    if (resErr || count === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
+    const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: TACTIC_SWAP_COST })
+    if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+    if (!ok) return res.status(409).json({ error: `Necesitas ${TACTIC_SWAP_COST} oro para cambiar la tactica de slot` })
   }
 
   // Si el slot destino ya tiene otra tactica, desequiparla

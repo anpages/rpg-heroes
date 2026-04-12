@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { interpolateHP } from './_hp.js'
 import { getEffectiveStats } from './_stats.js'
 import {
@@ -69,18 +69,6 @@ export default async function handler(req, res) {
     })
   }
 
-  // Recursos (con interpolación idle)
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (!resources) return res.status(500).json({ error: 'Recursos no encontrados' })
-
-  const snap = snapshotResources(resources)
-  if (snap.gold < BOUNTY_COST.gold) return res.status(402).json({ error: `Oro insuficiente (necesitas ${BOUNTY_COST.gold})` })
-
   const endsAt = new Date(nowMs + BOUNTY_DURATION_MIN * 60_000)
   const hpAfter = Math.max(1, currentHp - hpCost)
 
@@ -102,20 +90,9 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El héroe ya está ocupado' })
   }
 
-  // Descontar recursos (guard optimistic por last_collected_at)
-  const { error: resError, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold:              snap.gold - BOUNTY_COST.gold,
-      iron:              snap.iron,
-      wood:              snap.wood,
-      mana:              snap.mana,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (resError || resCount === 0) {
+  // Deducir oro (atómico via RPC)
+  const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: BOUNTY_COST.gold })
+  if (rpcErr || !ok) {
     // Rollback lock del héroe si falla el descuento de recursos
     await supabase
       .from('heroes')
@@ -126,7 +103,7 @@ export default async function handler(req, res) {
         status_ends_at:     null,
       })
       .eq('id', hero.id)
-    return res.status(409).json({ error: resError?.message ?? 'Recursos desincronizados, reintenta' })
+    return res.status(409).json({ error: rpcErr?.message ?? 'Oro insuficiente' })
   }
 
   // Marcar ruta como usada (copiar array, flip used, update jsonb)

@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { snapshotResources } from './_validate.js'
 import { MAX_POTION_STACK } from './_constants.js'
 import { LAB_INVENTORY_BASE, LAB_INVENTORY_PER_UPGRADE } from '../src/lib/gameConstants.js'
 
@@ -37,7 +36,7 @@ export default async function handler(req, res) {
     supabase.from('player_potions').select('quantity').eq('player_id', user.id).eq('potion_id', potionId).maybeSingle(),
     supabase.from('player_potions').select('quantity').eq('player_id', user.id),
     supabase.from('player_potion_crafting').select('potion_id').eq('player_id', user.id),
-    supabase.from('resources').select('gold, iron, wood, mana, coal, fiber, arcane_dust, herbs, flowers, fragments, essence, last_collected_at, lab_inventory_upgrades').eq('player_id', user.id).single(),
+    supabase.from('resources').select('lab_inventory_upgrades').eq('player_id', user.id).single(),
   ])
 
   const currentQty      = stockRes.data?.quantity ?? 0
@@ -64,19 +63,14 @@ export default async function handler(req, res) {
   const resourceInputs = recipeItems.filter(i => i.resource)
   const itemInputs     = recipeItems.filter(i => i.item)
 
-  const snap = snapshotResources(resources)
+  // ── Deducir recursos (atómico via RPC) ──────────────────────────────────────
+  if (resourceInputs.length > 0) {
+    const deductArgs = { p_player_id: user.id }
+    for (const { resource, qty } of resourceInputs) deductArgs[`p_${resource}`] = qty
 
-  // ── Validar recursos ────────────────────────────────────────────────────────
-  const labels = {
-    iron: 'Hierro', wood: 'Madera', mana: 'Maná', herbs: 'Hierbas',
-    coal: 'Carbón', fiber: 'Fibra', arcane_dust: 'Polvo Arcano', flowers: 'Flores',
-    fragments: 'Fragmentos', essence: 'Esencia', gold: 'Oro',
-  }
-
-  for (const { resource, qty } of resourceInputs) {
-    if ((snap[resource] ?? 0) < qty) {
-      return res.status(402).json({ error: `${labels[resource] ?? resource} insuficiente` })
-    }
+    const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', deductArgs)
+    if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+    if (!ok) return res.status(409).json({ error: 'Recursos insuficientes' })
   }
 
   // ── Validar items procesados ────────────────────────────────────────────────
@@ -107,31 +101,6 @@ export default async function handler(req, res) {
 
   const craftMs = (potion.craft_minutes ?? 30) * 60 * 1000
   const craftEndsAt = new Date(Date.now() + craftMs).toISOString()
-
-  // ── Deducir recursos (con retry para evitar 409 concurrente) ─────────────
-  if (resourceInputs.length > 0) {
-    let resourcesOk = false
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const s = attempt === 0 ? snap : snapshotResources(
-        (await supabase.from('resources')
-          .select('gold, iron, wood, mana, coal, fiber, arcane_dust, herbs, flowers, fragments, essence, last_collected_at')
-          .eq('player_id', user.id).single()).data
-      )
-      // Re-validar
-      for (const { resource, qty } of resourceInputs) {
-        if ((s[resource] ?? 0) < qty) return res.status(402).json({ error: 'Recursos insuficientes' })
-      }
-      const resUpdate = { last_collected_at: s.nowIso }
-      for (const { resource, qty } of resourceInputs) {
-        resUpdate[resource] = s[resource] - qty
-      }
-      const { error, count } = await supabase.from('resources')
-        .update(resUpdate).eq('player_id', user.id).eq('last_collected_at', s.prevCollectedAt)
-      if (error) return res.status(500).json({ error: error.message })
-      if (count > 0) { resourcesOk = true; break }
-    }
-    if (!resourcesOk) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
-  }
 
   // ── Deducir items + crear craft ────────────────────────────────────────────
   const promises = []

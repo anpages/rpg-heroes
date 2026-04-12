@@ -2,7 +2,7 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateTeamCombat } from './_teamCombat.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
-import { isUUID, snapshotResources } from './_validate.js'
+import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, teamCombatDifficulty } from './_rating.js'
@@ -189,26 +189,8 @@ export default async function handler(req, res) {
 
   // Recompensas solo si gana
   if (won) {
-    // Oro al pool del jugador
-    const { data: resources } = await supabase
-      .from('resources')
-      .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-      .eq('player_id', user.id)
-      .single()
-
-    if (resources) {
-      const snap = snapshotResources(resources)
-      await supabase
-        .from('resources')
-        .update({
-          gold: snap.gold + goldReward,
-          iron: snap.iron,
-          wood: snap.wood,
-          mana: snap.mana,
-          last_collected_at: snap.nowIso,
-        })
-        .eq('player_id', user.id)
-    }
+    // Oro (atómico via RPC)
+    await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: goldReward })
 
     // XP a cada héroe (con level-up individual)
     for (const hero of heroesOrdered) {
