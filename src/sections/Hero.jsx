@@ -6,25 +6,26 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, REPAIR_COST_TABLE, REPAIR_IRON_BY_RARITY, REPAIR_IRON_SLOT_MULT, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import { useCraftedItems } from '../hooks/useCraftedItems'
+import { useTrainingTokens } from '../hooks/useTrainingTokens'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { useHeroCards } from '../hooks/useHeroCards'
 import { usePotions } from '../hooks/usePotions'
 import { useResources } from '../hooks/useResources'
 import { useResearch } from '../hooks/useResearch'
+import { useHeroTactics } from '../hooks/useHeroTactics'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  BookOpen, Zap, Wrench, Plus, ChevronRight, Info, Pencil, Check, Sparkles, Telescope,
+  Wrench, Info, Pencil, Check, Telescope, Award, Plus,
 } from 'lucide-react'
 import { tierForRating } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ItemDetailModal } from '../components/ItemDetailModal'
-import { CardDetailModal } from '../components/CardDetailModal'
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -66,26 +67,8 @@ const ALL_STATS = [
   { key: 'intelligence', label: 'Inteligencia', Icon: Brain,    color: '#7c3aed' },
 ]
 
-const HERO_STAT_ICONS = {
-  attack: Sword, defense: Shield, max_hp: Heart, strength: Dumbbell,
-  agility: Wind, intelligence: Brain,
-  weapon_attack_amp: Sword, armor_defense_amp: Shield,
-  durability_loss: Wrench, item_drop_rate: Telescope,
-}
-const HERO_STAT_COLORS = {
-  attack: '#d97706', defense: '#475569', max_hp: '#dc2626', strength: '#dc2626',
-  agility: '#2563eb', intelligence: '#7c3aed',
-  weapon_attack_amp: '#d97706', armor_defense_amp: '#475569',
-  durability_loss: '#d97706', item_drop_rate: '#16a34a',
-}
-const HERO_STAT_LABELS = {
-  attack: 'Ataque', defense: 'Defensa', max_hp: 'HP', strength: 'Fuerza',
-  agility: 'Agilidad', intelligence: 'Inteligencia',
-  weapon_attack_amp: 'Amp. arma', armor_defense_amp: 'Amp. armadura',
-  durability_loss: 'Durabilidad', item_drop_rate: 'Drop rate',
-}
 
-function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonuses = {}, onClose }) {
+function StatsDetailModal({ hero, items, weightPenalty = 0, researchBonuses = {}, tactics = [], onClose }) {
   const STAT_KEYS = ALL_STATS.map(s => s.key)
 
   const equippedItems = (items ?? [])
@@ -97,48 +80,27 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
         max_hp: c.hp_bonus ?? 0, strength: c.strength_bonus ?? 0,
         agility: c.agility_bonus ?? 0, intelligence: c.intelligence_bonus ?? 0,
       }
-      const runeRows = []
-      ;(i.item_runes ?? []).forEach(ir => {
-        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-          const key = stat === 'max_hp' ? 'max_hp' : stat
-          if (key in base) runeRows.push({ stat: key, value, runeName: ir.rune_catalog.name })
-        })
-      })
       const contributions = { ...base }
-      runeRows.forEach(r => { contributions[r.stat] += r.value })
-      return { name: c.name, tier: c.tier, base, contributions, runeRows }
+      return { name: c.name, tier: c.tier, base, contributions }
     })
     .filter(i => STAT_KEYS.some(k => i.contributions[k] !== 0))
-
-  const equippedCards = (cards ?? [])
-    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
-    .map(c => {
-      const sc   = c.skill_cards
-      const rank = Math.min(c.rank, 5)
-      const bonuses   = {}
-      const penalties = {}
-      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => {
-        if (STAT_KEYS.includes(stat)) bonuses[stat]   = Math.round(value * rank)
-      })
-      ;(sc.penalties ?? []).forEach(({ stat, value }) => {
-        if (STAT_KEYS.includes(stat)) penalties[stat] = -Math.round(Math.abs(value) * (1 + (rank - 1) * 0.5))
-      })
-      return { name: sc.name, rank, bonuses, penalties }
-    })
 
   // Mapeo de stat → key de investigación %
   const RESEARCH_PCT_MAP = { attack: 'attack_pct', defense: 'defense_pct', intelligence: 'intelligence_pct' }
 
   const totalEquipBonus = equippedItems.reduce((sum, item) =>
     sum + STAT_KEYS.reduce((s, k) => s + Math.max(0, item.contributions[k]), 0), 0)
-  const totalCardNet = equippedCards.reduce((sum, card) =>
-    sum + STAT_KEYS.reduce((s, k) => s + (card.bonuses[k] ?? 0) + (card.penalties[k] ?? 0), 0), 0)
   const totalResearchNet = STAT_KEYS.reduce((s, k) => {
     const pctKey = RESEARCH_PCT_MAP[k]
     if (!pctKey || !researchBonuses[pctKey]) return s
     const baseWithBonuses = hero[k] + equippedItems.reduce((sum, item) => sum + (item.contributions[k] ?? 0), 0)
-      + equippedCards.reduce((sum, card) => sum + (card.bonuses[k] ?? 0) + (card.penalties[k] ?? 0), 0)
     return s + Math.round(baseWithBonuses * researchBonuses[pctKey])
+  }, 0)
+
+  const totalTacticBonus = (tactics ?? []).reduce((sum, t) => {
+    const cat = t.tactic_catalog
+    if (!cat?.stat_bonuses) return sum
+    return sum + cat.stat_bonuses.reduce((s, b) => s + Math.round((b.value ?? 0) * (t.level ?? 1)), 0)
   }, 0)
 
   return createPortal(
@@ -167,7 +129,7 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
           </div>
 
           {/* Summary strip */}
-          {(totalEquipBonus > 0 || totalCardNet !== 0 || totalResearchNet > 0) && (
+          {(totalEquipBonus > 0 || totalResearchNet > 0) && (
             <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border flex-shrink-0 flex-wrap">
               {totalEquipBonus > 0 && (
                 <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
@@ -176,22 +138,18 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
                   +{totalEquipBonus} de equipo
                 </span>
               )}
-              {totalCardNet !== 0 && (
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
-                  style={{
-                    color: totalCardNet > 0 ? '#7c3aed' : '#dc2626',
-                    background: `color-mix(in srgb,${totalCardNet > 0 ? '#7c3aed' : '#dc2626'} 10%,transparent)`,
-                    borderColor: `color-mix(in srgb,${totalCardNet > 0 ? '#7c3aed' : '#dc2626'} 28%,transparent)`,
-                  }}>
-                  <BookOpen size={11} strokeWidth={2.5} />
-                  {totalCardNet > 0 ? '+' : ''}{totalCardNet} de cartas
-                </span>
-              )}
               {totalResearchNet > 0 && (
                 <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
                   style={{ color: '#0f766e', background: 'color-mix(in srgb,#0f766e 10%,transparent)', borderColor: 'color-mix(in srgb,#0f766e 28%,transparent)' }}>
                   <Telescope size={11} strokeWidth={2.5} />
                   +{totalResearchNet} de investigación
+                </span>
+              )}
+              {totalTacticBonus > 0 && (
+                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
+                  style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 10%,transparent)', borderColor: 'color-mix(in srgb,#7c3aed 28%,transparent)' }}>
+                  <Gem size={11} strokeWidth={2.5} />
+                  +{totalTacticBonus} de tácticas
                 </span>
               )}
             </div>
@@ -212,15 +170,6 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
               equippedItems.forEach(item => {
                 const v = item.base[key]
                 if (v !== 0) rows.push({ label: `${item.name} T${item.tier}`, value: v, source: 'equip' })
-                item.runeRows.filter(r => r.stat === key).forEach(r => {
-                  rows.push({ label: r.runeName, value: r.value, source: 'rune' })
-                })
-              })
-              equippedCards.forEach(card => {
-                const b = card.bonuses[key]   ?? 0
-                const p = card.penalties[key] ?? 0
-                if (b !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: b, source: 'card' })
-                if (p !== 0) rows.push({ label: `${card.name} R${card.rank}`, value: p, source: 'card' })
               })
               if (key === 'agility' && weightPenalty > 0) {
                 rows.push({ label: 'Peso del equipo', value: -weightPenalty, source: 'weight' })
@@ -232,6 +181,18 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
                 const subtotal = classBase + rows.reduce((s, r) => s + r.value, 0)
                 const researchVal = Math.round(subtotal * researchBonuses[pctKey])
                 if (researchVal !== 0) rows.push({ label: `Investigación (${Math.round(researchBonuses[pctKey] * 100)}%)`, value: researchVal, source: 'research' })
+              }
+
+              // Bonos de tácticas equipadas
+              for (const t of tactics) {
+                const cat = t.tactic_catalog
+                if (!cat?.stat_bonuses) continue
+                for (const b of cat.stat_bonuses) {
+                  if (b.stat === key && b.value) {
+                    const val = Math.round(b.value * (t.level ?? 1))
+                    if (val !== 0) rows.push({ label: `${cat.name} Nv.${t.level ?? 1}`, value: val, source: 'tactic' })
+                  }
+                }
               }
 
               const total = Math.max(0, classBase + rows.reduce((s, r) => s + r.value, 0))
@@ -261,9 +222,9 @@ function StatsDetailModal({ hero, items, cards, weightPenalty = 0, researchBonus
                         <div key={i} className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1 min-w-0">
                             {r.source === 'training' && <Dumbbell size={10} strokeWidth={2} className="text-[#dc2626] flex-shrink-0" />}
-                            {r.source === 'rune' && <Sparkles size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
                             {r.source === 'research' && <Telescope size={10} strokeWidth={2} className="text-[#0f766e] flex-shrink-0" />}
-                            <span className={`text-[11px] truncate ${r.source === 'training' ? 'text-[#dc2626]' : r.source === 'rune' ? 'text-[#7c3aed]' : r.source === 'research' ? 'text-[#0f766e]' : 'text-text-2'}`}>{r.label}</span>
+                            {r.source === 'tactic' && <Gem size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
+                            <span className={`text-[11px] truncate ${r.source === 'training' ? 'text-[#dc2626]' : r.source === 'research' ? 'text-[#0f766e]' : r.source === 'tactic' ? 'text-[#7c3aed]' : 'text-text-2'}`}>{r.label}</span>
                           </div>
                           <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
                             {r.value > 0 ? '+' : ''}{r.value}
@@ -324,12 +285,52 @@ function StatBars({ effective, base }) {
   )
 }
 
+const TOKEN_STATS = [
+  { key: 'strength',     label: 'FUE',   Icon: Dumbbell, color: '#dc2626' },
+  { key: 'agility',      label: 'AGI',   Icon: Wind,     color: '#2563eb' },
+  { key: 'attack',       label: 'ATQ',   Icon: Sword,    color: '#d97706' },
+  { key: 'defense',      label: 'DEF',   Icon: Shield,   color: '#475569' },
+  { key: 'max_hp',       label: 'HP',    Icon: Heart,    color: '#e11d48' },
+  { key: 'intelligence', label: 'INT',   Icon: Brain,    color: '#7c3aed' },
+]
+
+function TokenAssignPanel({ tokens, onAssign, pending }) {
+  const available = TOKEN_STATS.filter(s => (tokens[s.key] ?? 0) > 0)
+  if (available.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2 pt-3 border-t border-border">
+      <div className="flex items-center gap-1.5 px-0.5">
+        <Award size={12} strokeWidth={2.5} className="text-[#d97706]" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
+          Asignar tokens
+        </span>
+      </div>
+      <div className="flex gap-1.5 flex-wrap">
+        {available.map(({ key, label, Icon, color }) => (
+          <motion.button
+            key={key}
+            className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-bold transition-opacity disabled:opacity-40"
+            style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 6%, var(--surface))` }}
+            onClick={() => onAssign(key)}
+            disabled={pending}
+            whileTap={pending ? {} : { scale: 0.95 }}
+          >
+            <Icon size={11} strokeWidth={2} />
+            +1 {label}
+            <span className="text-text-3 font-medium ml-0.5">({tokens[key]})</span>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Hero status ─────────────────────────────────────────────────────────────── */
 
 const STATUS_META = {
   idle:       { label: 'En reposo',  color: '#16a34a' },
   exploring:  { label: 'Explorando', color: '#d97706' },
-  in_chamber: { label: 'En cámara',  color: '#d97706' },
   ready:      { label: 'Listo',      color: '#16a34a' },
 }
 
@@ -356,18 +357,7 @@ const RARITY_META = {
 
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
 
-function estimateRepairCost(item) {
-  const catalog      = item.item_catalog
-  const missing      = catalog.max_durability - item.current_durability
-  const costs        = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
-  const ironPerPoint = REPAIR_IRON_BY_RARITY[catalog.rarity] ?? 0
-  const slotMult     = REPAIR_IRON_SLOT_MULT[catalog.slot] ?? 1
-  return {
-    gold: Math.ceil(missing * costs.gold),
-    mana: Math.ceil(missing * costs.mana),
-    iron: Math.ceil(missing * ironPerPoint * slotMult),
-  }
-}
+// estimateRepairCost ya no se usa — las reparaciones consumen kits crafteados
 
 /* ─── Shared sub-components ───────────────────────────────────────────────────── */
 
@@ -558,22 +548,6 @@ function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied 
       {item ? (
         <>
           <p className="text-[13px] font-semibold leading-[1.2] mb-1" style={{ color: rarity?.color }}>{catalog.name}</p>
-          {(item.item_runes ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {(item.item_runes ?? []).map((ir, idx) => {
-                const rc    = ir.rune_catalog
-                const main  = rc?.bonuses?.[0]
-                const color = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }[main?.stat] ?? '#7c3aed'
-                return (
-                  <span key={idx} className="flex items-center gap-[3px] text-[10px] font-semibold px-[5px] py-px rounded-[4px] border"
-                    style={{ color, background: `color-mix(in srgb,${color} 8%,var(--surface-2))`, borderColor: `color-mix(in srgb,${color} 30%,var(--border))` }}>
-                    <Sparkles size={8} strokeWidth={2} />
-                    {rc?.name ?? 'Runa'}
-                  </span>
-                )
-              })}
-            </div>
-          )}
           <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
           {needsRepair && (
             <div className="flex items-center justify-between mt-0.5">
@@ -629,10 +603,6 @@ function LockedNotice() {
   return <p className="text-[12px] text-[#d97706] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-lg px-3 py-2 text-center">El héroe está en expedición — el equipo no se puede modificar.</p>
 }
 
-function LockedCardsNotice() {
-  return <p className="text-[12px] text-[#d97706] bg-[color-mix(in_srgb,#d97706_8%,var(--surface))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-lg px-3 py-2 text-center">El héroe está en expedición — las cartas no se pueden modificar.</p>
-}
-
 function InvError({ msg }) {
   return <p className="text-[13px] text-[#dc2626] bg-error-bg border border-error-border rounded-lg px-[14px] py-[10px]">{msg}</p>
 }
@@ -664,69 +634,6 @@ function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupie
       </ModalPanel>
     </ModalOverlay>,
     document.body
-  )
-}
-
-/* ─── Card constants ──────────────────────────────────────────────────────────── */
-
-const CATEGORY_META = {
-  // v2
-  offense:   { label: 'Ofensa',      short: 'Off', color: '#f97316', icon: Sword,    bg: 'linear-gradient(135deg, #431407 0%, #7c2d12 100%)' },
-  defense:   { label: 'Resistencia', short: 'Def', color: '#94a3b8', icon: Shield,   bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' },
-  mobility:  { label: 'Movilidad',   short: 'Mob', color: '#60a5fa', icon: Wind,     bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)' },
-  equipment: { label: 'Equipo',      short: 'Eqp', color: '#fbbf24', icon: Wrench,   bg: 'linear-gradient(135deg, #1c1003 0%, #422006 100%)' },
-  hybrid:    { label: 'Híbrida',     short: 'Hyb', color: '#c084fc', icon: Brain,    bg: 'linear-gradient(135deg, #1a0533 0%, #3b0764 100%)' },
-  // legacy fallbacks
-  attack:       { label: 'Ataque',   short: 'Atq', color: '#f97316', icon: Sword,    bg: 'linear-gradient(135deg, #431407 0%, #7c2d12 100%)' },
-  strength:     { label: 'Fuerza',   short: 'Fue', color: '#f87171', icon: Dumbbell, bg: 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)' },
-  agility:      { label: 'Agilidad', short: 'Agi', color: '#60a5fa', icon: Wind,     bg: 'linear-gradient(135deg, #0c1445 0%, #1e3a8a 100%)' },
-  intelligence: { label: 'Int.',     short: 'Int', color: '#c084fc', icon: Brain,    bg: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 100%)' },
-}
-
-/* ─── Card budget bar ─────────────────────────────────────────────────────────── */
-
-function CardBudgetBar({ category, used, total }) {
-  const meta  = CATEGORY_META[category]
-  const Icon  = meta.icon
-  const pct   = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-  const over  = used > total
-  const color = over ? '#dc2626' : meta.color
-  return (
-    <div className="bg-surface-2 border border-border rounded-[7px] px-2 py-[5px]" title={`${meta.label}: ${used}/${total}`}>
-      <div className="flex items-center gap-[5px]">
-        <span className="flex items-center flex-shrink-0" style={{ color }}><Icon size={11} strokeWidth={2.2} /></span>
-        <span className="text-[11px] font-bold tracking-[0.04em] flex-shrink-0 w-[22px]" style={{ color }}>{meta.short}</span>
-        <div className="flex-1 h-[3px] bg-border rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-[width] duration-[300ms]" style={{ width: `${pct}%`, background: color }} />
-        </div>
-        <span className={`text-[11px] font-semibold flex-shrink-0 whitespace-nowrap ${over ? 'text-[#dc2626]' : 'text-text-3'}`}>{used}/{total}</span>
-      </div>
-    </div>
-  )
-}
-
-/* ─── Equipped card chip ──────────────────────────────────────────────────────── */
-
-function CardChip({ card, onClick, loading, isOccupied }) {
-  const sc   = card.skill_cards
-  const meta = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-  return (
-    <button
-      className="bg-surface-2 border border-[color-mix(in_srgb,var(--card-color)_25%,var(--border))] rounded-lg px-[10px] py-2 flex flex-col gap-[3px] cursor-pointer transition-[border-color] duration-150 w-full text-left hover:border-text-2"
-      style={{ '--card-color': meta.color }}
-      onClick={onClick}
-      disabled={loading}
-      title={isOccupied ? 'El héroe está en expedición' : 'Gestionar carta'}
-    >
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-[13px] font-bold text-text leading-[1.2] flex-1">{sc.name}</span>
-        <span className="text-[13px] font-bold text-[var(--card-color)] bg-[color-mix(in_srgb,var(--card-color)_10%,transparent)] border border-[color-mix(in_srgb,var(--card-color)_25%,transparent)] rounded-[4px] px-[5px] py-px flex-shrink-0">R{card.rank}</span>
-      </div>
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-[13px] font-semibold" style={{ color: meta.color }}>{meta.label}</span>
-        <span className="text-[13px] text-text-3">{sc.base_cost * card.rank} pts</span>
-      </div>
-    </button>
   )
 }
 
@@ -827,21 +734,22 @@ function SlotPickerSheet({ slot, equippedItem, bagItems, onEquip, onUnequip, onR
 
 function Hero() {
   const userId             = useAppStore(s => s.userId)
-  const navigateToHeroTab  = useAppStore(s => s.navigateToHeroTab)
   const heroId             = useHeroId()
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading  } = useInventory(hero?.id)
-  const { cards, loading: cardsLoading } = useHeroCards(hero?.id)
+  const { tactics }                    = useHeroTactics(hero?.id)
+  const equippedTactics = (tactics ?? []).filter(t => t.slot_index != null)
   const { resources } = useResources(userId)
   const { research }  = useResearch(userId)
+  const { inventory: craftedItems } = useCraftedItems(userId)
+  const { tokens: trainingTokens, totalTokens } = useTrainingTokens(userId)
   const researchBonuses = computeResearchBonuses(research.completed)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
   const [confirmModal,   setConfirmModal]   = useState(null)
   const [dismantleTarget, setDismantleTarget] = useState(null)
   const [itemDetail,     setItemDetail]     = useState(null)
-  const [cardDetail,     setCardDetail]     = useState(null)
   const [statsDetailOpen, setStatsDetailOpen] = useState(false)
   const [renameOpen,  setRenameOpen]  = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
@@ -853,6 +761,18 @@ function Hero() {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
       setRenameOpen(false)
+    },
+    onError: (err) => notify.error(err.message),
+  })
+
+  const assignTokenMutation = useMutation({
+    mutationFn: ({ stat, amount }) => apiPost('/api/training-assign', { heroId: hero?.id, stat, amount }),
+    onSuccess: (_, { stat }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
+      const LABELS = { strength: 'Fuerza', agility: 'Agilidad', attack: 'Ataque', defense: 'Defensa', max_hp: 'Resistencia', intelligence: 'Inteligencia' }
+      notify.success(`+1 ${LABELS[stat] ?? stat} asignado`)
     },
     onError: (err) => notify.error(err.message),
   })
@@ -897,7 +817,7 @@ function Hero() {
   }, [])
 
 
-  if (heroLoading || invLoading || cardsLoading) return null
+  if (heroLoading || invLoading) return null
   if (!hero) return (
     <div className="text-text-3 text-[15px] p-10 text-center">
       {heroId ? 'No se encontró el héroe.' : 'Recluta tu primer héroe para comenzar.'}
@@ -906,15 +826,12 @@ function Hero() {
 
   const cls          = hero.classes
   const activeExp    = hero.expeditions?.find(e => e.status === 'traveling')
-  const activeChamber = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
-  const expReady      = activeExp     && new Date(activeExp.ends_at) <= Date.now()
-  const chamberReady  = activeChamber && (activeChamber.status === 'awaiting_choice' || new Date(activeChamber.ends_at) <= Date.now())
-  const derivedStatus = (expReady || chamberReady) ? 'ready'
-    : activeExp     ? 'exploring'
-    : activeChamber ? 'in_chamber'
+  const expReady     = activeExp && new Date(activeExp.ends_at) <= Date.now()
+  const derivedStatus = expReady ? 'ready'
+    : activeExp ? 'exploring'
     : hero.status
   const status     = STATUS_META[derivedStatus] ?? STATUS_META.idle
-  const isOccupied = derivedStatus === 'exploring' || derivedStatus === 'in_chamber'
+  const isOccupied = derivedStatus === 'exploring'
 
   const equipped = EQUIPMENT_SLOTS.reduce((acc, slot) => {
     acc[slot] = items?.find(i => i.equipped_slot === slot) ?? null
@@ -932,34 +849,18 @@ function Hero() {
       acc.agility      += c.agility_bonus      ?? 0
       acc.intelligence += c.intelligence_bonus ?? 0
       acc._weight      += c.weight             ?? 0
-      ;(i.item_runes ?? []).forEach(ir => {
-        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-          if (stat === 'max_hp')       acc.max_hp       += value
-          else if (stat in acc)        acc[stat]        += value
-        })
-      })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0, _weight: 0 })
 
   const weightPenalty = Math.floor(equipBonuses._weight / 4)
 
-  const cardBonuses = (cards ?? [])
-    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
-    .reduce((acc, c) => {
-      const sc   = c.skill_cards
-      const rank = Math.min(c.rank, 5)
-      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += Math.round(value * rank) })
-      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
-
   const bonuses = {
-    attack:       equipBonuses.attack       + cardBonuses.attack,
-    defense:      equipBonuses.defense      + cardBonuses.defense,
-    max_hp:       equipBonuses.max_hp       + cardBonuses.max_hp,
-    strength:     equipBonuses.strength     + cardBonuses.strength,
-    agility:      equipBonuses.agility      + cardBonuses.agility - weightPenalty,
-    intelligence: equipBonuses.intelligence + cardBonuses.intelligence,
+    attack:       equipBonuses.attack,
+    defense:      equipBonuses.defense,
+    max_hp:       equipBonuses.max_hp,
+    strength:     equipBonuses.strength,
+    agility:      equipBonuses.agility - weightPenalty,
+    intelligence: equipBonuses.intelligence,
   }
 
   const preResearch = {
@@ -1007,18 +908,17 @@ function Hero() {
   }
 
   function handleRepair(item) {
-    const cost = estimateRepairCost(item)
-    const parts = [`${cost.gold} oro`]
-    if (cost.mana > 0) parts.push(`${cost.mana} maná`)
-    if (cost.iron > 0) parts.push(`${cost.iron} hierro`)
+    const kits = craftedItems?.repair_kit ?? 0
     setConfirmModal({
       title: `Reparar ${item.item_catalog.name}`,
-      body: `Coste estimado: ${parts.join(' · ')}`,
-      confirmLabel: 'Reparar',
-      onConfirm: () => {
+      body: kits > 0
+        ? `Usar 1 Kit de Reparación (tienes ${kits})`
+        : 'No tienes Kits de Reparación. Craftéalos en el Taller.',
+      confirmLabel: kits > 0 ? 'Reparar' : null,
+      onConfirm: kits > 0 ? () => {
         setConfirmModal(null)
         itemMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
-      },
+      } : undefined,
     })
   }
 
@@ -1153,6 +1053,15 @@ function Hero() {
               base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
             />
 
+            {/* Token assignment */}
+            {totalTokens > 0 && (
+              <TokenAssignPanel
+                tokens={trainingTokens}
+                onAssign={(stat) => assignTokenMutation.mutate({ stat, amount: 1 })}
+                pending={assignTokenMutation.isPending}
+              />
+            )}
+
             <button
               className="flex items-center justify-center gap-1.5 text-[12px] font-medium text-text-3 hover:text-text-2 w-full py-1.5 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border transition-colors"
               onClick={() => setStatsDetailOpen(true)}
@@ -1167,16 +1076,16 @@ function Hero() {
             <StatsDetailModal
               hero={hero}
               items={items}
-              cards={cards}
               weightPenalty={weightPenalty}
               researchBonuses={researchBonuses}
+              tactics={equippedTactics}
               onClose={() => setStatsDetailOpen(false)}
             />
           )}
 
         </div>
 
-        {/* Right column: equipment + cards */}
+        {/* Right column: equipment */}
         <div className="flex flex-col gap-4">
 
           {/* Equipment preview */}
@@ -1192,7 +1101,6 @@ function Hero() {
                 if (item) {
                   const durPct   = Math.round((item.current_durability / cat.max_durability) * 100)
                   const durColor = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-                  const runesOnItem = item.item_runes ?? []
                   const isClassItem = cat.required_class && cat.required_class === hero?.class
                   const classColor  = CLASS_COLORS[cat.required_class]
                   return (
@@ -1214,18 +1122,8 @@ function Hero() {
                       </div>
                       {/* Row 2: item name */}
                       <span className="text-[13px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
-                      {/* Row 3: rune names + durability */}
-                      <div className="flex items-center justify-between gap-1">
-                        {runesOnItem.length > 0 ? (
-                          <div className="flex items-center gap-1 flex-wrap min-w-0">
-                            {runesOnItem.map((ir, i) => (
-                              <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
-                                <Sparkles size={10} strokeWidth={2} />
-                                {ir.rune_catalog?.name ?? 'Runa'}
-                              </span>
-                            ))}
-                          </div>
-                        ) : <span />}
+                      {/* Row 3: durability */}
+                      <div className="flex items-center justify-end gap-1">
                         <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
                       </div>
                       <div className="w-full h-[3px] bg-border rounded-full overflow-hidden">
@@ -1248,84 +1146,6 @@ function Hero() {
             </div>
           </div>
 
-          {/* Cards preview */}
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
-            <p className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-text-3">
-              <BookOpen size={14} strokeWidth={2} />
-              Cartas
-            </p>
-            {(() => {
-              const equippedCards = (cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined)
-              if (!equippedCards.length) {
-                return (
-                  <button
-                    className="flex items-center justify-center gap-1.5 h-14 border border-dashed border-border rounded-xl text-[13px] text-text-3 hover:border-[color:var(--blue-400)] hover:text-[var(--blue-600)] transition-colors w-full"
-                    onClick={() => navigateToHeroTab('cartas')}
-                  >
-                    <Plus size={14} strokeWidth={1.8} />
-                    Equipar cartas de habilidad
-                  </button>
-                )
-              }
-              return (
-                <div className="flex flex-col gap-2">
-                  {equippedCards.map(card => {
-                    const sc       = card.skill_cards
-                    const meta     = CATEGORY_META[sc.card_category ?? sc.category] ?? CATEGORY_META.offense
-                    const Icon     = meta.icon
-                    const rank     = Math.min(card.rank ?? 1, 5)
-                    const RANK_LBL = ['', 'I', 'II', 'III', 'IV', 'V']
-                    const bonuses  = Array.isArray(sc.bonuses)   ? sc.bonuses   : []
-                    const penalties = Array.isArray(sc.penalties) ? sc.penalties : []
-                    return (
-                      <button
-                        key={card.id}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-surface/50 hover:bg-surface transition-colors text-left w-full"
-                        style={{ borderColor: `color-mix(in srgb, ${meta.color} 28%, var(--border))` }}
-                        onClick={() => setCardDetail(card)}
-                      >
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10"
-                          style={{ background: meta.bg }}>
-                          <Icon size={14} strokeWidth={2} style={{ color: meta.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[13px] font-bold text-text truncate">{sc.name}</span>
-                            <span className="text-[10px] font-black flex-shrink-0" style={{ color: meta.color }}>
-                              {RANK_LBL[rank] ?? rank}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                            {bonuses.slice(0, 2).map((b, i) => {
-                              const StatI = HERO_STAT_ICONS[b.stat]
-                              const color = HERO_STAT_COLORS[b.stat] ?? '#6b7280'
-                              return (
-                                <span key={`b${i}`} className="inline-flex items-center gap-0.5 text-[11px] font-semibold" style={{ color }}>
-                                  {StatI && <StatI size={10} strokeWidth={2} />}
-                                  +{Math.round(b.value * rank)} {HERO_STAT_LABELS[b.stat] ?? b.stat}
-                                </span>
-                              )
-                            })}
-                            {penalties.slice(0, 1).map((p, i) => {
-                              const StatI = HERO_STAT_ICONS[p.stat]
-                              const color = HERO_STAT_COLORS[p.stat] ?? '#6b7280'
-                              return (
-                                <span key={`p${i}`} className="inline-flex items-center gap-0.5 text-[11px] font-semibold" style={{ color }}>
-                                  {StatI && <StatI size={10} strokeWidth={2} />}
-                                  −{Math.round(Math.abs(p.value) * rank)} {HERO_STAT_LABELS[p.stat] ?? p.stat}
-                                </span>
-                              )
-                            })}
-                          </div>
-                        </div>
-                        <ChevronRight size={14} strokeWidth={2} className="text-text-3 flex-shrink-0" />
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })()}
-          </div>
 
         </div>
 
@@ -1405,9 +1225,6 @@ function Hero() {
         {itemDetail && <ItemDetailModal item={itemDetail} onClose={() => setItemDetail(null)} heroClass={hero?.class} />}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {cardDetail && <CardDetailModal card={cardDetail} onClose={() => setCardDetail(null)} />}
-      </AnimatePresence>
     </motion.div>
   )
 }

@@ -1,7 +1,11 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
-import { ITEM_TIER_UPGRADE_COST } from '../src/lib/gameConstants.js'
+import { isUUID } from './_validate.js'
 
+/**
+ * POST /api/item-upgrade-tier
+ * Mejora el tier de un item consumiendo una Piedra de Forja del inventario de crafteo.
+ * Body: { heroId, inventoryItemId }
+ */
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
@@ -36,19 +40,28 @@ export default async function handler(req, res) {
 
   const cat = item.item_catalog
 
-  // Validaciones
-  if (cat.tier >= 3) {
-    return res.status(409).json({ error: 'El ítem ya es de tier máximo (T3)' })
-  }
+  if (cat.tier >= 3) return res.status(409).json({ error: 'El ítem ya es de tier máximo (T3)' })
   if (item.current_durability < cat.max_durability) {
     return res.status(409).json({ error: 'El ítem debe estar al 100% de durabilidad para mejorar su tier' })
   }
 
-  const cost = ITEM_TIER_UPGRADE_COST[cat.tier]
-  if (!cost) return res.status(500).json({ error: 'Coste de mejora de tier no definido' })
+  // Determinar piedra de forja necesaria
+  const stoneId = cat.tier === 1 ? 'forge_stone_t2' : 'forge_stone_t3'
+  const stoneLabel = cat.tier === 1 ? 'Piedra de Forja T2' : 'Piedra de Forja T3'
 
-  // Buscar el siguiente tier en el catálogo (mismo slot, rareza, is_two_handed y tier+1)
-  // is_two_handed puede ser true, false o null — tratamos null y false como "no es doble mano"
+  // Verificar piedra de forja
+  const { data: stone } = await supabase
+    .from('player_crafted_items')
+    .select('quantity')
+    .eq('player_id', user.id)
+    .eq('recipe_id', stoneId)
+    .maybeSingle()
+
+  if (!stone || stone.quantity <= 0) {
+    return res.status(409).json({ error: `Necesitas una ${stoneLabel}. Craftéala en el Taller.` })
+  }
+
+  // Buscar el siguiente tier en el catálogo
   let catalogQuery = supabase
     .from('item_catalog')
     .select('id, max_durability, name')
@@ -74,52 +87,24 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'No existe una versión T' + (cat.tier + 1) + ' de este ítem en el catálogo' })
   }
 
-  // Snapshot de recursos y verificar costes
-  const { data: resources, error: resourcesError } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, fragments, essence, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
+  // Consumir piedra + actualizar item
+  const [{ error: stoneError }, { error: itemError }] = await Promise.all([
+    supabase
+      .from('player_crafted_items')
+      .update({ quantity: stone.quantity - 1 })
+      .eq('player_id', user.id)
+      .eq('recipe_id', stoneId),
+    supabase
+      .from('inventory_items')
+      .update({
+        catalog_id:         nextCatalog.id,
+        current_durability: nextCatalog.max_durability,
+      })
+      .eq('id', inventoryItemId),
+  ])
 
-  if (resourcesError || !resources) return res.status(404).json({ error: 'Recursos no encontrados' })
-
-  const snap        = snapshotResources(resources)
-  const curFragments = resources.fragments ?? 0
-  const curEssence   = resources.essence   ?? 0
-
-  if (snap.gold    < cost.gold)          return res.status(402).json({ error: `Oro insuficiente (necesitas ${cost.gold})` })
-  if (curFragments < cost.fragments)     return res.status(402).json({ error: `Fragmentos insuficientes (necesitas ${cost.fragments})` })
-  if (curEssence   < cost.essence)       return res.status(402).json({ error: `Esencia insuficiente (necesitas ${cost.essence})` })
-  if (snap.iron    < (cost.iron ?? 0))   return res.status(402).json({ error: `Hierro insuficiente (necesitas ${cost.iron})` })
-  if (snap.wood    < (cost.wood ?? 0))   return res.status(402).json({ error: `Madera insuficiente (necesitas ${cost.wood})` })
-
-  const { error: resourceUpdateError, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold:      snap.gold      - cost.gold,
-      iron:      snap.iron      - (cost.iron ?? 0),
-      wood:      snap.wood      - (cost.wood ?? 0),
-      mana:      snap.mana,
-      fragments: curFragments - cost.fragments,
-      essence:   curEssence   - cost.essence,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
-
-  if (resourceUpdateError) return res.status(500).json({ error: resourceUpdateError.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
-
-  // Actualizar ítem: nuevo catalog_id y durabilidad máxima del nuevo tier
-  const { error: itemUpdateError } = await supabase
-    .from('inventory_items')
-    .update({
-      item_catalog_id:    nextCatalog.id,
-      current_durability: nextCatalog.max_durability,
-    })
-    .eq('id', inventoryItemId)
-
-  if (itemUpdateError) return res.status(500).json({ error: itemUpdateError.message })
+  if (stoneError) return res.status(500).json({ error: stoneError.message })
+  if (itemError) return res.status(500).json({ error: itemError.message })
 
   return res.status(200).json({ ok: true, newTier: cat.tier + 1, newItemName: nextCatalog.name })
 }

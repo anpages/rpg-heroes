@@ -44,33 +44,13 @@ export function floorEnemyStats(floor) {
   const slow = Math.max(0, floor - cap)
   const fast = Math.min(floor, cap)
   return {
-    max_hp:      80  + fast * 15 + slow * 8,
-    attack:       5  + fast * 2  + slow * 1,
-    defense:      2  + fast * 1  + Math.floor(slow * 0.5),
-    strength:     2  + Math.floor(fast * 0.5) + Math.floor(slow * 0.25),
-    agility:      2  + Math.floor(fast * 0.3) + Math.floor(slow * 0.15),
-    intelligence: 1  + Math.floor(fast * 0.3) + Math.floor(slow * 0.15),
+    max_hp:      100 + fast * 22 + slow * 12,
+    attack:       8  + fast * 3  + slow * 2,
+    defense:      4  + fast * 2  + slow * 1,
+    strength:     3  + fast * 1  + Math.floor(slow * 0.5),
+    agility:      3  + Math.floor(fast * 0.6) + Math.floor(slow * 0.3),
+    intelligence: 2  + Math.floor(fast * 0.5) + Math.floor(slow * 0.25),
   }
-}
-
-/**
- * Bonus de una carta de habilidad en rango `rank`.
- * Escala linealmente: baseValue × rank.
- */
-export function cardBonusAtRank(baseValue, rank) {
-  return baseValue * rank
-}
-
-/**
- * Penalización de una carta de habilidad en rango `rank`.
- * Escala linealmente igual que el bonus: baseValue × rank.
- * Rango 1 → ×1, Rango 2 → ×2, Rango 3 → ×3, Rango 4 → ×4, Rango 5 → ×5.
- *
- * No incluye Math.round — el llamador redondea si trabaja con enteros.
- * Para stats de porcentaje (ej. weapon_attack_amp = 0.15) no se redondea.
- */
-export function cardPenaltyAtRank(baseValue, rank) {
-  return baseValue * rank
 }
 
 /**
@@ -241,7 +221,7 @@ export function trainingEnemyStats(heroLevel) {
  * El enemigo representa "un héroe bien equipado de ese tramo" — independiente
  * del poder real del jugador. Consecuencia: si tu equipo es pobre para el tier
  * en el que estás, pierdes; ese es precisamente el empujón hacia expediciones,
- * cámaras y reparar/mejorar. Gear progression = tier progression.
+ * expediciones y crafteo/reparar. Gear progression = tier progression.
  *
  * El caller (quick-combat.js) obtiene el virtual level vía `virtualLevelForRating`
  * en _rating.js (Hierro III=1 ... Leyenda=21) y lo pasa aquí.
@@ -290,4 +270,76 @@ export function trainingRewards(heroLevel) {
     gold:       Math.max(5, Math.round(towerR.gold * 0.18)),
     experience: Math.max(3, Math.round(towerR.experience * 0.18)),
   }
+}
+
+/* ─── Expediciones: fórmulas de preview para DungeonCard ────────────────────── */
+
+/**
+ * Probabilidad de drop de equipo en una expedición.
+ * Replica getDropConfig de _loot.js: chance = 0.10 + difficulty * 0.03
+ * @param {number} difficulty  1-10
+ * @param {number} dropRateBonus  bonus de equipo/research (itemDropRateBonus)
+ * @param {number} lootBoostPct   poción loot_boost (0-1)
+ * @returns {number} probabilidad 0-1
+ */
+export function itemDropChance(difficulty, dropRateBonus = 0, lootBoostPct = 0) {
+  const base = 0.10 + Math.max(1, Math.min(10, difficulty)) * 0.03
+  return Math.min(1, (base + dropRateBonus) * (1 + lootBoostPct))
+}
+
+/**
+ * Probabilidad de drop de táctica en una expedición.
+ * Base 12% + inteligencia (hasta +20%) + research bonus.
+ * @param {number} intelligence  stat de inteligencia del héroe
+ * @param {number} researchBonus  tactic_drop_pct de research
+ * @returns {number} probabilidad 0-1
+ */
+export function tacticDropChance(intelligence = 0, researchBonus = 0) {
+  const intellBonus = Math.min(0.20, (intelligence ?? 0) * 0.003)
+  return Math.min(1, 0.12 + intellBonus + researchBonus)
+}
+
+/**
+ * Pérdida de durabilidad estimada por expedición.
+ * Replica la lógica de expedition-collect.js:
+ *   base = 1 + floor(difficulty / 2)
+ *   resultado = base - floor(defense / 15) + durabilityMod
+ *   clamped a 0+, ajustado por research durability_loss_pct
+ *
+ * @param {number} difficulty    1-10
+ * @param {number} defense       stat de defensa del héroe
+ * @param {number} durabilityMod bonus/malus de tácticas equipadas
+ * @param {number} researchPct   durability_loss_pct de research (negativo = reducción)
+ * @returns {number} puntos de durabilidad perdidos
+ */
+export function durabilityLoss(difficulty, defense = 0, durabilityMod = 0, researchPct = 0) {
+  const dangerBase = 1 + Math.floor((difficulty ?? 1) / 2)
+  const raw = dangerBase - Math.floor(defense / 15) + durabilityMod
+  return Math.max(0, Math.round(raw * (1 + researchPct)))
+}
+
+/**
+ * Datos de material drops por nombre de mazmorra.
+ * Espejo de MATERIAL_DROP_BY_NAME en api/_loot.js.
+ * Usado por el frontend para mostrar probabilidad y cantidad en la card.
+ */
+export const MATERIAL_DROP_DATA = {
+  'Guarida del Dragón':     { resource: 'essence',   chance: 0.20, min: 2, max: 3 },
+  'Templo de los Antiguos': { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
+  'Abismo de las Almas':    { resource: 'fragments', chance: 0.18, min: 1, max: 2 },
+  'Ruinas Encantadas':      { resource: 'fragments', chance: 0.12, min: 1, max: 1 },
+  'Minas de Hierro Oscuro': { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
+}
+
+/**
+ * Descripción del loot principal por tipo de mazmorra.
+ * El frontend usa esto para mostrar qué slots de equipo prioriza cada tipo.
+ */
+export const DUNGEON_LOOT_FOCUS = {
+  combat:     { label: 'Combate',    slots: ['main_hand', 'off_hand'],             description: 'Armas y escudos' },
+  wilderness: { label: 'Naturaleza', slots: ['legs', 'arms', 'accessory'],         description: 'Armadura ligera y accesorios' },
+  magic:      { label: 'Arcana',     slots: ['accessory', 'helmet'],               description: 'Accesorios mágicos' },
+  crypt:      { label: 'Cripta',     slots: ['off_hand', 'chest', 'helmet'],       description: 'Escudos y armadura pesada' },
+  mine:       { label: 'Mina',       slots: ['arms', 'chest', 'main_hand'],        description: 'Armas y armadura de brazos' },
+  ancient:    { label: 'Antigua',    slots: ['accessory', 'helmet', 'chest'],      description: 'Accesorios y yelmos antiguos' },
 }

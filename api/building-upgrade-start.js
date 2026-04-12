@@ -4,6 +4,9 @@ import {
   computeBaseLevel,
   buildingUpgradeCost,
   buildingUpgradeDurationMs,
+  HERB_GARDEN_BASE_LEVEL_REQUIRED,
+  DESTILERIA_BASE_LEVEL_REQUIRED,
+  HERBOLARIO_BASE_LEVEL_REQUIRED,
   LAB_BASE_LEVEL_REQUIRED,
   LIBRARY_BASE_LEVEL_REQUIRED,
   BUILDING_MAX_LEVEL,
@@ -34,7 +37,8 @@ export default async function handler(req, res) {
 
   // Solo se puede mejorar un edificio a la vez dentro de la misma zona
   const ZONE_MAP = {
-    energy_nexus: 'recursos', gold_mine: 'recursos', lumber_mill: 'recursos', mana_well: 'recursos',
+    gold_mine: 'recursos', lumber_mill: 'recursos', mana_well: 'recursos', herb_garden: 'recursos',
+    carpinteria: 'refinado', fundicion: 'refinado', destileria_arcana: 'refinado', herbolario: 'refinado',
     laboratory: 'laboratorio', library: 'biblioteca',
   }
   const zone = ZONE_MAP[building.type]
@@ -46,17 +50,21 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'Ya hay una construcción en curso en esta zona. Espera a que termine.' })
   }
 
-  // Laboratorio: requiere nivel de base ≥ 2
-  // Biblioteca: requiere nivel de base ≥ 3
-  if (building.type === 'laboratory' || building.type === 'library') {
+  // Edificios con requisito de nivel de base
+  const BASE_LEVEL_CHECKS = {
+    herb_garden:       { min: HERB_GARDEN_BASE_LEVEL_REQUIRED, label: 'el Jardín de Hierbas' },
+    destileria_arcana: { min: DESTILERIA_BASE_LEVEL_REQUIRED,  label: 'la Destilería Arcana' },
+    herbolario:        { min: HERBOLARIO_BASE_LEVEL_REQUIRED,  label: 'el Herbolario' },
+    laboratory:        { min: LAB_BASE_LEVEL_REQUIRED,         label: 'el Laboratorio' },
+    library:           { min: LIBRARY_BASE_LEVEL_REQUIRED,     label: 'la Biblioteca' },
+  }
+  const baseLevelCheck = BASE_LEVEL_CHECKS[building.type]
+  if (baseLevelCheck) {
     const { data: allBuildings } = await supabase
       .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
     const baseLevel = computeBaseLevel(allBuildings ?? [])
-    if (building.type === 'laboratory' && baseLevel < LAB_BASE_LEVEL_REQUIRED) {
-      return res.status(403).json({ error: `Necesitas base nivel ${LAB_BASE_LEVEL_REQUIRED} para construir el Laboratorio` })
-    }
-    if (building.type === 'library' && baseLevel < LIBRARY_BASE_LEVEL_REQUIRED) {
-      return res.status(403).json({ error: `Necesitas base nivel ${LIBRARY_BASE_LEVEL_REQUIRED} para construir la Biblioteca` })
+    if (baseLevel < baseLevelCheck.min) {
+      return res.status(403).json({ error: `Necesitas base nivel ${baseLevelCheck.min} para construir ${baseLevelCheck.label}` })
     }
   }
 

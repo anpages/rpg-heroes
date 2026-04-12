@@ -9,6 +9,7 @@ import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { tournamentRoundRewards } from './_tournament.js'
 import { snapshotResources } from './_validate.js'
 import { computeRatingUpdate, tournamentDifficulty } from './_rating.js'
+import { rollTacticDrop } from './_loot.js'
 
 export async function finalizeTournamentFight({
   supabase,
@@ -101,20 +102,10 @@ export async function finalizeTournamentFight({
       .eq('id', hero.id)
     rewards.levelUp = levelUp
 
-    // Carta garantizada al ganar el torneo
+    // Táctica garantizada al ganar el torneo (100% chance)
     if (champion) {
-      const { data: cards } = await supabase.from('skill_cards').select('id, name').limit(20)
-      if (cards?.length) {
-        const card = cards[Math.floor(Math.random() * cards.length)]
-        const { data: existing } = await supabase
-          .from('hero_cards').select('id, rank').eq('hero_id', hero.id).eq('card_id', card.id).maybeSingle()
-        if (existing) {
-          await supabase.from('hero_cards').update({ rank: Math.min(20, existing.rank + 1) }).eq('id', existing.id)
-        } else {
-          await supabase.from('hero_cards').insert({ hero_id: hero.id, card_id: card.id, rank: 1 })
-        }
-        rewards.card = card
-      }
+      const tacticDrop = await rollTacticDrop(supabase, hero.id, hero.class, { chance: 1.0 })
+      if (tacticDrop) rewards.tactic = tacticDrop.tactic ?? tacticDrop
     }
   }
 
@@ -136,7 +127,7 @@ export async function finalizeTournamentFight({
       log:          result.log,
       heroMaxHp:    heroStats.max_hp,
       rivalMaxHp:   rival.stats.max_hp,
-      rival, rewards,
+      rival, rewards, heroClass: hero.class,
       heroCurrentHp: hpAfterCombat,
       heroRealMaxHp: hero.max_hp,
       rating: ratingResult ? {

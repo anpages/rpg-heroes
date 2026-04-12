@@ -1,68 +1,41 @@
-import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
 
-function interpolate(resources) {
-  if (!resources) return null
-  const now = Date.now()
-  const lastCollected = new Date(resources.last_collected_at).getTime()
-  const hoursElapsed = (now - lastCollected) / 3_600_000  // tasas almacenadas en unidades/hora
-
-  return {
-    gold:      resources.gold,  // Oro: no tiene producción pasiva, se obtiene en combate
-    iron:      Math.floor(resources.iron + resources.iron_rate * hoursElapsed),
-    wood:      Math.floor(resources.wood + resources.wood_rate * hoursElapsed),
-    mana:      Math.floor(resources.mana + resources.mana_rate * hoursElapsed),
-    fragments: resources.fragments ?? 0,  // No tienen producción pasiva, solo drops
-    essence:   resources.essence   ?? 0,
-    gold_rate: 0,
-    iron_rate: resources.iron_rate,
-    wood_rate: resources.wood_rate,
-    mana_rate: resources.mana_rate,
-    bag_extra_slots: resources.bag_extra_slots ?? 0,
-    lab_inventory_upgrades: resources.lab_inventory_upgrades ?? 0,
-  }
-}
-
+/**
+ * Hook de recursos. Sin interpolación pasiva — la producción idle
+ * se acumula en edificios y se recolecta manualmente.
+ */
 export function useResources(userId) {
-  const [resources, setResources] = useState(null)
-  const baseRef = useRef(null)
-  const key = queryKeys.resources(userId)
-
-  // Fetch con caché + polling de seguridad cada 60s.
-  // Las mutaciones que cambian recursos ya invalidan explícitamente esta query,
-  // así que el refetch periódico es solo red de seguridad (múltiples tabs, etc.)
-  const { data: baseData, isLoading: loading, refetch } = useQuery({
-    queryKey: key,
+  const { data: resources = null, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.resources(userId),
     queryFn: async () => {
       const { data } = await supabase
         .from('resources')
         .select('*')
         .eq('player_id', userId)
         .single()
-      return data
+      if (!data) return null
+      return {
+        gold:        data.gold,
+        iron:        Math.floor(data.iron),
+        wood:        Math.floor(data.wood),
+        mana:        Math.floor(data.mana),
+        fragments:   data.fragments   ?? 0,
+        essence:     data.essence     ?? 0,
+        coal:        data.coal        ?? 0,
+        fiber:       data.fiber       ?? 0,
+        arcane_dust: data.arcane_dust ?? 0,
+        herbs:       data.herbs       ?? 0,
+        flowers:     data.flowers     ?? 0,
+        bag_extra_slots: data.bag_extra_slots ?? 0,
+        lab_inventory_upgrades: data.lab_inventory_upgrades ?? 0,
+      }
     },
     enabled:         !!userId,
     staleTime:       55_000,
     refetchInterval: 60_000,
   })
-
-  // Cuando el servidor devuelve datos, actualizar ref + estado interpolado
-  useEffect(() => {
-    if (baseData) {
-      baseRef.current = baseData
-      setResources(interpolate(baseData))
-    }
-  }, [baseData])
-
-  // Ticker de 1s: interpolación client-side desde el base en ref
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (baseRef.current) setResources(interpolate(baseRef.current))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
 
   return { resources, loading, refetch }
 }

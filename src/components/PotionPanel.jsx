@@ -3,8 +3,7 @@
  * Filtra por effectTypes y consume vía /api/potion-use.
  *
  * - Combate (Torre, Torneos, QuickCombat): por defecto [atk_boost, def_boost]
- * - Expediciones: [xp_boost, time_reduction, loot_boost, gold_boost, card_guaranteed]
- * - Cámaras:      [time_reduction, loot_boost]
+ * - Expediciones: [xp_boost, time_reduction, loot_boost, gold_boost, card_guaranteed (táctica garantizada)]
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
@@ -26,7 +25,7 @@ const EFFECT_META = {
   time_reduction:  { icon: Clock,       color: '#0891b2', activeLabel: v => `−${Math.round(v * 100)}% tiempo activo` },
   loot_boost:      { icon: Package,     color: '#7c3aed', activeLabel: v => `+${Math.round(v * 100)}% botín activo` },
   gold_boost:      { icon: Coins,       color: '#d97706', activeLabel: v => `+${Math.round(v * 100)}% oro activo` },
-  card_guaranteed: { icon: Sparkles,    color: '#2563eb', activeLabel: () => 'Carta garantizada' },
+  card_guaranteed: { icon: Sparkles,    color: '#2563eb', activeLabel: () => 'Táctica garantizada' },
   free_repair:     { icon: Wrench,      color: '#64748b', activeLabel: () => 'Reparación gratis' },
 }
 

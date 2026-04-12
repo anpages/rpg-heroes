@@ -1,27 +1,41 @@
 import { motion } from 'framer-motion'
-import { cardVariants, PRODUCTION_TYPES } from './constants.js'
-import { BuildingCard, LockedBuildingCard } from './BuildingCard.jsx'
-import { EnergyStrip } from './EnergyStrip.jsx'
+import { cardVariants } from './constants.js'
+import { LockedBuildingCard } from './BuildingCard.jsx'
+import ProductionCard from './ProductionCard.jsx'
 
-export default function RecursosZone({ byType, effectiveResources, nexusData, nexusRatio, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending }) {
-  const resourceBuildings = ['energy_nexus', 'lumber_mill', 'gold_mine', 'mana_well']
+/**
+ * Zona de Producción: edificios productivos con barras integradas.
+ * Orden por importancia: Aserradero → Mina → Pozo → Jardín.
+ */
+export default function RecursosZone({
+  byType,
+  production,
+  onCollect,
+  anyUpgrading,
+  effectiveResources,
+  onUpgradeStart,
+  onUpgradeCollect,
+  onOptimisticDeduct,
+  onUpgradePending,
+}) {
+  const resourceBuildings = ['lumber_mill', 'gold_mine', 'mana_well', 'herb_garden']
 
   return (
     <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
-      <EnergyStrip nexusData={nexusData} />
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {resourceBuildings.map(type => {
           const b = byType[type]
           if (!b) return null
           if (b.unlocked === false) return <LockedBuildingCard key={type} type={type} />
+
           return (
-            <BuildingCard
+            <ProductionCard
               key={b.id}
               building={b}
+              prod={production[type]}
               resources={effectiveResources}
-              nexusRatio={PRODUCTION_TYPES.includes(type) ? nexusRatio : undefined}
               anyUpgrading={anyUpgrading}
+              onCollect={onCollect}
               onUpgradeStart={onUpgradeStart}
               onUpgradeCollect={onUpgradeCollect}
               onOptimisticDeduct={onOptimisticDeduct}

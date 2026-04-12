@@ -9,24 +9,22 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
 import { usePotions } from '../hooks/usePotions'
-import { useHeroRunes } from '../hooks/useHeroRunes'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
-import Camaras from '../sections/Camaras'
 import Equipo from '../sections/Equipo'
-import Cartas from '../sections/Cartas'
 import Combates from '../sections/Combates'
-import Escuadron from '../sections/Escuadron'
+// import Escuadron from '../sections/Escuadron'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
+import Tacticas from '../sections/Tacticas'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, DoorOpen, Users } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Users } from 'lucide-react'
 
 function DiscordIcon({ size = 20 }) {
   return (
@@ -139,87 +137,10 @@ function CatalogDebug() {
   )
 }
 
-/* ─── DEV ONLY: Catálogo de cartas ─────────────────────────────────────────── */
-
-const CATEGORY_COLORS = { offense: '#f97316', defense: '#94a3b8', mobility: '#60a5fa', equipment: '#fbbf24', hybrid: '#c084fc' }
-const CATEGORY_LABELS = { offense: 'Ofensa', defense: 'Resistencia', mobility: 'Movilidad', equipment: 'Equipo', hybrid: 'Híbrida' }
-const CATEGORIES = ['offense', 'defense', 'mobility', 'equipment', 'hybrid']
-
-function CardCatalogDebug() {
-  const [cards, setCards] = useState(null)
-  const [filter, setFilter] = useState('all')
-
-  useEffect(() => {
-    supabase.from('skill_cards').select('*').order('category').order('rarity')
-      .then(({ data }) => setCards(data ?? []))
-  }, [])
-
-  if (!cards) return <p style={{ padding: 40, color: '#94a3b8' }}>Cargando cartas...</p>
-
-  const cats = filter === 'all' ? CATEGORIES : [filter]
-  const grouped = cats.reduce((acc, cat) => {
-    acc[cat] = cards.filter(c => c.card_category === cat)
-    return acc
-  }, {})
-
-  return (
-    <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de Cartas</h2>
-        <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>DEV ONLY</span>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>{cards.length} cartas</span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        {['all', ...CATEGORIES].map(cat => (
-          <button key={cat} onClick={() => setFilter(cat)} style={{
-            padding: '3px 10px', borderRadius: 6, border: '1px solid',
-            borderColor: filter === cat ? (CATEGORY_COLORS[cat] ?? '#2563eb') : '#e2e8f0',
-            background: filter === cat ? 'white' : 'white',
-            color: filter === cat ? (CATEGORY_COLORS[cat] ?? '#2563eb') : '#475569',
-            fontWeight: 600, fontSize: 11, cursor: 'pointer',
-          }}>{cat === 'all' ? 'Todas' : CATEGORY_LABELS[cat]}</button>
-        ))}
-      </div>
-
-      {cats.map(cat => grouped[cat].length > 0 && (
-        <div key={cat} style={{ marginBottom: 28 }}>
-          <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: CATEGORY_COLORS[cat], marginBottom: 8 }}>
-            {CATEGORY_LABELS[cat]}
-          </p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', fontSize: 11 }}>
-                {['Nombre', 'Descripción', 'Bonus (R1)', 'Penalización (R1)'].map(h => (
-                  <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700, borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {grouped[cat].map(card => (
-                <tr key={card.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '6px 10px', fontWeight: 700, color: CATEGORY_COLORS[card.card_category] ?? '#475569' }}>{card.name}</td>
-                  <td style={{ padding: '6px 10px', color: '#64748b', maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.description}</td>
-                  <td style={{ padding: '6px 10px', color: '#16a34a', fontWeight: 600 }}>
-                    {(card.bonuses ?? []).map(b => `+${b.value} ${b.stat}`).join(', ') || '—'}
-                  </td>
-                  <td style={{ padding: '6px 10px', color: '#dc2626', fontWeight: 600 }}>
-                    {(card.penalties ?? []).map(p => `−${p.value} ${p.stat}`).join(', ') || '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Estado del héroe respecto a EXPEDICIONES (independiente de cámaras).
+ * Estado del héroe respecto a EXPEDICIONES.
  *   'ready'     → expedición terminada esperando recoger
  *   'exploring' → expedición en curso
  *   'idle'      → ninguna activa
@@ -232,44 +153,26 @@ function getHeroExpeditionState(hero, now) {
 }
 
 /**
- * Estado del héroe respecto a CÁMARAS.
- *   'ready'     → cámara terminada o esperando elección de cofre
- *   'exploring' → cámara en curso
- *   'idle'      → ninguna activa
- */
-function getHeroChamberState(hero, now) {
-  const active = (hero.chamber_runs ?? []).find(c => c.status === 'active' || c.status === 'awaiting_choice')
-  if (!active) return 'idle'
-  if (active.status === 'awaiting_choice') return 'ready'
-  if (new Date(active.ends_at) <= now) return 'ready'
-  return 'exploring'
-}
-
-/**
- * Combinación de ambos — usado por el badge del sidebar (tab 'heroes').
- * Prioriza 'ready' sobre 'exploring' sobre el status crudo del héroe.
+ * Estado derivado del héroe — usado por el badge del sidebar.
  */
 function getHeroDerivedStatus(hero, now) {
   const exp = getHeroExpeditionState(hero, now)
-  const cam = getHeroChamberState(hero, now)
-  if (exp === 'ready' || cam === 'ready') return 'ready'
-  if (exp === 'exploring' || cam === 'exploring') return 'exploring'
+  if (exp === 'ready') return 'ready'
+  if (exp === 'exploring') return 'exploring'
   return hero.status
 }
 
 const NAV_ITEMS = [
   { id: 'base',      label: 'Base',      icon: Castle },
   { id: 'heroes',    label: 'Héroes',    icon: Sword  },
-  { id: 'mundo',     label: 'Duelos',    icon: Globe  },
-  { id: 'escuadron', label: 'Escuadrón', icon: Users,  minHeroes: 3 },
+  { id: 'mundo',     label: 'Combates',  icon: Globe  },
   { id: 'arena',     label: 'Arena',     icon: Swords },
 ]
 
 const HERO_SUB_TABS = [
   { id: 'ficha',        label: 'Ficha',        icon: Sword       },
   { id: 'equipo',       label: 'Equipo',       icon: Shield      },
-  { id: 'cartas',       label: 'Cartas',       icon: Layers      },
-  { id: 'camaras',      label: 'Cámaras',      icon: DoorOpen    },
+  { id: 'tacticas',     label: 'Tácticas',     icon: Layers      },
   { id: 'expediciones', label: 'Expediciones', icon: Map         },
   { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
 ]
@@ -296,7 +199,6 @@ function Dashboard({ session }) {
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
   const { craftingMap: potionCraftingMap } = usePotions(session.user.id)
-  const { craftingMap: runeCraftingMap }   = useHeroRunes(session.user.id)
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
@@ -318,18 +220,15 @@ function Dashboard({ session }) {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeTab])
 
-  // Estado combinado (expediciones + cámaras) para el badge del sidebar — mira todos los héroes
+  // Estado de expediciones para el badge del sidebar — mira todos los héroes
   const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
   const anyHeroExploring = heroes.some(h => getHeroDerivedStatus(h, now) === 'exploring')
 
   // Dots del sub-nav: reflejan SOLO el héroe seleccionado (no "algún héroe")
   const selectedHero       = heroes.find(h => h.id === heroId) ?? null
   const selExpState        = selectedHero ? getHeroExpeditionState(selectedHero, now) : 'idle'
-  const selChamberState    = selectedHero ? getHeroChamberState(selectedHero, now)    : 'idle'
-  const selExpReady        = selExpState     === 'ready'
-  const selExpExploring    = selExpState     === 'exploring'
-  const selChamberReady    = selChamberState === 'ready'
-  const selChamberExploring = selChamberState === 'exploring'
+  const selExpReady        = selExpState === 'ready'
+  const selExpExploring    = selExpState === 'exploring'
 
   const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
   const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
@@ -344,7 +243,7 @@ function Dashboard({ session }) {
   const trainingRoomsInProgress = (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
   const trainingRoomsDone       = (trainingRooms ?? []).some(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
 
-  const allCrafts = [...Object.values(potionCraftingMap), ...Object.values(runeCraftingMap)]
+  const allCrafts = Object.values(potionCraftingMap).flat()
   const craftReady      = allCrafts.some(c => new Date(c.craft_ends_at) <= now)
   const craftInProgress = !craftReady && allCrafts.some(c => new Date(c.craft_ends_at) > now)
 
@@ -485,13 +384,6 @@ function Dashboard({ session }) {
                   <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
                   <span className="leading-none">Items</span>
                 </button>
-                <button
-                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 ${activeTab === 'dev-cartas' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
-                  onClick={() => navigateTo('dev-cartas')}
-                >
-                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
-                  <span className="leading-none">Cartas</span>
-                </button>
               </>
             )}
           </nav>
@@ -512,11 +404,9 @@ function Dashboard({ session }) {
                   {HERO_SUB_TABS.map(({ id, label, icon: Icon }) => {
                     const isActive = activeHeroTab === id
                     const hasAlert =
-                      (id === 'expediciones' && selExpReady) ||
-                      (id === 'camaras'      && selChamberReady)
+                      (id === 'expediciones' && selExpReady)
                     const hasExploring =
-                      (id === 'expediciones' && !selExpReady     && selExpExploring) ||
-                      (id === 'camaras'      && !selChamberReady && selChamberExploring)
+                      (id === 'expediciones' && !selExpReady && selExpExploring)
                     return (
                       <button
                         key={id}
@@ -552,9 +442,8 @@ function Dashboard({ session }) {
                   >
                     {activeHeroTab === 'ficha'        && <ErrorBoundary><Hero /></ErrorBoundary>}
                     {activeHeroTab === 'equipo'       && <ErrorBoundary><Equipo /></ErrorBoundary>}
-                    {activeHeroTab === 'cartas'       && <ErrorBoundary><Cartas /></ErrorBoundary>}
+                    {activeHeroTab === 'tacticas'     && <ErrorBoundary><Tacticas /></ErrorBoundary>}
                     {activeHeroTab === 'expediciones' && <ErrorBoundary><Dungeons /></ErrorBoundary>}
-                    {activeHeroTab === 'camaras'      && <ErrorBoundary><Camaras /></ErrorBoundary>}
                     {activeHeroTab === 'tienda'       && <ErrorBoundary><Shop /></ErrorBoundary>}
                   </motion.div>
                 </AnimatePresence>
@@ -572,10 +461,7 @@ function Dashboard({ session }) {
             {mountedTabs.has('mundo') && <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>}
           </div>
 
-          {/* Escuadrón */}
-          <div className={activeTab === 'escuadron' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('escuadron') && <ErrorBoundary><Escuadron /></ErrorBoundary>}
-          </div>
+          {/* Escuadrón (oculto temporalmente) */}
 
           {/* Arena */}
           <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
@@ -592,9 +478,6 @@ function Dashboard({ session }) {
             <>
               <div className={activeTab === 'dev-catalogo' ? 'block animate-section-in' : 'hidden'}>
                 {mountedTabs.has('dev-catalogo') && <CatalogDebug />}
-              </div>
-              <div className={activeTab === 'dev-cartas' ? 'block animate-section-in' : 'hidden'}>
-                {mountedTabs.has('dev-cartas') && <CardCatalogDebug />}
               </div>
             </>
           )}

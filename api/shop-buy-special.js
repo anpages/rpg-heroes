@@ -167,17 +167,7 @@ export default async function handler(req, res) {
     result = { effect: 'card_guaranteed' }
   }
   else if (special.effect_type === 'random_rune') {
-    const { data: runes } = await supabase.from('rune_catalog').select('id')
-    if (!runes?.length) return res.status(409).json({ error: 'No hay runas disponibles' })
-    const picked = runes[Math.floor(Math.random() * runes.length)]
-    const { data: existing } = await supabase
-      .from('player_runes').select('quantity')
-      .eq('player_id', user.id).eq('rune_id', picked.id).maybeSingle()
-    const upsertErr = existing
-      ? (await supabase.from('player_runes').update({ quantity: existing.quantity + 1 }).eq('player_id', user.id).eq('rune_id', picked.id)).error
-      : (await supabase.from('player_runes').insert({ player_id: user.id, rune_id: picked.id, quantity: 1 })).error
-    if (upsertErr) return res.status(500).json({ error: upsertErr.message })
-    result = { runeId: picked.id }
+    return res.status(409).json({ error: 'Este item ya no está disponible' })
   }
   else if (special.effect_type === 'free_repair') {
     const effects = { ...(hero.active_effects ?? {}), free_repair: 1 }

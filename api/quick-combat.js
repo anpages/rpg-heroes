@@ -15,6 +15,8 @@ import { isUUID, snapshotResources } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, quickCombatDifficulty, quickCombatVirtualLevel } from './_rating.js'
+import { generateEnemyTactics } from './_enemyTactics.js'
+import { rollTacticDrop } from './_loot.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -65,17 +67,33 @@ export default async function handler(req, res) {
   //   - Tramo bajo: a veces te cruzas con un rival del tier inferior
   //   - Tramo alto: a veces te cruzas con uno del tier superior (preview)
   // Si tu equipo es pobre para el tier, pierdes: ese es el incentivo para
-  // expediciones/cámaras/reparar. Gear → tier progression.
+  // expediciones/crafteo/reparar. Gear → tier progression.
   const { vl, shift }  = quickCombatVirtualLevel(hero)
   const baseEnemyStats = tierAnchoredEnemyStats(vl)
   const archetypeKey   = randomArchetype()
   const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
   const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)
 
-  // Simular combate
+  // Tácticas del héroe y del enemigo
+  const { data: heroTacticRows } = await supabase
+    .from('hero_tactics')
+    .select('level, tactic_catalog(name, icon, combat_effect)')
+    .eq('hero_id', heroId)
+    .not('slot_index', 'is', null)
+  const heroTactics = (heroTacticRows ?? []).filter(r => r.tactic_catalog).map(r => ({
+    name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
+    level: r.level, combat_effect: r.tactic_catalog.combat_effect,
+  }))
+  const enemyTactics = generateEnemyTactics(vl, archetypeKey)
+
+  // Simular combate — pasar clases para sistema de habilidades
   const result = simulateCombat(heroStats, enemyStats, {
     critBonus: rb.crit_pct,
     dmgMultiplier: rb.tower_dmg_pct,
+    classA: hero.class,
+    classB: archetypeKey,
+    tacticsA: heroTactics,
+    tacticsB: enemyTactics,
   })
   const won = result.winner === 'a'
 
@@ -183,6 +201,10 @@ export default async function handler(req, res) {
       .eq('id', hero.id)
 
     rewards.levelUp = levelUp
+
+    // Drop de táctica (8% en victoria)
+    const tacticDrop = await rollTacticDrop(supabase, heroId, hero.class, { chance: 0.08, bonusChance: rb.tactic_drop_pct ?? 0 })
+    if (tacticDrop) rewards.tacticDrop = tacticDrop
   }
 
   // Misiones
@@ -199,6 +221,7 @@ export default async function handler(req, res) {
     enemyMaxHp:   enemyStats.max_hp,
     enemyName,
     archetype:    archetypeKey,
+    heroClass:    hero.class,
     tierShift:    shift,
     durabilityLoss: durLoss,
     rewards:      won ? rewards : null,

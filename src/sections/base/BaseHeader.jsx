@@ -102,7 +102,7 @@ export default function BaseHeader({ byType, resources }) {
       {/* Resource grid */}
       {resources && (
         <div
-          className="border-t grid grid-cols-5 bg-surface-2"
+          className="border-t grid grid-cols-4 bg-surface-2"
           style={{ borderColor: `color-mix(in srgb, ${tier.color} 20%, var(--border))` }}
         >
           {HEADER_RESOURCES.map(({ key, Icon, color, label, short }, idx, arr) => (

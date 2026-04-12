@@ -19,6 +19,7 @@ function useResolvedTheme() {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 function ThemedToaster() {
   const theme = useResolvedTheme()
   return (

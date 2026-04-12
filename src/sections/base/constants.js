@@ -1,14 +1,13 @@
 import {
   Coins, Axe, Sparkles, Zap, BookOpen, FlaskConical,
-  Pickaxe, Dumbbell, Home, Sword, Map, Hammer,
+  Pickaxe, Dumbbell, Sword, Map, Hammer, Sprout,
   Swords, ShieldCheck, Brain, Layers, Flame, Heart,
+  Gem, TreePine, Wind, Flower2, Droplets, Leaf,
 } from 'lucide-react'
 import {
   UNLOCK_TRIGGERS,
   TRAINING_ROOM_BASE_LEVEL_REQUIRED,
-  ironRateForLevel,
-  woodRateForLevel,
-  manaRateForLevel,
+  buildingRateAndCap,
 } from '../../lib/gameConstants.js'
 
 /* ─── Animaciones ─────────────────────────────────────────────────────────────── */
@@ -22,44 +21,65 @@ export const cardVariants = {
 /* ─── Metadatos de edificios ─────────────────────────────────────────────────── */
 
 export const BUILDING_META = {
-  energy_nexus: {
-    name: 'Nexo Arcano',
-    description: 'Canaliza la energía del mundo para alimentar las estructuras de la base.',
-    icon: Zap,
-    color: '#0891b2',
-    effect: (level) => `${level * 30} energía`,
-    nextEffect: (level) => `${(level + 1) * 30} energía`,
-  },
   gold_mine: {
     name: 'Mina de Hierro',
-    description: 'Extrae hierro de las profundidades de la tierra. El hierro es el material de construcción principal.',
+    description: 'Extrae hierro de las profundidades de la tierra.',
     icon: Pickaxe,
     color: '#64748b',
-    effect: (level) => `${ironRateForLevel(level)} hierro/h`,
-    nextEffect: (level) => `${ironRateForLevel(level + 1)} hierro/h`,
-    energyPerLevel: 10,
+    effect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('gold_mine', level)
+      return secondary ? `${rate} hierro/h + ${secondary.rate} carbón/h` : `${rate} hierro/h`
+    },
+    nextEffect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('gold_mine', level + 1)
+      return secondary ? `${rate} hierro/h + ${secondary.rate} carbón/h` : `${rate} hierro/h`
+    },
   },
   lumber_mill: {
     name: 'Aserradero',
     description: 'Procesa la madera del bosque cercano.',
     icon: Axe,
     color: '#16a34a',
-    effect: (level) => `${woodRateForLevel(level)} madera/h`,
-    nextEffect: (level) => `${woodRateForLevel(level + 1)} madera/h`,
-    energyPerLevel: 10,
+    effect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('lumber_mill', level)
+      return secondary ? `${rate} madera/h + ${secondary.rate} fibra/h` : `${rate} madera/h`
+    },
+    nextEffect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('lumber_mill', level + 1)
+      return secondary ? `${rate} madera/h + ${secondary.rate} fibra/h` : `${rate} madera/h`
+    },
   },
   mana_well: {
     name: 'Pozo de Maná',
     description: 'Canaliza energía arcana desde las líneas ley.',
     icon: Sparkles,
     color: '#7c3aed',
-    effect: (level) => `${manaRateForLevel(level)} maná/h`,
-    nextEffect: (level) => `${manaRateForLevel(level + 1)} maná/h`,
-    energyPerLevel: 10,
+    effect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('mana_well', level)
+      return secondary ? `${rate} maná/h + ${secondary.rate} polvo/h` : `${rate} maná/h`
+    },
+    nextEffect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('mana_well', level + 1)
+      return secondary ? `${rate} maná/h + ${secondary.rate} polvo/h` : `${rate} maná/h`
+    },
+  },
+  herb_garden: {
+    name: 'Jardín de Hierbas',
+    description: 'Cultiva hierbas medicinales y flores exóticas.',
+    icon: Sprout,
+    color: '#15803d',
+    effect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('herb_garden', level)
+      return secondary ? `${rate} hierbas/h + ${secondary.rate} flores/h` : `${rate} hierbas/h`
+    },
+    nextEffect: (level) => {
+      const { rate, secondary } = buildingRateAndCap('herb_garden', level + 1)
+      return secondary ? `${rate} hierbas/h + ${secondary.rate} flores/h` : `${rate} hierbas/h`
+    },
   },
   library: {
     name: 'Biblioteca',
-    description: 'Custodia las cartas y alberga el árbol de investigación.',
+    description: 'Alberga el árbol de investigación.',
     icon: BookOpen,
     color: '#0f766e',
     effect: (level) => {
@@ -77,29 +97,95 @@ export const BUILDING_META = {
       if (level === 3) return 'Camino hacia investigaciones maestras'
       return 'Desbloquea investigaciones maestras (pos. 4)'
     },
-    energyPerLevel: 5,
   },
   laboratory: {
-    name: 'Laboratorio',
-    description: 'Transforma recursos en pociones y runas. Cada nivel desbloquea recetas más poderosas.',
+    name: 'Taller',
+    description: 'Combina materiales procesados en kits, piedras, pergaminos y pociones.',
     icon: FlaskConical,
     color: '#7c3aed',
     effect: (level) => {
       if (level === 0) return 'Sin construir'
-      if (level === 1) return 'Pociones básicas'
-      if (level === 2) return 'Pociones intermedias + Runas I'
-      if (level === 3) return 'Pociones avanzadas + Runas II'
-      if (level === 4) return 'Pociones superiores + Runas III'
+      if (level === 1) return 'Recetas básicas'
+      if (level === 2) return 'Recetas intermedias'
+      if (level === 3) return 'Recetas avanzadas'
+      if (level === 4) return 'Recetas superiores'
       return 'Todas las recetas'
     },
     nextEffect: (level) => {
-      if (level === 0) return 'Pociones básicas'
-      if (level === 1) return 'Pociones intermedias + Runas I'
-      if (level === 2) return 'Pociones avanzadas + Runas II'
-      if (level === 3) return 'Pociones superiores + Runas III'
+      if (level === 0) return 'Recetas básicas'
+      if (level === 1) return 'Recetas intermedias'
+      if (level === 2) return 'Recetas avanzadas'
+      if (level === 3) return 'Recetas superiores'
       return 'Recetas maestras'
     },
-    energyPerLevel: 5,
+  },
+  carpinteria: {
+    name: 'Carpintería',
+    description: 'Transforma madera en tablones y materiales compuestos.',
+    icon: Hammer,
+    color: '#65a30d',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level < 3) return 'Tablones'
+      return 'Tablones + Madera Compuesta'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Tablones'
+      if (level === 2) return 'Desbloquea Madera Compuesta'
+      if (level === 3) return 'Segundo slot a Nv.4'
+      return 'Velocidad máxima'
+    },
+  },
+  fundicion: {
+    name: 'Fundición',
+    description: 'Funde mineral de hierro en lingotes y aleaciones de acero.',
+    icon: Flame,
+    color: '#b45309',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level < 3) return 'Lingotes de Acero'
+      return 'Lingotes + Acero Templado'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Lingotes de Acero'
+      if (level === 2) return 'Desbloquea Acero Templado'
+      if (level === 3) return 'Segundo slot a Nv.4'
+      return 'Velocidad máxima'
+    },
+  },
+  destileria_arcana: {
+    name: 'Destilería Arcana',
+    description: 'Cristaliza maná bruto en gemas y concentrados arcanos.',
+    icon: Droplets,
+    color: '#6d28d9',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level < 3) return 'Cristales de Maná'
+      return 'Cristales + Maná Concentrado'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Cristales de Maná'
+      if (level === 2) return 'Desbloquea Maná Concentrado'
+      if (level === 3) return 'Segundo slot a Nv.4'
+      return 'Velocidad máxima'
+    },
+  },
+  herbolario: {
+    name: 'Herbolario',
+    description: 'Procesa hierbas en extractos y bases alquímicas.',
+    icon: Leaf,
+    color: '#059669',
+    effect: (level) => {
+      if (level === 0) return 'Sin construir'
+      if (level < 3) return 'Extractos Herbales'
+      return 'Extractos + Base de Poción'
+    },
+    nextEffect: (level) => {
+      if (level === 0) return 'Extractos Herbales'
+      if (level === 2) return 'Desbloquea Base de Poción'
+      if (level === 3) return 'Segundo slot a Nv.4'
+      return 'Velocidad máxima'
+    },
   },
 }
 
@@ -117,7 +203,7 @@ export const BASE_TIERS = [
 
 /* ─── Edificios de producción ────────────────────────────────────────────────── */
 
-export const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well']
+export const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'mana_well', 'herb_garden']
 
 /* ─── Requisitos de desbloqueo ───────────────────────────────────────────────── */
 
@@ -170,14 +256,12 @@ export function describePotionEffect(effectType, effectValue) {
     case 'time_reduction':  return `−${pct}% tiempo`
     case 'loot_boost':      return `+${pct}% botín`
     case 'gold_boost':      return `+${pct}% oro`
-    case 'card_guaranteed': return 'Carta garantizada'
+    case 'card_guaranteed': return 'Táctica garantizada'
     case 'free_repair':     return 'Reparación gratis'
     default:                return ''
   }
 }
 
-export const RUNE_BONUS_LABELS = { attack: 'Atq', defense: 'Def', intelligence: 'Int', agility: 'Agi', max_hp: 'HP', strength: 'Fue' }
-export const RUNE_BONUS_COLORS = { attack: '#d97706', defense: '#6b7280', intelligence: '#7c3aed', agility: '#2563eb', max_hp: '#dc2626', strength: '#dc2626' }
 
 /* ─── Investigación ──────────────────────────────────────────────────────────── */
 
@@ -193,27 +277,40 @@ export const BRANCH_ORDER = ['combat', 'expedition', 'crafting', 'magic']
 /* ─── Navegación ─────────────────────────────────────────────────────────────── */
 
 export const ZONES = [
-  { id: 'inicio',        label: 'Inicio',         icon: Home       },
-  { id: 'recursos',      label: 'Recursos',        icon: Coins      },
-  { id: 'entrenamiento', label: 'Entrenamiento',   icon: Dumbbell   },
-  { id: 'laboratorio',   label: 'Laboratorio',     icon: FlaskConical },
-  { id: 'biblioteca',    label: 'Biblioteca',      icon: BookOpen   },
+  { id: 'produccion',    label: 'Producción',    icon: Coins       },
+  { id: 'refinado',      label: 'Refinado',      icon: Hammer      },
+  { id: 'taller',        label: 'Taller',        icon: FlaskConical },
+  { id: 'entrenamiento', label: 'Entrenamiento', icon: Dumbbell    },
+  { id: 'biblioteca',    label: 'Biblioteca',    icon: BookOpen    },
 ]
 
 /* ─── Recursos ───────────────────────────────────────────────────────────────── */
 
 export const RESOURCE_ITEMS = [
-  { key: 'wood', icon: Axe,      color: '#16a34a', label: 'Madera', rateKey: 'wood_rate' },
-  { key: 'iron', icon: Pickaxe,  color: '#64748b', label: 'Hierro', rateKey: 'iron_rate' },
-  { key: 'mana', icon: Sparkles, color: '#7c3aed', label: 'Maná',   rateKey: 'mana_rate' },
+  { key: 'wood',  icon: Axe,      color: '#16a34a', label: 'Madera' },
+  { key: 'iron',  icon: Pickaxe,  color: '#64748b', label: 'Hierro' },
+  { key: 'mana',  icon: Sparkles, color: '#7c3aed', label: 'Maná'   },
+  { key: 'herbs', icon: Sprout,   color: '#15803d', label: 'Hierbas' },
+]
+
+export const SECONDARY_RESOURCE_ITEMS = [
+  { key: 'coal',        icon: Gem,     color: '#374151', label: 'Carbón' },
+  { key: 'fiber',       icon: TreePine, color: '#65a30d', label: 'Fibra' },
+  { key: 'arcane_dust', icon: Wind,    color: '#8b5cf6', label: 'Polvo Arcano' },
+  { key: 'flowers',     icon: Flower2, color: '#ec4899', label: 'Flores' },
 ]
 
 /* ─── Header resources grid ──────────────────────────────────────────────────── */
 
 export const HEADER_RESOURCES = [
-  { key: 'wood',      Icon: Axe,      color: '#16a34a', label: 'Madera',     short: 'Mad'  },
-  { key: 'iron',      Icon: Pickaxe,  color: '#64748b', label: 'Hierro',     short: 'Hier' },
-  { key: 'mana',      Icon: Sparkles, color: '#7c3aed', label: 'Maná',       short: 'Maná' },
-  { key: 'fragments', Icon: Layers,   color: '#0891b2', label: 'Fragmentos', short: 'Frag' },
-  { key: 'essence',   Icon: Flame,    color: '#f43f5e', label: 'Esencia',    short: 'Esen' },
+  { key: 'wood',  Icon: Axe,      color: '#16a34a', label: 'Madera',  short: 'Mad'  },
+  { key: 'iron',  Icon: Pickaxe,  color: '#64748b', label: 'Hierro',  short: 'Hier' },
+  { key: 'mana',  Icon: Sparkles, color: '#7c3aed', label: 'Maná',    short: 'Maná' },
+  { key: 'herbs', Icon: Sprout,   color: '#15803d', label: 'Hierbas', short: 'Herb' },
 ]
+
+export const RESOURCE_LABEL = {
+  iron: 'Hierro', wood: 'Madera', mana: 'Maná', herbs: 'Hierbas',
+  coal: 'Carbón', fiber: 'Fibra', arcane_dust: 'Polvo Arcano', flowers: 'Flores',
+  fragments: 'Fragmentos', essence: 'Esencia', gold: 'Oro',
+}

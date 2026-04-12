@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { Axe, Pickaxe, Sparkles, ChevronRight, Clock, Lock } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Clock, Lock, Info } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { notify } from '../../lib/notifications.js'
 import { buildingUpgradeCost, buildingUpgradeDurationMs, BUILDING_MAX_LEVEL } from '../../lib/gameConstants.js'
 import { apiPost } from '../../lib/api.js'
-import { BUILDING_META, PRODUCTION_TYPES, UNLOCK_REQUIREMENTS } from './constants.js'
-import { fmt, fmtTime } from './helpers.js'
+import { BUILDING_META, UNLOCK_REQUIREMENTS } from './constants.js'
+import { fmtTime } from './helpers.js'
+import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-/* ─── useUpgradeTimer ────────────────────────────────────────────────────────── */
+/* ── useUpgradeTimer ────────────────────────────────────────────────────────── */
 
 function useUpgradeTimer(building, onUpgradeCollect) {
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -56,13 +57,17 @@ function useUpgradeTimer(building, onUpgradeCollect) {
   return { secondsLeft, loading, mountedRef }
 }
 
-/* ─── BuildingCard ───────────────────────────────────────────────────────────── */
+/* ── BuildingCard ───────────────────────────────────────────────────────────── */
 
-export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, nexusRatio, anyUpgrading }) {
+export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending, anyUpgrading }) {
+  const [showModal, setShowModal] = useState(false)
   const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
 
   useEffect(() => {
-    if (building.upgrade_ends_at) setOptimisticEndsAt(null)
+    if (building.upgrade_ends_at) {
+      setOptimisticEndsAt(null)
+      setShowModal(false)
+    }
   }, [building.upgrade_ends_at])
 
   const effectiveBuilding = optimisticEndsAt
@@ -72,6 +77,7 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
   const meta = BUILDING_META[effectiveBuilding.type]
   const { level } = effectiveBuilding
   const hasUpgrade = !!effectiveBuilding.upgrade_ends_at
+  const isMaxLevel = level >= BUILDING_MAX_LEVEL
   const { secondsLeft, loading, mountedRef } = useUpgradeTimer(effectiveBuilding, () => {
     setOptimisticEndsAt(null)
     onUpgradeCollect()
@@ -84,12 +90,6 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
   const totalSeconds = buildingUpgradeDurationMs(level, building.type) / 1000
   const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
   const pct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
-
-  const canAfford = resources
-    && (cost.wood === undefined || resources.wood >= cost.wood)
-    && (cost.iron === undefined || resources.iron >= cost.iron)
-    && (cost.mana === undefined || resources.mana >= cost.mana)
-  const blockedByOther = !hasUpgrade && anyUpgrading
 
   async function handleUpgradeStart() {
     setOptimisticEndsAt(new Date(Date.now() + buildingUpgradeDurationMs(building.level, building.type)).toISOString())
@@ -106,109 +106,114 @@ export function BuildingCard({ building, resources, onUpgradeStart, onUpgradeCol
     }
   }
 
-  const costRow = (
-    <div className="flex items-center justify-between gap-2 pt-3 border-t border-border mt-auto">
-      <div className="flex gap-2 flex-wrap">
-        {cost.wood !== undefined && (
-          <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.wood >= cost.wood ? 'text-success-text' : 'text-error-text'}`}>
-            <Axe size={12} strokeWidth={2} />{fmt(cost.wood)}
-          </span>
-        )}
-        {cost.iron !== undefined && (
-          <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.iron >= cost.iron ? 'text-success-text' : 'text-error-text'}`}>
-            <Pickaxe size={12} strokeWidth={2} />{fmt(cost.iron)}
-          </span>
-        )}
-        {cost.mana !== undefined && (
-          <span className={`flex items-center gap-1 text-[13px] font-semibold ${resources?.mana >= cost.mana ? 'text-success-text' : 'text-error-text'}`}>
-            <Sparkles size={12} strokeWidth={2} />{fmt(cost.mana)}
-          </span>
-        )}
-      </div>
-      <motion.button
-        className="btn btn--primary btn--sm flex-shrink-0"
-        onClick={handleUpgradeStart}
-        disabled={!canAfford || blockedByOther}
-        title={blockedByOther ? 'Ya hay un edificio en construcción' : undefined}
-        whileTap={(!canAfford || blockedByOther) ? {} : { scale: 0.96 }}
-        whileHover={(!canAfford || blockedByOther) ? {} : { scale: 1.02 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-      >
-        <span>{level === 0 ? 'Construir' : 'Mejorar'}</span><ChevronRight size={13} strokeWidth={2} />
-      </motion.button>
-    </div>
-  )
-
-  const progressRow = (
-    <div className="flex flex-col gap-2 pt-3 border-t border-border mt-auto">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-[var(--accent)]">→ Nivel {level + 1}</span>
-        <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3">
-          <Clock size={12} strokeWidth={2} />
-          {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
-        </span>
-      </div>
-      <div className="h-1.5 bg-border rounded-full overflow-hidden">
-        <div
-          className="h-full bg-[var(--accent)] rounded-full"
-          style={{ width: `${pct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
-        />
-      </div>
-    </div>
-  )
-
   return (
-    <div
-      className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--accent-border)] transition-[box-shadow,border-color] duration-200"
-      style={{ '--accent': meta.color }}
-    >
-      <div className="flex items-center gap-3 px-4 py-4">
-        <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-          <Icon size={20} strokeWidth={1.8} color={meta.color} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[14px] font-bold text-text leading-none truncate">{meta.name}</h3>
-            {level === 0 ? (
-              <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-[5px] px-1.5 py-[3px] leading-none flex-shrink-0">
-                Sin construir
-              </span>
-            ) : (
-              <span className="text-[12px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[5px] px-1.5 py-[3px] leading-none flex-shrink-0">
-                Nv.{level}
-              </span>
-            )}
+    <>
+      <div
+        className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--accent-border)] transition-[box-shadow,border-color] duration-200"
+        style={{ '--accent': meta.color }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-4">
+          <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+            <Icon size={20} strokeWidth={1.8} color={meta.color} />
           </div>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {level === 0 ? (
-              <span className="text-[13px] font-semibold text-text-3">→ {meta.nextEffect(0)}</span>
-            ) : (
-              <>
-                <span className="text-[13px] font-semibold text-text-2">{meta.effect(level)}</span>
-                {!hasUpgrade && (
-                  <span className="text-[12px] text-text-3">→ {meta.nextEffect(level)}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-bold text-text leading-none truncate">{meta.name}</h3>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {level === 0 ? (
+                  <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded-[5px] px-1.5 py-[3px] leading-none">
+                    Sin construir
+                  </span>
+                ) : (
+                  <span className="text-[12px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] border border-[var(--accent-border)] rounded-[5px] px-1.5 py-[3px] leading-none">
+                    Nv.{level}
+                  </span>
                 )}
-              </>
-            )}
-            {nexusRatio !== undefined && nexusRatio < 1 && (
-              <span className="text-[11px] font-semibold text-[#d97706]">· ⚡ {Math.round(nexusRatio * 100)}%</span>
-            )}
+                {!hasUpgrade && (
+                  <button
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface-2 border border-border text-text-3 hover:text-text transition-colors"
+                    onClick={() => setShowModal(true)}
+                  >
+                    <Info size={14} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {level === 0 ? (
+                <span className="text-[13px] font-semibold text-text-3">{meta.nextEffect(0)}</span>
+              ) : (
+                <span className="text-[13px] font-semibold text-text-2">{meta.effect(level)}</span>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Upgrade progress / Build button / Max level */}
+        <div className="px-4 pb-4 border-t border-border">
+          {hasUpgrade ? (
+            <div className="flex flex-col gap-2 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-[var(--accent)]">Mejorando a Nv.{level + 1}</span>
+                <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3">
+                  <Clock size={12} strokeWidth={2} />
+                  {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
+                </span>
+              </div>
+              <div className="h-2 bg-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[var(--accent)] rounded-full"
+                  style={{ width: `${pct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
+                />
+              </div>
+            </div>
+          ) : isMaxLevel ? (
+            <div className="flex items-center justify-center pt-3">
+              <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel maximo</span>
+            </div>
+          ) : (
+            <div className="pt-3">
+              {level === 0 ? (
+                <motion.button
+                  className="w-full py-2.5 rounded-lg font-bold text-[14px] border-0 text-white"
+                  style={{ background: `linear-gradient(135deg, ${meta.color}, color-mix(in srgb, ${meta.color} 75%, #000))` }}
+                  onClick={() => setShowModal(true)}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Construir
+                </motion.button>
+              ) : (
+                <motion.button
+                  className="w-full py-2.5 rounded-lg font-bold text-[13px] border border-border bg-surface-2 text-text-2"
+                  onClick={() => setShowModal(true)}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Ver mejora a Nv.{level + 1}
+                </motion.button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="px-4 pb-4 border-t border-border">
-        {hasUpgrade ? progressRow : level >= BUILDING_MAX_LEVEL ? (
-          <div className="flex items-center justify-center pt-3 mt-auto">
-            <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel máximo</span>
-          </div>
-        ) : costRow}
-      </div>
-    </div>
+      {/* Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <BuildingInfoModal
+            building={building}
+            resources={resources}
+            anyUpgrading={anyUpgrading}
+            onUpgradeStart={handleUpgradeStart}
+            onClose={() => setShowModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
-/* ─── LockedBuildingCard ─────────────────────────────────────────────────────── */
+/* ── LockedBuildingCard ─────────────────────────────────────────────────────── */
 
 export function LockedBuildingCard({ type }) {
   const meta = BUILDING_META[type]
@@ -221,24 +226,23 @@ export function LockedBuildingCard({ type }) {
       style={{ '--accent': meta.color }}
     >
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-        <div className="w-9 h-9 rounded-[8px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-          <Icon size={18} strokeWidth={1.8} color={meta.color} />
+        <div className="w-10 h-10 rounded-[8px] bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+          <Icon size={20} strokeWidth={1.8} color={meta.color} />
         </div>
         <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-          <h3 className="text-[14px] font-bold text-text truncate">{meta.name}</h3>
-          <Lock size={13} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
+          <h3 className="text-[15px] font-bold text-text truncate">{meta.name}</h3>
+          <Lock size={14} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center px-4 py-3 border-y border-border bg-[color-mix(in_srgb,var(--accent)_4%,var(--bg))]">
         <p className="text-[13px] text-text-3 text-center">{meta.description}</p>
       </div>
       <div className="px-4 py-3">
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3">
-          <Lock size={11} strokeWidth={2.5} />
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-text-3">
+          <Lock size={12} strokeWidth={2.5} />
           Requiere {req.name} Nv.{req.level}
         </p>
       </div>
     </div>
   )
 }
-

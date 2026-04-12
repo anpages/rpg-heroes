@@ -22,12 +22,6 @@ export function safeMinutes(lastCollectedAt, nowMs = Date.now()) {
 }
 
 /**
- * Interpolates idle resource accumulation since last_collected_at.
- * Returns snapshot values for all four resources + timestamp helpers.
- * Always use this before any UPDATE on the resources row.
- * Include `prevCollectedAt` in your .eq() filter to prevent concurrent overwrites.
- */
-/**
  * Effective bag limit = base + extras from upgrades.
  * `bagExtraSlots` comes from resources.bag_extra_slots.
  */
@@ -35,15 +29,24 @@ export function effectiveBagLimit(bagExtraSlots = 0) {
   return INVENTORY_BASE_LIMIT + bagExtraSlots * BAG_SLOTS_PER_UPGRADE
 }
 
+/**
+ * Snapshot de recursos para transacciones. Sin interpolación pasiva —
+ * la producción idle se acumula en edificios y se recolecta manualmente.
+ * CAS: incluir `prevCollectedAt` en .eq() para evitar sobreescrituras concurrentes.
+ */
 export function snapshotResources(resources, nowMs = Date.now()) {
-  const hours = safeHours(resources.last_collected_at, nowMs)
   return {
-    gold:      Math.floor(resources.gold + (resources.gold_rate ?? 0) * hours),
-    iron:      Math.floor(resources.iron + (resources.iron_rate ?? 0) * hours),
-    wood:      Math.floor(resources.wood + (resources.wood_rate ?? 0) * hours),
-    mana:      Math.floor(resources.mana + (resources.mana_rate ?? 0) * hours),
-    fragments: resources.fragments ?? 0,
-    essence:   resources.essence   ?? 0,
+    gold:        Math.floor(resources.gold),
+    iron:        Math.floor(resources.iron),
+    wood:        Math.floor(resources.wood),
+    mana:        Math.floor(resources.mana),
+    fragments:   resources.fragments   ?? 0,
+    essence:     resources.essence     ?? 0,
+    coal:        resources.coal        ?? 0,
+    fiber:       resources.fiber       ?? 0,
+    arcane_dust: resources.arcane_dust ?? 0,
+    herbs:       resources.herbs       ?? 0,
+    flowers:     resources.flowers     ?? 0,
     nowMs,
     nowIso: new Date(nowMs).toISOString(),
     prevCollectedAt: resources.last_collected_at,

@@ -6,16 +6,16 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { useHeroCards } from '../hooks/useHeroCards'
 import { usePotions } from '../hooks/usePotions'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { trainingRewards } from '../lib/gameFormulas'
-import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame, Wrench } from 'lucide-react'
+import { Swords, Heart, Coins, Star, Loader, Shield, Zap, Flame, Wrench, Layers, Info } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import RatingBanner from '../components/RatingBanner'
+import { tierForRating } from '../lib/combatRating'
 import { PotionPanel } from '../components/PotionPanel'
 
 /* ─── Matchmaking animation (solo C. Rápido y futuro PvP) ────────────────────── */
@@ -189,7 +189,6 @@ export default function QuickCombat() {
   const queryClient          = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items }  = useInventory(hero?.id)
-  const { cards }  = useHeroCards(hero?.id)
   const { potions }  = usePotions(userId)
   const [matchmaking, setMatchmaking] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
@@ -225,26 +224,11 @@ export default function QuickCombat() {
       acc.max_hp   += c.hp_bonus       ?? 0
       acc.strength += c.strength_bonus ?? 0
       acc.agility  += c.agility_bonus  ?? 0
-      ;(i.item_runes ?? []).forEach(ir => {
-        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-          if (stat in acc) acc[stat] += value
-        })
-      })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
 
-  const cardBonuses = (cards ?? [])
-    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
-    .reduce((acc, c) => {
-      const sc   = c.skill_cards
-      const rank = Math.min(c.rank, 5)
-      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += Math.round(value * rank) })
-      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
-
   const effectiveMaxHp = hero
-    ? hero.max_hp + equipBonuses.max_hp + (cardBonuses.max_hp ?? 0)
+    ? hero.max_hp + equipBonuses.max_hp
     : 100
   const hpNow       = interpolateHp(hero, nowMs, effectiveMaxHp)
   const minHp       = Math.floor(effectiveMaxHp * 0.2)
@@ -344,6 +328,8 @@ export default function QuickCombat() {
           won={result.won}
           rewards={result.rewards}
           rating={result.rating}
+          heroClass={result.heroClass}
+          archetype={result.archetype}
           onClose={() => { applyPostCombat(result); setResult(null) }}
         />
       )}
@@ -351,102 +337,132 @@ export default function QuickCombat() {
       {/* Battle panel */}
       <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
 
-        {/* Info */}
-        <div className="flex items-center gap-3 px-1">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Combate rápido</span>
-            <span className="text-[15px] font-bold text-text leading-tight">Rival aleatorio · Nv.{hero?.level ?? 1}</span>
-          </div>
-        </div>
-
-        {/* Estimated rewards */}
-        <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3 mr-auto">Recompensa</span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Coins size={13} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
-          </span>
-        </div>
-
-        {/* HP bar + heal potions */}
-        {hero && (() => {
-          const pct   = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
-          const color = hero.status === 'idle' ? '#0369a1' : pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-          const recovering = hero.status === 'idle'
-          const full = hpNow >= effectiveMaxHp
-          // Durabilidad media del equipo equipado (solo ítems con max_durability > 0)
-          const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
-          const durPct = equipped.length
-            ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
-            : null
-          const durColor = durPct == null ? '#6b7280'
-            : durPct > 60 ? '#16a34a'
-            : durPct > 30 ? '#d97706'
-            : '#dc2626'
+        {/* Rival info */}
+        {(() => {
+          const tier = tierForRating(hero?.combat_rating ?? 0)
           return (
-            <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-              <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
-                <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
-                <span className="font-medium" style={{ color }}>{hpNow} / {effectiveMaxHp}</span>
+            <div className="flex items-center gap-3 px-1">
+              <div
+                className="w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0"
+                style={{
+                  color: tier.color,
+                  background: `color-mix(in srgb, ${tier.color} 14%, var(--surface-2))`,
+                  borderColor: `color-mix(in srgb, ${tier.color} 40%, var(--border))`,
+                }}
+              >
+                <Swords size={20} strokeWidth={1.8} />
               </div>
-              <div className="h-2 bg-border rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-[width,background] duration-[400ms]${recovering ? ' animate-hp-regen-pulse' : ''}`}
-                  style={{ width: `${pct}%`, background: color }}
-                />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[15px] font-bold text-text leading-tight">Rival de tu tier</span>
+                <span className="text-[13px] text-text-3">
+                  Oponente anclado a <span className="font-semibold" style={{ color: tier.color }}>{tier.label}</span> — rivales escalados a tu rating
+                </span>
               </div>
-              {durPct != null && (
-                <>
-                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
-                    <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
-                      <button
-                        type="button"
-                        onClick={() => navigateToHeroTab('equipo')}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
-                      >
-                        <Wrench size={10} strokeWidth={2.5} />
-                        Gestionar
-                      </button>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-[width,background] duration-[400ms]"
-                      style={{ width: `${durPct}%`, background: durColor }}
-                    />
-                  </div>
-                </>
-              )}
-              {hpPotions.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {hpPotions.map(p => {
-                    const disabled = full || isBusy || potionMutation.isPending
-                    return (
-                      <motion.button
-                        key={p.id}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
-                        style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        onClick={() => !disabled && potionMutation.mutate(p.id)}
-                        disabled={disabled}
-                        whileTap={disabled ? {} : { scale: 0.95 }}
-                      >
-                        <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
-                        {p.name}
-                        <span className="opacity-60">×{p.quantity}</span>
-                      </motion.button>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           )
         })()}
 
-        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} />
+        {/* Rewards */}
+        <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Recompensas al ganar</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
+              <Coins size={13} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
+            </span>
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
+              <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
+            </span>
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#7c3aed]">
+              <Layers size={13} color="#7c3aed" strokeWidth={2} />Táctica (8%)
+            </span>
+          </div>
+          <p className="text-[11px] text-text-3 leading-snug">
+            Las <button type="button" onClick={() => navigateToHeroTab('tacticas')} className="font-bold text-[#7c3aed] hover:underline">tácticas</button> son habilidades pasivas que mejoran a tu héroe en combate. Se obtienen como drop aleatorio al ganar y se equipan desde la ficha del héroe.
+          </p>
+        </div>
+
+        {/* Preparación */}
+        <div className="flex flex-col gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3 px-1">Preparación</span>
+
+          {/* HP + equipo */}
+          {hero && (() => {
+            const pct   = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
+            const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+            const recovering = hero.status === 'idle'
+            const full = hpNow >= effectiveMaxHp
+            const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
+            const durPct = equipped.length
+              ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
+              : null
+            const durColor = durPct == null ? '#6b7280'
+              : durPct > 60 ? '#16a34a'
+              : durPct > 30 ? '#d97706'
+              : '#dc2626'
+            return (
+              <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+                <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
+                  <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={color} /> HP</span>
+                  <span className="font-medium" style={{ color }}>{hpNow} / {effectiveMaxHp}</span>
+                </div>
+                <div className="h-2 bg-border rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-[width,background] duration-[400ms]${recovering ? ' animate-hp-regen-pulse' : ''}`}
+                    style={{ width: `${pct}%`, background: color }}
+                  />
+                </div>
+                {durPct != null && (
+                  <>
+                    <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
+                      <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                        <button
+                          type="button"
+                          onClick={() => navigateToHeroTab('equipo')}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
+                        >
+                          <Wrench size={10} strokeWidth={2.5} />
+                          Gestionar
+                        </button>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-border rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-[width,background] duration-[400ms]"
+                        style={{ width: `${durPct}%`, background: durColor }}
+                      />
+                    </div>
+                  </>
+                )}
+                {hpPotions.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    {hpPotions.map(p => {
+                      const disabled = full || isBusy || potionMutation.isPending
+                      return (
+                        <motion.button
+                          key={p.id}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
+                          style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
+                          onClick={() => !disabled && potionMutation.mutate(p.id)}
+                          disabled={disabled}
+                          whileTap={disabled ? {} : { scale: 0.95 }}
+                        >
+                          <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
+                          {p.name}
+                          <span className="opacity-60">×{p.quantity}</span>
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Pociones de combate */}
+          <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} title="Pociones de combate" />
+        </div>
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"

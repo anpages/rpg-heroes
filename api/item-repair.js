@@ -1,11 +1,11 @@
 import { requireAuth } from './_auth.js'
-import { isUUID, snapshotResources } from './_validate.js'
-import {
-  REPAIR_COST_TABLE as REPAIR_COST,
-  REPAIR_IRON_BY_RARITY,
-  REPAIR_IRON_SLOT_MULT,
-} from './_constants.js'
+import { isUUID } from './_validate.js'
 
+/**
+ * POST /api/item-repair
+ * Repara un item equipado consumiendo un repair_kit del inventario de crafteo.
+ * Body: { itemId: uuid }
+ */
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
@@ -34,69 +34,50 @@ export default async function handler(req, res) {
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
-  const freeRepair = !!hero.active_effects?.free_repair
-
   const catalog = item.item_catalog
   const missing = catalog.max_durability - item.current_durability
-
   if (missing === 0) return res.status(409).json({ error: 'El item ya está en perfecto estado' })
 
-  const costs = REPAIR_COST[catalog.rarity] ?? REPAIR_COST.common
+  // Poción free_repair: no consume kit
+  const freeRepair = !!hero.active_effects?.free_repair
 
-  // Investigación: repair_cost_pct reduce el coste (valor negativo = descuento)
-  const { getResearchBonuses } = await import('./_research.js')
-  const rb = await getResearchBonuses(supabase, user.id)
+  if (!freeRepair) {
+    // Verificar kit de reparación
+    const { data: kit } = await supabase
+      .from('player_crafted_items')
+      .select('quantity')
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'repair_kit')
+      .maybeSingle()
 
-  const totalDiscount = Math.min(0.9, -rb.repair_cost_pct)
+    if (!kit || kit.quantity <= 0) {
+      return res.status(409).json({ error: 'Necesitas un Kit de Reparación. Craftéalo en el Taller.' })
+    }
 
-  const ironPerPoint = REPAIR_IRON_BY_RARITY[catalog.rarity] ?? 0
-  const slotMult     = REPAIR_IRON_SLOT_MULT[catalog.slot] ?? 1
+    // Consumir 1 kit
+    const { error: kitError } = await supabase
+      .from('player_crafted_items')
+      .update({ quantity: kit.quantity - 1 })
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'repair_kit')
 
-  const goldCost = freeRepair ? 0 : Math.ceil(missing * costs.gold * (1 - totalDiscount))
-  const manaCost = freeRepair ? 0 : Math.ceil(missing * costs.mana * (1 - totalDiscount))
-  const ironCost = freeRepair ? 0 : Math.ceil(missing * ironPerPoint * slotMult * (1 - totalDiscount))
+    if (kitError) return res.status(500).json({ error: kitError.message })
+  }
 
-  // Verificar recursos (con interpolación idle)
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('gold, iron, wood, mana, gold_rate, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (!resources) return res.status(500).json({ error: 'No se pudieron obtener los recursos' })
-
-  const snap = snapshotResources(resources)
-
-  if (snap.gold < goldCost) return res.status(409).json({ error: `Oro insuficiente (necesitas ${goldCost})` })
-  if (snap.mana < manaCost) return res.status(409).json({ error: `Maná insuficiente (necesitas ${manaCost})` })
-  if (snap.iron < ironCost) return res.status(409).json({ error: `Hierro insuficiente (necesitas ${ironCost})` })
-
-  // Reparar
-  await supabase
+  // Reparar item
+  const { error: repairError } = await supabase
     .from('inventory_items')
     .update({ current_durability: catalog.max_durability })
     .eq('id', itemId)
 
-  const { error: resErr, count: resCount } = await supabase
-    .from('resources')
-    .update({
-      gold: snap.gold - goldCost,
-      iron: snap.iron - ironCost,
-      wood: snap.wood,
-      mana: snap.mana - manaCost,
-      last_collected_at: snap.nowIso,
-    })
-    .eq('player_id', user.id)
-    .eq('last_collected_at', snap.prevCollectedAt)
+  if (repairError) return res.status(500).json({ error: repairError.message })
 
-  if (resErr) return res.status(500).json({ error: resErr.message })
-  if (resCount === 0) return res.status(409).json({ error: 'Recursos desincronizados, reintenta' })
-
+  // Limpiar efecto free_repair si se usó
   if (freeRepair) {
     const newEffects = { ...(hero.active_effects ?? {}) }
     delete newEffects.free_repair
     await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', hero.id)
   }
 
-  return res.status(200).json({ ok: true, goldCost, manaCost, ironCost, freeRepair })
+  return res.status(200).json({ ok: true, freeRepair })
 }

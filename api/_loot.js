@@ -47,15 +47,6 @@ function pickSlot(poolKey) {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
-// categoryPool usa los valores reales de card_category en la BD:
-//   offense | defense | mobility | equipment | hybrid
-const CARD_DROP_BY_TYPE = {
-  magic:   { chance: 0.35, categoryPool: ['mobility','mobility','mobility','offense','defense'],   weights: [50,30,15,4,1] },
-  ancient: { chance: 0.25, categoryPool: ['mobility','mobility','offense','defense','hybrid'],     weights: [40,30,20,8,2] },
-  combat:  { chance: 0.20, categoryPool: ['offense','offense','offense','defense','equipment'],    weights: [50,28,16,5,1] },
-  crypt:   { chance: 0.20, categoryPool: ['defense','defense','defense','mobility','offense'],     weights: [50,28,16,5,1] },
-  mine:    { chance: 0.15, categoryPool: ['offense','offense','defense','defense','equipment'],    weights: [45,30,18,6,1] },
-}
 
 export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poolKey, dropRateBonus = 0, dropRateMult = 1, heroClass = null }) {
   const { chance, tiers, weights } = getDropConfig(difficulty)
@@ -100,34 +91,65 @@ export async function rollItemDrop(supabase, heroId, playerId, { difficulty, poo
   return newItem
 }
 
-export async function rollCardDrop(supabase, heroId, dungeonType, intelligenceBonus = 0, heroClass = null, { force = false } = {}) {
-  const cfg = CARD_DROP_BY_TYPE[dungeonType]
-  if (!cfg) return null
-  if (!force && Math.random() > cfg.chance + intelligenceBonus) return null
+/**
+ * Lanza el dado de drop de una táctica.
+ * Si el héroe ya tiene la táctica, sube su nivel (+1, max 5).
+ * Si ya está al máximo, compensa con oro.
+ *
+ * @param {object} supabase
+ * @param {string} heroId
+ * @param {string|null} heroClass
+ * @param {{ chance: number, bonusChance?: number }} opts
+ * @returns {object|null} { tactic, leveledUp, compensated, goldCompensation }
+ */
+export async function rollTacticDrop(supabase, heroId, heroClass, { chance = 0.08, bonusChance = 0 } = {}) {
+  if (Math.random() > chance + bonusChance) return null
 
-  const category = cfg.categoryPool[Math.floor(Math.random() * cfg.categoryPool.length)]
-  const intShift = intelligenceBonus * 100
-  const adjustedWeights = cfg.weights.map((w, i) => Math.max(0, w + (i - 1) * intShift))
-  const total = adjustedWeights.reduce((a, b) => a + b, 0)
+  // Elegir rareza del drop
+  const weights = [40, 30, 20, 8, 2]
+  const total = weights.reduce((a, b) => a + b, 0)
   let roll = Math.random() * total
   let rarity = RARITIES[0]
-  for (let i = 0; i < RARITIES.length; i++) { roll -= adjustedWeights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
+  for (let i = 0; i < RARITIES.length; i++) { roll -= weights[i]; if (roll <= 0) { rarity = RARITIES[i]; break } }
 
-  let cardQuery = supabase
-    .from('skill_cards').select('id').eq('card_category', category).eq('rarity', rarity)
+  // Buscar candidatos del catálogo
+  let query = supabase.from('tactic_catalog').select('id, name, icon, category, rarity')
+    .eq('rarity', rarity)
   if (heroClass) {
-    cardQuery = cardQuery.or(`required_class.is.null,required_class.eq.${heroClass}`)
+    query = query.or(`required_class.is.null,required_class.eq.${heroClass}`)
+  } else {
+    query = query.is('required_class', null)
   }
-  const { data: candidates } = await cardQuery
+  const { data: candidates } = await query
   if (!candidates?.length) return null
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
-  const { data: newCard } = await supabase
-    .from('hero_cards')
-    .insert({ hero_id: heroId, card_id: picked.id, rank: 1, slot_index: null })
-    .select('*, skill_cards(name, card_category, rarity)')
-    .single()
-  return newCard
+
+  // Comprobar si el héroe ya tiene esta táctica
+  const { data: existing } = await supabase
+    .from('hero_tactics')
+    .select('id, level')
+    .eq('hero_id', heroId)
+    .eq('tactic_id', picked.id)
+    .maybeSingle()
+
+  if (existing) {
+    if (existing.level >= 5) {
+      // Máximo nivel: compensar con oro
+      const goldComp = rarity === 'legendary' ? 500 : rarity === 'epic' ? 300 : rarity === 'rare' ? 150 : 75
+      return { tactic: picked, leveledUp: false, compensated: true, goldCompensation: goldComp }
+    }
+    // Subir nivel
+    await supabase.from('hero_tactics')
+      .update({ level: existing.level + 1 })
+      .eq('id', existing.id)
+    return { tactic: picked, leveledUp: true, newLevel: existing.level + 1, compensated: false }
+  }
+
+  // Nueva táctica — insertar sin slot
+  await supabase.from('hero_tactics')
+    .insert({ hero_id: heroId, tactic_id: picked.id, level: 1, slot_index: null })
+  return { tactic: picked, leveledUp: false, newLevel: 1, compensated: false, isNew: true }
 }
 
 /** Convierte un floor de torre en dificultad equivalente (1-10) */

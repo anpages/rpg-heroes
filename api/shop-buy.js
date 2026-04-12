@@ -79,10 +79,53 @@ export default async function handler(req, res) {
   if (resErr) return res.status(500).json({ error: resErr.message })
   if (resCount === 0) return res.status(409).json({ error: 'Recursos actualizados por otra operación, reintenta' })
 
-  // Crear item
+  // Comprobar si auto-equipar: slot libre → siempre; slot ocupado → solo si es mejor
+  const STAT_KEYS = ['attack_bonus', 'defense_bonus', 'hp_bonus', 'strength_bonus', 'agility_bonus', 'intelligence_bonus']
+
+  const { data: newCatalog } = await supabase
+    .from('item_catalog').select('slot, ' + STAT_KEYS.join(', ')).eq('id', catalogId).single()
+  const itemSlot = newCatalog?.slot ?? null
+
+  let autoEquipSlot = null
+  let unequipId = null
+  if (itemSlot) {
+    const { data: currentEquipped } = await supabase
+      .from('inventory_items')
+      .select('id, item_catalog(' + STAT_KEYS.join(', ') + ')')
+      .eq('hero_id', heroId)
+      .eq('equipped_slot', itemSlot)
+      .maybeSingle()
+
+    if (!currentEquipped) {
+      // Slot libre → equipar directo
+      autoEquipSlot = itemSlot
+    } else {
+      // Comparar suma de stats
+      const newTotal = STAT_KEYS.reduce((sum, k) => sum + (newCatalog[k] ?? 0), 0)
+      const oldTotal = STAT_KEYS.reduce((sum, k) => sum + (currentEquipped.item_catalog?.[k] ?? 0), 0)
+      if (newTotal > oldTotal) {
+        autoEquipSlot = itemSlot
+        unequipId = currentEquipped.id
+      }
+    }
+  }
+
+  // Si hay que desequipar el item anterior → moverlo a mochila
+  if (unequipId) {
+    await supabase.from('inventory_items')
+      .update({ equipped_slot: null })
+      .eq('id', unequipId)
+  }
+
+  // Crear item (equipado si corresponde)
   const { data: newItem } = await supabase
     .from('inventory_items')
-    .insert({ hero_id: heroId, catalog_id: catalogId, current_durability: shopEntry.item_catalog.max_durability })
+    .insert({
+      hero_id: heroId,
+      catalog_id: catalogId,
+      current_durability: shopEntry.item_catalog.max_durability,
+      ...(autoEquipSlot ? { equipped_slot: autoEquipSlot } : {}),
+    })
     .select('*, item_catalog(name, slot, tier, rarity)')
     .single()
 
@@ -96,5 +139,5 @@ export default async function handler(req, res) {
       .insert({ hero_id: heroId, catalog_id: catalogId, purchase_date: dateStr, quantity: 1 })
   }
 
-  return res.status(200).json({ ok: true, item: newItem, goldSpent: shopEntry.gold_price })
+  return res.status(200).json({ ok: true, item: newItem, goldSpent: shopEntry.gold_price, autoEquipped: !!autoEquipSlot })
 }

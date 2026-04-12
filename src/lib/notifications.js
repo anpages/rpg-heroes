@@ -43,11 +43,11 @@ export const notify = {
     })
   },
 
-  cardDrop: (skill_card) => {
-    if (!skill_card) return
-    const name = skill_card.name ?? skill_card
-    toast(`🃏 ${name}`, {
-      description: 'Nueva carta obtenida',
+  tacticDrop: (tactic) => {
+    if (!tactic) return
+    const name = tactic.name ?? tactic
+    toast(`🎯 ${name}`, {
+      description: 'Nueva táctica obtenida',
       duration:    DURATION.drop,
     })
   },

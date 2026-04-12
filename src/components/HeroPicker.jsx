@@ -42,38 +42,24 @@ const SLOT_UNLOCK = HERO_SLOT_REQUIREMENTS
 const STATUS_COLOR = {
   idle:        '#16a34a',
   exploring:   '#d97706',
-  in_chamber:  '#d97706',
   ready:       '#16a34a',
 }
 const STATUS_LABEL = {
   idle:        'Reposo',
   exploring:   'Explorando',
-  in_chamber:  'En cámara',
   ready:       '¡Recoger!',
 }
 
 /**
- * Estado de cabecera del héroe — diferencia entre expedición y cámara.
- * Si hay algo "ready" (expedición o cámara), tiene prioridad sobre "exploring".
+ * Estado de cabecera del héroe.
  */
 function getDerivedStatus(hero) {
   const now = new Date()
-
-  // Cámara con cofres listos o esperando elección → ready (verde)
-  const activeChamber = (hero.chamber_runs ?? []).find(
-    c => c.status === 'active' || c.status === 'awaiting_choice',
-  )
-  const chamberReady = activeChamber && (
-    activeChamber.status === 'awaiting_choice' || new Date(activeChamber.ends_at) <= now
-  )
-
-  // Expedición lista para recoger → ready
   const activeExp = hero.expeditions?.find(e => e.status === 'traveling')
   const expReady  = activeExp && new Date(activeExp.ends_at) <= now
 
-  if (expReady || chamberReady) return 'ready'
-  if (activeExp)               return 'exploring'   // en expedición
-  if (activeChamber)           return 'in_chamber'  // en cámara
+  if (expReady)  return 'ready'
+  if (activeExp) return 'exploring'
   return hero.status
 }
 

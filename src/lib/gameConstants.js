@@ -10,7 +10,7 @@
 
 /** Tipos de edificios que cuentan para el cálculo del nivel de base */
 export const BASE_BUILDING_TYPES = [
-  'energy_nexus', 'gold_mine', 'lumber_mill', 'mana_well', 'laboratory',
+  'gold_mine', 'lumber_mill', 'mana_well', 'laboratory',
 ]
 
 /**
@@ -24,8 +24,7 @@ export function computeBaseLevel(buildings) {
   )
   const total = levels.reduce((a, b) => a + b, 0)
   if (total === 0) return 1
-  // Divisor fijo 4: agregar un edificio nuevo siempre mantiene o sube el nivel,
-  // nunca lo baja (a diferencia de dividir por edificios activos, que varía).
+  // Divisor fijo 4: mantiene consistencia con el diseño original.
   return Math.max(1, Math.ceil(total / 4))
 }
 
@@ -36,7 +35,6 @@ export function computeBaseLevel(buildings) {
  * La API usa esto para activar desbloqueos; el frontend lo usa para mostrar requisitos.
  */
 export const UNLOCK_TRIGGERS = [
-  { type: 'energy_nexus', level: 2, unlocks: ['gold_mine', 'mana_well'] },
   { type: 'laboratory',   level: 2, unlocks: ['library'] },
 ]
 
@@ -87,32 +85,53 @@ export function manaRateForLevel(level) {
 }
 
 /**
- * Calcula las tasas de producción reales (unidades/HORA) aplicando el factor de energía.
- * Fuente de verdad para la API (building-upgrade-collect) y el frontend (display).
- * Los valores se redondean a entero para evitar decimales en la UI y en la BD.
+ * Sistema de producción idle: cada edificio produce a un rate fijo por nivel
+ * y almacena hasta un cap. El jugador recolecta manualmente.
+ * Sin nexo de energía — cada edificio funciona independientemente.
+ *
+ * ratePerHour[i] = rate al nivel i+1.  storageCap[i] = capacidad al nivel i+1.
+ * Storage ≈ 2h de producción → el jugador debe entrar cada ~2h para recolectar.
  */
-export function computeProductionRates(buildings) {
-  const unlockedLevel = (type) => {
-    const b = buildings.find(b => b.type === type)
-    return (b && b.unlocked !== false) ? b.level : 0
-  }
-
-  const ironMine = unlockedLevel('gold_mine')
-  const lumber   = unlockedLevel('lumber_mill')
-  const mana     = unlockedLevel('mana_well')
-  const nexus    = unlockedLevel('energy_nexus')
-
-  const energyProduced = nexus * 30
-  const energyConsumed = (ironMine + lumber + mana) * 10
-  const ratio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1
-
-  return {
-    gold_rate: 0,
-    iron_rate: ironMine > 0 ? Math.round(ironRateForLevel(ironMine) * ratio) : 0,
-    wood_rate: lumber   > 0 ? Math.round(woodRateForLevel(lumber)   * ratio) : 0,
-    mana_rate: mana     > 0 ? Math.round(manaRateForLevel(mana)     * ratio) : 0,
-  }
+export const BUILDING_PRODUCTION = {
+  gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], storageCap: [24, 34, 48, 68, 96],  secondary: { resource: 'coal',        minLevel: 3, rateFraction: 0.4 } },
+  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60], storageCap: [30, 42, 60, 84, 120], secondary: { resource: 'fiber',       minLevel: 3, rateFraction: 0.4 } },
+  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], storageCap: [16, 24, 34, 48, 68],  secondary: { resource: 'arcane_dust', minLevel: 3, rateFraction: 0.4 } },
+  herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34], storageCap: [16, 24, 34, 48, 68],  secondary: { resource: 'flowers',    minLevel: 3, rateFraction: 0.4 } },
 }
+
+/** Tipos de edificio productivo (los que se recolectan). */
+export const PRODUCTION_BUILDING_TYPES = Object.keys(BUILDING_PRODUCTION)
+
+/**
+ * Rate y cap de un edificio productivo dado su nivel.
+ * Nivel 0 = sin construir → rate 0, cap 0.
+ */
+export function buildingRateAndCap(type, level) {
+  const prod = BUILDING_PRODUCTION[type]
+  if (!prod || level <= 0) return { resource: prod?.resource ?? 'iron', rate: 0, cap: 0, secondary: null }
+  const idx = Math.min(level - 1, prod.ratePerHour.length - 1)
+  const primaryRate = prod.ratePerHour[idx]
+  const primaryCap  = prod.storageCap[idx]
+
+  let secondary = null
+  if (prod.secondary && level >= prod.secondary.minLevel) {
+    const secRate = Math.floor(primaryRate * prod.secondary.rateFraction)
+    const secCap  = Math.floor(primaryCap * prod.secondary.rateFraction)
+    secondary = { resource: prod.secondary.resource, rate: secRate, cap: secCap }
+  }
+
+  return { resource: prod.resource, rate: primaryRate, cap: primaryCap, secondary }
+}
+
+/** Slots de crafteo disponibles (base 2, expansible con investigación). */
+export const CRAFTING_SLOTS_BASE = 2
+
+/** Tipos de edificio de refinado */
+export const REFINING_BUILDING_TYPES = ['carpinteria', 'fundicion', 'destileria_arcana', 'herbolario']
+
+/** Slots de refinado por edificio (1 base, 2 a nivel 4+) */
+export const REFINING_SLOTS_BASE = 1
+export const REFINING_SLOTS_EXPANDED_LEVEL = 4
 
 // ── Edificios: costes y tiempos de mejora ─────────────────────────────────────
 
@@ -122,12 +141,16 @@ export function computeProductionRates(buildings) {
  * Los edificios de alto nivel (lab, biblioteca) tienen base mayor para reflejar su importancia.
  */
 const BUILDING_BASE_TIME_MINUTES = {
-  lumber_mill:   8,   // recurso básico, se mejora frecuentemente
-  gold_mine:    10,   // recurso fundamental
-  mana_well:    12,   // recurso especial
-  energy_nexus: 15,   // hub central, crítico para todo
-  laboratory:   20,   // edificio de alto nivel (requiere Base Nv3)
-  library:      30,   // edificio final (requiere Lab Nv2 + Base Nv3)
+  lumber_mill:       8,   // recurso básico, se mejora frecuentemente
+  gold_mine:        10,   // recurso fundamental
+  mana_well:        12,   // recurso especial
+  herb_garden:      10,   // jardín de hierbas (requiere Base Nv2)
+  carpinteria:       8,   // refinado de madera
+  fundicion:        10,   // refinado de mineral
+  destileria_arcana:12,   // refinado de maná
+  herbolario:       10,   // refinado de hierbas
+  laboratory:       20,   // edificio de alto nivel (requiere Base Nv3)
+  library:          30,   // edificio final (requiere Lab Nv2 + Base Nv3)
 }
 
 /**
@@ -151,11 +174,6 @@ export function buildingUpgradeDurationMs(currentLevel, buildingType) {
  */
 export function buildingUpgradeCost(type, currentLevel) {
   switch (type) {
-    case 'energy_nexus':
-      // 1→2: solo madera (desbloquea la mina, no puede pedir hierro que aún no existe)
-      if (currentLevel === 1) return { wood: 80 }
-      // 2→5: mismos exponentes que el resto pero base mayor (es el edificio clave)
-      return { wood: Math.round(75 * Math.pow(currentLevel, 1.5)), iron: Math.round(35 * Math.pow(currentLevel, 1.4)) }
     case 'lumber_mill':
       return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)) }
     case 'gold_mine':
@@ -164,6 +182,21 @@ export function buildingUpgradeCost(type, currentLevel) {
     case 'mana_well':
       if (currentLevel === 0) return { wood: 60, iron: 30 }
       return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
+    case 'herb_garden':
+      if (currentLevel === 0) return { wood: 50, iron: 25 }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(20 * Math.pow(currentLevel, 1.4)) }
+    case 'carpinteria':
+      if (currentLevel === 0) return { wood: 40, iron: 20 }
+      return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(20 * Math.pow(currentLevel, 1.4)) }
+    case 'fundicion':
+      if (currentLevel === 0) return { wood: 45, iron: 25 }
+      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)) }
+    case 'destileria_arcana':
+      if (currentLevel === 0) return { wood: 50, iron: 25, mana: 15 }
+      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(22 * Math.pow(currentLevel, 1.4)), mana: Math.round(15 * Math.pow(currentLevel, 1.3)) }
+    case 'herbolario':
+      if (currentLevel === 0) return { wood: 45, iron: 20 }
+      return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(18 * Math.pow(currentLevel, 1.4)) }
     case 'laboratory':
       if (currentLevel === 0) return { wood: 80, iron: 35 }
       return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(30 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
@@ -177,6 +210,15 @@ export function buildingUpgradeCost(type, currentLevel) {
       return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(22 * Math.pow(currentLevel, 1.4)) }
   }
 }
+
+/** Nivel de base mínimo requerido para construir el Jardín de Hierbas */
+export const HERB_GARDEN_BASE_LEVEL_REQUIRED = 2
+
+/** Nivel de base mínimo requerido para construir la Destilería Arcana */
+export const DESTILERIA_BASE_LEVEL_REQUIRED = 2
+
+/** Nivel de base mínimo requerido para construir el Herbolario */
+export const HERBOLARIO_BASE_LEVEL_REQUIRED = 2
 
 /** Nivel de base mínimo requerido para construir el Laboratorio */
 export const LAB_BASE_LEVEL_REQUIRED = 3
@@ -230,7 +272,7 @@ export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
  * Lista completa de tipos de edificio que se crean al registrar un jugador.
  * Incluye los edificios de base más library, que arranca bloqueada.
  */
-export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'library']
+export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'library', 'herb_garden', ...REFINING_BUILDING_TYPES]
 
 /**
  * Edificios desbloqueados desde el inicio.
@@ -239,7 +281,12 @@ export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'library']
  */
 const TRIGGER_LOCKED = new Set(UNLOCK_TRIGGERS.flatMap(t => t.unlocks))
 export const INITIALLY_UNLOCKED_BUILDINGS = ALL_BUILDING_TYPES.filter(t => !TRIGGER_LOCKED.has(t))
-// Resultado: ['energy_nexus', 'lumber_mill', 'laboratory']
+
+/**
+ * Edificios que empiezan en nivel 0 aunque estén desbloqueados.
+ * El jugador los construye manualmente cuando cumple el requisito de base level.
+ */
+export const STARTS_AT_LEVEL_ZERO = new Set(['laboratory', 'destileria_arcana', 'herbolario'])
 
 // ── Inventario ───────────────────────────────────────────────────────────────
 
@@ -255,21 +302,16 @@ export const BAG_UPGRADE_COSTS = [500, 1500, 4000, 10000, 25000]
 /** Nivel máximo de ampliación de mochila */
 export const BAG_MAX_UPGRADES = BAG_UPGRADE_COSTS.length
 
-// ── Cartas de habilidad ───────────────────────────────────────────────────────
+// ── Tácticas ─────────────────────────────────────────────────────────────────
 
-/** Número máximo de cartas equipadas simultáneamente */
-export const CARD_SLOT_COUNT = 5
+/** Número de slots de tácticas por héroe */
+export const TACTIC_SLOT_COUNT = 5
 
-/** Rango máximo de una carta de habilidad */
-export const CARD_MAX_RANK = 5
+/** Nivel máximo de una táctica (base, sin investigación) */
+export const TACTIC_MAX_LEVEL = 5
 
-// ── Runas ─────────────────────────────────────────────────────────────────────
-
-/** Slots de runa base por ítem equipado (fijo, sin Herrería). */
-export const BASE_RUNE_SLOTS = 1
-
-/** Nivel mínimo de Laboratorio para craftear cualquier runa */
-export const RUNE_MIN_LAB_LEVEL = 2
+/** Coste en oro por cambiar una táctica de slot (mover de un slot a otro) */
+export const TACTIC_SWAP_COST = 50
 
 // ── Reparación y desmantelamiento de ítems ────────────────────────────────────
 
@@ -279,11 +321,11 @@ export const RUNE_MIN_LAB_LEVEL = 2
  * El frontend usa estos valores como estimación para el diálogo de confirmación.
  */
 export const REPAIR_COST_TABLE = {
-  common:    { gold: 8,  mana: 0  },
-  uncommon:  { gold: 16, mana: 1  },
-  rare:      { gold: 28, mana: 3  },
-  epic:      { gold: 45, mana: 6  },
-  legendary: { gold: 70, mana: 10 },
+  common:    { gold: 5,  mana: 0 },
+  uncommon:  { gold: 11, mana: 0 },
+  rare:      { gold: 20, mana: 1 },
+  epic:      { gold: 32, mana: 3 },
+  legendary: { gold: 50, mana: 5 },
 }
 
 /**
@@ -294,10 +336,10 @@ export const REPAIR_COST_TABLE = {
  */
 export const REPAIR_IRON_BY_RARITY = {
   common:    0,
-  uncommon:  2,
-  rare:      4,
-  epic:      8,
-  legendary: 12,
+  uncommon:  1,
+  rare:      2,
+  epic:      5,
+  legendary: 8,
 }
 
 /**
@@ -374,13 +416,13 @@ export const RESEARCH_NODES = [
   // Crafting
   { id: 'crafting_1',   branch: 'crafting',   position: 1, library_level_required: 1, name: 'Técnicas de Reparación',description: '-10% al coste de reparación.',                          effect_type: 'repair_cost_pct',     effect_value: -0.10, cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
   { id: 'crafting_2',   branch: 'crafting',   position: 2, library_level_required: 2, name: 'Ojo de Buitre',         description: '+5% a la tasa de drop de ítems.',                       effect_type: 'item_drop_pct',       effect_value: 0.05,  cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'crafting_1' },
-  { id: 'crafting_3',   branch: 'crafting',   position: 3, library_level_required: 3, name: 'Grabado Profundo',      description: 'Desbloquea un 3er slot de runa en todos los ítems.',     effect_type: 'rune_slot_bonus',     effect_value: 1,     cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'crafting_2' },
-  { id: 'crafting_4',   branch: 'crafting',   position: 4, library_level_required: 5, name: 'Artesano Supremo',      description: 'Reduce en 1 el nivel de Lab necesario para craftear runas.',effect_type: 'lab_req_reduction', effect_value: 1,     cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'crafting_3' },
+  { id: 'crafting_3',   branch: 'crafting',   position: 3, library_level_required: 3, name: 'Táctico Nato',          description: '+5% a la probabilidad de obtener tácticas.',             effect_type: 'tactic_drop_pct',     effect_value: 0.05,  cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'crafting_2' },
+  { id: 'crafting_4',   branch: 'crafting',   position: 4, library_level_required: 5, name: 'Maestro de Tácticas',   description: '-50% al coste de cambiar tácticas de slot.',             effect_type: 'tactic_swap_discount',effect_value: 0.50,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'crafting_3' },
   // Magic
   { id: 'magic_1',      branch: 'magic',      position: 1, library_level_required: 1, name: 'Estudios Arcanos',      description: '+5% a la inteligencia base.',                            effect_type: 'intelligence_pct',    effect_value: 0.05,  cost: { gold: 100,  iron: 60,  mana: 30  }, duration_hours: 4   },
   { id: 'magic_2',      branch: 'magic',      position: 2, library_level_required: 2, name: 'Canalización Arcana',   description: '+5% a la producción de maná.',                           effect_type: 'mana_rate_pct',       effect_value: 0.05,  cost: { gold: 200,  iron: 120, mana: 80  }, duration_hours: 12,  prerequisite: 'magic_1' },
-  { id: 'magic_3',      branch: 'magic',      position: 3, library_level_required: 3, name: 'Fusión Rúnica',         description: '-10% al coste de fusión de cartas.',                     effect_type: 'fusion_cost_pct',     effect_value: -0.10, cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'magic_2' },
-  { id: 'magic_4',      branch: 'magic',      position: 4, library_level_required: 5, name: 'Resonancia Rúnica',     description: '+10% a los bonos de runas.',                             effect_type: 'enchantment_amp',     effect_value: 0.10,  cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'magic_3' },
+  { id: 'magic_3',      branch: 'magic',      position: 3, library_level_required: 3, name: 'Resonancia Táctica',    description: '+5% a la efectividad de los bonos de tácticas.',         effect_type: 'tactic_bonus_pct',    effect_value: 0.05,  cost: { gold: 500,  iron: 300, mana: 200 }, duration_hours: 48,  prerequisite: 'magic_2' },
+  { id: 'magic_4',      branch: 'magic',      position: 4, library_level_required: 5, name: 'Dominio Táctico',       description: '+1 al nivel máximo de tácticas (6 en vez de 5).',        effect_type: 'tactic_max_level_bonus',effect_value: 1,   cost: { gold: 1200, iron: 700, mana: 500 }, duration_hours: 120, prerequisite: 'magic_3' },
 ]
 
 /**
@@ -396,15 +438,6 @@ export function computeResearchBonuses(completedIds = []) {
     }
   }
   return bonuses
-}
-
-/** Costes de mejora de tier. key = tier actual → siguiente.
- *  Requiere oro + fragmentos (drops físicos) + esencia (drops mágicos).
- *  Además pide iron/wood para dar uso al excedente de la mina/aserradero
- *  — mejorar equipo es el sumidero puntual más grande del juego. */
-export const ITEM_TIER_UPGRADE_COST = {
-  1: { gold: 800,  fragments: 3, essence: 1, iron: 150, wood: 100 },
-  2: { gold: 2500, fragments: 8, essence: 3, iron: 500, wood: 350 },
 }
 
 // ── Héroes ────────────────────────────────────────────────────────────────────
@@ -443,7 +476,6 @@ export const WEAR_PROFILE = {
   quick:      { crush: 0, fair: 1, clutch: 2, loss: 2 },
   tournament: { 1: 2, 2: 3, 3: 4 },              // por ronda (1, 2, 3=final)
   squad:      2,                                 // aplicado a cada uno de los 3 héroes
-  chamber:    { mercader: 1, erudito: 2, cazador: 2 },
   bounty:     2,                                 // caza de botín — aplicado por intento
 }
 
@@ -458,170 +490,12 @@ export function towerWearForFloor(floor) {
   return 4
 }
 
-// ── Cámaras: incursiones rápidas ─────────────────────────────────────────────
-
-/**
- * Tipos de cámara. Cada tipo es:
- *   - una duración (minutos sorteados entre min/max)
- *   - un coste de HP escalado (más larga = más caro)
- *   - un PERFIL de loot exclusivo (solo arma / solo armadura / cualquiera)
- *
- * Mecánica: cada cámara genera 3 rolls del MISMO arquetipo (su cofre exclusivo).
- * El jugador elige el mejor de los 3 al recoger. La elección de cámara
- * decide QUÉ tipo de equipo puede dropear, no si dropea más o menos.
- */
-export const CHAMBER_TYPES = {
-  mercader: {
-    label:      'Cámara del Mercader',
-    icon:       '🪙',
-    color:      '#d97706',
-    minMinutes: 3,
-    maxMinutes: 5,
-    hpCostPct:  0.12,
-  },
-  erudito: {
-    label:      'Cámara del Erudito',
-    icon:       '📜',
-    color:      '#0369a1',
-    minMinutes: 5,
-    maxMinutes: 8,
-    hpCostPct:  0.22,
-  },
-  cazador: {
-    label:      'Cámara del Cazador',
-    icon:       '⚔️',
-    color:      '#7c3aed',
-    minMinutes: 5,
-    maxMinutes: 8,
-    hpCostPct:  0.22,
-  },
-}
-
-/** Número fijo de cofres ofrecidos al recoger. El jugador elige uno. */
-export const CHAMBER_CHEST_COUNT = 3
-
-/**
- * TTL del token firmado de elección de cofre (15 min).
- * Si el jugador deja la app abierta y no decide, el token caduca y debe
- * volver a llamar a chamber-collect (que regenera 3 cofres nuevos).
- */
-export const CHAMBER_CHOICE_TOKEN_TTL_MS = 15 * 60 * 1000
-
-/**
- * Slots posibles por cámara. Define qué tipo de equipo puede dropear.
- * - mercader: cualquier slot (incluye accesorios — único cofre que los da)
- * - erudito:  solo armadura (sin accesorios)
- * - cazador:  solo armas
- */
-export const CHAMBER_ITEM_SLOTS = {
-  mercader: ['main_hand', 'off_hand', 'helmet', 'chest', 'arms', 'legs', 'accessory'],
-  erudito:  ['helmet', 'chest', 'arms', 'legs'],
-  cazador:  ['main_hand', 'off_hand'],
-}
-
-/** Etiqueta corta del tipo de equipo de cada cámara, para la UI. */
-export const CHAMBER_ITEM_KIND = {
-  mercader: 'Cualquier equipo',
-  erudito:  'Solo armadura',
-  cazador:  'Solo armas',
-}
-
-/**
- * Perfil de cofre por arquetipo. Cada cámara solo genera cofres de SU
- * arquetipo (3 rolls del mismo perfil). Las cantidades concretas de oro/xp
- * se calculan multiplicando los multiplicadores por chamberBaseReward(difficulty).
- *
- * Diferenciación:
- *   mercader (3-5 min, 12% HP)  → básico, todo poco, pool de slot amplio
- *   erudito  (5-8 min, 22% HP)  → armadura (helmet/chest/arms/legs)
- *   cazador  (5-8 min, 22% HP)  → armas (main_hand/off_hand)
- *
- * Erudito y cazador comparten tiempo, coste HP, probabilidades y mults —
- * la única diferencia entre ellos es qué tipo de equipo puede dropear
- * (decidido en CHAMBER_ITEM_SLOTS).
- *
- * Los items siguen siendo tier 1-2 (nunca tier 3 — eso queda para expediciones).
- * Las cartas NUNCA salen de cámaras (cardChance siempre 0).
- */
-export const CHAMBER_CHEST_REWARDS = {
-  mercader: {
-    label:          'Cofre del Mercader',
-    icon:           '🪙',
-    color:          '#d97706',
-    description:    'La cámara del oro — y la única con accesorios',
-    goldMult:       1.4,
-    xpMult:         0.8,
-    itemChance:     0.14,  // por debajo de erudito/cazador, compensa con pool amplio + accesorios
-    fragmentChance: 0.20,  // gateado por dificultad ≥ 2
-    fragmentMin:    1,
-    fragmentMax:    2,
-  },
-  erudito: {
-    label:          'Cofre del Erudito',
-    icon:           '📜',
-    color:          '#0369a1',
-    description:    'Armadura para el héroe estudioso',
-    goldMult:       1.1,
-    xpMult:         0.9,
-    itemChance:     0.22,  // armadura (helmet/chest/arms/legs)
-    fragmentChance: 0.26,
-    fragmentMin:    1,
-    fragmentMax:    2,
-  },
-  cazador: {
-    label:          'Cofre del Cazador',
-    icon:           '⚔️',
-    color:          '#7c3aed',
-    description:    'Armas para el cazador veterano',
-    goldMult:       1.1,
-    xpMult:         0.9,
-    itemChance:     0.22,  // armas (main_hand/off_hand)
-    fragmentChance: 0.26,
-    fragmentMin:    1,
-    fragmentMax:    2,
-  },
-}
-
-/**
- * Dificultad mínima para que las cámaras dropeen fragmentos.
- * Alineado con cuándo aparecen en mazmorras: Ruinas (nv5) en adelante.
- * Con chamberDifficultyForLevel, dif=2 → héroe nivel ≥ 4.
- */
-export const CHAMBER_FRAGMENT_MIN_DIFFICULTY = 2
-
-/**
- * Recompensas base por dificultad de cámara — escala con el nivel del héroe.
- * difficulty 1 → héroe nivel 1-3, difficulty 5 → héroe nivel ~15, etc.
- * Estos son los valores ANTES de aplicar el multiplicador del cofre.
- */
-export function chamberBaseReward(difficulty) {
-  const d = Math.max(1, Math.min(10, difficulty))
-  return {
-    gold: Math.round(20 + d * 18),       // d1=38, d5=110, d10=200
-    xp:   Math.round(10 + d * 9),        // d1=19, d5=55,  d10=100
-  }
-}
-
-/** Dificultad recomendada para una cámara según el nivel del héroe (1-10) */
-export function chamberDifficultyForLevel(heroLevel) {
-  return Math.max(1, Math.min(10, Math.ceil(heroLevel / 3)))
-}
-
-/**
- * Coste de HP en puntos absolutos para una cámara dado el max_hp del héroe.
- * Devuelve mínimo 1.
- */
-export function chamberHpCost(chamberType, heroMaxHp) {
-  const cfg = CHAMBER_TYPES[chamberType]
-  if (!cfg) return 1
-  return Math.max(1, Math.round(heroMaxHp * cfg.hpCostPct))
-}
 
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
 /** Máximo de unidades de una misma poción en el inventario del laboratorio. */
 export const MAX_POTION_STACK = 5
-/** Capacidad base del inventario del laboratorio (slots totales entre pociones y runas). */
+/** Capacidad base del inventario del laboratorio (slots de pociones). */
 export const LAB_INVENTORY_BASE = 15
 /** Slots extra por ampliación del inventario del laboratorio. */
 export const LAB_INVENTORY_PER_UPGRADE = 5
@@ -637,8 +511,6 @@ export const LAB_INVENTORY_UPGRADE_COSTS = [
 ]
 /** Duración del crafteo de una poción en milisegundos. */
 export const POTION_CRAFT_DURATION_MS = 30 * 60 * 1000
-/** Duración del crafteo de una runa en milisegundos. */
-export const RUNE_CRAFT_DURATION_MS   = 60 * 60 * 1000  // 1 hora
 
 // ── Entrenamiento ─────────────────────────────────────────────────────────────
 

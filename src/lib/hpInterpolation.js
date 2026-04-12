@@ -3,7 +3,7 @@
  *
  * Debe mantenerse sincronizado con api/_hp.js::interpolateHP
  *
- * Mientras el héroe está exploring (expedición/cámara), la regen se mantiene
+ * Mientras el héroe está exploring (expedición), la regen se mantiene
  * a cero hasta llegar a status_ends_at. A partir de ese momento la regen se
  * reanuda automáticamente aunque el jugador aún no haya recogido.
  *

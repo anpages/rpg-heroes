@@ -1,19 +1,18 @@
 import { useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '../lib/supabase'
 import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { useHeroCards } from '../hooks/useHeroCards'
-import { useHeroRunes } from '../hooks/useHeroRunes'
-import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { REPAIR_COST_TABLE, REPAIR_IRON_BY_RARITY, REPAIR_IRON_SLOT_MULT, BASE_RUNE_SLOTS, ITEM_TIER_UPGRADE_COST, INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import ItemComparisonModal from '../components/ItemComparisonModal'
@@ -60,43 +59,19 @@ const STAT_CONFIG = [
 ]
 
 // Metadatos para el ItemComparisonModal — el key es el bonusKey del catálogo
-// y el runeStat es cómo lo referencian las runas (rune_catalog.bonuses[].stat).
 const COMPARE_STAT_META = [
-  { key: 'attack_bonus',       label: 'Ataque',       Icon: Sword,    runeStat: 'attack'       },
-  { key: 'defense_bonus',      label: 'Defensa',      Icon: Shield,   runeStat: 'defense'      },
-  { key: 'hp_bonus',           label: 'HP',           Icon: Heart,    runeStat: 'max_hp'       },
-  { key: 'strength_bonus',     label: 'Fuerza',       Icon: Dumbbell, runeStat: 'strength'     },
-  { key: 'agility_bonus',      label: 'Agilidad',     Icon: Wind,     runeStat: 'agility'      },
-  { key: 'intelligence_bonus', label: 'Inteligencia', Icon: Brain,    runeStat: 'intelligence' },
+  { key: 'attack_bonus',       label: 'Ataque',       Icon: Sword    },
+  { key: 'defense_bonus',      label: 'Defensa',      Icon: Shield   },
+  { key: 'hp_bonus',           label: 'HP',           Icon: Heart    },
+  { key: 'strength_bonus',     label: 'Fuerza',       Icon: Dumbbell },
+  { key: 'agility_bonus',      label: 'Agilidad',     Icon: Wind     },
+  { key: 'intelligence_bonus', label: 'Inteligencia', Icon: Brain    },
 ]
-
-// Suma del stat del catálogo + contribuciones de runas incrustadas en el ítem.
-function itemStatTotal(invItem, runeStat, catalogKey) {
-  const base = invItem.item_catalog?.[catalogKey] ?? 0
-  let runes = 0
-  ;(invItem.item_runes ?? []).forEach(ir => {
-    ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-      if (stat === runeStat) runes += value
-    })
-  })
-  return base + runes
-}
 
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
-function estimateRepairCost(item) {
-  const catalog      = item.item_catalog
-  const missing      = catalog.max_durability - item.current_durability
-  const costs        = REPAIR_COST_TABLE[catalog.rarity] ?? REPAIR_COST_TABLE.common
-  const ironPerPoint = REPAIR_IRON_BY_RARITY[catalog.rarity] ?? 0
-  const slotMult     = REPAIR_IRON_SLOT_MULT[catalog.slot] ?? 1
-  return {
-    gold: Math.ceil(missing * costs.gold),
-    mana: Math.ceil(missing * costs.mana),
-    iron: Math.ceil(missing * ironPerPoint * slotMult),
-  }
-}
+// estimateRepairCost ya no se usa — las reparaciones consumen kits crafteados
 
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
@@ -128,17 +103,60 @@ function CostRow({ Icon: RowIcon, label, need, have, color }) {
   )
 }
 
-function TierUpgradeModal({ item, resources, onConfirm, onCancel, isPending, errorMsg }) {
-  const cat      = item.item_catalog
-  const cost     = ITEM_TIER_UPGRADE_COST[cat.tier] ?? {}
-  const nextTier = cat.tier + 1
+const UPGRADE_STAT_KEYS = [
+  { key: 'attack_bonus',       label: 'ATQ', Icon: Sword,    color: '#d97706' },
+  { key: 'defense_bonus',      label: 'DEF', Icon: Shield,   color: '#6b7280' },
+  { key: 'hp_bonus',           label: 'HP',  Icon: Heart,    color: '#dc2626' },
+  { key: 'strength_bonus',     label: 'FUE', Icon: Dumbbell, color: '#dc2626' },
+  { key: 'agility_bonus',      label: 'AGI', Icon: Wind,     color: '#2563eb' },
+  { key: 'intelligence_bonus', label: 'INT', Icon: Brain,    color: '#7c3aed' },
+]
 
-  const canAffordGold      = (resources?.gold      ?? 0) >= (cost.gold      ?? 0)
-  const canAffordFragments = (resources?.fragments ?? 0) >= (cost.fragments ?? 0)
-  const canAffordEssence   = (resources?.essence   ?? 0) >= (cost.essence   ?? 0)
-  const canAffordIron      = (resources?.iron      ?? 0) >= (cost.iron      ?? 0)
-  const canAffordWood      = (resources?.wood      ?? 0) >= (cost.wood      ?? 0)
-  const canAfford          = canAffordGold && canAffordFragments && canAffordEssence && canAffordIron && canAffordWood
+function TierUpgradeModal({ item, resources: _resources, craftedItems, onConfirm, onCancel, isPending, errorMsg }) {
+  const cat      = item.item_catalog
+  const nextTier = cat.tier + 1
+  const stoneId  = cat.tier === 1 ? 'forge_stone_t2' : 'forge_stone_t3'
+  const stoneName = cat.tier === 1 ? 'Piedra de Forja T2' : 'Piedra de Forja T3'
+  const stoneQty = craftedItems?.[stoneId] ?? 0
+  const hasStone = stoneQty > 0
+
+  // Fetch next tier catalog entry to show stat comparison
+  const { data: nextCatalog } = useQuery({
+    queryKey: ['nextTierCatalog', cat.slot, cat.rarity, nextTier, cat.is_two_handed, cat.required_class],
+    queryFn: async () => {
+      let q = supabase
+        .from('item_catalog')
+        .select('attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus, max_durability')
+        .eq('slot', cat.slot)
+        .eq('rarity', cat.rarity)
+        .eq('tier', nextTier)
+
+      if (cat.is_two_handed === true) {
+        q = q.eq('is_two_handed', true)
+      } else {
+        q = q.or('is_two_handed.is.null,is_two_handed.eq.false')
+      }
+
+      if (cat.required_class) {
+        q = q.eq('required_class', cat.required_class)
+      } else {
+        q = q.is('required_class', null)
+      }
+
+      const { data } = await q.maybeSingle()
+      return data
+    },
+    staleTime: Infinity,
+  })
+
+  const statDiffs = nextCatalog
+    ? UPGRADE_STAT_KEYS
+        .map(s => ({ ...s, cur: cat[s.key] ?? 0, next: nextCatalog[s.key] ?? 0 }))
+        .map(s => ({ ...s, diff: s.next - s.cur }))
+        .filter(s => s.cur > 0 || s.next > 0)
+    : []
+
+  const canAfford = hasStone
 
   return createPortal(
     <div
@@ -177,16 +195,33 @@ function TierUpgradeModal({ item, resources, onConfirm, onCancel, isPending, err
           </button>
         </div>
 
-        {/* Costes */}
-        <div className="px-5 py-4 flex flex-col gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Coste</p>
-          <div className="flex flex-col gap-2.5">
-            {(cost.gold      ?? 0) > 0 && <CostRow Icon={Coins}    label="Oro"         need={cost.gold}      have={resources?.gold      ?? 0} color="#d97706" />}
-            {(cost.iron      ?? 0) > 0 && <CostRow Icon={Pickaxe}  label="Hierro"      need={cost.iron}      have={resources?.iron      ?? 0} color="#6b7280" />}
-            {(cost.wood      ?? 0) > 0 && <CostRow Icon={Axe}      label="Madera"      need={cost.wood}      have={resources?.wood      ?? 0} color="#92400e" />}
-            {(cost.fragments ?? 0) > 0 && <CostRow Icon={Layers}   label="Fragmentos"  need={cost.fragments} have={resources?.fragments ?? 0} color="#b45309" />}
-            {(cost.essence   ?? 0) > 0 && <CostRow Icon={Sparkles} label="Esencia"     need={cost.essence}   have={resources?.essence   ?? 0} color="#7c3aed" />}
+        {/* Comparativa de stats */}
+        {statDiffs.length > 0 && (
+          <div className="px-5 py-4 border-b border-border flex flex-col gap-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Mejora de stats</p>
+            <div className="grid gap-1.5">
+              {statDiffs.map(s => (
+                <div key={s.key} className="flex items-center gap-2 text-[13px]">
+                  <s.Icon size={13} strokeWidth={2} style={{ color: s.color }} className="shrink-0" />
+                  <span className="text-text-3 w-8">{s.label}</span>
+                  <span className="text-text-3 tabular-nums w-8 text-right">{s.cur}</span>
+                  <ArrowUp size={11} strokeWidth={2.5} className="text-[#0f766e] shrink-0" />
+                  <span className="font-bold text-text tabular-nums w-8">{s.next}</span>
+                  {s.diff > 0 && (
+                    <span className="text-[11px] font-bold text-[#0f766e] ml-auto">+{s.diff}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* Coste */}
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Requiere</p>
+          <p className="text-[13px] font-semibold" style={{ color: hasStone ? '#16a34a' : '#dc2626' }}>
+            1× {stoneName} {hasStone ? `(tienes ${stoneQty})` : '— Craftéala en el Taller'}
+          </p>
         </div>
 
         {/* Aviso */}
@@ -222,11 +257,22 @@ function TierUpgradeModal({ item, resources, onConfirm, onCancel, isPending, err
 
 function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel, canConfirm = true, disabledReason }) {
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6" onClick={onCancel}>
-      <div
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      onClick={onCancel}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
         className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
         style={{ width: 'min(340px, 92vw)' }}
         onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.92, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div className="flex items-center justify-between">
           <span className="text-[15px] font-bold text-text">{title}</span>
@@ -248,8 +294,8 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel, canConfi
             {confirmLabel}
           </button>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body
   )
 }
@@ -272,7 +318,6 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   const rarColor    = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
   const durColor    = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-  const runesOnItem = item.item_runes ?? []
   const needsRepair = durPct < 100
   const canUpgrade  = cat.tier < 3 && durPct >= 100
   const isClassItem = cat.required_class && cat.required_class === heroClass
@@ -311,17 +356,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
       </div>
 
       <div className="px-3 pb-2">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          {runesOnItem.length > 0 ? (
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              {runesOnItem.map((ir, i) => (
-                <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
-                  <Sparkles size={10} strokeWidth={2} />
-                  {ir.rune_catalog?.name ?? 'Runa'}
-                </span>
-              ))}
-            </div>
-          ) : <span />}
+        <div className="flex items-center justify-end gap-2 mb-1">
           <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
         </div>
         <DurabilityBar current={item.current_durability} max={cat.max_durability} />
@@ -366,12 +401,11 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
   )
 }
 
-function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus, penalty = 0 }) {
-  const total  = base + equipBonus + cardBonus - penalty
-  const maxVal = Math.max(30, (base + equipBonus + cardBonus) * 1.6)
+function StatRow({ label, color, Icon: StatIcon, base, equipBonus, penalty = 0 }) {
+  const total  = base + equipBonus - penalty
+  const maxVal = Math.max(30, (base + equipBonus) * 1.6)
   const basePct  = Math.min(100, (base       / maxVal) * 100)
-  const eqPct    = Math.min(100 - basePct,         (Math.max(0, equipBonus) / maxVal) * 100)
-  const cardPct  = Math.min(100 - basePct - eqPct, (Math.max(0, cardBonus)  / maxVal) * 100)
+  const eqPct    = Math.min(100 - basePct, (Math.max(0, equipBonus) / maxVal) * 100)
 
   return (
     <div className="flex flex-col gap-1">
@@ -396,7 +430,6 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus, pe
         <div className="h-[5px] bg-surface-2 border border-border rounded-full overflow-hidden flex">
           <div className="h-full" style={{ width: `${basePct}%`, background: color, opacity: 0.4 }} />
           <div className="h-full" style={{ width: `${eqPct}%`,   background: color, opacity: 0.75 }} />
-          <div className="h-full" style={{ width: `${cardPct}%`, background: color }} />
         </div>
       </div>
     </div>
@@ -409,14 +442,11 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, cardBonus, pe
 export default function Equipo() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
-  const { buildings } = useBuildings(userId)
-  const hasLab      = (buildings ?? []).some(b => b.type === 'laboratory' && b.level >= 2)
   const { hero }    = useHero(heroId)
   const isExploring = hero?.status === 'exploring'
   const { items }   = useInventory(heroId)
-  const { cards }   = useHeroCards(heroId)
-  const { inventory: runeInventory } = useHeroRunes(userId)
   const { resources } = useResources(userId)
+  const { inventory: craftedItems } = useCraftedItems(userId)
   const queryClient    = useQueryClient()
   const [confirm, setConfirm] = useState(null)
   const [dismantleTarget, setDismantleTarget] = useState(null)
@@ -494,17 +524,6 @@ export default function Equipo() {
     },
   })
 
-  const runeMutation = useMutation({
-    mutationFn: ({ inventoryItemId, slotIndex, runeId }) =>
-      apiPost('/api/rune-insert', { heroId, inventoryItemId, slotIndex, runeId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroRunes(userId) })
-      notify.success('Runa incrustada')
-    },
-    onError: err => notify.error(err.message),
-  })
-
   const tierUpgradeMutation = useMutation({
     mutationFn: ({ inventoryItemId }) => apiPost('/api/item-upgrade-tier', { heroId, inventoryItemId }),
     onSuccess: (data) => {
@@ -515,8 +534,6 @@ export default function Equipo() {
     },
     // El error se muestra inline en TierUpgradeModal, no como toast
   })
-
-  const maxRuneSlots = BASE_RUNE_SLOTS
 
   const equippedBySlot = useMemo(() => {
     if (!items) return {}
@@ -542,10 +559,8 @@ export default function Equipo() {
     onError: (err) => notify.error(err.message),
   })
 
-  const { equipBonus, runeBonus, weightPenalty } = useMemo(() => {
+  const { equipBonus, weightPenalty } = useMemo(() => {
     const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
-    const ru = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
-    const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
     let totalWeight = 0
     ;(items ?? []).filter(i => i.equipped_slot && i.current_durability > 0).forEach(i => {
       const c = i.item_catalog
@@ -556,43 +571,10 @@ export default function Equipo() {
       eq.intelligence += c.intelligence_bonus ?? 0
       eq.max_hp       += c.hp_bonus           ?? 0
       totalWeight     += c.weight             ?? 0
-      // Runas incrustadas en este ítem
-      ;(i.item_runes ?? []).forEach(ir => {
-        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-          if (stat in STAT_MAP) ru[STAT_MAP[stat]] += value
-        })
-      })
     })
-    // equipBonus incluye tanto ítems como runas
-    const combined = {}
-    for (const k of Object.keys(eq)) combined[k] = eq[k] + ru[k]
     const weightPenalty = Math.floor(totalWeight / 4)
-    return { equipBonus: combined, runeBonus: ru, totalWeight, weightPenalty }
+    return { equipBonus: eq, weightPenalty }
   }, [items])
-
-  const cardBonus = useMemo(() => {
-    const b = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
-    const STAT_MAP = { max_hp: 'max_hp', attack: 'attack', defense: 'defense', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
-    let enchantmentAmp = 0
-    ;(cards ?? []).filter(c => c.slot_index !== null && c.slot_index !== undefined).forEach(c => {
-      const sc   = c.skill_cards
-      const rank = Math.min(c.rank, 5)
-      if (Array.isArray(sc.bonuses))   sc.bonuses.forEach(({ stat, value }) => {
-        if      (stat in STAT_MAP)          b[STAT_MAP[stat]] += Math.round(value * rank)
-        else if (stat === 'enchantment_amp') enchantmentAmp   += value * rank
-      })
-      if (Array.isArray(sc.penalties)) sc.penalties.forEach(({ stat, value }) => {
-        if (stat in STAT_MAP) b[STAT_MAP[stat]] -= Math.round(value * (1 + (rank - 1) * 0.5))
-      })
-    })
-    // Aplicar enchantment_amp sobre los bonos de runas
-    if (enchantmentAmp > 0) {
-      for (const [stat, val] of Object.entries(runeBonus)) {
-        if (val > 0) b[stat] = (b[stat] ?? 0) + Math.round(val * enchantmentAmp)
-      }
-    }
-    return b
-  }, [cards, runeBonus])
 
   const damagedEquipped = useMemo(() =>
     (items ?? []).filter(i => i.equipped_slot && i.current_durability < i.item_catalog.max_durability),
@@ -616,58 +598,17 @@ export default function Equipo() {
   }
 
   function handleRepair(item) {
-    const cost     = estimateRepairCost(item)
-    const haveGold = resources?.gold ?? 0
-    const haveMana = resources?.mana ?? 0
-    const haveIron = resources?.iron ?? 0
-    const okGold = haveGold >= cost.gold
-    const okMana = cost.mana === 0 || haveMana >= cost.mana
-    const okIron = cost.iron === 0 || haveIron >= cost.iron
-    const canAfford = okGold && okMana && okIron
-    const missingParts = []
-    if (!okGold) missingParts.push(`${cost.gold - haveGold} oro`)
-    if (!okMana) missingParts.push(`${cost.mana - haveMana} maná`)
-    if (!okIron) missingParts.push(`${cost.iron - haveIron} hierro`)
-
-    const body = (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-[13px]">
-          <span className="flex items-center gap-1.5 font-semibold text-text-2">
-            <Coins size={12} color="#d97706" strokeWidth={2} /> Oro
-          </span>
-          <span className="font-bold" style={{ color: okGold ? '#16a34a' : '#dc2626' }}>
-            {haveGold} / {cost.gold}
-          </span>
-        </div>
-        {cost.mana > 0 && (
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="flex items-center gap-1.5 font-semibold text-text-2">
-              <Sparkles size={12} color="#7c3aed" strokeWidth={2} /> Maná
-            </span>
-            <span className="font-bold" style={{ color: okMana ? '#16a34a' : '#dc2626' }}>
-              {haveMana} / {cost.mana}
-            </span>
-          </div>
-        )}
-        {cost.iron > 0 && (
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="flex items-center gap-1.5 font-semibold text-text-2">
-              <Pickaxe size={12} color="#6b7280" strokeWidth={2} /> Hierro
-            </span>
-            <span className="font-bold" style={{ color: okIron ? '#16a34a' : '#dc2626' }}>
-              {haveIron} / {cost.iron}
-            </span>
-          </div>
-        )}
-      </div>
-    )
+    const kits = craftedItems?.repair_kit ?? 0
+    const hasKit = kits > 0
 
     setConfirm({
       title: `Reparar ${item.item_catalog.name}`,
-      body,
+      body: hasKit
+        ? `Usar 1 Kit de Reparación (tienes ${kits})`
+        : 'No tienes Kits de Reparación. Craftéalos en el Taller.',
       confirmLabel: 'Reparar',
-      canConfirm: canAfford,
-      disabledReason: canAfford ? null : `Faltan ${missingParts.join(' · ')}`,
+      canConfirm: hasKit,
+      disabledReason: hasKit ? null : 'Sin kits de reparación',
       onConfirm: () => {
         setConfirm(null)
         actionMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
@@ -676,74 +617,26 @@ export default function Equipo() {
   }
 
   function handleRepairAll() {
-    const totalCost = damagedEquipped.reduce((sum, item) => {
-      const cost = estimateRepairCost(item)
-      return {
-        gold: sum.gold + cost.gold,
-        mana: sum.mana + cost.mana,
-        iron: sum.iron + cost.iron,
-      }
-    }, { gold: 0, mana: 0, iron: 0 })
-    const haveGold = resources?.gold ?? 0
-    const haveMana = resources?.mana ?? 0
-    const haveIron = resources?.iron ?? 0
-    const enoughGold = haveGold >= totalCost.gold
-    const enoughMana = totalCost.mana === 0 || haveMana >= totalCost.mana
-    const enoughIron = totalCost.iron === 0 || haveIron >= totalCost.iron
-    const canAfford  = enoughGold && enoughMana && enoughIron
-    const missingParts = []
-    if (!enoughGold) missingParts.push(`${totalCost.gold - haveGold} oro`)
-    if (!enoughMana) missingParts.push(`${totalCost.mana - haveMana} maná`)
-    if (!enoughIron) missingParts.push(`${totalCost.iron - haveIron} hierro`)
+    const kits = craftedItems?.repair_kit_full ?? 0
+    const hasKit = kits > 0
 
     const body = (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-1 text-[12px] text-text-3">
-          {damagedEquipped.map(i => {
-            const c = estimateRepairCost(i)
-            const parts = [`${c.gold} oro`]
-            if (c.mana > 0) parts.push(`${c.mana} maná`)
-            if (c.iron > 0) parts.push(`${c.iron} hierro`)
-            return (
-              <div key={i.id} className="flex justify-between gap-3">
-                <span className="truncate">{i.item_catalog.name}</span>
-                <span className="font-medium text-text-2 flex-shrink-0">
-                  {parts.join(' · ')}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="flex items-center gap-1.5 font-semibold text-text-2">
-              <Coins size={12} color="#d97706" strokeWidth={2} /> Oro
-            </span>
-            <span className="font-bold" style={{ color: enoughGold ? '#16a34a' : '#dc2626' }}>
-              {haveGold} / {totalCost.gold}
-            </span>
-          </div>
-          {totalCost.mana > 0 && (
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="flex items-center gap-1.5 font-semibold text-text-2">
-                <Sparkles size={12} color="#7c3aed" strokeWidth={2} /> Maná
-              </span>
-              <span className="font-bold" style={{ color: enoughMana ? '#16a34a' : '#dc2626' }}>
-                {haveMana} / {totalCost.mana}
+          {damagedEquipped.map(i => (
+            <div key={i.id} className="flex justify-between gap-3">
+              <span className="truncate">{i.item_catalog.name}</span>
+              <span className="font-medium text-text-2 flex-shrink-0">
+                {i.current_durability}/{i.item_catalog.max_durability}
               </span>
             </div>
-          )}
-          {totalCost.iron > 0 && (
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="flex items-center gap-1.5 font-semibold text-text-2">
-                <Pickaxe size={12} color="#6b7280" strokeWidth={2} /> Hierro
-              </span>
-              <span className="font-bold" style={{ color: enoughIron ? '#16a34a' : '#dc2626' }}>
-                {haveIron} / {totalCost.iron}
-              </span>
-            </div>
-          )}
+          ))}
         </div>
+        <p className="text-[13px] font-semibold text-text-2 pt-2 border-t border-border">
+          {hasKit
+            ? `Usar 1 Kit de Reparación Completo (tienes ${kits})`
+            : 'No tienes Kits de Reparación Completo. Craftéalos en el Taller.'}
+        </p>
       </div>
     )
 
@@ -751,17 +644,13 @@ export default function Equipo() {
       title: 'Reparar todo el equipo',
       body,
       confirmLabel: 'Reparar todo',
-      canConfirm: canAfford,
-      disabledReason: canAfford ? null : `Faltan ${missingParts.join(' · ')}`,
+      canConfirm: hasKit,
+      disabledReason: hasKit ? null : 'Sin kits de reparación completo',
       onConfirm: () => {
         setConfirm(null)
         actionMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })
       },
     })
-  }
-
-  function handleRuneInsert({ item, slotIndex, runeId }) {
-    runeMutation.mutate({ inventoryItemId: item.id, slotIndex, runeId })
   }
 
   function handleUpgradeTier(item) {
@@ -786,7 +675,7 @@ export default function Equipo() {
           <div className="flex items-center justify-around p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
             {STAT_CONFIG.map(({ key, color, Icon }) => {
               const pen   = key === 'agility' ? weightPenalty : 0
-              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) + (cardBonus[key] ?? 0) - pen
+              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) - pen
               return (
                 <div key={key} className="flex flex-col items-center gap-0.5 py-1">
                   <Icon size={13} strokeWidth={2} style={{ color }} />
@@ -799,14 +688,14 @@ export default function Equipo() {
           <div className="hidden sm:flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
             {STAT_CONFIG.map(({ key, label, color, Icon }) => (
               <StatRow key={key} label={label} color={color} Icon={Icon}
-                base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0} cardBonus={cardBonus[key] ?? 0}
+                base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0}
                 penalty={key === 'agility' ? weightPenalty : 0}
               />
             ))}
           </div>
         </div>
 
-        {/* Equipment slots + Rune slots */}
+        {/* Equipment slots */}
         <div className="flex flex-col gap-2 order-2 lg:order-1">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Equipamiento</p>
@@ -908,17 +797,6 @@ export default function Equipo() {
                         <span className="text-text-3">{SLOT_META[cat.slot]?.label ?? cat.slot}</span>
                       </div>
                       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-                      {/* Runas incrustadas (read-only mientras está en mochila) */}
-                      {(item.item_runes ?? []).length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                          {(item.item_runes ?? []).map((ir, i) => (
-                            <span key={i} className="flex items-center gap-0.5 text-[11px] font-semibold text-[#7c3aed]">
-                              <Sparkles size={10} strokeWidth={2} />
-                              {ir.rune_catalog?.name ?? 'Runa'}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                     {/* Footer */}
                     <div className="flex border-t border-border divide-x divide-border">
@@ -976,8 +854,8 @@ export default function Equipo() {
             key:       s.key,
             label:     s.label,
             Icon:      s.Icon,
-            candidate: itemStatTotal(candidate, s.runeStat, s.key),
-            equipped:  itemStatTotal(rival,     s.runeStat, s.key),
+            candidate: candidate.item_catalog?.[s.key] ?? 0,
+            equipped:  rival.item_catalog?.[s.key] ?? 0,
           }))
           .filter(d => d.candidate !== 0 || d.equipped !== 0)
           .map(d => ({ ...d, diff: d.candidate - d.equipped }))
@@ -1017,29 +895,23 @@ export default function Equipo() {
             item={itemDetail}
             onClose={() => setItemDetail(null)}
             heroClass={hero?.class}
-            runeProps={{
-              hasLab,
-              maxRuneSlots,
-              runeInventory,
-              runePending: runeMutation.isPending,
-              isExploring,
-              onInsertRune: handleRuneInsert,
-            }}
           />
         )}
       </AnimatePresence>
 
-      {confirm && (
-        <ConfirmModal
-          title={confirm.title}
-          body={confirm.body}
-          confirmLabel={confirm.confirmLabel}
-          canConfirm={confirm.canConfirm}
-          disabledReason={confirm.disabledReason}
-          onConfirm={confirm.onConfirm}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
+      <AnimatePresence>
+        {confirm && (
+          <ConfirmModal
+            title={confirm.title}
+            body={confirm.body}
+            confirmLabel={confirm.confirmLabel}
+            canConfirm={confirm.canConfirm}
+            disabledReason={confirm.disabledReason}
+            onConfirm={confirm.onConfirm}
+            onCancel={() => setConfirm(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {dismantleTarget && (
@@ -1065,6 +937,7 @@ export default function Equipo() {
         <TierUpgradeModal
           item={tierUpgradeTarget}
           resources={resources}
+          craftedItems={craftedItems}
           isPending={tierUpgradeMutation.isPending}
           errorMsg={tierUpgradeMutation.error?.message ?? null}
           onConfirm={() => tierUpgradeMutation.mutate({ inventoryItemId: tierUpgradeTarget.id })}

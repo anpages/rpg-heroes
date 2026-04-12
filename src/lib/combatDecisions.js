@@ -35,10 +35,34 @@ export const COMBAT_DECISIONS = {
       hpB,
     }),
   },
+  concentracion_arcana: {
+    label:       'Concentración Arcana',
+    description: 'INT ×2.5, tu magia arrasa pero bajas la guardia.',
+    icon:        '✨',
+    color:       '#7c3aed',
+    apply: (a, b, hpA, hpB) => ({
+      a: { ...a, intelligence: Math.round((a.intelligence ?? 0) * 2.5), defense: Math.max(1, Math.round(a.defense * 0.7)) },
+      b,
+      hpA,
+      hpB,
+    }),
+  },
+  impulso_veloz: {
+    label:       'Impulso Veloz',
+    description: 'AGI ×2, esquiva el siguiente golpe y gana iniciativa.',
+    icon:        '💨',
+    color:       '#16a34a',
+    apply: (a, b, hpA, hpB) => ({
+      a: { ...a, agility: Math.round((a.agility ?? 0) * 2) },
+      b,
+      hpA,
+      hpB,
+    }),
+  },
 }
 
-/** Pareja de decisiones que se ofrece al jugador en el momento clave. */
-export const KEY_MOMENT_OPTIONS = ['estocada_final', 'defensa_ferrea']
+/** Opciones que se muestran al jugador en el momento clave. */
+export const KEY_MOMENT_OPTIONS = ['estocada_final', 'defensa_ferrea', 'concentracion_arcana', 'impulso_veloz']
 
 export function getDecision(key) {
   return COMBAT_DECISIONS[key] ?? null

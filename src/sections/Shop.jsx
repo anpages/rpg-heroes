@@ -87,6 +87,11 @@ function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
   const anyOfSlot = sameSlot.length > 0
   const isNewSlot = inventoryReady && !anyOfSlot
 
+  const isBetterThanEquipped = equipped
+    ? STAT_META.reduce((sum, s) => sum + ((item[s.key] ?? 0) - (equipped.item_catalog?.[s.key] ?? 0)), 0) > 0
+    : false
+  const willAutoEquip = isNewSlot || isBetterThanEquipped
+
   const diffs = equipped
     ? STAT_META
         .map(s => ({
@@ -225,9 +230,9 @@ function ShopItem({ item, gold, owned, onBuy, buying, inventoryItems }) {
                 className="btn btn--primary btn--sm"
                 disabled={!canAfford || buying}
                 onClick={() => onBuy(item)}
-                title={!canAfford ? 'Oro insuficiente' : undefined}
+                title={!canAfford ? 'Oro insuficiente' : willAutoEquip ? 'Compra y equipa automáticamente' : undefined}
               >
-                Comprar
+                {willAutoEquip ? 'Comprar y equipar' : 'Comprar'}
               </button>
             </>
           )}
@@ -373,10 +378,11 @@ export default function Shop() {
       queryClient.setQueryData(shopKey, context.previous)
       notify.error(err.message)
     },
-    onSuccess: (_data, item) => {
-      notify.success(`${item.name} añadido al inventario`)
+    onSuccess: (data, item) => {
+      notify.success(data.autoEquipped ? `${item.name} comprado y equipado` : `${item.name} añadido al inventario`)
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      if (data.autoEquipped) queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     },
   })
 

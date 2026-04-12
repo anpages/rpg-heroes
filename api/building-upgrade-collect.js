@@ -1,7 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { UNLOCK_TRIGGERS } from './_constants.js'
-import { isUUID, snapshotResources } from './_validate.js'
-import { computeProductionRates } from '../src/lib/gameConstants.js'
+import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -43,36 +42,6 @@ export default async function handler(req, res) {
     .eq('id', buildingId)
 
   if (buildingError) return res.status(500).json({ error: buildingError.message })
-
-  // Recalcular tasas con factor de energía (para todos los edificios relevantes)
-  const { data: allBuildings } = await supabase
-    .from('buildings')
-    .select('type, level, unlocked')
-    .eq('player_id', user.id)
-
-  const rates = computeProductionRates(allBuildings ?? [])
-
-  // Hacer snapshot de recursos acumulados antes de cambiar las tasas
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('iron, wood, mana, iron_rate, wood_rate, mana_rate, last_collected_at')
-    .eq('player_id', user.id)
-    .single()
-
-  if (resources) {
-    const snap = snapshotResources(resources)
-    const { error: ratesError } = await supabase
-      .from('resources')
-      .update({ ...rates, iron: snap.iron, wood: snap.wood, mana: snap.mana, last_collected_at: snap.nowIso })
-      .eq('player_id', user.id)
-    if (ratesError) return res.status(500).json({ error: ratesError.message })
-  } else {
-    const { error: ratesError } = await supabase
-      .from('resources')
-      .update(rates)
-      .eq('player_id', user.id)
-    if (ratesError) return res.status(500).json({ error: ratesError.message })
-  }
 
   return res.status(200).json({ ok: true, newLevel, type: building.type })
 }

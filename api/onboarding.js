@@ -1,5 +1,5 @@
 import { requireAuth } from './_auth.js'
-import { STARTING_RESOURCES, ALL_BUILDING_TYPES, INITIALLY_UNLOCKED_BUILDINGS } from '../src/lib/gameConstants.js'
+import { STARTING_RESOURCES, ALL_BUILDING_TYPES, INITIALLY_UNLOCKED_BUILDINGS, STARTS_AT_LEVEL_ZERO } from '../src/lib/gameConstants.js'
 
 
 export default async function handler(req, res) {
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
         type,
         // Edificios desbloqueados desde el inicio (nexo y aserradero) arrancan en Nv1.
         // Laboratorio, mina y pozo de maná se construyen manualmente desde Nv0.
-        level:    (INITIALLY_UNLOCKED_BUILDINGS.includes(type) && type !== 'laboratory') ? 1 : 0,
+        level:    (INITIALLY_UNLOCKED_BUILDINGS.includes(type) && !STARTS_AT_LEVEL_ZERO.has(type)) ? 1 : 0,
         unlocked: INITIALLY_UNLOCKED_BUILDINGS.includes(type),
       }))
     )

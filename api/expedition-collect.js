@@ -2,7 +2,7 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { attackMultiplier as calcAttackMultiplier, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
-import { rollItemDrop, rollCardDrop, rollMaterialDrop } from './_loot.js'
+import { rollItemDrop, rollTacticDrop, rollMaterialDrop } from './_loot.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 import { interpolateHP } from './_hp.js'
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   const xpBoost        = hero.active_effects?.xp_boost ?? 0
   const lootBoost      = hero.active_effects?.loot_boost ?? 0
   const goldBoost      = hero.active_effects?.gold_boost ?? 0
-  const cardGuaranteed = hero.active_effects?.card_guaranteed ?? 0
+  const tacticGuaranteed = hero.active_effects?.card_guaranteed ?? 0
   const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
   const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult * (1 + goldBoost))
   const finalGoldNoBoost = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult)
@@ -125,7 +125,7 @@ export default async function handler(req, res) {
   if (xpBoost)        delete newEffects.xp_boost
   if (lootBoost)      delete newEffects.loot_boost
   if (goldBoost)      delete newEffects.gold_boost
-  if (cardGuaranteed) delete newEffects.card_guaranteed
+  if (tacticGuaranteed) delete newEffects.card_guaranteed
 
   // Aplicar regen pasiva acumulada desde que terminó la expedición (status_ends_at).
   // Si el jugador recoge inmediatamente, regenFromMs ≈ now → 0 regen. Si tarda,
@@ -164,8 +164,8 @@ export default async function handler(req, res) {
     if (durError) console.error('durability rpc error:', durError.message)
   }
 
-  const drop     = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult * (1 + lootBoost), heroClass: hero.class }) : null
-  const cardDrop = dungeon ? await rollCardDrop(supabase, hero.id, dungeon.type, intelligenceBonus, hero.class, { force: !!cardGuaranteed }) : null
+  const drop        = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult * (1 + lootBoost), heroClass: hero.class }) : null
+  const tacticDrop  = dungeon ? await rollTacticDrop(supabase, hero.id, hero.class, { chance: tacticGuaranteed ? 1.0 : (0.12 + intelligenceBonus), bonusChance: rb.tactic_drop_pct ?? 0 }) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
   // Progreso de misiones diarias (no bloquean la respuesta)
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     },
     levelUp,
     drop:         drop         ?? null,
-    cardDrop:     cardDrop     ?? null,
+    tacticDrop:   tacticDrop   ?? null,
     materialDrop: materialDrop ?? null,
   })
 }

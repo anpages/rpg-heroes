@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Coins, Star, Zap, Loader, Shield, TrendingUp, TrendingDown } from 'lucide-react'
 import { COMBAT_DECISIONS } from '../lib/combatDecisions'
 import { tierForRating } from '../lib/combatRating'
+import { CLASS_ABILITIES, ARCHETYPE_TO_CLASS, getStance } from '../lib/combatAbilities'
+import { CLASS_COLORS } from '../lib/gameConstants'
 
 const SPEEDS = [
   { label: '×1', ms: 500 },
@@ -17,22 +19,40 @@ function hpColor(pct) {
   return '#ef4444'
 }
 
-function FighterBar({ name, hp, maxHp, side }) {
-  const pct  = maxHp > 0 ? Math.max(0, (hp / maxHp) * 100) : 0
+function stanceColor(key) {
+  if (key === 'aggressive') return '#f59e0b'
+  if (key === 'desperate')  return '#ef4444'
+  return 'var(--text-3)'
+}
+
+function classColor(cls) {
+  return CLASS_COLORS[cls] ?? 'var(--text-2)'
+}
+
+function FighterBar({ name, hp, maxHp, side, stance, cls }) {
+  const pct   = maxHp > 0 ? Math.max(0, (hp / maxHp) * 100) : 0
   const color = hpColor(pct)
   const isLeft = side === 'left'
+  const abilities = cls ? CLASS_ABILITIES[cls] : null
 
   return (
     <div className={`flex flex-col gap-1 flex-1 min-w-0 ${isLeft ? '' : 'items-end'}`}>
-      <span
-        className="text-[13px] font-bold truncate max-w-full"
-        style={{ color: isLeft ? 'var(--blue-700)' : '#dc2626' }}
-      >
-        {name}
-      </span>
-      {/* HP bar — enemy fills from right */}
+      <div className={`flex items-center gap-1.5 ${isLeft ? '' : 'flex-row-reverse'}`}>
+        <span
+          className="text-[13px] font-bold truncate max-w-full"
+          style={{ color: cls ? classColor(cls) : (isLeft ? 'var(--blue-700)' : '#dc2626') }}
+        >
+          {name}
+        </span>
+        {abilities?.passive && (
+          <span className="text-[10px] opacity-70 flex-shrink-0" title={abilities.passive.label}>
+            {abilities.passive.icon}
+          </span>
+        )}
+      </div>
+      {/* HP bar */}
       <div
-        className="h-2 bg-[color-mix(in_srgb,currentColor_15%,var(--border))] rounded-full overflow-hidden w-full"
+        className="h-2.5 bg-[color-mix(in_srgb,currentColor_15%,var(--border))] rounded-full overflow-hidden w-full"
         style={{ direction: isLeft ? 'ltr' : 'rtl' }}
       >
         <div
@@ -44,23 +64,177 @@ function FighterBar({ name, hp, maxHp, side }) {
           }}
         />
       </div>
-      <span className="text-[11px] font-semibold tabular-nums" style={{ color }}>
-        {hp}/{maxHp}
-      </span>
+      <div className={`flex items-center gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
+        <span className="text-[11px] font-semibold tabular-nums" style={{ color }}>
+          {hp}/{maxHp}
+        </span>
+        {stance && (
+          <span
+            className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-[1px] rounded-full border"
+            style={{
+              color: stanceColor(stance.key),
+              borderColor: `color-mix(in srgb, ${stanceColor(stance.key)} 35%, var(--border))`,
+              background:  `color-mix(in srgb, ${stanceColor(stance.key)} 8%, var(--surface))`,
+            }}
+          >
+            {stance.label}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
+/* ── Floating damage number ─────────────────────────────────────────────── */
+
+function FloatingDamage({ damage, crit, side }) {
+  const isLeft = side === 'left'
+  return (
+    <motion.span
+      className={`absolute text-[16px] font-black pointer-events-none select-none z-10 ${crit ? 'text-[#d97706]' : isLeft ? 'text-[var(--blue-700)]' : 'text-[#dc2626]'}`}
+      style={{ [isLeft ? 'left' : 'right']: '8px', top: '0px' }}
+      initial={{ opacity: 1, y: 0, scale: crit ? 1.4 : 1 }}
+      animate={{ opacity: 0, y: -28, scale: 1 }}
+      transition={{ duration: 0.7 }}
+    >
+      {crit && '✦ '}-{damage}
+    </motion.span>
+  )
+}
+
+/* ── Event rendering ────────────────────────────────────────────────────── */
+
 function EventRow({ ev, heroName, enemyName, index }) {
+  const type   = ev.type ?? 'attack'
   const isHero = ev.actor === 'a'
   const name   = isHero ? heroName : enemyName
 
+  // Dodge event
+  if (type === 'dodge') {
+    const dodgerName = ev.dodger === 'a' ? heroName : enemyName
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.14 }}
+        className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#7c3aed_10%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))]"
+      >
+        <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
+        <span className="text-[15px] flex-shrink-0 leading-none select-none">💨</span>
+        <span className="font-semibold text-[#7c3aed] flex-1 truncate">{dodgerName}</span>
+        <span className="text-[11px] font-bold text-[#7c3aed] uppercase tracking-wide">¡Esquiva!</span>
+      </motion.div>
+    )
+  }
+
+  // Ability event
+  if (type === 'ability') {
+    const hasAtkDmg = ev.damage != null && ev.damage > 0
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.14 }}
+        className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#d97706_10%,var(--bg))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))]"
+      >
+        <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
+        <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '⚡'}</span>
+        <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
+          {name}
+        </span>
+        <span className="text-[11px] font-extrabold text-[#d97706] uppercase tracking-wide flex-shrink-0">
+          {ev.label}
+        </span>
+        {hasAtkDmg && (
+          <span className="font-bold text-[14px] flex-shrink-0 tabular-nums" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
+            −{ev.damage}
+          </span>
+        )}
+      </motion.div>
+    )
+  }
+
+  // Passive proc event
+  if (type === 'passive') {
+    const hasDmg = ev.damage != null && ev.damage > 0
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.14 }}
+        className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#a855f7_8%,var(--bg))] border border-[color-mix(in_srgb,#a855f7_25%,var(--border))]"
+      >
+        <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
+        <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '✨'}</span>
+        <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
+          {name}
+        </span>
+        <span className="text-[10px] font-bold text-[#a855f7] uppercase tracking-wide flex-shrink-0">
+          {ev.label}
+        </span>
+        {hasDmg && (
+          <span className="font-bold text-[14px] flex-shrink-0 tabular-nums text-[#a855f7]">
+            −{ev.damage}
+          </span>
+        )}
+      </motion.div>
+    )
+  }
+
+  // Tactic activation event
+  if (type === 'tactic') {
+    const hasDmg = ev.damage != null && ev.damage > 0
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.14 }}
+        className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#7c3aed_10%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_30%,var(--border))]"
+      >
+        <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
+        <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '⚔'}</span>
+        <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
+          {name}
+        </span>
+        <span className="text-[10px] font-extrabold text-[#7c3aed] uppercase tracking-wide flex-shrink-0">
+          {ev.label}
+        </span>
+        {hasDmg && (
+          <span className="font-bold text-[14px] flex-shrink-0 tabular-nums text-[#7c3aed]">
+            −{ev.damage}
+          </span>
+        )}
+      </motion.div>
+    )
+  }
+
+  // Stance change event
+  if (type === 'stance') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.14 }}
+        className="flex items-center gap-2 px-3 py-[5px] rounded-lg text-[12px] text-text-3"
+      >
+        <span className="text-[10px] font-bold w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
+        <span className="text-[13px] flex-shrink-0 leading-none select-none">
+          {ev.stance === 'aggressive' ? '🔥' : ev.stance === 'desperate' ? '💢' : '⚖️'}
+        </span>
+        <span className="font-medium flex-1 truncate italic">
+          {name} cambia a postura <span className="font-bold not-italic" style={{ color: stanceColor(ev.stance) }}>{ev.label}</span>
+        </span>
+      </motion.div>
+    )
+  }
+
+  // Regular attack (default / backward compat)
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.14 }}
-      className={`flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] ${
+      className={`relative flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] ${
         ev.crit
           ? 'bg-[color-mix(in_srgb,#d97706_14%,var(--bg))] border border-[color-mix(in_srgb,#d97706_35%,var(--border))]'
           : index % 2 === 0 ? 'bg-[var(--bg)]' : 'bg-transparent'
@@ -87,7 +261,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
       {/* Crit badge */}
       {ev.crit && (
         <span className="text-[10px] font-extrabold text-[#d97706] uppercase tracking-wide flex-shrink-0">
-          ¡CRÍTICO!
+          ¡CRIT!
         </span>
       )}
 
@@ -128,32 +302,30 @@ function KeyMomentPanel({ decisions, onDecide, loading }) {
         <p className="text-[12px] text-text-3 mt-1">El destino del combate está en tus manos</p>
       </div>
 
-      <div className="flex flex-col gap-2.5 w-full max-w-[340px]">
+      <div className="grid grid-cols-2 gap-2.5 w-full max-w-[400px]">
         {(decisions ?? []).map(key => {
           const dec = COMBAT_DECISIONS[key]
           if (!dec) return null
           return (
             <motion.button
               key={key}
-              className="flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-[transform,background] disabled:opacity-50"
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-center transition-[transform,background] disabled:opacity-50"
               style={{
                 borderColor: dec.color,
                 background: `color-mix(in srgb, ${dec.color} 8%, var(--surface))`,
               }}
               onClick={() => !loading && onDecide?.(key)}
               disabled={loading}
-              whileHover={loading ? {} : { scale: 1.02 }}
-              whileTap={loading ? {} : { scale: 0.98 }}
+              whileHover={loading ? {} : { scale: 1.03 }}
+              whileTap={loading ? {} : { scale: 0.97 }}
             >
-              <span className="text-[26px] leading-none flex-shrink-0">{dec.icon}</span>
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <span className="text-[14px] font-extrabold" style={{ color: dec.color }}>
-                  {dec.label}
-                </span>
-                <span className="text-[11px] text-text-2 font-medium leading-tight">
-                  {dec.description}
-                </span>
-              </div>
+              <span className="text-[24px] leading-none">{dec.icon}</span>
+              <span className="text-[13px] font-extrabold leading-tight" style={{ color: dec.color }}>
+                {dec.label}
+              </span>
+              <span className="text-[10px] text-text-2 font-medium leading-tight">
+                {dec.description}
+              </span>
             </motion.button>
           )
         })}
@@ -228,59 +400,53 @@ function RatingPill({ rating }) {
   )
 }
 
+function CompactRating({ rating }) {
+  const tier = tierForRating(rating.current)
+  const positive = rating.delta >= 0
+  const deltaColor = positive ? '#16a34a' : '#dc2626'
+  const sign = positive ? '+' : ''
+  return (
+    <div
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg border flex-shrink-0"
+      style={{
+        color: tier.color,
+        borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
+        background:  `color-mix(in srgb, ${tier.color} 6%, var(--surface))`,
+      }}
+    >
+      <Shield size={11} strokeWidth={2.5} />
+      <span className="text-[11px] font-bold tabular-nums">{rating.current}</span>
+      <span className="text-[10px] font-bold tabular-nums" style={{ color: deltaColor }}>{sign}{rating.delta}</span>
+    </div>
+  )
+}
+
 function ResultPanel({ won, rewards, rating, onClose }) {
   return (
-    <motion.div
-      className="flex flex-col items-center justify-center gap-5 px-6 py-8 flex-1"
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-    >
-      <motion.span
-        className="text-[56px] leading-none select-none"
-        initial={{ scale: 0.5, rotate: -10 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
-      >
-        {won ? '🏆' : '💀'}
-      </motion.span>
-
-      <div className="text-center">
-        <p className={`text-[26px] font-extrabold tracking-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
+    <div className="flex items-center gap-3">
+      {/* Icono + texto resultado */}
+      <span className="text-[24px] leading-none select-none flex-shrink-0">{won ? '🏆' : '💀'}</span>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[15px] font-extrabold tracking-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
           {won ? '¡Victoria!' : 'Derrota'}
         </p>
-        {!won && (
-          <p className="text-[13px] text-text-3 mt-1">El enemigo aguantó este asalto.</p>
+        {/* Recompensas inline */}
+        {won && rewards && (
+          <p className="text-[12px] text-text-2 font-semibold tabular-nums truncate">
+            +{rewards.gold} oro · +{rewards.experience} XP
+            {rewards.milestone ? ' · ★×2' : ''}
+            {rewards.levelUp ? ' · ¡Nivel!' : ''}
+          </p>
         )}
+        {!won && <p className="text-[11px] text-text-3">El enemigo aguantó este asalto.</p>}
       </div>
-
-      {won && rewards && (
-        <div className="flex flex-wrap gap-2 justify-center">
-          <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#d97706_12%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))] text-text px-3 py-1.5 rounded-full text-[13px] font-bold">
-            <Coins size={13} color="#d97706" strokeWidth={2} /> +{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#0369a1_12%,var(--surface-2))] border border-[color-mix(in_srgb,#0369a1_30%,var(--border))] text-text px-3 py-1.5 rounded-full text-[13px] font-bold">
-            <Star size={13} color="#0369a1" strokeWidth={2} /> +{rewards.experience} XP
-          </span>
-          {rewards.milestone && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#d97706_15%,var(--surface-2))] border border-[color-mix(in_srgb,#d97706_40%,var(--border))] text-[#b45309] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              ★ Hito · ×2
-            </span>
-          )}
-          {rewards.levelUp && (
-            <span className="flex items-center gap-1.5 bg-[color-mix(in_srgb,#7c3aed_12%,var(--surface-2))] border border-[color-mix(in_srgb,#7c3aed_30%,var(--border))] text-[#7c3aed] px-3 py-1.5 rounded-full text-[13px] font-bold">
-              <Zap size={13} strokeWidth={2} /> ¡Nivel!
-            </span>
-          )}
-        </div>
-      )}
-
-      <RatingPill rating={rating} />
-
-      <button className="btn btn--primary btn--lg min-w-[160px] mt-2" onClick={onClose}>
+      {/* Rating compacto */}
+      {rating && <CompactRating rating={rating} />}
+      {/* Botón */}
+      <button className="btn btn--primary btn--sm flex-shrink-0" onClick={onClose}>
         Continuar
       </button>
-    </motion.div>
+    </div>
   )
 }
 
@@ -296,16 +462,22 @@ function ResultPanel({ won, rewards, rating, onClose }) {
  *   won            {boolean}
  *   rewards        {object|null}
  *   onClose        {() => void}
- *   keyMomentPause {boolean}  — true si el log actual es parcial y hay decisión pendiente
- *   decisions      {string[]} — opciones del Momento clave a mostrar al final del log parcial
+ *   heroClass      {string|null}  — clase del héroe
+ *   archetype      {string|null}  — arquetipo del enemigo
+ *   keyMomentPause {boolean}
+ *   decisions      {string[]}
  *   onDecide       {(key) => void}
- *   resolving      {boolean}  — true mientras se resuelve la decisión en el servidor
+ *   resolving      {boolean}
  */
 export function CombatReplay({
   heroName, enemyName, heroMaxHp, enemyMaxHp, log,
   won, rewards, rating, onClose,
+  heroClass, archetype,
   keyMomentPause, decisions, onDecide, resolving,
 }) {
+  const resolvedHeroClass  = heroClass ?? null
+  const resolvedEnemyClass = archetype ? (ARCHETYPE_TO_CLASS[archetype] ?? archetype) : null
+
   // Aplanar todas las rondas en un array secuencial de eventos
   const allEvents = (log ?? []).flatMap(r =>
     (r.events ?? []).map(e => ({ ...e, round: r.round }))
@@ -314,7 +486,9 @@ export function CombatReplay({
   const [eventIndex, setEventIndex] = useState(0)
   const [phase,      setPhase]      = useState(allEvents.length > 0 ? 'playing' : 'done')
   const [speedIdx,   setSpeedIdx]   = useState(0)
-  const logRef = useRef(null)
+  const logRef  = useRef(null)
+  const [floats, setFloats] = useState([])
+  const floatId = useRef(0)
 
   // Si el log crece (post Momento clave), reanudar la reproducción
   useEffect(() => {
@@ -330,7 +504,20 @@ export function CombatReplay({
       const t = setTimeout(() => setPhase('done'), 400)
       return () => clearTimeout(t)
     }
-    const t = setTimeout(() => setEventIndex(i => i + 1), SPEEDS[speedIdx].ms)
+    // Dramatic pause on the killing blow
+    const ev = allEvents[eventIndex]
+    const isKill = ev && ((ev.hpA != null && ev.hpA <= 0) || (ev.hpB != null && ev.hpB <= 0))
+    const delay = isKill ? Math.max(SPEEDS[speedIdx].ms, 600) : SPEEDS[speedIdx].ms
+    const t = setTimeout(() => {
+      // Spawn floating damage
+      if (ev && ev.damage > 0) {
+        const id = floatId.current++
+        const side = ev.actor === 'a' ? 'right' : 'left'
+        setFloats(f => [...f, { id, damage: ev.damage, crit: ev.crit, side }])
+        setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), 800)
+      }
+      setEventIndex(i => i + 1)
+    }, delay)
     return () => clearTimeout(t)
   }, [eventIndex, phase, speedIdx, allEvents.length])
 
@@ -342,12 +529,21 @@ export function CombatReplay({
   // HP actuales derivados del último evento mostrado
   const shown = allEvents.slice(0, eventIndex)
   const last  = shown[shown.length - 1]
-  const hpA   = last ? last.hpA : heroMaxHp
-  const hpB   = last ? last.hpB : enemyMaxHp
+  const hpA   = last?.hpA ?? heroMaxHp
+  const hpB   = last?.hpB ?? enemyMaxHp
+
+  // Stances derivados del HP actual
+  const stanceA = resolvedHeroClass  ? getStance(hpA, heroMaxHp)  : null
+  const stanceB = resolvedEnemyClass ? getStance(hpB, enemyMaxHp) : null
+
+  // Shake on crit
+  const lastShown = shown[shown.length - 1]
+  const isShaking = lastShown?.crit && eventIndex > 0
 
   function skip() {
     setEventIndex(allEvents.length)
     setPhase('done')
+    setFloats([])
   }
 
   return createPortal(
@@ -357,50 +553,65 @@ export function CombatReplay({
     >
       <motion.div
         className="relative bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-lg flex flex-col overflow-hidden"
-        style={{ height: 'min(92vh, 560px)' }}
+        style={{ height: 'min(92vh, 600px)' }}
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
+        animate={{
+          opacity: 1, scale: 1, y: 0,
+          x: isShaking ? [0, -3, 3, -2, 2, 0] : 0,
+        }}
+        transition={isShaking
+          ? { x: { duration: 0.3 }, default: { duration: 0.22, ease: 'easeOut' } }
+          : { duration: 0.22, ease: 'easeOut' }
+        }
       >
         {/* ── Header: barras de HP ── */}
-        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-border bg-[color-mix(in_srgb,var(--blue-600)_3%,var(--surface))] flex-shrink-0">
-          <FighterBar name={heroName}  hp={hpA} maxHp={heroMaxHp}  side="left"  />
+        <div className="relative flex items-center gap-3 px-5 pt-5 pb-4 border-b border-border bg-[color-mix(in_srgb,var(--blue-600)_3%,var(--surface))] flex-shrink-0">
+          <FighterBar name={heroName}  hp={hpA} maxHp={heroMaxHp}  side="left"  stance={stanceA} cls={resolvedHeroClass}  />
           <span className="text-[11px] font-extrabold text-text-3 tracking-[0.12em] flex-shrink-0">VS</span>
-          <FighterBar name={enemyName} hp={hpB} maxHp={enemyMaxHp} side="right" />
+          <FighterBar name={enemyName} hp={hpB} maxHp={enemyMaxHp} side="right" stance={stanceB} cls={resolvedEnemyClass} />
+          {/* Floating damage numbers */}
+          <AnimatePresence>
+            {floats.map(f => (
+              <FloatingDamage key={f.id} damage={f.damage} crit={f.crit} side={f.side} />
+            ))}
+          </AnimatePresence>
         </div>
 
-        {/* ── Contenido: log, decisión Momento clave o resultado ── */}
-        <AnimatePresence mode="wait">
-          {phase !== 'done' ? (
-            <div
-              key="log"
-              ref={logRef}
-              className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1 min-h-[220px]"
-            >
-              {shown.map((ev, i) => (
-                <EventRow key={i} ev={ev} heroName={heroName} enemyName={enemyName} index={i} />
-              ))}
-              <div className="px-3 py-1 text-[12px] text-text-3">
-                <span className="animate-pulse">···</span>
-              </div>
+        {/* ── Log — siempre visible, ocupa el espacio disponible ── */}
+        <div
+          ref={logRef}
+          className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1 min-h-0"
+        >
+          {(phase === 'done' && !keyMomentPause ? allEvents : shown).map((ev, i) => (
+            <EventRow key={i} ev={ev} heroName={heroName} enemyName={enemyName} index={i} />
+          ))}
+          {phase === 'playing' && (
+            <div className="px-3 py-1 text-[12px] text-text-3">
+              <span className="animate-pulse">···</span>
             </div>
-          ) : keyMomentPause ? (
-            <KeyMomentPanel
-              key="keymoment"
-              decisions={decisions}
-              onDecide={onDecide}
-              loading={resolving}
-            />
-          ) : (
-            <ResultPanel
-              key="result"
-              won={won}
-              rewards={rewards}
-              rating={rating}
-              onClose={onClose}
-            />
           )}
-        </AnimatePresence>
+        </div>
+
+        {/* ── Momento clave (reemplaza el footer) ── */}
+        {phase === 'done' && keyMomentPause && (
+          <KeyMomentPanel
+            decisions={decisions}
+            onDecide={onDecide}
+            loading={resolving}
+          />
+        )}
+
+        {/* ── Resultado — footer fijo bajo el log ── */}
+        {phase === 'done' && !keyMomentPause && (
+          <motion.div
+            className="flex-shrink-0 border-t border-border bg-[var(--surface)] px-5 py-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <ResultPanel won={won} rewards={rewards} rating={rating} onClose={onClose} />
+          </motion.div>
+        )}
 
         {/* ── Footer: controles de velocidad (solo mientras se reproduce) ── */}
         {phase === 'playing' && (

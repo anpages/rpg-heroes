@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       .select('id, max_durability, name')
       .eq('slot', run.slot)
       .eq('rarity', rarity)
-      .in('tier', [1, 2])   // consistente con cámaras — no T3
+      .in('tier', [1, 2])   // no T3 — eso queda para expediciones
 
     if (hero.class) {
       q = q.or(`required_class.is.null,required_class.eq.${hero.class}`)

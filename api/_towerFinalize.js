@@ -16,7 +16,7 @@ import { COMBAT_HP_COST, towerWearForFloor } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { floorRewards } from './_combat.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
-import { rollItemDrop, floorToDifficulty } from './_loot.js'
+import { rollItemDrop, rollTacticDrop, floorToDifficulty } from './_loot.js'
 import { progressMissions } from './_missions.js'
 import { snapshotResources } from './_validate.js'
 import { computeRatingUpdate, towerDifficulty } from './_rating.js'
@@ -150,6 +150,10 @@ export async function finalizeTowerAttempt({
       heroClass: hero.class,
     })
     rewards.drop = drop ?? null
+
+    // Drop de táctica (15% en victoria en torre)
+    const tacticDrop = await rollTacticDrop(supabase, hero.id, hero.class, { chance: 0.15 })
+    if (tacticDrop) rewards.tacticDrop = tacticDrop
   }
 
   // Progreso de misiones
@@ -168,6 +172,7 @@ export async function finalizeTowerAttempt({
       enemyMaxHp: enemyStats.max_hp,
       enemyName,
       archetype: archetypeKey,
+      heroClass: hero.class,
       maxFloor: won ? targetFloor : prevMaxFloor,
       rewards,
       heroCurrentHp: hpAfterCombat,

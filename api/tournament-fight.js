@@ -7,6 +7,7 @@ import { interpolateHP, canPlay } from './_hp.js'
 import { signCombatToken } from './_combatSign.js'
 import { KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
 import { finalizeTournamentFight } from './_tournamentFinalize.js'
+import { generateEnemyTactics } from './_enemyTactics.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -75,6 +76,7 @@ export default async function handler(req, res) {
   }
 
   const rival = bracket.rivals[nextRound - 1]
+  if (!rival) return res.status(409).json({ error: 'Datos del rival no disponibles' })
 
   // Aplicar boosts de pociones activas
   const effects = hero.active_effects ?? {}
@@ -88,12 +90,30 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
+  // Tácticas del héroe y del rival
+  const { data: heroTacticRows } = await supabase
+    .from('hero_tactics')
+    .select('level, tactic_catalog(name, icon, combat_effect)')
+    .eq('hero_id', heroId)
+    .not('slot_index', 'is', null)
+  const heroTactics = (heroTacticRows ?? []).filter(r => r.tactic_catalog).map(r => ({
+    name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
+    level: r.level, combat_effect: r.tactic_catalog.combat_effect,
+  }))
+  // Rival VL ≈ hero level para escalar tácticas
+  const rivalArchetype = rival.class ?? rival.archetype
+  const enemyTactics = generateEnemyTactics(hero.level, rivalArchetype)
+
   // Final del torneo (ronda 3) → activa Momento clave
   const isKeyMomentRound = nextRound === 3
   const combatOpts = {
     critBonus:        rb.crit_pct,
     dmgMultiplier:    rb.tower_dmg_pct,
     keyMomentEnabled: isKeyMomentRound,
+    classA:           hero.class,
+    classB:           rivalArchetype,
+    tacticsA:         heroTactics,
+    tacticsB:         enemyTactics,
   }
   const result = simulateCombat(heroStats, rival.stats, combatOpts)
 
@@ -107,7 +127,7 @@ export default async function handler(req, res) {
       heroStats,
       rival,
       state:       result.state,
-      combatOpts:  { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct },
+      combatOpts:  { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct, classA: hero.class, classB: rivalArchetype, tacticsA: heroTactics, tacticsB: enemyTactics },
       newEffects,
     })
     return res.status(200).json({
@@ -122,6 +142,7 @@ export default async function handler(req, res) {
       rivalMaxHp:  rival.stats.max_hp,
       round:       nextRound,
       rival,
+      heroClass:   hero.class,
     })
   }
 

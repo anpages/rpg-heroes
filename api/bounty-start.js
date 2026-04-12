@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'routeKey requerido' })
   }
 
-  // Cargar héroe (usa status como lock compartido con cámaras/expediciones)
+  // Cargar héroe (usa status como lock compartido con expediciones)
   const { data: hero } = await supabase
     .from('heroes')
     .select('id, player_id, level, status, current_hp, max_hp, hp_last_updated_at, status_ends_at')

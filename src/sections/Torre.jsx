@@ -5,7 +5,6 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { useHeroCards } from '../hooks/useHeroCards'
 import { useTowerProgress } from '../hooks/useTowerProgress'
 import { useResearch } from '../hooks/useResearch'
 import { queryKeys } from '../lib/queryKeys'
@@ -13,7 +12,7 @@ import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
 import { floorRewards, floorEnemyName, floorEnemyArchetype, decoratedEnemyName, ENEMY_ARCHETYPES } from '../lib/gameFormulas'
-import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield, Wrench } from 'lucide-react'
+import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield, Wrench, Layers, Package } from 'lucide-react'
 import { usePotions } from '../hooks/usePotions'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -87,7 +86,6 @@ export default function Torre() {
   const queryClient = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items } = useInventory(hero?.id)
-  const { cards } = useHeroCards(hero?.id)
   const { maxFloor, attemptsByFloor, loading: towerLoading } = useTowerProgress(hero?.id)
   const { research } = useResearch(userId)
   const { potions } = usePotions(userId)
@@ -125,32 +123,17 @@ export default function Torre() {
       acc.max_hp   += c.hp_bonus       ?? 0
       acc.strength += c.strength_bonus ?? 0
       acc.agility  += c.agility_bonus  ?? 0
-      ;(i.item_runes ?? []).forEach(ir => {
-        ;(ir.rune_catalog?.bonuses ?? []).forEach(({ stat, value }) => {
-          if (stat in acc) acc[stat] += value
-        })
-      })
       return acc
     }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
 
-  const cardBonuses = (cards ?? [])
-    .filter(c => c.slot_index !== null && c.slot_index !== undefined)
-    .reduce((acc, c) => {
-      const sc   = c.skill_cards
-      const rank = Math.min(c.rank, 5)
-      ;(sc.bonuses   ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] += Math.round(value * rank) })
-      ;(sc.penalties ?? []).forEach(({ stat, value }) => { if (stat in acc) acc[stat] -= Math.round(value * (1 + (rank - 1) * 0.5)) })
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0 })
-
   const effectiveHero = hero ? (() => {
     const s = {
-      max_hp:       hero.max_hp       + equipBonuses.max_hp    + cardBonuses.max_hp,
-      attack:       hero.attack       + equipBonuses.attack    + cardBonuses.attack,
-      defense:      hero.defense      + equipBonuses.defense   + cardBonuses.defense,
-      strength:     hero.strength     + equipBonuses.strength  + cardBonuses.strength,
-      agility:      hero.agility      + equipBonuses.agility   + cardBonuses.agility,
-      intelligence: hero.intelligence + (cardBonuses.intelligence ?? 0),
+      max_hp:       hero.max_hp       + equipBonuses.max_hp,
+      attack:       hero.attack       + equipBonuses.attack,
+      defense:      hero.defense      + equipBonuses.defense,
+      strength:     hero.strength     + equipBonuses.strength,
+      agility:      hero.agility      + equipBonuses.agility,
+      intelligence: hero.intelligence,
     }
     if (rb.attack_pct)       s.attack       = Math.round(s.attack       * (1 + rb.attack_pct))
     if (rb.defense_pct)      s.defense      = Math.round(s.defense      * (1 + rb.defense_pct))
@@ -242,6 +225,8 @@ export default function Torre() {
           won={result.won}
           rewards={result.rewards}
           rating={result.rating}
+          heroClass={result.heroClass}
+          archetype={result.archetype}
           onClose={() => { applyPostCombat(result); setResult(null); setPauseToken(null) }}
           keyMomentPause={result.paused === true}
           decisions={result.decisions}
@@ -302,14 +287,26 @@ export default function Torre() {
         })()}
 
         {/* Rewards */}
-        <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
-            <Coins size={13} color="#d97706" strokeWidth={2} />{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-text-2">
-            <Star size={13} color="#0369a1" strokeWidth={2} />{rewards.experience} XP
-          </span>
+        <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Recompensas al ganar</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
+              <Coins size={13} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
+            </span>
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
+              <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
+            </span>
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#7c3aed]">
+              <Layers size={13} color="#7c3aed" strokeWidth={2} />Táctica (15%)
+            </span>
+            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#0891b2]">
+              <Package size={13} color="#0891b2" strokeWidth={2} />Objeto
+            </span>
+          </div>
         </div>
+
+        {/* Preparación */}
+        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3 px-1 -mb-1">Preparación</span>
 
         {/* HP bar + equipment durability + heal potions */}
         {hero && (() => {
@@ -387,7 +384,7 @@ export default function Torre() {
           )
         })()}
 
-        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} />
+        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} title="Pociones de combate" />
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"

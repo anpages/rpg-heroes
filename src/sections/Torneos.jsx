@@ -365,10 +365,10 @@ export default function Torneos() {
         return
       }
       if (data.rewards) triggerResourceFlash()
-      if (data.rewards?.card?.name) notify.cardDrop(data.rewards.card)
+      if (data.rewards?.tactic?.name) notify.tacticDrop(data.rewards.tactic)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
       if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
@@ -380,10 +380,10 @@ export default function Torneos() {
     onSuccess: data => {
       setPauseToken(null)
       if (data.rewards) triggerResourceFlash()
-      if (data.rewards?.card?.name) notify.cardDrop(data.rewards.card)
+      if (data.rewards?.tactic?.name) notify.tacticDrop(data.rewards.tactic)
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
       if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
     },
@@ -460,7 +460,7 @@ export default function Torneos() {
               {[
                 { icon: Coins,    color: '#d97706', text: 'Cuartos — 100 oro + 50 XP',          round: 1 },
                 { icon: Sparkles, color: '#7c3aed', text: 'Semifinal — 200 oro + 20 maná',       round: 2 },
-                { icon: Trophy,   color: '#d97706', text: 'Final — 500 oro + carta garantizada', round: 3 },
+                { icon: Trophy,   color: '#d97706', text: 'Final — 500 oro + táctica garantizada', round: 3 },
               ].map(({ icon: Icon, color, text, round }) => (
                 <div key={round} className="flex items-center gap-2 text-[12px] text-text-2">
                   <Icon size={13} color={color} strokeWidth={2} />
@@ -504,7 +504,7 @@ export default function Torneos() {
   const PRIZES = [
     { icon: Coins,    color: '#d97706', text: '100 oro + 50 XP',         label: 'Cuartos',   round: 1 },
     { icon: Sparkles, color: '#7c3aed', text: '200 oro + 20 maná',        label: 'Semifinal', round: 2 },
-    { icon: Trophy,   color: '#d97706', text: '500 oro + carta garantizada', label: 'Final',  round: 3 },
+    { icon: Trophy,   color: '#d97706', text: '500 oro + táctica garantizada', label: 'Final',  round: 3 },
   ]
 
   return (
@@ -658,6 +658,8 @@ export default function Torneos() {
           won={replay.won}
           rewards={replay.rewards}
           rating={replay.rating}
+          heroClass={replay.heroClass}
+          archetype={replay.rival?.archetype}
           onClose={() => { setReplay(null); setPauseToken(null) }}
           keyMomentPause={replay.paused === true}
           decisions={replay.decisions}

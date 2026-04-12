@@ -12,11 +12,11 @@ export const RESEARCH_BONUS_DEFAULTS = {
   expedition_slots:    0,
   repair_cost_pct:     0,
   item_drop_pct:       0,
-  rune_slot_bonus:     0,
-  lab_req_reduction:   0,
-  mana_rate_pct:       0,
-  fusion_cost_pct:     0,
-  enchantment_amp:     0,
+  mana_rate_pct:           0,
+  tactic_drop_pct:         0,
+  tactic_swap_discount:    0,
+  tactic_bonus_pct:        0,
+  tactic_max_level_bonus:  0,
 }
 
 /**

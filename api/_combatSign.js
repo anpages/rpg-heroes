@@ -39,27 +39,7 @@ export function verifyCombatToken(token) {
   return verifyToken(token, 'Token expirado, vuelve a iniciar el combate')
 }
 
-/**
- * Firma una elección de cofre de cámara. TTL más largo (15 min) porque
- * el jugador puede dejar la app abierta antes de elegir.
- *
- * El payload incluye: { userId, runId, heroId, chests: [...] } — todo lo
- * necesario para aplicar la recompensa sin volver a consultar la BD del estado
- * del cofre. Si el jugador modifica la respuesta, la firma falla.
- */
-export function signChestToken(payload, ttlMs = 15 * 60 * 1000) {
-  const data = { ...payload, expiresAt: Date.now() + ttlMs }
-  const json = JSON.stringify(data)
-  const b64  = toB64Url(json)
-  const sig  = toB64Url(crypto.createHmac('sha256', SECRET).update(b64).digest())
-  return `${b64}.${sig}`
-}
-
-export function verifyChestToken(token) {
-  return verifyToken(token, 'Token de cofre expirado, vuelve a recoger la cámara')
-}
-
-// Verificación común para ambos tipos de token (combate y cofre)
+// Verificación común
 function verifyToken(token, expiredMsg) {
   if (!token || typeof token !== 'string') throw new Error('Token requerido')
   const dot = token.indexOf('.')

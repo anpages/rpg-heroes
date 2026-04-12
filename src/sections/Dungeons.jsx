@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from 'react'
+import { useState, useEffect, useMemo, useReducer } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
@@ -9,10 +9,23 @@ import { apiPost } from '../lib/api'
 import { useHero } from '../hooks/useHero'
 import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
+import { useInventory } from '../hooks/useInventory'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { expeditionHpCost, agilityDurationFactor, attackMultiplier as calcAttackMultiplier } from '../lib/gameFormulas'
-import { Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword, Layers, Sparkles, FlaskConical, Zap } from 'lucide-react'
+import {
+  expeditionHpCost,
+  agilityDurationFactor,
+  attackMultiplier as calcAttackMultiplier,
+  itemDropChance,
+  tacticDropChance,
+  durabilityLoss as calcDurabilityLoss,
+  MATERIAL_DROP_DATA,
+} from '../lib/gameFormulas'
+import {
+  Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword,
+  Layers, Sparkles, FlaskConical, Zap, Heart, Brain,
+  Wrench, AlertTriangle, Crosshair, Lock,
+} from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PotionPanel } from '../components/PotionPanel'
 
@@ -34,25 +47,15 @@ function fmtTime(seconds) {
   return `${s}s`
 }
 
-const RARITY_COLORS = {
-  common: '#6b7280', uncommon: '#16a34a', rare: '#2563eb', epic: '#7c3aed', legendary: '#d97706',
-}
+function fmtPct(n) { return `${Math.round(n * 100)}%` }
 
 const DUNGEON_TYPE_META = {
-  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas'                 },
-  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura · Accesorios' },
-  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios · Cartas'   },
-  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos · Armadura'     },
-  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas · Armadura'       },
-  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Accesorios · Yelmos'    },
-}
-
-const MATERIAL_BY_DUNGEON_NAME = {
-  'Guarida del Dragón':     'essence',
-  'Abismo de las Almas':    'fragments',
-  'Ruinas Encantadas':      'fragments',
-  'Minas de Hierro Oscuro': 'fragments',
-  'Templo de los Antiguos': 'essence',
+  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas y escudos'              },
+  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura ligera y accesorios'  },
+  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios mágicos'            },
+  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos y armadura pesada'      },
+  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas y armadura de brazos'     },
+  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Accesorios y yelmos antiguos'   },
 }
 
 const MATERIAL_META = {
@@ -101,6 +104,21 @@ function useExpeditionTimer(expedition) {
   return { secondsLeft, canCollect, isMounted, pct }
 }
 
+/** Computes average equipment durability % across equipped items */
+function useEquipmentHealth(items) {
+  return useMemo(() => {
+    if (!items) return { avgDurPct: 1, hasDamagedGear: false, equippedCount: 0 }
+    const equipped = items.filter(i => i.equipped_slot)
+    if (equipped.length === 0) return { avgDurPct: 1, hasDamagedGear: false, equippedCount: 0 }
+    const total = equipped.reduce((sum, i) => {
+      const max = i.item_catalog?.max_durability ?? 1
+      return sum + (max > 0 ? i.current_durability / max : 1)
+    }, 0)
+    const avg = total / equipped.length
+    return { avgDurPct: avg, hasDamagedGear: avg < 0.5, equippedCount: equipped.length }
+  }, [items])
+}
+
 
 const EXPEDITION_POTION_EFFECTS = [
   'time_reduction',
@@ -110,7 +128,94 @@ const EXPEDITION_POTION_EFFECTS = [
   'card_guaranteed',
 ]
 
-function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCollect, heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1, heroStrength = 0, weeklyModifier = null }) {
+/* ─── Filtros ─────────────────────────────────────────────────────────────── */
+
+const FILTERS_BASE = [
+  { id: 'recommended', label: 'Recomendadas', icon: Crosshair },
+  { id: 'equipment',   label: 'Equipo',       icon: Sword     },
+  { id: 'materials',   label: 'Materiales',   icon: Layers    },
+  { id: 'tactics',     label: 'Tácticas',     icon: Brain     },
+]
+
+/** Filtra y ordena las mazmorras según el filtro activo */
+function filterDungeons(dungeons, filter, heroLevel) {
+  if (!dungeons) return []
+
+  switch (filter) {
+    case 'recommended': {
+      // Available dungeons near hero level + always include short dungeons (≤20 min)
+      return dungeons
+        .filter(d => heroLevel >= d.min_hero_level)
+        .filter(d => d.duration_minutes <= 20 || d.min_hero_level >= Math.max(1, heroLevel - 4))
+        .sort((a, b) => a.difficulty - b.difficulty)
+    }
+    case 'equipment': {
+      // Dungeons known for equipment (all available ones, sorted by drop chance = difficulty)
+      return dungeons
+        .filter(d => heroLevel >= d.min_hero_level)
+        .sort((a, b) => b.difficulty - a.difficulty)
+    }
+    case 'materials': {
+      // Only dungeons that drop materials
+      return dungeons
+        .filter(d => heroLevel >= d.min_hero_level && MATERIAL_DROP_DATA[d.name])
+        .sort((a, b) => {
+          const ca = MATERIAL_DROP_DATA[a.name]?.chance ?? 0
+          const cb = MATERIAL_DROP_DATA[b.name]?.chance ?? 0
+          return cb - ca
+        })
+    }
+    case 'tactics': {
+      // All available, sorted by difficulty (higher = more tactic XP context)
+      return dungeons
+        .filter(d => heroLevel >= d.min_hero_level)
+        .sort((a, b) => b.difficulty - a.difficulty)
+    }
+    case 'locked': {
+      return dungeons
+        .filter(d => heroLevel < d.min_hero_level)
+        .sort((a, b) => a.min_hero_level - b.min_hero_level)
+    }
+    case 'all':
+    default: {
+      return [...dungeons].sort((a, b) => a.difficulty - b.difficulty)
+    }
+  }
+}
+
+/** A single stat line in the dungeon preview */
+function StatLine({ icon: Icon, iconColor, label, value, baseValue, bonusLabel, bonusColor, warning }) {
+  const hasBonus = baseValue != null && value !== baseValue
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <Icon size={14} strokeWidth={2} color={iconColor} className="flex-shrink-0" />
+      <span className="text-[13px] font-semibold text-text-2">{label}</span>
+      <span className="text-[14px] font-bold text-text">{value}</span>
+      {hasBonus && (
+        <>
+          <span className="text-[12px] text-text-3 line-through">{baseValue}</span>
+          <span className="text-[11px] font-bold" style={{ color: bonusColor ?? '#16a34a' }}>
+            {bonusLabel}
+          </span>
+        </>
+      )}
+      {warning && (
+        <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#dc2626]">
+          <AlertTriangle size={11} strokeWidth={2.5} />
+          {warning}
+        </span>
+      )}
+    </div>
+  )
+}
+
+
+function DungeonCard({
+  dungeon, heroLevel, heroStatus, expedition, onStart, onCollect,
+  heroHpNow, heroMaxHp, agilityFactor, atkMultiplier = 1,
+  heroStrength = 0, heroDefense = 0, heroIntelligence = 0,
+  weeklyModifier = null, equipHealth,
+}) {
   const locked   = heroLevel < dungeon.min_hero_level
   const isActive = expedition?.dungeon_id === dungeon.id
   const busy     = heroStatus !== 'idle' && !isActive
@@ -120,6 +225,32 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
   const meta     = dungeon.type ? DUNGEON_TYPE_META[dungeon.type] : null
   const isWeekly = weeklyModifier?.dungeon_id === dungeon.id
   const weeklyMeta = isWeekly ? weeklyModifier?.modifier : null
+  const isShort  = dungeon.duration_minutes <= 20
+
+  // Computed preview values
+  const durMult      = isWeekly && weeklyMeta?.durationMult ? weeklyMeta.durationMult : 1
+  const effectiveMins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1) * durMult)
+  const baseMins      = dungeon.duration_minutes
+  const agilityPct    = agilityFactor < 1 ? Math.round((1 - agilityFactor) * 100) : 0
+
+  const goldMin       = Math.round(dungeon.gold_min * atkMultiplier)
+  const goldMax       = Math.round(dungeon.gold_max * atkMultiplier)
+  const atkPct        = atkMultiplier > 1 ? Math.round((atkMultiplier - 1) * 100) : 0
+
+  const baseHpCost    = expeditionHpCost(heroMaxHp, dungeon.duration_minutes, dungeon.difficulty, 0)
+  const strReduction  = baseHpCost > hpCost ? baseHpCost - hpCost : 0
+
+  const equipChance   = itemDropChance(dungeon.difficulty)
+  const tacticChance  = tacticDropChance(heroIntelligence)
+  const baseTacticCh  = tacticDropChance(0)
+  const intellBonus   = tacticChance > baseTacticCh ? Math.round((tacticChance - baseTacticCh) * 100) : 0
+
+  const durLoss       = calcDurabilityLoss(dungeon.difficulty, heroDefense)
+  const durLossBase   = calcDurabilityLoss(dungeon.difficulty, 0)
+  const defReduction  = durLossBase > durLoss ? durLossBase - durLoss : 0
+
+  const materialData  = MATERIAL_DROP_DATA[dungeon.name]
+  const matMeta       = materialData ? MATERIAL_META[materialData.resource] : null
 
   const [collecting, setCollecting] = useState(false)
   const timer = useExpeditionTimer(isActive ? expedition : null)
@@ -138,7 +269,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
 
   return (
     <div
-      className={`flex flex-col bg-surface border rounded-xl p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200
+      className={`flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200 overflow-hidden
       ${isActive
         ? 'border-[var(--blue-300)] bg-[color-mix(in_srgb,var(--blue-50)_60%,var(--surface))] dark:border-[var(--blue-300)] dark:bg-[color-mix(in_srgb,var(--blue-300)_8%,var(--surface))]'
         : locked
@@ -151,12 +282,16 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
         background:  `color-mix(in srgb, ${weeklyMeta.color} 4%, var(--surface))`,
       } : undefined}
     >
-
-      {/* Top */}
-      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-5 mb-4 flex-1">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h3 className="text-[17px] font-bold text-text">{dungeon.name}</h3>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h3 className="text-[16px] font-bold text-text">{dungeon.name}</h3>
+            {isShort && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,#16a34a_12%,var(--bg))] text-[#16a34a] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))]">
+                Rápida
+              </span>
+            )}
             {meta && (
               <span className="text-[11px] font-bold uppercase tracking-[0.07em] opacity-85" style={{ color: meta.color }}>
                 {meta.label}
@@ -173,58 +308,104 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
               </span>
             )}
           </div>
-          <p className="text-[13px] text-text-3 leading-[1.5] mb-2.5 line-clamp-2">{dungeon.description}</p>
-          <div className="flex gap-3.5 flex-wrap">
-            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
-              <Clock size={13} strokeWidth={2} />
-              {(() => {
-                const durMult = isWeekly && weeklyMeta?.durationMult ? weeklyMeta.durationMult : 1
-                const mins = Math.round(dungeon.duration_minutes * (agilityFactor ?? 1) * durMult)
-                return mins >= 60
-                  ? `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}m` : ''}`
-                  : `${mins}m`
-              })()}
-            </span>
-            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
-              <Star size={13} strokeWidth={2} />
-              Nv. {dungeon.min_hero_level}+
-            </span>
-            {meta && (
-              <span className="flex items-center gap-1 text-[12px] font-semibold opacity-85" style={{ color: meta.color }}>
-                {meta.loot}
-              </span>
-            )}
-            {MATERIAL_BY_DUNGEON_NAME[dungeon.name] && (() => {
-              const mat = MATERIAL_META[MATERIAL_BY_DUNGEON_NAME[dungeon.name]]
-              const MatIcon = mat.Icon
-              return (
-                <span
-                  className="flex items-center gap-1 text-[12px] font-bold px-1.5 py-0.5 rounded-md border"
-                  style={{
-                    color: mat.color,
-                    background: `color-mix(in srgb, ${mat.color} 10%, transparent)`,
-                    borderColor: `color-mix(in srgb, ${mat.color} 30%, transparent)`,
-                  }}
-                >
-                  <MatIcon size={11} strokeWidth={2.5} />
-                  {mat.label}
-                </span>
-              )
-            })()}
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <DifficultyDots value={dungeon.difficulty} />
           </div>
         </div>
-
-        {/* Difficulty */}
-        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1.5 flex-shrink-0">
-          <span className="text-[13px] font-bold tracking-[0.08em] uppercase text-text-3">Peligro</span>
-          <DifficultyDots value={dungeon.difficulty} />
-        </div>
+        <p className="text-[13px] text-text-3 leading-[1.45] line-clamp-2">{dungeon.description}</p>
       </div>
 
-      {/* Footer — siempre la misma estructura: info + botón */}
-      <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-border">
+      {/* Stat preview grid — only when not active */}
+      {!isActive && !locked && (
+        <div className="px-4 pb-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+          {/* Duration */}
+          <StatLine
+            icon={Clock} iconColor="#6366f1"
+            label="" value={effectiveMins >= 60 ? `${Math.floor(effectiveMins / 60)}h${effectiveMins % 60 > 0 ? ` ${effectiveMins % 60}m` : ''}` : `${effectiveMins}m`}
+            baseValue={agilityPct > 0 ? `${baseMins}m` : null}
+            bonusLabel={agilityPct > 0 ? `−${agilityPct}% Agi` : null}
+            bonusColor="#16a34a"
+          />
 
-        {/* Info izquierda */}
+          {/* Gold range */}
+          <StatLine
+            icon={Coins} iconColor="#d97706"
+            label="" value={`${goldMin}–${goldMax}`}
+            baseValue={atkPct > 0 ? `${dungeon.gold_min}–${dungeon.gold_max}` : null}
+            bonusLabel={atkPct > 0 ? `+${atkPct}% Atq` : null}
+            bonusColor="#d97706"
+          />
+
+          {/* HP cost */}
+          <StatLine
+            icon={Heart} iconColor="#dc2626"
+            label="" value={`−${hpCost} HP`}
+            baseValue={strReduction > 0 ? `−${baseHpCost}` : null}
+            bonusLabel={strReduction > 0 ? `−${strReduction} Fza` : null}
+            bonusColor="#16a34a"
+          />
+
+          {/* XP */}
+          <StatLine
+            icon={Star} iconColor="#0369a1"
+            label="" value={`${Math.round(dungeon.experience_reward * atkMultiplier)} XP`}
+            baseValue={atkPct > 0 ? `${dungeon.experience_reward}` : null}
+            bonusLabel={atkPct > 0 ? `+${atkPct}% Atq` : null}
+            bonusColor="#0369a1"
+          />
+
+          {/* Equipment drop */}
+          <StatLine
+            icon={Sword} iconColor="#7c3aed"
+            label="Equipo" value={fmtPct(equipChance)}
+            warning={equipHealth?.hasDamagedGear ? 'Dañado' : null}
+          />
+
+          {/* Tactic drop */}
+          <StatLine
+            icon={Brain} iconColor="#0891b2"
+            label="Táctica" value={fmtPct(tacticChance)}
+            baseValue={intellBonus > 0 ? fmtPct(baseTacticCh) : null}
+            bonusLabel={intellBonus > 0 ? `+${intellBonus}% Int` : null}
+            bonusColor="#0891b2"
+          />
+
+          {/* Durability loss */}
+          {durLoss > 0 && (
+            <StatLine
+              icon={Wrench} iconColor="#78716c"
+              label="Desgaste" value={`${durLoss} pts`}
+              baseValue={defReduction > 0 ? `${durLossBase}` : null}
+              bonusLabel={defReduction > 0 ? `−${defReduction} Def` : null}
+              bonusColor="#16a34a"
+            />
+          )}
+
+          {/* Material drop */}
+          {materialData && matMeta && (
+            <StatLine
+              icon={matMeta.Icon} iconColor={matMeta.color}
+              label={matMeta.label} value={`${fmtPct(materialData.chance)} (${materialData.min}–${materialData.max})`}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Loot type badge — when locked, show minimal info */}
+      {locked && meta && (
+        <div className="px-4 pb-3 flex gap-2 flex-wrap">
+          <span className="text-[12px] font-semibold text-text-3">
+            <Star size={12} strokeWidth={2} className="inline mr-1" />
+            Nv. {dungeon.min_hero_level}+
+          </span>
+          <span className="text-[12px] font-semibold opacity-75" style={{ color: meta.color }}>
+            {meta.loot}
+          </span>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border mt-auto">
         {isActive ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="flex-1 h-1.5 bg-[var(--blue-100)] rounded-full overflow-hidden">
@@ -233,22 +414,14 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
                 style={{ width: `${timer.pct}%`, transition: timer.isMounted ? 'width 1s linear' : 'none' }}
               />
             </div>
-            <span className={`text-[12px] font-semibold whitespace-nowrap flex-shrink-0 ${timer.canCollect ? 'text-[#16a34a]' : 'text-text-3'}`}>
+            <span className={`text-[13px] font-semibold whitespace-nowrap flex-shrink-0 ${timer.canCollect ? 'text-[#16a34a]' : 'text-text-3'}`}>
               {timer.canCollect ? '¡Lista!' : timer.secondsLeft !== null ? fmtTime(timer.secondsLeft) : '...'}
             </span>
           </div>
         ) : (
-          <div className="flex gap-3 flex-wrap">
-            <span className="flex items-center gap-1 text-[13px] font-semibold text-text-2">
-              <Star size={13} strokeWidth={2} color="#0369a1" />{Math.round(dungeon.experience_reward * atkMultiplier)} XP
-            </span>
-            <span className="flex items-center gap-1 text-[13px] font-semibold text-[#dc2626]">
-              −{hpCost} HP
-            </span>
-          </div>
+          <div className="flex-1" />
         )}
 
-        {/* Botón derecha — siempre presente */}
         {isActive ? (
           <motion.button
             className="btn btn--primary flex-shrink-0"
@@ -280,8 +453,7 @@ function DungeonCard({ dungeon, heroLevel, heroStatus, expedition, onStart, onCo
             }
           </motion.button>
         )}
-
-      </div>{/* /footer */}
+      </div>
     </div>
   )
 }
@@ -379,7 +551,10 @@ function Dungeons() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { dungeons, loading: dungeonsLoading, weeklyModifier, weeklyLoading } = useDungeons(heroId)
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
+  const { items } = useInventory(heroId)
+  const equipHealth = useEquipmentHealth(items)
   const [reward, setReward] = useState(null)
+  const [filter, setFilter] = useState('recommended')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
@@ -388,6 +563,26 @@ function Dungeons() {
   }, [])
 
   useWakeLock(!!expedition)
+
+  const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
+  const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
+  const heroLevel      = hero?.level ?? 1
+
+  const filtered = useMemo(
+    () => filterDungeons(dungeons, filter, heroLevel),
+    [dungeons, filter, heroLevel],
+  )
+
+  const lockedCount = useMemo(
+    () => (dungeons ?? []).filter(d => heroLevel < d.min_hero_level).length,
+    [dungeons, heroLevel],
+  )
+
+  // Si el filtro activo ya no tiene sentido, volver a recomendadas
+  useEffect(() => {
+    if (filter === 'locked' && lockedCount === 0) setFilter('recommended')
+    if (filter === 'all') setFilter('recommended')
+  }, [filter, lockedCount])
 
   async function handleStart(dungeon) {
     const now = Date.now()
@@ -417,19 +612,16 @@ function Dungeons() {
     setReward({ ...(data.rewards ?? {}), materialDrop: data.materialDrop ?? null })
     if (data.drop?.item_catalog)      notify.itemDrop(data.drop.item_catalog)
     if (data.drop?.full)              notify.bagFull()
-    if (data.cardDrop?.skill_cards)   notify.cardDrop(data.cardDrop.skill_cards)
+    if (data.tacticDrop?.tactic_catalog) notify.tacticDrop(data.tacticDrop.tactic_catalog)
     triggerResourceFlash()
     setExpedition(null)
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.heroCards(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
   }
 
-  // Esperamos también al modificador semanal antes de pintar las cards para
-  // evitar que el badge "destacado" aparezca con varios segundos de retraso
-  // y que las cards salten visualmente.
   if (heroLoading || dungeonsLoading || expLoading || weeklyLoading) {
     return <div className="text-text-3 text-[15px] p-10 text-center">Cargando mazmorras...</div>
   }
@@ -437,9 +629,6 @@ function Dungeons() {
   const heroStatus = expedition ? 'exploring' : (hero?.status ?? 'idle')
   const heroHpNow  = interpolateHp(hero, Date.now())
 
-  const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
-  const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
-  const heroStrength   = hero?.strength ?? 0
   return (
     <div className="dungeons-section">
       {/* Reward modal */}
@@ -448,7 +637,7 @@ function Dungeons() {
         document.body
       )}
 
-      {/* Pociones pre-expedición: tiempo, XP, botín, oro, carta garantizada */}
+      {/* Pociones pre-expedición */}
       <div className="mb-3.5">
         <PotionPanel
           heroId={heroId}
@@ -460,18 +649,60 @@ function Dungeons() {
         />
       </div>
 
+      {/* Filter bar */}
+      <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+        {[...FILTERS_BASE, ...(lockedCount > 0 ? [{ id: 'locked', label: 'Bloqueadas', icon: Lock }] : [])].map(f => {
+          const active = filter === f.id
+          const FIcon = f.icon
+          const badge = f.id === 'locked' ? lockedCount : null
+          return (
+            <button
+              key={f.id}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap border transition-colors
+                ${active
+                  ? 'bg-[color-mix(in_srgb,var(--blue-500)_12%,var(--surface))] border-[var(--blue-300)] text-[var(--blue-600)]'
+                  : 'bg-surface border-border text-text-3 hover:text-text-2 hover:border-border-2'
+                }`}
+              onClick={() => setFilter(f.id)}
+            >
+              <FIcon size={14} strokeWidth={2} />
+              {f.label}
+              {badge != null && (
+                <span className="text-[11px] bg-text-3/15 text-text-3 rounded-full px-1.5 py-0 font-bold leading-[18px]">
+                  {badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div className="text-text-3 text-[14px] p-8 text-center">
+          {filter === 'recommended'
+            ? 'No hay mazmorras recomendadas para tu nivel actual.'
+            : filter === 'materials'
+              ? 'No hay mazmorras de materiales disponibles para tu nivel.'
+              : filter === 'locked'
+                ? 'Todas las mazmorras están desbloqueadas.'
+                : 'No se encontraron mazmorras.'}
+        </div>
+      )}
+
       {/* Grid */}
       <motion.div
         className="grid grid-cols-1 md:grid-cols-2 gap-3.5"
         variants={listVariants}
         initial="initial"
         animate="animate"
+        key={filter}
       >
-        {dungeons?.map(dungeon => (
+        {filtered.map(dungeon => (
           <motion.div key={dungeon.id} variants={cardVariants}>
             <DungeonCard
               dungeon={dungeon}
-              heroLevel={hero?.level ?? 1}
+              heroLevel={heroLevel}
               heroStatus={heroStatus}
               onStart={handleStart}
               expedition={expedition}
@@ -480,8 +711,11 @@ function Dungeons() {
               heroMaxHp={hero?.max_hp ?? 100}
               agilityFactor={agilityFactor}
               atkMultiplier={atkMultiplier}
-              heroStrength={heroStrength}
+              heroStrength={hero?.strength ?? 0}
+              heroDefense={hero?.defense ?? 0}
+              heroIntelligence={hero?.intelligence ?? 0}
               weeklyModifier={weeklyModifier}
+              equipHealth={equipHealth}
             />
           </motion.div>
         ))}

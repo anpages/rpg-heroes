@@ -13,6 +13,7 @@ import { isUUID } from './_validate.js'
 import { signCombatToken } from './_combatSign.js'
 import { KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
 import { finalizeTowerAttempt } from './_towerFinalize.js'
+import { generateEnemyTactics } from './_enemyTactics.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -80,6 +81,18 @@ export default async function handler(req, res) {
   const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
   const enemyName      = decoratedEnemyName(floorEnemyName(targetFloor), archetypeKey)
 
+  // Tácticas del héroe y del enemigo (VL ≈ floor para escala de dificultad)
+  const { data: heroTacticRows } = await supabase
+    .from('hero_tactics')
+    .select('level, tactic_catalog(name, icon, combat_effect)')
+    .eq('hero_id', heroId)
+    .not('slot_index', 'is', null)
+  const heroTactics = (heroTacticRows ?? []).filter(r => r.tactic_catalog).map(r => ({
+    name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
+    level: r.level, combat_effect: r.tactic_catalog.combat_effect,
+  }))
+  const enemyTactics = generateEnemyTactics(targetFloor, archetypeKey)
+
   // Pisos múltiplos de 5 disparan "Momento clave" — pausa cuando alguien
   // baja del 50% HP, el cliente elige una decisión y se reanuda en /api/combat-resume.
   const isKeyMomentFloor = targetFloor % 5 === 0
@@ -87,6 +100,10 @@ export default async function handler(req, res) {
     critBonus:        rb.crit_pct,
     dmgMultiplier:    rb.tower_dmg_pct,
     keyMomentEnabled: isKeyMomentFloor,
+    classA:           hero.class,
+    classB:           archetypeKey,
+    tacticsA:         heroTactics,
+    tacticsB:         enemyTactics,
   }
 
   const result = simulateCombat(heroStats, enemyStats, combatOpts)
@@ -104,7 +121,7 @@ export default async function handler(req, res) {
       heroStats,
       enemyStats,
       state:        result.state,
-      combatOpts:   { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct },
+      combatOpts:   { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct, classA: hero.class, classB: archetypeKey, tacticsA: heroTactics, tacticsB: enemyTactics },
       usedBoosts,
       prevMaxFloor: progress.max_floor,
     })
@@ -120,6 +137,7 @@ export default async function handler(req, res) {
       enemyMaxHp:    enemyStats.max_hp,
       enemyName,
       archetype:     archetypeKey,
+      heroClass:     hero.class,
       floor:         targetFloor,
     })
   }
