@@ -306,6 +306,20 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
     p.min_lab_level <= labLevel && !HIDDEN_POTION_EFFECT_TYPES.has(p.effect_type)
   )
 
+  function canAfford(p) {
+    if (!resources) return false
+    return resources.gold >= p.recipe_gold
+      && resources.wood >= p.recipe_wood
+      && resources.mana >= p.recipe_mana
+      && (resources.fragments ?? 0) >= (p.recipe_fragments ?? 0)
+      && (resources.essence   ?? 0) >= (p.recipe_essence   ?? 0)
+  }
+
+  // Pociones crafteables ahora (puedo pagar + no stack lleno)
+  const crafteableCount = availablePotions.filter(p =>
+    canAfford(p) && p.quantity + (craftingMap[p.id] ?? []).length < MAX_POTION_STACK
+  ).length
+
   // Ordenar categorías por min_lab_level de su primera aparición
   const typeFirst = {}
   for (const p of availablePotions) {
@@ -319,24 +333,22 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
   }
 
   const sortedTypes = Object.keys(typeFirst).sort((a, b) => typeFirst[a] - typeFirst[b])
-  const filterOptions = sortedTypes.map(type => ({
-    value: type,
-    label: POTION_FILTER_LABELS[type] ?? type,
-    count: typeCounts[type] ?? 0,
-  }))
 
-  const [filter, setFilter] = useState(() => sortedTypes[0] ?? 'hp_restore')
+  // Pill "Crafteable" primero, luego por tipo de efecto
+  const filterOptions = [
+    { value: '_crafteable', label: 'Crafteable', count: crafteableCount },
+    ...sortedTypes.map(type => ({
+      value: type,
+      label: POTION_FILTER_LABELS[type] ?? type,
+      count: typeCounts[type] ?? 0,
+    })),
+  ]
 
-  const filtered = availablePotions.filter(p => p.effect_type === filter)
+  const [filter, setFilter] = useState(() => crafteableCount > 0 ? '_crafteable' : sortedTypes[0] ?? 'hp_restore')
 
-  function canAfford(p) {
-    if (!resources) return false
-    return resources.gold >= p.recipe_gold
-      && resources.wood >= p.recipe_wood
-      && resources.mana >= p.recipe_mana
-      && (resources.fragments ?? 0) >= (p.recipe_fragments ?? 0)
-      && (resources.essence   ?? 0) >= (p.recipe_essence   ?? 0)
-  }
+  const filtered = filter === '_crafteable'
+    ? availablePotions.filter(p => canAfford(p) && p.quantity + (craftingMap[p.id] ?? []).length < MAX_POTION_STACK)
+    : availablePotions.filter(p => p.effect_type === filter)
 
   return (
     <div className="flex flex-col gap-3">
@@ -350,8 +362,6 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
         {filtered.map(p => {
           const activeForThis = (craftingMap[p.id] ?? []).length
           const affordable = canAfford(p)
-          // Incluye crafts en proceso: si stock + activos ya son el máximo, no
-          // tiene sentido iniciar otro craft porque no se podría recoger.
           const stackFull  = p.quantity + activeForThis >= MAX_POTION_STACK
           const disabled   = !affordable || stackFull || craftPending || isUpgrading || inventoryFull
           const color      = EFFECT_COLOR[p.effect_type] ?? '#475569'
@@ -423,7 +433,13 @@ export function LaboratorySection({ labLevel, potions, craftingMap, craftPending
           )
         })}
 
-        {filtered.length === 0 && availablePotions.length > 0 && (
+        {filtered.length === 0 && filter === '_crafteable' && (
+          <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
+            No tienes materiales suficientes para craftear ninguna poción
+          </p>
+        )}
+
+        {filtered.length === 0 && filter !== '_crafteable' && availablePotions.length > 0 && (
           <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
             No hay recetas en esta categoría
           </p>
@@ -450,6 +466,20 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
     return r.bonuses?.[0]?.stat ?? 'attack'
   }
 
+  function canAfford(r) {
+    if (!resources) return false
+    return (resources.gold      ?? 0) >= (r.recipe_gold      ?? 0)
+        && (resources.wood      ?? 0) >= (r.recipe_wood      ?? 0)
+        && (resources.mana      ?? 0) >= (r.recipe_mana      ?? 0)
+        && (resources.fragments ?? 0) >= (r.recipe_fragments ?? 0)
+        && (resources.essence   ?? 0) >= (r.recipe_essence   ?? 0)
+  }
+
+  // Runas crafteables ahora (puedo pagar + no ya crafteando)
+  const crafteableCount = availableRunes.filter(r =>
+    canAfford(r) && !craftingMap[r.id]
+  ).length
+
   // Ordenar categorías por min_lab_level de su primera aparición
   const catFirst = {}
   for (const r of availableRunes) {
@@ -465,24 +495,22 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
   }
 
   const sortedCats = Object.keys(catFirst).sort((a, b) => catFirst[a] - catFirst[b])
-  const filterOptions = sortedCats.map(cat => ({
-    value: cat,
-    label: RUNE_FILTER_LABELS[cat] ?? cat,
-    count: catCounts[cat] ?? 0,
-  }))
 
-  const [filter, setFilter] = useState(() => sortedCats[0] ?? 'attack')
+  // Pill "Crafteable" primero, luego por categoría
+  const filterOptions = [
+    { value: '_crafteable', label: 'Crafteable', count: crafteableCount },
+    ...sortedCats.map(cat => ({
+      value: cat,
+      label: RUNE_FILTER_LABELS[cat] ?? cat,
+      count: catCounts[cat] ?? 0,
+    })),
+  ]
 
-  const filtered = availableRunes.filter(r => runeCategory(r) === filter)
+  const [filter, setFilter] = useState(() => crafteableCount > 0 ? '_crafteable' : sortedCats[0] ?? 'attack')
 
-  function canAfford(r) {
-    if (!resources) return false
-    return (resources.gold      ?? 0) >= (r.recipe_gold      ?? 0)
-        && (resources.wood      ?? 0) >= (r.recipe_wood      ?? 0)
-        && (resources.mana      ?? 0) >= (r.recipe_mana      ?? 0)
-        && (resources.fragments ?? 0) >= (r.recipe_fragments ?? 0)
-        && (resources.essence   ?? 0) >= (r.recipe_essence   ?? 0)
-  }
+  const filtered = filter === '_crafteable'
+    ? availableRunes.filter(r => canAfford(r) && !craftingMap[r.id])
+    : availableRunes.filter(r => runeCategory(r) === filter)
 
   function bonusText(bonuses) {
     return (bonuses ?? []).map(({ stat, value }) => `+${value} ${RUNE_BONUS_LABELS[stat] ?? stat}`).join(' · ')
@@ -571,7 +599,13 @@ export function RunesSection({ labLevel, catalog, resources, craftingMap, craftP
           )
         })}
 
-        {filtered.length === 0 && availableRunes.length > 0 && (
+        {filtered.length === 0 && filter === '_crafteable' && (
+          <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
+            No tienes materiales suficientes para craftear ninguna runa
+          </p>
+        )}
+
+        {filtered.length === 0 && filter !== '_crafteable' && availableRunes.length > 0 && (
           <p className="text-[13px] text-text-3 col-span-2 py-6 text-center">
             No hay runas en esta categoría
           </p>
