@@ -1,6 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { interpolateHP } from './_hp.js'
+import { getEffectiveStats } from './_stats.js'
 import {
   BOUNTY_SUCCESS_RATE,
   BOUNTY_CONSOLATION_FRAGMENTS,
@@ -128,7 +129,8 @@ export default async function handler(req, res) {
   }
 
   // Liberar al héroe: volver a idle, reanudar regen de HP
-  const regeneratedHp = interpolateHP(hero, Date.now())
+  const effStats = await getEffectiveStats(supabase, hero.id, user.id)
+  const regeneratedHp = interpolateHP(hero, Date.now(), effStats?.max_hp)
   await supabase
     .from('heroes')
     .update({

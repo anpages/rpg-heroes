@@ -1,4 +1,5 @@
 import { requireAuth } from './_auth.js'
+import { getEffectiveStats } from './_stats.js'
 import { interpolateHP } from './_hp.js'
 import { isUUID } from './_validate.js'
 import {
@@ -34,9 +35,12 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El héroe ya está ocupado' })
   }
 
+  // Stats efectivas (para interpolar HP con max_hp incluyendo equipo)
+  const effStats = await getEffectiveStats(supabase, hero.id, user.id)
+
   // Coste de HP — escalado por tipo de cámara (más larga = más caro)
   const nowMs = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, effStats?.max_hp)
   const hpCost = chamberHpCost(chamberType, hero.max_hp)
   if (currentHp <= hpCost) {
     return res.status(409).json({

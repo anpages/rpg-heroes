@@ -72,13 +72,22 @@ export default async function handler(req, res) {
 
   const nowMs = Date.now()
 
+  // Stats efectivas por héroe (antes de interpolar HP para usar max_hp con equipo)
+  const effectiveByHero = {}
+  for (const hero of heroesOrdered) {
+    const baseStats = await getEffectiveStats(supabase, hero.id, user.id)
+    if (!baseStats) return res.status(500).json({ error: `Sin stats para ${hero.name}` })
+    effectiveByHero[hero.id] = baseStats
+  }
+
   // Validar estado y HP mínimo de los 3
   for (const hero of heroesOrdered) {
     if (hero.status !== 'idle') {
       return res.status(409).json({ error: `${hero.name} está ocupado` })
     }
-    const curHp = interpolateHP(hero, nowMs)
-    if (!canPlay(curHp, hero.max_hp)) {
+    const effMax = effectiveByHero[hero.id].max_hp
+    const curHp = interpolateHP(hero, nowMs, effMax)
+    if (!canPlay(curHp, effMax)) {
       return res.status(409).json({
         error: `${hero.name} tiene HP insuficiente (20% mín.)`,
         code: 'LOW_HP',
@@ -89,11 +98,10 @@ export default async function handler(req, res) {
   // Sinergia del squad del jugador
   const playerSynergy = computeSynergy(heroesOrdered.map(h => h.class))
 
-  // Stats efectivas por héroe (incluye equipo, cartas, runas, research)
+  // Builds de combate con sinergia
   const teamA = []
   for (const hero of heroesOrdered) {
-    const baseStats = await getEffectiveStats(supabase, hero.id, user.id)
-    if (!baseStats) return res.status(500).json({ error: `Sin stats para ${hero.name}` })
+    const baseStats = effectiveByHero[hero.id]
     const withSynergy = applySynergyToStats(baseStats, playerSynergy)
     withSynergy.max_hp = baseStats.max_hp
     teamA.push({
@@ -142,7 +150,8 @@ export default async function handler(req, res) {
   const ratingResults = []
 
   for (const hero of heroesOrdered) {
-    const curHp = interpolateHP(hero, nowMs)
+    const effMax = effectiveByHero[hero.id].max_hp
+    const curHp = interpolateHP(hero, nowMs, effMax)
     const hpAfter = applyCombatHpCost(curHp, hero.max_hp, costPct)
 
     const ratingResult = computeRatingUpdate(hero, {

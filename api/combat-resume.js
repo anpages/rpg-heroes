@@ -68,7 +68,7 @@ async function resumeTower(req, res, supabase, user, payload, decisionDef) {
   if (hero.status !== 'idle') return res.status(409).json({ error: 'El héroe está ocupado' })
 
   const nowMs     = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
 
   // Aplicar la decisión: modifica stats de a/b y/o hp parciales
   const applied = decisionDef.apply(heroStats, enemyStats, state.hpA, state.hpB)
@@ -126,7 +126,7 @@ async function resumeTournament(req, res, supabase, user, payload, decisionDef) 
   }
 
   const nowMs     = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
 
   const applied = decisionDef.apply(heroStats, rival.stats, state.hpA, state.hpB)
   const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }

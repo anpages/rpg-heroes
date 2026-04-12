@@ -1,5 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { interpolateHP } from './_hp.js'
+import { getEffectiveStats } from './_stats.js'
 import { isUUID } from './_validate.js'
 
 export default async function handler(req, res) {
@@ -21,8 +22,9 @@ export default async function handler(req, res) {
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
   if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en expedición' })
 
+  const effStats = await getEffectiveStats(supabase, hero.id, user.id)
   const nowMs = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, effStats?.max_hp)
 
   const entering = hero.status !== 'resting'
   const newStatus = entering ? 'resting' : 'idle'

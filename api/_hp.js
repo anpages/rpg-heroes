@@ -18,9 +18,12 @@ export const MIN_HP_PCT             = 0.20       // 20% of max_hp required to pl
  * Calculate current HP including passive regeneration.
  * @param {object} hero - must have current_hp, max_hp, status, hp_last_updated_at, status_ends_at
  * @param {number} nowMs - current timestamp in ms
- * @returns {number} current HP (capped at max_hp)
+ * @param {number} [effectiveMaxHp] - max_hp efectivo (base + equipo + cartas).
+ *                                    Si se omite, usa hero.max_hp.
+ * @returns {number} current HP (capped at effectiveMaxHp)
  */
-export function interpolateHP(hero, nowMs) {
+export function interpolateHP(hero, nowMs, effectiveMaxHp) {
+  const maxHp = effectiveMaxHp ?? hero.max_hp
   let regenFromMs
   if (hero.status === 'exploring') {
     // Regen se reanuda cuando la actividad termina (status_ends_at).
@@ -35,7 +38,7 @@ export function interpolateHP(hero, nowMs) {
   }
   const elapsedMin = Math.max(0, (nowMs - regenFromMs) / 60000)
   const regen      = elapsedMin * REGEN_IDLE_PCT_PER_MIN * hero.max_hp / 100
-  return Math.min(hero.max_hp, Math.floor(hero.current_hp + regen))
+  return Math.min(maxHp, Math.floor(hero.current_hp + regen))
 }
 
 /**

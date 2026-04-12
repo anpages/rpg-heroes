@@ -1,4 +1,5 @@
 import { requireAuth } from './_auth.js'
+import { getEffectiveStats } from './_stats.js'
 import { isUUID, snapshotResources, effectiveBagLimit } from './_validate.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 
@@ -64,11 +65,13 @@ export default async function handler(req, res) {
     result = { xpGained: special.effect_value, newLevel, leveledUp: newLevel > hero.level }
   }
   else if (special.effect_type === 'full_heal') {
+    const effStats = await getEffectiveStats(supabase, hero.id, user.id)
+    const fullHp = effStats?.max_hp ?? hero.max_hp
     const { error } = await supabase.from('heroes')
-      .update({ current_hp: hero.max_hp, hp_last_updated_at: new Date().toISOString() })
+      .update({ current_hp: fullHp, hp_last_updated_at: new Date().toISOString() })
       .eq('id', heroId)
     if (error) return res.status(500).json({ error: error.message })
-    result = { healedTo: hero.max_hp }
+    result = { healedTo: fullHp }
   }
   else if (special.effect_type === 'double_loot') {
     const effects = { ...(hero.active_effects ?? {}), loot_boost: 1 }

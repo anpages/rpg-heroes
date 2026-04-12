@@ -1,6 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { isUUID, snapshotResources } from './_validate.js'
 import { interpolateHP } from './_hp.js'
+import { getEffectiveStats } from './_stats.js'
 import {
   BOUNTY_COST,
   BOUNTY_DURATION_MIN,
@@ -56,9 +57,10 @@ export default async function handler(req, res) {
   if (routeIdx === -1) return res.status(404).json({ error: 'Ruta no disponible en el pool' })
   if (routes[routeIdx].used) return res.status(409).json({ error: 'Esta ruta ya ha sido usada hoy' })
 
-  // HP
+  // HP (max_hp efectivo con equipo para interpolar correctamente)
+  const effStats = await getEffectiveStats(supabase, hero.id, user.id)
   const nowMs = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, effStats?.max_hp)
   const hpCost = bountyHpCost(hero.max_hp)
   if (currentHp <= hpCost) {
     return res.status(409).json({

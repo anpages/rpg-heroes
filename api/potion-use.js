@@ -1,6 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { isUUID } from './_validate.js'
 import { interpolateHP } from './_hp.js'
+import { getEffectiveStats } from './_stats.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -53,8 +54,9 @@ export default async function handler(req, res) {
   let result = {}
 
   if (potion.effect_type === 'hp_restore') {
-    const hpNow   = interpolateHP(hero, Date.now())
-    const maxHp   = hero.max_hp ?? 100
+    const effStats = await getEffectiveStats(supabase, hero.id, user.id)
+    const maxHp   = effStats?.max_hp ?? hero.max_hp ?? 100
+    const hpNow   = interpolateHP(hero, Date.now(), maxHp)
     const restored = Math.round(maxHp * potion.effect_value)
     const newHp    = Math.min(maxHp, hpNow + restored)
     heroUpdate = {

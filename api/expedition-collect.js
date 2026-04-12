@@ -131,7 +131,7 @@ export default async function handler(req, res) {
   // Si el jugador recoge inmediatamente, regenFromMs ≈ now → 0 regen. Si tarda,
   // el héroe regenera normalmente durante ese tiempo.
   const nowIso = new Date().toISOString()
-  const regeneratedHp = interpolateHP(hero, Date.now())
+  const regeneratedHp = interpolateHP(hero, Date.now(), stats?.max_hp)
 
   const { error: updateHeroError } = await supabase
     .from('heroes')

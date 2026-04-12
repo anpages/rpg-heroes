@@ -26,12 +26,16 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
 
+  // Stats efectivas del héroe (antes de interpolar HP para usar max_hp con equipo)
+  const heroStats = await getEffectiveStats(supabase, hero.id, user.id)
+  if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
+
   // Verificar HP mínimo para combatir (20% de max_hp)
   const nowMs     = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
-  if (!canPlay(currentHp, hero.max_hp)) {
+  const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
+  if (!canPlay(currentHp, heroStats.max_hp)) {
     return res.status(409).json({
-      error: `HP insuficiente. Necesitas al menos ${Math.floor(hero.max_hp * 0.2)} HP para combatir.`,
+      error: `HP insuficiente. Necesitas al menos ${Math.floor(heroStats.max_hp * 0.2)} HP para combatir.`,
       code: 'LOW_HP',
     })
   }
@@ -71,10 +75,6 @@ export default async function handler(req, res) {
   }
 
   const rival = bracket.rivals[nextRound - 1]
-
-  // Stats efectivas actuales del héroe
-  const heroStats = await getEffectiveStats(supabase, hero.id, user.id)
-  if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats' })
 
   // Aplicar boosts de pociones activas
   const effects = hero.active_effects ?? {}

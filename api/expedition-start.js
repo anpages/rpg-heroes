@@ -50,8 +50,11 @@ export default async function handler(req, res) {
     }
   }
 
+  // Stats efectivas del héroe (antes de interpolar HP para usar max_hp con equipo)
+  const stats = await getEffectiveStats(supabase, hero.id, user.id)
+
   const nowMs = Date.now()
-  const currentHp = interpolateHP(hero, nowMs)
+  const currentHp = interpolateHP(hero, nowMs, stats?.max_hp)
 
   // Obtener mazmorra
   const { data: dungeon } = await supabase
@@ -71,7 +74,6 @@ export default async function handler(req, res) {
   const mods = getModifierForDungeon(weekly, dungeonId)
 
   // Agilidad reduce duración (hasta −25%)
-  const stats = await getEffectiveStats(supabase, hero.id, user.id)
   const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
   // Poción de tiempo activa: reduce la duración en effect_value (ej. 0.40 → −40%).
   // Se aplica sobre el resultado ya ajustado por agilidad y modificador semanal.

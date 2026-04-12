@@ -5,6 +5,7 @@ import { applyChamberChestLoot } from './_chamberLoot.js'
 import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { interpolateHP } from './_hp.js'
+import { getEffectiveStats } from './_stats.js'
 import { WEAR_PROFILE } from '../src/lib/gameConstants.js'
 
 /**
@@ -113,7 +114,8 @@ export default async function handler(req, res) {
 
   // Devuelve al héroe a idle (chamber-start lo dejó en 'exploring' como lock).
   // Aplica regen pasiva acumulada desde que terminó la cámara (status_ends_at).
-  const regeneratedHp = interpolateHP(hero, Date.now())
+  const effStats = await getEffectiveStats(supabase, hero.id, user.id)
+  const regeneratedHp = interpolateHP(hero, Date.now(), effStats?.max_hp)
   const { error: heroError } = await supabase
     .from('heroes')
     .update({
