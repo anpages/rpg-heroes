@@ -10,6 +10,7 @@ import { queryKeys } from '../lib/queryKeys'
  */
 const COLLECT_KEY = ['building-collect']
 const REFINE_KEY  = ['refining-start']
+const TACTIC_KEY  = ['tactic-equip']
 
 /**
  * Hook centralizado de Supabase Realtime.
@@ -75,7 +76,7 @@ export function useRealtimeSync(userId, heroId) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_training',   filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.training(heroId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items', filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expeditions',     filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.activeExpedition(heroId) }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_tactics',   filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_tactics',   filter: `hero_id=eq.${heroId}` }, () => { if (qc.isMutating({ mutationKey: TACTIC_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) }) })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED' && initializedRef.current.hero) {
           qc.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
@@ -83,7 +84,7 @@ export function useRealtimeSync(userId, heroId) {
           qc.invalidateQueries({ queryKey: queryKeys.training(heroId) })
           qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
           qc.invalidateQueries({ queryKey: queryKeys.activeExpedition(heroId) })
-          qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
+          if (qc.isMutating({ mutationKey: TACTIC_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
         }
         if (status === 'SUBSCRIBED') initializedRef.current.hero = true
       })

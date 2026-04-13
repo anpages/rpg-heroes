@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useReducer } from 'react'
+import { useState, useEffect, useMemo, useReducer, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
@@ -94,20 +94,25 @@ const RARITY_COLORS = {
  *  Hooks                                                                     *
  * ═══════════════════════════════════════════════════════════════════════════ */
 
+function calcRemaining(expedition) {
+  if (!expedition) return 0
+  return Math.max(0, Math.floor((new Date(expedition.ends_at) - Date.now()) / 1000))
+}
+
 function useExpeditionTimer(expedition) {
-  const [secondsLeft, setSecondsLeft] = useState(null)
-  const [canCollect, setCanCollect]   = useState(false)
-  const [isMounted,  setIsMounted]    = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState(() => calcRemaining(expedition))
+  const [canCollect, setCanCollect]   = useState(
+    () => !!expedition && calcRemaining(expedition) === 0 && expedition.id !== '__optimistic__'
+  )
 
   useEffect(() => {
     if (!expedition) return
     function tick() {
-      const remaining = Math.max(0, Math.floor((new Date(expedition.ends_at) - Date.now()) / 1000))
+      const remaining = calcRemaining(expedition)
       setSecondsLeft(remaining)
       setCanCollect(remaining === 0 && expedition.id !== '__optimistic__')
     }
     tick()
-    requestAnimationFrame(() => setIsMounted(true))
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,10 +121,10 @@ function useExpeditionTimer(expedition) {
   const totalSeconds = expedition
     ? Math.max(1, Math.round((new Date(expedition.ends_at) - new Date(expedition.started_at)) / 1000))
     : 1
-  const elapsed = totalSeconds - (secondsLeft ?? totalSeconds)
-  const pct     = expedition ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
+  const elapsed = totalSeconds - secondsLeft
+  const pct     = canCollect ? 100 : expedition ? Math.min(99, Math.round((elapsed / totalSeconds) * 100)) : 0
 
-  return { secondsLeft, canCollect, isMounted, pct }
+  return { secondsLeft, canCollect, pct }
 }
 
 function useEquipmentHealth(items) {
@@ -156,10 +161,11 @@ function DifficultyDots({ value, size = 7 }) {
 
 function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
   const [collecting, setCollecting] = useState(false)
-  const timer = useExpeditionTimer(expedition)
+  const { secondsLeft, canCollect, pct } = useExpeditionTimer(expedition)
 
-  const ready    = timer.canCollect
-  const accent   = ready ? '#16a34a' : 'var(--blue-500)'
+  const dungeonName = activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'
+  const dungeonType = activeDungeon?.type ?? expedition.dungeons?.type
+  const typeColor   = DUNGEON_TYPE_META[dungeonType]?.color ?? '#6b7280'
 
   async function handleCollect() {
     setCollecting(true)
@@ -180,42 +186,55 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
       transition={{ duration: 0.2 }}
     >
       <div
-        className="flex items-center gap-3 px-4 py-3 bg-surface border rounded-xl overflow-hidden"
-        style={{ borderColor: accent }}
+        className="relative flex items-center gap-3 px-4 py-3 bg-surface border rounded-xl overflow-hidden"
+        style={{ borderColor: canCollect ? '#16a34a' : `color-mix(in srgb,${typeColor} 60%,var(--border))` }}
       >
-        {/* Icon + info */}
-        <div className="flex-1 min-w-0">
+        {/* Barra de progreso de fondo */}
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none transition-none"
+          style={{ background: canCollect ? '#16a34a' : typeColor, width: `${pct}%` }}
+        />
+
+        {/* Icono estado */}
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: `color-mix(in srgb,${canCollect ? '#16a34a' : typeColor} 15%,transparent)` }}
+        >
+          {canCollect
+            ? <PackageOpen size={16} strokeWidth={2} style={{ color: '#16a34a' }} />
+            : <Compass size={16} strokeWidth={2} style={{ color: typeColor }} className="animate-[spin_8s_linear_infinite]" />
+          }
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0 relative">
           <div className="flex items-center gap-2">
-            {ready
-              ? <PackageOpen size={14} strokeWidth={2} color="#16a34a" />
-              : <Compass size={14} strokeWidth={2} color="var(--blue-500)" className="animate-[spin_8s_linear_infinite]" />
-            }
-            <span className="text-[14px] font-bold text-text truncate">
-              {activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'}
-            </span>
+            <span className="text-[14px] font-bold text-text truncate">{dungeonName}</span>
+            {canCollect && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#16a34a]/15 text-[#16a34a] flex-shrink-0">LISTA</span>
+            )}
           </div>
-          {/* Progress bar */}
-          <div className="mt-1.5 flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-surface-2 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: accent }}
-                initial={false}
-                animate={{ width: `${timer.pct}%` }}
-                transition={{ duration: timer.isMounted ? 1 : 0, ease: 'linear' }}
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-none"
+                style={{
+                  width: `${pct}%`,
+                  background: canCollect ? '#16a34a' : typeColor,
+                }}
               />
             </div>
-            <span className={`text-[12px] font-bold flex-shrink-0 ${ready ? 'text-[#16a34a]' : 'text-text-3'}`}>
-              {ready ? 'Lista' : timer.secondsLeft !== null ? fmtTime(timer.secondsLeft) : '...'}
+            <span className="text-[11px] font-semibold text-text-3 flex-shrink-0 tabular-nums">
+              {canCollect ? '100%' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
             </span>
           </div>
         </div>
 
-        {/* Collect button — only when ready */}
-        {ready && (
+        {/* Botón recoger */}
+        {canCollect && (
           <motion.button
-            className="px-3 py-2 rounded-lg font-bold text-[13px] border-0 text-white flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}
+            className="px-3 py-2 rounded-lg font-bold text-[13px] text-white flex-shrink-0 relative"
+            style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
             onClick={handleCollect}
             disabled={collecting}
             whileTap={!collecting ? { scale: 0.95 } : {}}
@@ -617,6 +636,7 @@ function Dungeons() {
   const [reward, setReward]   = useState(null)
   const [detailDungeon, setDetailDungeon] = useState(null)
   const [, forceUpdate]       = useReducer(x => x + 1, 0)
+  const topRef                = useRef(null)
 
   // Tick cada 10s para actualizar previews
   useEffect(() => { const id = setInterval(forceUpdate, 10000); return () => clearInterval(id) }, [])
@@ -710,6 +730,7 @@ function Dungeons() {
       ends_at: new Date(now + effectiveMs).toISOString(),
     })
     setDetailDungeon(null)
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
     try {
       const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
@@ -746,7 +767,7 @@ function Dungeons() {
   }
 
   return (
-    <div className="dungeons-section">
+    <div className="dungeons-section" ref={topRef}>
       {/* Reward modal */}
       {reward && createPortal(
         <RewardModal reward={reward} onClose={() => setReward(null)} />,

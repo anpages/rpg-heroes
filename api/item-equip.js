@@ -42,8 +42,7 @@ export default async function handler(req, res) {
   const item = itemRes.data
   if (!item) return res.status(404).json({ error: 'Item no encontrado' })
   if (item.hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-  if (item.hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
-  if (item.item_catalog.required_class && item.item_catalog.required_class !== item.hero.class) {
+if (item.item_catalog.required_class && item.item_catalog.required_class !== item.hero.class) {
     return res.status(409).json({ error: 'Este item es exclusivo de otra clase' })
   }
 

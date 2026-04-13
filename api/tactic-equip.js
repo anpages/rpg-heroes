@@ -12,72 +12,21 @@ export default async function handler(req, res) {
   if (!isUUID(heroId))      return res.status(400).json({ error: 'heroId invalido' })
   if (!isUUID(tacticId))    return res.status(400).json({ error: 'tacticId invalido' })
 
-  // slotIndex null = desequipar, 0-4 = equipar en slot
   const targetSlot = slotIndex === null || slotIndex === undefined ? null : Number(slotIndex)
   if (targetSlot !== null && (targetSlot < 0 || targetSlot > 4 || !Number.isInteger(targetSlot))) {
     return res.status(400).json({ error: 'slotIndex debe ser 0-4 o null' })
   }
 
-  // Verificar heroe
-  const { data: hero } = await supabase
-    .from('heroes').select('id, player_id, status, class').eq('id', heroId).eq('player_id', user.id).single()
-  if (!hero) return res.status(403).json({ error: 'No autorizado' })
-  if (hero.status === 'exploring') return res.status(409).json({ error: 'El heroe esta en una expedicion' })
+  const { data: result, error } = await supabase.rpc('equip_tactic', {
+    p_hero_id:    heroId,
+    p_tactic_id:  tacticId,
+    p_slot_index: targetSlot,
+    p_user_id:    user.id,
+    p_swap_cost:  TACTIC_SWAP_COST,
+  })
 
-  // Verificar que el jugador tiene esta tactica en el heroe
-  const { data: heroTactic } = await supabase
-    .from('hero_tactics')
-    .select('id, slot_index, tactic_catalog(required_class)')
-    .eq('hero_id', heroId)
-    .eq('tactic_id', tacticId)
-    .maybeSingle()
+  if (error) return res.status(500).json({ error: error.message })
+  if (result?.error) return res.status(409).json({ error: result.error })
 
-  if (!heroTactic) return res.status(404).json({ error: 'No tienes esta tactica en este heroe' })
-
-  // Validar restriccion de clase
-  const reqClass = heroTactic.tactic_catalog?.required_class
-  if (reqClass && reqClass !== hero.class) {
-    return res.status(409).json({ error: 'Esta tactica es exclusiva de otra clase' })
-  }
-
-  // Si ya esta en el slot destino, no hacer nada
-  if (heroTactic.slot_index === targetSlot) {
-    return res.status(200).json({ ok: true, changed: false })
-  }
-
-  // Cobrar gold si es un cambio (no si es la primera vez que equipa en un slot vacio)
-  const isSwap = heroTactic.slot_index !== null && targetSlot !== null
-  if (isSwap && TACTIC_SWAP_COST > 0) {
-    const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: TACTIC_SWAP_COST })
-    if (rpcErr) return res.status(500).json({ error: rpcErr.message })
-    if (!ok) return res.status(409).json({ error: `Necesitas ${TACTIC_SWAP_COST} oro para cambiar la tactica de slot` })
-  }
-
-  // Si el slot destino ya tiene otra tactica, desequiparla
-  if (targetSlot !== null) {
-    const { data: occupant } = await supabase
-      .from('hero_tactics')
-      .select('id')
-      .eq('hero_id', heroId)
-      .eq('slot_index', targetSlot)
-      .neq('tactic_id', tacticId)
-      .maybeSingle()
-
-    if (occupant) {
-      await supabase
-        .from('hero_tactics')
-        .update({ slot_index: null })
-        .eq('id', occupant.id)
-    }
-  }
-
-  // Actualizar slot de la tactica
-  const { error: updateErr } = await supabase
-    .from('hero_tactics')
-    .update({ slot_index: targetSlot })
-    .eq('id', heroTactic.id)
-
-  if (updateErr) return res.status(500).json({ error: updateErr.message })
-
-  return res.status(200).json({ ok: true, changed: true, goldSpent: isSwap ? TACTIC_SWAP_COST : 0 })
+  return res.status(200).json(result)
 }

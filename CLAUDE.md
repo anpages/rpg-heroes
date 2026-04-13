@@ -184,7 +184,7 @@ supabase/migrations/           # ~111 migraciones SQL
 - **Lazy mount de tabs**: `mountedTabs` Set en Dashboard
 - **Notificaciones**: usar solo `notify.*` de `src/lib/notifications.js` — nunca sonner directo
 - **snapshotResources()**: siempre llamar antes de sumar/restar recursos idle
-- **Patrón de mutations**: mutation → `onSuccess: invalidateQueries` → UI actualiza con datos reales del servidor. NO usar optimistic updates para estado de entidades (slots, equipamiento, tácticas) — causan conflictos con el servidor. Solo para display de recursos deducidos.
+- **Patrón de mutations**: optimistic update en `onMutate` + rollback en `onError` + `invalidateQueries` en `onSettled`. Usar `mutationKey` para proteger Realtime de invalidar encima de optimistic updates (ver `useRealtimeSync`).
 
 ## Reglas de colaboración
 
