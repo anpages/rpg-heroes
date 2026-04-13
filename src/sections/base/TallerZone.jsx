@@ -378,11 +378,11 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
   return (
     <div className={`px-4 py-3 flex flex-col gap-2.5 border-t border-border ${hasBorderLeft ? 'sm:border-l' : ''}`}>
 
-      {/* Nombre + stock + ingredientes + tiempo */}
-      <div className="flex items-start gap-2">
-        <span className="text-[16px] flex-shrink-0 mt-0.5">{recipe.icon}</span>
+      {/* Línea principal: icono + info + botón */}
+      <div className="flex items-center gap-2">
+        <span className="text-[16px] flex-shrink-0">{recipe.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-[13px] font-bold text-text truncate">{recipe.name}</span>
             <span
               className="flex items-center gap-0.5 text-[10px] font-bold px-1 py-0.5 rounded flex-shrink-0"
@@ -416,25 +416,11 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Barra de progreso — solo cuando hay slot activo */}
-      {slot && (
-        <div className="h-1.5 rounded-full overflow-hidden"
-          style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-1000 linear"
-            style={{ background: color, width: `${progress.currentPct}%` }}
-          />
-        </div>
-      )}
-
-      {/* Botón acción */}
-      <div className="flex justify-end">
+        {/* Botón acción */}
         {!slot ? (
           <motion.button
-            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
+            className="px-3 py-2 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30 flex-shrink-0"
             style={{ background: color }}
             onClick={() => onRefine({ recipeId: recipe.id, quantity: 1 })}
             disabled={!canAfford}
@@ -444,7 +430,7 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
           </motion.button>
         ) : (
           <motion.button
-            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center gap-1"
+            className="px-3 py-2 text-[12px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
             style={{
               background: isDone
                 ? 'linear-gradient(135deg, #059669, #047857)'
@@ -456,13 +442,25 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
             whileTap={isDone ? { scale: 0.95 } : {}}
           >
             {isDone ? (
-              <><Check size={11} strokeWidth={2.5} />Recoger</>
+              <><Check size={12} strokeWidth={2.5} />Recoger</>
             ) : (
-              <><Clock size={11} strokeWidth={2} />{fmtShort(progress.nextSecondsLeft)}</>
+              <><Clock size={12} strokeWidth={2} />{fmtShort(progress.nextSecondsLeft)}</>
             )}
           </motion.button>
         )}
       </div>
+
+      {/* Barra de progreso — solo cuando hay slot activo */}
+      {slot && (
+        <div className="h-1.5 rounded-full overflow-hidden ml-7"
+          style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-1000 linear"
+            style={{ background: color, width: `${progress.currentPct}%` }}
+          />
+        </div>
+      )}
     </div>
   )
 }
