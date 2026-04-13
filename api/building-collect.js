@@ -43,6 +43,7 @@ export default async function handler(req, res) {
   })
 
   if (rpcError) return res.status(500).json({ error: rpcError.message })
+  if (result?.not_full) return res.status(409).json({ error: 'El almacén aún no está lleno' })
 
   return res.status(200).json(result)
 }

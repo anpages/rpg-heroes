@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../../lib/notifications.js'
 import { motion } from 'framer-motion'
@@ -30,6 +30,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   const hasBoost      = !!(hero?.active_effects?.training_boost)
 
   const isQueueBusy = anyUpgrading
+  const [collectingStats, setCollectingStats] = useState(() => new Set())
 
   useEffect(() => {
     if (!needsInit) return
@@ -98,6 +99,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
     mutationKey: ['training-collect'],
     mutationFn: (stat) => apiPost('/api/training-collect', { heroId, stat }),
     onMutate: (stat) => {
+      setCollectingStats(prev => new Set([...prev, stat]))
       const prev = queryClient.getQueryData(tpKey)
       queryClient.setQueryData(tpKey, old => {
         if (!old) return old
@@ -112,11 +114,13 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       const names = Object.entries(data.gained ?? {}).map(([s, pts]) => `+${pts} token ${STAT_LABEL_MAP[s]}`)
       if (names.length > 0) notify.success(`¡Entrenamiento! ${names.join(' · ')}`)
     },
-    onError: (err, _, ctx) => {
+    onError: (err, stat, ctx) => {
+      setCollectingStats(prev => { const n = new Set(prev); n.delete(stat); return n })
       if (ctx?.prev) queryClient.setQueryData(tpKey, ctx.prev)
       notify.error(err.message)
     },
-    onSettled: () => {
+    onSettled: (_, __, stat) => {
+      setCollectingStats(prev => { const n = new Set(prev); n.delete(stat); return n })
       if (queryClient.isMutating({ mutationKey: ['training-collect'] }) === 0) {
         queryClient.invalidateQueries({ queryKey: tpKey })
         queryClient.invalidateQueries({ queryKey: ttKey })
@@ -206,7 +210,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
             mutPending={mutPending}
             isQueueBusy={isQueueBusy}
             anyReady={anyReady}
-            collectPending={collectMutation.isPending}
+            collectPending={collectingStats.has(room.stat)}
             onBuild={() => buildMutation.mutate(room.stat)}
             onUpgrade={() => upgradeMutation.mutate(room.stat)}
             onBuildCollect={() => buildCollectMutation.mutate(room.stat)}

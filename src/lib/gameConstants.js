@@ -102,7 +102,7 @@ export const BUILDING_PRODUCTION = {
 export const PRODUCTION_BUILDING_TYPES = Object.keys(BUILDING_PRODUCTION)
 
 /** Horas de producción que caben en el almacén del edificio */
-export const BUILDING_STORAGE_HOURS = 2
+export const BUILDING_STORAGE_HOURS = 4
 
 /**
  * Rate de un edificio productivo dado su nivel.
