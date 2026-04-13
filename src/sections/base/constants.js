@@ -130,7 +130,7 @@ export const BASE_TIERS = [
 
 /* ─── Edificios de producción ────────────────────────────────────────────────── */
 
-export const PRODUCTION_TYPES = ['gold_mine', 'lumber_mill', 'herb_garden', 'mana_well']
+export const PRODUCTION_TYPES = ['lumber_mill', 'gold_mine', 'herb_garden', 'mana_well']
 
 /* ─── Requisitos de desbloqueo ───────────────────────────────────────────────── */
 
