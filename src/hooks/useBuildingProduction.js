@@ -37,7 +37,7 @@ export function useBuildingProduction(userId) {
           fillPct,
           isFull,
           secondsToFull,
-          canCollect: stored > 0,
+          canCollect: isFull,
         }
       }
       setProduction(result)

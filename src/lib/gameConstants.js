@@ -92,29 +92,30 @@ export function manaRateForLevel(level) {
  * ratePerHour[i] = rate al nivel i+1. Sin cap — se acumula sin límite.
  */
 export const BUILDING_PRODUCTION = {
-  gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48] },
-  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60] },
-  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34] },
-  herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34] },
+  // cap fijo por edificio → mayor nivel llena más rápido
+  // gold_mine:  L1=4h, L5=1h
+  // lumber_mill: L1=6h, L5=1.5h
+  // mana_well:  L1=12.75h, L5=3h   (recurso escaso, ritmo lento)
+  // herb_garden: L1=8h, L5=1.9h
+  gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], cap: 48  },
+  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60], cap: 90  },
+  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], cap: 102 },
+  herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34], cap: 64  },
 }
 
 /** Tipos de edificio productivo (los que se recolectan). */
 export const PRODUCTION_BUILDING_TYPES = Object.keys(BUILDING_PRODUCTION)
 
-/** Horas de producción que caben en el almacén del edificio */
-export const BUILDING_STORAGE_HOURS = 4
-
 /**
- * Rate de un edificio productivo dado su nivel.
- * Nivel 0 = sin construir → rate 0.
- * Cap = rate × BUILDING_STORAGE_HOURS (el edificio deja de producir al llenarse).
+ * Rate y cap de un edificio productivo dado su nivel.
+ * Cap es fijo por tipo de edificio — a mayor nivel, menor tiempo para llenarse.
  */
 export function buildingRate(type, level) {
   const prod = BUILDING_PRODUCTION[type]
   if (!prod || level <= 0) return { resource: prod?.resource ?? 'iron', rate: 0, cap: 0 }
   const idx = Math.min(level - 1, prod.ratePerHour.length - 1)
   const rate = prod.ratePerHour[idx]
-  return { resource: prod.resource, rate, cap: rate * BUILDING_STORAGE_HOURS }
+  return { resource: prod.resource, rate, cap: prod.cap }
 }
 /** @deprecated alias para compatibilidad — usar buildingRate */
 export const buildingRateAndCap = buildingRate

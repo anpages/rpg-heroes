@@ -227,7 +227,7 @@ export default function ProductionCard({
               disabled={!prod.canCollect}
               whileTap={prod.canCollect ? { scale: 0.97 } : {}}
             >
-              {prod.canCollect ? `Recoger ${prod.stored}` : 'Sin producción'}
+              {prod.canCollect ? `Recoger ${prod.stored}` : 'Llenando…'}
             </motion.button>
           </div>
         )}
