@@ -431,36 +431,38 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
       )}
 
       {/* Botón acción */}
-      {!slot ? (
-        <motion.button
-          className="w-full py-2 rounded-lg font-bold text-[13px] border-0 text-white disabled:opacity-30"
-          style={{ background: color }}
-          onClick={() => onRefine({ recipeId: recipe.id, quantity: 1 })}
-          disabled={!canAfford}
-          whileTap={canAfford ? { scale: 0.97 } : {}}
-        >
-          Craftear
-        </motion.button>
-      ) : (
-        <motion.button
-          className="w-full py-2 rounded-lg font-bold text-[13px] border-0 disabled:opacity-40 flex items-center justify-center gap-1.5"
-          style={{
-            background: isDone
-              ? 'linear-gradient(135deg, #059669, #047857)'
-              : `color-mix(in srgb, ${color} 12%, var(--surface-2))`,
-            color: isDone ? '#fff' : 'var(--text-3)',
-          }}
-          onClick={() => isDone && onCollectSlot(slot.id)}
-          disabled={!isDone}
-          whileTap={isDone ? { scale: 0.97 } : {}}
-        >
-          {isDone ? (
-            <><Check size={13} strokeWidth={2.5} />Recoger</>
-          ) : (
-            <><Clock size={12} strokeWidth={2} />{fmtShort(progress.nextSecondsLeft)}</>
-          )}
-        </motion.button>
-      )}
+      <div className="flex justify-end">
+        {!slot ? (
+          <motion.button
+            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
+            style={{ background: color }}
+            onClick={() => onRefine({ recipeId: recipe.id, quantity: 1 })}
+            disabled={!canAfford}
+            whileTap={canAfford ? { scale: 0.95 } : {}}
+          >
+            Craftear
+          </motion.button>
+        ) : (
+          <motion.button
+            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center gap-1"
+            style={{
+              background: isDone
+                ? 'linear-gradient(135deg, #059669, #047857)'
+                : `color-mix(in srgb, ${color} 12%, var(--surface-2))`,
+              color: isDone ? '#fff' : 'var(--text-3)',
+            }}
+            onClick={() => isDone && onCollectSlot(slot.id)}
+            disabled={!isDone}
+            whileTap={isDone ? { scale: 0.95 } : {}}
+          >
+            {isDone ? (
+              <><Check size={11} strokeWidth={2.5} />Recoger</>
+            ) : (
+              <><Clock size={11} strokeWidth={2} />{fmtShort(progress.nextSecondsLeft)}</>
+            )}
+          </motion.button>
+        )}
+      </div>
     </div>
   )
 }
