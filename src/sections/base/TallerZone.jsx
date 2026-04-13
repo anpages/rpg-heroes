@@ -23,11 +23,10 @@ const CATEGORY_META = {
 const INPUT_LABELS = {
   iron: 'Hierro', wood: 'Madera', mana: 'Maná', herbs: 'Hierbas',
   fragments: 'Fragmentos', essence: 'Esencia',
-  steel_ingot: 'Lingote', plank: 'Tablón', mana_crystal: 'Cristal', herbal_extract: 'Extracto',
 }
 
 const RECIPE_ORDER = [
-  'rune_attack', 'rune_defense', 'rune_hp',
+  'rune_attack', 'rune_defense', 'rune_hp', 'rune_strength', 'rune_agility', 'rune_intelligence',
   'expedition_provisions',
   'forge_stone_t2', 'forge_stone_t3',
 ]

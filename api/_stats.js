@@ -50,9 +50,12 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
 
     // Encantamientos del ítem (escalados por durabilidad igual que los bonos base)
     const enc = item.enchantments ?? {}
-    if (enc.attack_bonus)  stats.attack  += Math.round(enc.attack_bonus  * durPct)
-    if (enc.defense_bonus) stats.defense += Math.round(enc.defense_bonus * durPct)
-    if (enc.hp_bonus)      stats.max_hp  += Math.round(enc.hp_bonus      * durPct)
+    if (enc.attack_bonus)       stats.attack       += Math.round(enc.attack_bonus       * durPct)
+    if (enc.defense_bonus)      stats.defense      += Math.round(enc.defense_bonus      * durPct)
+    if (enc.hp_bonus)           stats.max_hp       += Math.round(enc.hp_bonus           * durPct)
+    if (enc.strength_bonus)     stats.strength     += Math.round(enc.strength_bonus     * durPct)
+    if (enc.agility_bonus)      stats.agility      += Math.round(enc.agility_bonus      * durPct)
+    if (enc.intelligence_bonus) stats.intelligence += Math.round(enc.intelligence_bonus * durPct)
   }
 
   // Bonos de tacticas equipadas — escalan con nivel

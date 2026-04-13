@@ -29,15 +29,22 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
 
-  // Verificar ítem pertenece al héroe
+  // Verificar ítem pertenece al héroe (incluye tier para calcular cap)
   const { data: item } = await supabase
     .from('inventory_items')
-    .select('id, hero_id, enchantments')
+    .select('id, hero_id, enchantments, item_catalog(tier)')
     .eq('id', itemId)
     .eq('hero_id', heroId)
     .maybeSingle()
 
   if (!item) return res.status(404).json({ error: 'Ítem no encontrado' })
+
+  // Verificar cap de runas por tier (T1: 1, T2: 2, T3: 3)
+  const tier = item.item_catalog?.tier ?? 1
+  const currentCount = Object.values(item.enchantments ?? {}).filter(v => v > 0).length
+  if (currentCount >= tier) {
+    return res.status(409).json({ error: `Este ítem ya tiene el máximo de runas para su tier (${tier}/${tier})` })
+  }
 
   // Verificar receta es una runa
   const { data: recipe } = await supabase

@@ -78,9 +78,12 @@ function repairGoldCost(item) {
 }
 
 const RUNE_META = {
-  rune_attack:  { label: 'Ataque',  icon: '⚔️', stat: 'attack_bonus',  color: '#d97706', value: 10 },
-  rune_defense: { label: 'Defensa', icon: '🛡️', stat: 'defense_bonus', color: '#6b7280', value: 10 },
-  rune_hp:      { label: 'Vida',    icon: '💚', stat: 'hp_bonus',       color: '#dc2626', value: 80 },
+  rune_attack:       { label: 'Ataque',       icon: '⚔️', stat: 'attack_bonus',       color: '#d97706', value: 10 },
+  rune_defense:      { label: 'Defensa',      icon: '🛡️', stat: 'defense_bonus',      color: '#6b7280', value: 10 },
+  rune_hp:           { label: 'Vida',         icon: '💚', stat: 'hp_bonus',            color: '#dc2626', value: 80 },
+  rune_strength:     { label: 'Fuerza',       icon: '💪', stat: 'strength_bonus',     color: '#b91c1c', value: 8  },
+  rune_agility:      { label: 'Agilidad',     icon: '💨', stat: 'agility_bonus',      color: '#2563eb', value: 8  },
+  rune_intelligence: { label: 'Inteligencia', icon: '🔮', stat: 'intelligence_bonus', color: '#7c3aed', value: 8  },
 }
 
 
@@ -654,9 +657,12 @@ export default function Equipo() {
       eq.max_hp       += c.hp_bonus           ?? 0
       totalWeight     += c.weight             ?? 0
       const enc = i.enchantments ?? {}
-      if (enc.attack_bonus)  eq.attack  += Math.round(enc.attack_bonus  * durPct)
-      if (enc.defense_bonus) eq.defense += Math.round(enc.defense_bonus * durPct)
-      if (enc.hp_bonus)      eq.max_hp  += Math.round(enc.hp_bonus      * durPct)
+      if (enc.attack_bonus)       eq.attack       += Math.round(enc.attack_bonus       * durPct)
+      if (enc.defense_bonus)      eq.defense      += Math.round(enc.defense_bonus      * durPct)
+      if (enc.hp_bonus)           eq.max_hp       += Math.round(enc.hp_bonus           * durPct)
+      if (enc.strength_bonus)     eq.strength     += Math.round(enc.strength_bonus     * durPct)
+      if (enc.agility_bonus)      eq.agility      += Math.round(enc.agility_bonus      * durPct)
+      if (enc.intelligence_bonus) eq.intelligence += Math.round(enc.intelligence_bonus * durPct)
     })
     const weightPenalty = Math.floor(totalWeight / 4)
     return { equipBonus: eq, weightPenalty }
@@ -684,9 +690,12 @@ export default function Equipo() {
   }
 
   const availableRunes = {
-    rune_attack:  craftedItems?.rune_attack  ?? 0,
-    rune_defense: craftedItems?.rune_defense ?? 0,
-    rune_hp:      craftedItems?.rune_hp      ?? 0,
+    rune_attack:       craftedItems?.rune_attack       ?? 0,
+    rune_defense:      craftedItems?.rune_defense      ?? 0,
+    rune_hp:           craftedItems?.rune_hp           ?? 0,
+    rune_strength:     craftedItems?.rune_strength     ?? 0,
+    rune_agility:      craftedItems?.rune_agility      ?? 0,
+    rune_intelligence: craftedItems?.rune_intelligence ?? 0,
   }
 
   function handleRepair(item) {

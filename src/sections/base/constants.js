@@ -205,7 +205,6 @@ export const BRANCH_ORDER = ['combat', 'expedition', 'crafting', 'magic']
 
 export const ZONES = [
   { id: 'produccion',    label: 'Producción',    icon: Coins       },
-  { id: 'refinado',      label: 'Refinado',      icon: Hammer      },
   { id: 'taller',        label: 'Taller',        icon: FlaskConical },
   { id: 'entrenamiento', label: 'Entrenamiento', icon: Dumbbell    },
   { id: 'biblioteca',    label: 'Biblioteca',    icon: BookOpen    },
