@@ -442,6 +442,13 @@ function RecipeRow({ recipe, slot, inventory, resources, onRefine, color }) {
           >
             <Plus size={10} strokeWidth={2.5} />
           </button>
+          <button
+            className="px-1.5 py-1 text-[10px] font-bold rounded border border-border bg-surface-2 text-text-3 disabled:opacity-30"
+            onClick={() => setQty(Math.min(99, maxAffordable))}
+            disabled={maxAffordable <= 0 || qty >= Math.min(99, maxAffordable)}
+          >
+            Max
+          </button>
           <motion.button
             className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
             style={{ background: color }}

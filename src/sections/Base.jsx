@@ -368,7 +368,8 @@ export default function Base({ mainRef }) {
   const refinadoSlotsReady = (refiningSlots ?? []).filter(s => {
     if (!REFINING_BUILDING_TYPES.includes(s.building_type)) return false
     const elapsed = now - new Date(s.craft_started_at).getTime()
-    return Math.floor(elapsed / s.unit_duration_ms) > 0
+    const completed = Math.floor(elapsed / s.unit_duration_ms)
+    return completed >= s.quantity
   }).length
   const refinadoBadge = refinadoSlotsReady
 

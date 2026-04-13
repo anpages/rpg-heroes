@@ -126,29 +126,9 @@ export default async function handler(req, res) {
       .upsert(updates, { onConflict: 'hero_id,stat' })
   }
 
-  // Producir tokens en vez de aplicar stats directamente
+  // Producir tokens — RPC atómica, sin race condition
   if (Object.keys(tokenGains).length > 0) {
-    for (const [stat, qty] of Object.entries(tokenGains)) {
-      // Intentar update primero
-      const { data: existing } = await supabase
-        .from('player_training_tokens')
-        .select('quantity')
-        .eq('player_id', user.id)
-        .eq('stat', stat)
-        .maybeSingle()
-
-      if (existing) {
-        await supabase
-          .from('player_training_tokens')
-          .update({ quantity: existing.quantity + qty })
-          .eq('player_id', user.id)
-          .eq('stat', stat)
-      } else {
-        await supabase
-          .from('player_training_tokens')
-          .insert({ player_id: user.id, stat, quantity: qty })
-      }
-    }
+    await supabase.rpc('add_training_tokens', { p_player_id: user.id, p_gains: tokenGains })
 
     // Consumir training_boost si se usó
     if (trainingBoost) {

@@ -48,31 +48,80 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
   const rsKey = queryKeys.resources(userId)
 
   const buildMutation = useMutation({
+    mutationKey: ['training-build'],
     mutationFn: (stat) => apiPost('/api/training-room-build', { stat }),
     onError: err => notify.error(err.message),
-    onSettled: () => { queryClient.invalidateQueries({ queryKey: trKey }); queryClient.invalidateQueries({ queryKey: rsKey }) },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: trKey })
+      queryClient.invalidateQueries({ queryKey: rsKey })
+    },
   })
 
   const buildCollectMutation = useMutation({
+    mutationKey: ['training-build-collect'],
     mutationFn: (stat) => apiPost('/api/training-room-build-collect', { stat }),
-    onError: err => notify.error(err.message),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: trKey }),
+    onMutate: (stat) => {
+      const prev = queryClient.getQueryData(trKey)
+      queryClient.setQueryData(trKey, old => {
+        if (!old) return old
+        return old.map(r => {
+          if (r.stat !== stat) return r
+          const isInitial = r.built_at === null
+          return isInitial
+            ? { ...r, built_at: new Date().toISOString(), building_ends_at: null }
+            : { ...r, level: r.level + 1, building_ends_at: null }
+        })
+      })
+      return { prev }
+    },
+    onError: (err, _, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(trKey, ctx.prev)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: ['training-build-collect'] }) === 0)
+        queryClient.invalidateQueries({ queryKey: trKey })
+    },
   })
 
   const upgradeMutation = useMutation({
+    mutationKey: ['training-build'],
     mutationFn: (stat) => apiPost('/api/training-room-upgrade', { stat }),
     onError: err => notify.error(err.message),
-    onSettled: () => { queryClient.invalidateQueries({ queryKey: trKey }); queryClient.invalidateQueries({ queryKey: rsKey }) },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: trKey })
+      queryClient.invalidateQueries({ queryKey: rsKey })
+    },
   })
 
   const collectMutation = useMutation({
+    mutationKey: ['training-collect'],
     mutationFn: (stat) => apiPost('/api/training-collect', { heroId, stat }),
+    onMutate: (stat) => {
+      const prev = queryClient.getQueryData(tpKey)
+      queryClient.setQueryData(tpKey, old => {
+        if (!old) return old
+        return old.map(r => r.stat === stat
+          ? { ...r, xp_bank: 0, last_collected_at: new Date().toISOString() }
+          : r
+        )
+      })
+      return { prev }
+    },
     onSuccess: (data) => {
-      const names = Object.entries(data.gained ?? {}).map(([stat, pts]) => `+${pts} token ${STAT_LABEL_MAP[stat]}`)
+      const names = Object.entries(data.gained ?? {}).map(([s, pts]) => `+${pts} token ${STAT_LABEL_MAP[s]}`)
       if (names.length > 0) notify.success(`¡Entrenamiento! ${names.join(' · ')}`)
     },
-    onError: err => notify.error(err.message),
-    onSettled: () => { queryClient.invalidateQueries({ queryKey: tpKey }); queryClient.invalidateQueries({ queryKey: ttKey }) },
+    onError: (err, _, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(tpKey, ctx.prev)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: ['training-collect'] }) === 0) {
+        queryClient.invalidateQueries({ queryKey: tpKey })
+        queryClient.invalidateQueries({ queryKey: ttKey })
+      }
+    },
   })
 
   const tonicMutation = useMutation({

@@ -389,86 +389,85 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
   }
 
   return (
-    <div
-      className={`px-4 py-3 flex flex-col gap-2 border-t border-border ${hasBorderLeft ? 'sm:border-l' : ''}`}
-    >
-      {/* Row 1: icon + name + stock */}
-      <div className="flex items-center gap-2">
-        <span className="text-[18px] flex-shrink-0">{recipe.icon}</span>
-        <span className="text-[14px] font-bold text-text truncate flex-1">{recipe.name}</span>
-        <span
-          className="flex items-center gap-1 text-[12px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-          style={{
-            color: stock > 0 ? color : 'var(--text-3)',
-            background: stock > 0
-              ? `color-mix(in srgb, ${color} 10%, var(--surface-2))`
-              : 'var(--surface-2)',
-            border: stock > 0
-              ? `1px solid color-mix(in srgb, ${color} 25%, var(--border))`
-              : '1px solid var(--border)',
-          }}
-        >
-          <Warehouse size={10} strokeWidth={2} />
-          {stock}
-        </span>
-      </div>
+    <div className={`px-4 py-3 flex flex-col gap-1.5 border-t border-border ${hasBorderLeft ? 'sm:border-l' : ''}`}>
 
-      {/* Row 2: inputs + time */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {inputs.map(inp => {
-          const key = inp.resource ?? inp.item
-          const needed = inp.qty * qty
-          const available = inp.resource ? (resources?.[key] ?? 0) : (inventory?.[key] ?? 0)
-          const has = available >= needed
-          return (
+      {/* Línea principal: icono, nombre+inputs, controles */}
+      <div className="flex items-center gap-2">
+        <span className="text-[16px] flex-shrink-0">{recipe.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-text truncate">{recipe.name}</span>
             <span
-              key={key}
-              className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
+              className="flex items-center gap-0.5 text-[10px] font-bold px-1 py-0.5 rounded flex-shrink-0"
               style={{
-                color: has ? 'var(--text-2)' : '#dc2626',
-                background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
+                color: stock > 0 ? color : 'var(--text-3)',
+                background: stock > 0 ? `color-mix(in srgb, ${color} 10%, var(--surface-2))` : 'var(--surface-2)',
+                border: `1px solid ${stock > 0 ? `color-mix(in srgb, ${color} 25%, var(--border))` : 'var(--border)'}`,
               }}
             >
-              {needed} {INPUT_LABELS[key] ?? key}
+              <Warehouse size={9} strokeWidth={2} />{stock}
             </span>
-          )
-        })}
-        <span className="flex items-center gap-0.5 text-[11px] text-text-3">
-          <Clock size={9} strokeWidth={2} />
-          {recipe.craft_minutes}m
-        </span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+            {inputs.map(inp => {
+              const key = inp.resource ?? inp.item
+              const needed = inp.qty * qty
+              const available = inp.resource ? (resources?.[key] ?? 0) : (inventory?.[key] ?? 0)
+              const has = available >= needed
+              return (
+                <span key={key} className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
+                  style={{
+                    color: has ? 'var(--text-2)' : '#dc2626',
+                    background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
+                  }}
+                >
+                  {needed} {INPUT_LABELS[key] ?? key}
+                </span>
+              )
+            })}
+            <span className="flex items-center gap-0.5 text-[11px] text-text-3">
+              <Clock size={9} strokeWidth={2} />{recipe.craft_minutes}m
+            </span>
+          </div>
+        </div>
+        {/* Controles qty + Max + Craftear */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            className="w-6 h-6 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
+            onClick={() => setQty(q => Math.max(1, q - 1))}
+            disabled={qty <= 1}
+          >
+            <Minus size={10} strokeWidth={2.5} />
+          </button>
+          <span className="w-6 text-center text-[12px] font-bold text-text tabular-nums">{qty}</span>
+          <button
+            className="w-6 h-6 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
+            onClick={() => setQty(q => Math.min(99, q + 1))}
+            disabled={qty >= 99 || qty >= maxAffordable}
+          >
+            <Plus size={10} strokeWidth={2.5} />
+          </button>
+          <button
+            className="px-1.5 py-1 text-[10px] font-bold rounded border border-border bg-surface-2 text-text-3 disabled:opacity-30"
+            onClick={() => setQty(Math.min(99, maxAffordable))}
+            disabled={maxAffordable <= 0 || qty >= Math.min(99, maxAffordable)}
+          >
+            Max
+          </button>
+          <motion.button
+            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
+            style={{ background: color }}
+            onClick={handleRefine}
+            disabled={!canAfford}
+            whileTap={canAfford ? { scale: 0.95 } : {}}
+          >
+            Craftear
+          </motion.button>
+        </div>
       </div>
 
-      {/* Row 3: qty selector + craft button */}
-      <div className="flex items-center gap-1.5">
-        <button
-          className="w-7 h-7 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
-          onClick={() => setQty(q => Math.max(1, q - 1))}
-          disabled={qty <= 1}
-        >
-          <Minus size={11} strokeWidth={2.5} />
-        </button>
-        <span className="w-6 text-center text-[13px] font-bold text-text tabular-nums">{qty}</span>
-        <button
-          className="w-7 h-7 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
-          onClick={() => setQty(q => Math.min(99, q + 1))}
-          disabled={qty >= 99 || qty >= maxAffordable}
-        >
-          <Plus size={11} strokeWidth={2.5} />
-        </button>
-        <motion.button
-          className="flex-1 py-1.5 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
-          style={{ background: color }}
-          onClick={handleRefine}
-          disabled={!canAfford}
-          whileTap={canAfford ? { scale: 0.95 } : {}}
-        >
-          Craftear
-        </motion.button>
-      </div>
-
-      {/* Row 4: progress bar — always visible */}
-      <div className="flex flex-col gap-1">
+      {/* Barra de progreso */}
+      <div className="flex flex-col gap-1 ml-7">
         <div className="h-1.5 rounded-full overflow-hidden"
           style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
         >
@@ -483,29 +482,27 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
               <span className="flex items-center gap-0.5">
                 <Clock size={9} strokeWidth={2} />
                 {fmtShort(progress.nextSecondsLeft)}
-                {slot.quantity > 1 && <span className="text-text-3 opacity-60"> · {progress.remaining} restantes</span>}
+                {slot.quantity > 1 && <span className="opacity-60"> · {progress.remaining} restantes</span>}
               </span>
             ) : progress && progress.remaining === 0 ? (
               <span className="font-semibold" style={{ color }}>Todo listo</span>
             ) : (
-              <span className="text-text-3 opacity-40">Sin producción</span>
+              <span className="opacity-40">Sin producción</span>
             )}
           </span>
+          {canCollect && (
+            <motion.button
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[11px] text-white"
+              style={{ background: '#059669' }}
+              onClick={() => onCollectSlot(slot.id)}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Check size={10} strokeWidth={2.5} />
+              Recoger {progress.completed}
+            </motion.button>
+          )}
         </div>
       </div>
-
-      {/* Collect button — full width, same style as ProductionCard / RefinadoZone */}
-      {canCollect && (
-        <motion.button
-          className="w-full py-2 rounded-lg font-bold text-[13px] border-0 text-white flex items-center justify-center gap-1.5"
-          style={{ background: '#059669' }}
-          onClick={() => onCollectSlot(slot.id)}
-          whileTap={{ scale: 0.97 }}
-        >
-          <Check size={13} strokeWidth={2.5} />
-          Recoger {progress.completed}
-        </motion.button>
-      )}
     </div>
   )
 }
