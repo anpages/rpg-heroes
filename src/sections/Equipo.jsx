@@ -374,7 +374,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onRepair(item)}
-            disabled={repairLoading || isExploring}
+            disabled={repairLoading}
           >
             <Wrench size={12} strokeWidth={2} /> Reparar
           </button>
@@ -383,7 +383,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
             onClick={() => onUpgradeTier(item)}
-            disabled={upgradeLoading || isExploring}
+            disabled={upgradeLoading}
           >
             <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
           </button>
@@ -391,7 +391,7 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
         <button
           className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
           onClick={() => onUnequip(item.id)}
-          disabled={isExploring}
+          disabled={false}
         >
           <X size={12} strokeWidth={2.5} /> Quitar
         </button>
@@ -704,8 +704,7 @@ export default function Equipo() {
                 className="btn btn--sm flex items-center gap-1.5 disabled:opacity-40"
                 style={{ fontSize: '11px', padding: '3px 10px', height: '24px', minHeight: 'unset', background: '#d97706', color: '#fff', borderColor: 'transparent' }}
                 onClick={handleRepairAll}
-                disabled={actionMutation.isPending || isExploring}
-                title={isExploring ? 'No disponible durante expedición' : undefined}
+                disabled={actionMutation.isPending}
               >
                 <Wrench size={11} strokeWidth={2.5} />
                 Reparar todo ({damagedEquipped.length})
@@ -822,8 +821,8 @@ export default function Equipo() {
                             ? 'text-[var(--blue-600)] hover:bg-[color-mix(in_srgb,var(--blue-500)_6%,transparent)]'
                             : 'text-text-3 cursor-not-allowed'
                           }`}
-                        onClick={() => canEquip && !isExploring && handleEquip(item.id)}
-                        disabled={!canEquip || isExploring}
+                        onClick={() => canEquip && handleEquip(item.id)}
+                        disabled={!canEquip}
                         title={canEquip ? undefined : 'Repara el ítem antes de equiparlo'}
                       >
                         Equipar
@@ -875,13 +874,9 @@ export default function Equipo() {
               setCompareTarget(null)
             }}
             equipLabel="Equipar este"
-            equipDisabled={
-              isExploring ||
-              (candidate.current_durability <= 0)
-            }
+            equipDisabled={candidate.current_durability <= 0}
             equipDisabledReason={
-              isExploring ? 'Héroe en expedición'
-              : candidate.current_durability <= 0 ? 'Repara el ítem antes de equiparlo'
+              candidate.current_durability <= 0 ? 'Repara el ítem antes de equiparlo'
               : undefined
             }
           />
