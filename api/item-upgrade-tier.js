@@ -26,7 +26,6 @@ export default async function handler(req, res) {
     .maybeSingle()
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
-  if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
   // Obtener item con catálogo
   const { data: item } = await supabase
