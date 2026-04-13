@@ -635,11 +635,9 @@ function Dungeons() {
   const { items }             = useInventory(heroId)
   const { inventory: craftedItems } = useCraftedItems(userId)
   const provisions            = craftedItems?.expedition_provisions ?? 0
-  const potionVida            = craftedItems?.potion_vida ?? 0
   const equipHealth           = useEquipmentHealth(items)
   const [reward, setReward]   = useState(null)
   const [detailDungeon, setDetailDungeon] = useState(null)
-  const [usePotionOnStart, setUsePotionOnStart] = useState(false)
   const [, forceUpdate]       = useReducer(x => x + 1, 0)
   const topRef                = useRef(null)
 
@@ -738,14 +736,11 @@ function Dungeons() {
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
     try {
-      const potionRecipeId = usePotionOnStart && potionVida > 0 ? 'potion_vida' : undefined
-      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id, potionRecipeId })
+      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
-      setUsePotionOnStart(false)
-      if (data.provisionsUsed || data.potionUsed) {
+      if (data.provisionsUsed) {
         queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
       }
-      if (data.potionUsed) notify.success('Poción de Vida usada · +40% HP')
       queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
@@ -801,26 +796,6 @@ function Dungeons() {
           )
         })()}
       </AnimatePresence>
-
-      {/* Poción de vida */}
-      {!expedition && potionVida > 0 && (
-        <button
-          onClick={() => setUsePotionOnStart(p => !p)}
-          className="w-full mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors"
-          style={{
-            borderColor: usePotionOnStart ? '#dc2626' : 'color-mix(in srgb,#dc2626 30%,var(--border))',
-            background: usePotionOnStart ? 'color-mix(in srgb,#dc2626 12%,var(--surface))' : 'color-mix(in srgb,#dc2626 4%,var(--surface))',
-          }}
-        >
-          <span className="text-[14px]">💊</span>
-          <span className="text-[13px] font-semibold flex-1" style={{ color: '#dc2626' }}>
-            {potionVida}× Poción de Vida {usePotionOnStart ? '· Se usará al iniciar (+40% HP)' : '· Toca para usar al iniciar'}
-          </span>
-          <span className="text-[12px] font-bold" style={{ color: usePotionOnStart ? '#dc2626' : 'var(--text-3)' }}>
-            {usePotionOnStart ? '✓' : '○'}
-          </span>
-        </button>
-      )}
 
       {/* Provisiones */}
       {!expedition && provisions > 0 && (
