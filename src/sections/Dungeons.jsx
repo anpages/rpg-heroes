@@ -324,18 +324,19 @@ function DungeonCard({
 
       {/* Footer */}
       <div className="flex items-center justify-end px-4 py-2.5 border-t border-border mt-auto">
-        {locked ? (
-          <span className="text-[13px] font-semibold text-text-3">Nv. {dungeon.min_hero_level} requerido</span>
-        ) : (
-          <motion.button
-            className="btn btn--primary flex-shrink-0"
-            onClick={e => { e.stopPropagation(); onStart(dungeon) }}
-            disabled={disabled}
-            whileTap={disabled ? {} : { scale: 0.96 }}
-          >
-            {isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></> : busy ? 'Héroe ocupado' : lowHp ? 'HP insuficiente' : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>}
-          </motion.button>
-        )}
+        <motion.button
+          className="btn btn--primary flex-shrink-0"
+          onClick={e => { e.stopPropagation(); if (!disabled) onStart(dungeon) }}
+          disabled={disabled}
+          whileTap={disabled ? {} : { scale: 0.96 }}
+        >
+          {locked
+            ? <><Lock size={13} strokeWidth={2} /><span>Requiere Nv. {dungeon.min_hero_level}</span></>
+            : isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></>
+            : busy ? 'Héroe ocupado'
+            : lowHp ? 'HP insuficiente'
+            : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>}
+        </motion.button>
       </div>
     </div>
   )

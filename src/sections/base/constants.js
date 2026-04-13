@@ -75,7 +75,7 @@ export const BUILDING_META = {
     },
   },
   laboratory: {
-    name: 'Taller',
+    name: 'Laboratorio',
     description: 'Combina materiales procesados en pociones, kits y piedras de forja.',
     icon: FlaskConical,
     color: '#7c3aed',
@@ -205,7 +205,7 @@ export const BRANCH_ORDER = ['combat', 'expedition', 'crafting', 'magic']
 
 export const ZONES = [
   { id: 'produccion',    label: 'Producción',    icon: Coins       },
-  { id: 'taller',        label: 'Taller',        icon: FlaskConical },
+  { id: 'taller',        label: 'Laboratorio',   icon: FlaskConical },
   { id: 'entrenamiento', label: 'Entrenamiento', icon: Dumbbell    },
   { id: 'biblioteca',    label: 'Biblioteca',    icon: BookOpen    },
 ]

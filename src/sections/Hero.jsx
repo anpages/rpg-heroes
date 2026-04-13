@@ -914,7 +914,7 @@ function Hero() {
       title: `Reparar ${item.item_catalog.name}`,
       body: kits > 0
         ? `Usar 1 Kit de Reparación (tienes ${kits})`
-        : 'No tienes Kits de Reparación. Craftéalos en el Taller.',
+        : 'No tienes Kits de Reparación. Craftéalos en el Laboratorio.',
       confirmLabel: kits > 0 ? 'Reparar' : null,
       onConfirm: kits > 0 ? () => {
         setConfirmModal(null)

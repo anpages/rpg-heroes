@@ -233,7 +233,7 @@ function TierUpgradeModal({ item, resources: _resources, craftedItems, onConfirm
         <div className="px-5 py-4 flex flex-col gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Requiere</p>
           <p className="text-[13px] font-semibold" style={{ color: hasStone ? '#16a34a' : '#dc2626' }}>
-            1× {stoneName} {hasStone ? `(tienes ${stoneQty})` : '— Craftéala en el Taller'}
+            1× {stoneName} {hasStone ? `(tienes ${stoneQty})` : '— Craftéala en el Laboratorio'}
           </p>
         </div>
 
