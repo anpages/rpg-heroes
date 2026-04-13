@@ -12,12 +12,11 @@ import { fmtTime, baseLevelFromMap } from './helpers.js'
 import { cardVariants } from './constants.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const CATEGORY_ORDER = ['potion', 'rune', 'expedition', 'forge']
+const CATEGORY_ORDER = ['consumable', 'rune', 'forge']
 
 const CATEGORY_META = {
-  potion:     { label: 'Pociones',      color: '#dc2626' },
+  consumable: { label: 'Consumibles',   color: '#0891b2' },
   rune:       { label: 'Runas',         color: '#7c3aed' },
-  expedition: { label: 'Expedición',    color: '#0891b2' },
   forge:      { label: 'Mejora de tier', color: '#b45309' },
 }
 
