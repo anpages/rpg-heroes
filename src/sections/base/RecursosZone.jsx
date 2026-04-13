@@ -17,7 +17,7 @@ export default function RecursosZone({
   onOptimisticDeduct,
   onUpgradePending,
 }) {
-  const resourceBuildings = ['lumber_mill', 'gold_mine', 'mana_well', 'herb_garden']
+  const resourceBuildings = ['gold_mine', 'lumber_mill', 'herb_garden', 'mana_well']
 
   return (
     <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
