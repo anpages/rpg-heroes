@@ -420,7 +420,7 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
         {/* Botón acción */}
         {!slot ? (
           <motion.button
-            className="px-3 py-2 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30 flex-shrink-0"
+            className="w-20 py-2 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30 flex-shrink-0 flex items-center justify-center"
             style={{ background: color }}
             onClick={() => onRefine({ recipeId: recipe.id, quantity: 1 })}
             disabled={!canAfford}
@@ -430,7 +430,7 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
           </motion.button>
         ) : (
           <motion.button
-            className="px-3 py-2 text-[12px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+            className="w-20 py-2 text-[12px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center justify-center gap-1 flex-shrink-0"
             style={{
               background: isDone
                 ? 'linear-gradient(135deg, #059669, #047857)'
