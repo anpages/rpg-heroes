@@ -634,10 +634,11 @@ function Dungeons() {
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const { items }             = useInventory(heroId)
   const { inventory: craftedItems } = useCraftedItems(userId)
-  const provisions            = craftedItems?.expedition_provisions ?? 0
-  const equipHealth           = useEquipmentHealth(items)
-  const [reward, setReward]   = useState(null)
+  const provisions              = craftedItems?.expedition_provisions ?? 0
+  const equipHealth             = useEquipmentHealth(items)
+  const [reward, setReward]     = useState(null)
   const [detailDungeon, setDetailDungeon] = useState(null)
+  const [useProvisions, setUseProvisions] = useState(false)
   const [, forceUpdate]       = useReducer(x => x + 1, 0)
   const topRef                = useRef(null)
 
@@ -736,8 +737,9 @@ function Dungeons() {
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
     try {
-      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
+      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id, useProvisions: useProvisions && provisions > 0 })
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
+      setUseProvisions(false)
       if (data.provisionsUsed) {
         queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
       }
@@ -799,12 +801,22 @@ function Dungeons() {
 
       {/* Provisiones */}
       {!expedition && provisions > 0 && (
-        <div className="mb-3.5 flex items-center gap-2 px-3 py-2 rounded-lg border border-[color-mix(in_srgb,#0891b2_30%,var(--border))] bg-[color-mix(in_srgb,#0891b2_5%,var(--surface))]">
+        <button
+          onClick={() => setUseProvisions(p => !p)}
+          className="w-full mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors"
+          style={{
+            borderColor: useProvisions ? '#0891b2' : 'color-mix(in srgb,#0891b2 30%,var(--border))',
+            background: useProvisions ? 'color-mix(in srgb,#0891b2 10%,var(--surface))' : 'color-mix(in srgb,#0891b2 4%,var(--surface))',
+          }}
+        >
           <span className="text-[14px]">🎒</span>
-          <span className="text-[13px] font-semibold text-[#0891b2]">
-            {provisions}× Provisiones — se consumirá 1 al iniciar (+15% oro, +10% XP)
+          <span className="text-[13px] font-semibold flex-1" style={{ color: '#0891b2' }}>
+            {provisions}× Provisiones {useProvisions ? '· Se usará 1 al iniciar (+15% oro, +10% XP)' : '· Toca para usar al iniciar'}
           </span>
-        </div>
+          <span className="text-[12px] font-bold" style={{ color: useProvisions ? '#0891b2' : 'var(--text-3)' }}>
+            {useProvisions ? '✓' : '○'}
+          </span>
+        </button>
       )}
 
       {/* ── Expedición activa — siempre arriba ── */}

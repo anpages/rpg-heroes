@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { dungeonId, heroId } = req.body
+  const { dungeonId, heroId, useProvisions } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
   if (!heroId)    return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(dungeonId)) return res.status(400).json({ error: 'dungeonId inválido' })
@@ -78,14 +78,19 @@ export default async function handler(req, res) {
 
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
 
-  // Provisiones de expedición: auto-consume si están disponibles
-  const { data: provStock } = await supabase
-    .from('player_crafted_items')
-    .select('quantity')
-    .eq('player_id', user.id)
-    .eq('recipe_id', 'expedition_provisions')
-    .maybeSingle()
-  const hasProvisions = provStock && provStock.quantity > 0
+  // Provisiones de expedición: solo si el jugador lo eligió explícitamente
+  let provStock = null
+  let hasProvisions = false
+  if (useProvisions) {
+    const { data: ps } = await supabase
+      .from('player_crafted_items')
+      .select('quantity')
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'expedition_provisions')
+      .maybeSingle()
+    provStock = ps
+    hasProvisions = ps && ps.quantity > 0
+  }
 
   const goldEarned = Math.floor(
     (dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min)) *
