@@ -1,8 +1,10 @@
 import { requireAuth } from './_auth.js'
 
+const RARITY_GOLD_PER_POINT = { common: 2, uncommon: 3, rare: 6, epic: 12, legendary: 22 }
+
 /**
  * POST /api/item-repair-all
- * Repara TODO el equipo de un héroe consumiendo un repair_kit_full.
+ * Repara TODO el equipo de un héroe consumiendo oro proporcional al daño total.
  * Body: { heroId: uuid }
  */
 export default async function handler(req, res) {
@@ -15,44 +17,35 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status')
+    .select('id, player_id')
     .eq('id', heroId)
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Obtener items equipados con durabilidad < máxima
   const { data: items } = await supabase
     .from('inventory_items')
-    .select('id, current_durability, item_catalog(rarity, slot, max_durability)')
+    .select('id, current_durability, item_catalog(rarity, max_durability)')
     .eq('hero_id', heroId)
     .not('equipped_slot', 'is', null)
 
   const damaged = (items ?? []).filter(i => i.current_durability < i.item_catalog.max_durability)
   if (damaged.length === 0) return res.status(409).json({ error: 'Todo el equipo está en perfecto estado' })
 
-  // Verificar kit de reparación completo
-  const { data: kit } = await supabase
-    .from('player_crafted_items')
-    .select('quantity')
-    .eq('player_id', user.id)
-    .eq('recipe_id', 'repair_kit_full')
-    .maybeSingle()
+  const totalGold = damaged.reduce((sum, i) => {
+    const missing = i.item_catalog.max_durability - i.current_durability
+    const costPerPoint = RARITY_GOLD_PER_POINT[i.item_catalog.rarity] ?? 2
+    return sum + missing * costPerPoint
+  }, 0)
 
-  if (!kit || kit.quantity <= 0) {
-    return res.status(409).json({ error: 'Necesitas un Kit de Reparación Completo. Craftéalo en el Taller.' })
-  }
+  const { data: ok, error: deductErr } = await supabase.rpc('deduct_resources', {
+    p_player_id: user.id,
+    p_gold: totalGold,
+  })
 
-  // Consumir 1 kit
-  const { error: kitError } = await supabase
-    .from('player_crafted_items')
-    .update({ quantity: kit.quantity - 1 })
-    .eq('player_id', user.id)
-    .eq('recipe_id', 'repair_kit_full')
+  if (deductErr) return res.status(500).json({ error: deductErr.message })
+  if (!ok) return res.status(409).json({ error: `Necesitas ${totalGold} oro para reparar todo el equipo` })
 
-  if (kitError) return res.status(500).json({ error: kitError.message })
-
-  // Reparar todos
   await Promise.all(damaged.map(item =>
     supabase
       .from('inventory_items')
@@ -60,5 +53,5 @@ export default async function handler(req, res) {
       .eq('id', item.id)
   ))
 
-  return res.status(200).json({ ok: true, repaired: damaged.length })
+  return res.status(200).json({ ok: true, repaired: damaged.length, goldSpent: totalGold })
 }

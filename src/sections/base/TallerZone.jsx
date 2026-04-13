@@ -12,26 +12,23 @@ import { fmtTime, baseLevelFromMap } from './helpers.js'
 import { cardVariants } from './constants.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const CATEGORY_ORDER = ['potion', 'repair', 'forge']
+const CATEGORY_ORDER = ['rune', 'expedition', 'forge']
 
 const CATEGORY_META = {
-  potion: { label: 'Pociones', color: '#059669' },
-  repair: { label: 'Reparación', color: '#b45309' },
-  forge:  { label: 'Mejora', color: '#6d28d9' },
+  rune:       { label: 'Runas', color: '#7c3aed' },
+  expedition: { label: 'Expedición', color: '#0891b2' },
+  forge:      { label: 'Mejora de tier', color: '#b45309' },
 }
 
 const INPUT_LABELS = {
   iron: 'Hierro', wood: 'Madera', mana: 'Maná', herbs: 'Hierbas',
   fragments: 'Fragmentos', essence: 'Esencia',
   steel_ingot: 'Lingote', plank: 'Tablón', mana_crystal: 'Cristal', herbal_extract: 'Extracto',
-  tempered_steel: 'Acero Templ.', composite_wood: 'Madera Comp.', concentrated_mana: 'Maná Conc.', potion_base: 'Base Poc.',
-  hp_potion_minor: 'Poc. Vida Menor', repair_kit: 'Kit Reparación', forge_stone_t2: 'Piedra T2',
 }
 
-// Orden explícito dentro de cada categoría: menor primero, mayor después
 const RECIPE_ORDER = [
-  'hp_potion_minor', 'atk_elixir', 'def_elixir', 'hp_potion_major',
-  'repair_kit', 'repair_kit_full',
+  'rune_attack', 'rune_defense', 'rune_hp',
+  'expedition_provisions',
   'forge_stone_t2', 'forge_stone_t3',
 ]
 

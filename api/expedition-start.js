@@ -77,7 +77,22 @@ export default async function handler(req, res) {
   )
 
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
-  const goldEarned = Math.floor(dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min))
+
+  // Provisiones de expedición: auto-consume si están disponibles
+  const { data: provStock } = await supabase
+    .from('player_crafted_items')
+    .select('quantity')
+    .eq('player_id', user.id)
+    .eq('recipe_id', 'expedition_provisions')
+    .maybeSingle()
+  const hasProvisions = provStock && provStock.quantity > 0
+
+  const goldEarned = Math.floor(
+    (dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min)) *
+    (hasProvisions ? 1.15 : 1)
+  )
+  const xpEarned = Math.round(dungeon.experience_reward * (hasProvisions ? 1.10 : 1))
+
   // Madera, hierro y maná solo se producen en edificios — las expediciones solo dan oro e items
   const woodEarned = 0
   const manaEarned = 0
@@ -133,13 +148,10 @@ export default async function handler(req, res) {
       gold_earned: goldEarned,
       wood_earned: woodEarned,
       mana_earned: manaEarned,
-      experience_earned: dungeon.experience_reward,
+      experience_earned: xpEarned,
     })
 
   if (expError) {
-    // Rollback: restaurar estado idle + active_effects originales si la
-    // expedición no se pudo crear. Devolvemos la poción de tiempo gastada
-    // para que el jugador pueda reintentar sin perderla.
     await supabase
       .from('heroes')
       .update({
@@ -153,5 +165,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: expError.message })
   }
 
-  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition })
+  // Consumir provisiones tras insertar expedición con éxito
+  if (hasProvisions) {
+    await supabase
+      .from('player_crafted_items')
+      .update({ quantity: provStock.quantity - 1 })
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'expedition_provisions')
+  }
+
+  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition, provisionsUsed: hasProvisions })
 }

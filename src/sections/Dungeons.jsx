@@ -11,6 +11,7 @@ import { useDungeons } from '../hooks/useDungeons'
 import { useActiveExpedition } from '../hooks/useActiveExpedition'
 import { useInventory } from '../hooks/useInventory'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { interpolateHp } from '../lib/hpInterpolation'
 import {
   expeditionHpCost,
@@ -632,6 +633,8 @@ function Dungeons() {
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
   const { items }             = useInventory(heroId)
+  const { inventory: craftedItems } = useCraftedItems(userId)
+  const provisions            = craftedItems?.expedition_provisions ?? 0
   const equipHealth           = useEquipmentHealth(items)
   const [reward, setReward]   = useState(null)
   const [detailDungeon, setDetailDungeon] = useState(null)
@@ -735,6 +738,10 @@ function Dungeons() {
     try {
       const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id })
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
+      if (data.provisionsUsed) {
+        notify.success('Provisiones consumidas · +15% oro +10% XP')
+        queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
@@ -791,17 +798,13 @@ function Dungeons() {
         })()}
       </AnimatePresence>
 
-      {/* Pociones pre-expedición */}
-      {!expedition && (
-        <div className="mb-3.5">
-          <PotionPanel
-            heroId={heroId}
-            userId={userId}
-            activeEffects={hero?.active_effects}
-            effectTypes={EXPEDITION_POTION_EFFECTS}
-            title="Pociones de expedición"
-            isExploring={false}
-          />
+      {/* Provisiones */}
+      {!expedition && provisions > 0 && (
+        <div className="mb-3.5 flex items-center gap-2 px-3 py-2 rounded-lg border border-[color-mix(in_srgb,#0891b2_30%,var(--border))] bg-[color-mix(in_srgb,#0891b2_5%,var(--surface))]">
+          <span className="text-[14px]">🎒</span>
+          <span className="text-[12px] font-semibold text-[#0891b2]">
+            {provisions} Provisiones disponibles — se consumirá 1 al iniciar (+15% oro, +10% XP)
+          </span>
         </div>
       )}
 

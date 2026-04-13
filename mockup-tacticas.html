@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPG Legends — Tácticas (Mockup)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e4e4e7; min-height: 100vh; }
+
+  .container { max-width: 420px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 24px; }
+
+  .section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a; margin-bottom: 6px; }
+
+  /* ── Colección de tácticas ── */
+  .collection { display: flex; flex-direction: column; gap: 8px; }
+  .tactic-card {
+    display: flex; align-items: center; gap: 12px;
+    background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+    padding: 12px 14px; cursor: pointer; transition: all 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .tactic-card:hover { border-color: #3f3f46; background: #1f1f23; }
+  .tactic-card.equipped { border-color: #d97706; background: linear-gradient(135deg, rgba(217,119,6,0.08), #18181b); }
+  .tactic-card.equipped::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #d97706;
+  }
+  .tactic-card.class-exclusive { border-color: #7c3aed; }
+  .tactic-card.class-exclusive::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #7c3aed;
+  }
+
+  .tactic-icon {
+    width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0; border: 1px solid #27272a;
+  }
+  .tactic-info { flex: 1; min-width: 0; }
+  .tactic-name { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .tactic-desc { font-size: 11px; color: #a1a1aa; margin-top: 2px; line-height: 1.4; }
+  .tactic-meta { display: flex; gap: 6px; margin-top: 5px; }
+  .tactic-tag {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 2px 7px; border-radius: 20px; border: 1px solid;
+  }
+
+  .tag-universal { color: #a1a1aa; border-color: #3f3f46; background: rgba(63,63,70,0.3); }
+  .tag-class { color: #a78bfa; border-color: rgba(124,58,237,0.4); background: rgba(124,58,237,0.1); }
+  .tag-rarity-rare { color: #60a5fa; border-color: rgba(37,99,235,0.4); background: rgba(37,99,235,0.1); }
+  .tag-rarity-epic { color: #a78bfa; border-color: rgba(124,58,237,0.4); background: rgba(124,58,237,0.1); }
+  .tag-equipped { color: #fbbf24; border-color: rgba(217,119,6,0.4); background: rgba(217,119,6,0.1); }
+  .tag-level { color: #86efac; border-color: rgba(22,163,74,0.3); background: rgba(22,163,74,0.08); }
+
+  .equip-btn {
+    font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: none;
+    cursor: pointer; flex-shrink: 0; transition: all 0.12s;
+  }
+  .equip-btn.equip { background: #d97706; color: #fff; }
+  .equip-btn.equip:hover { background: #b45309; }
+  .equip-btn.unequip { background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
+
+  /* ── Plan de batalla ── */
+  .battle-plan {
+    background: linear-gradient(135deg, rgba(217,119,6,0.06), #18181b);
+    border: 1px solid rgba(217,119,6,0.25); border-radius: 16px; padding: 16px;
+  }
+  .plan-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  }
+  .plan-header span:first-child { font-size: 22px; }
+  .plan-header .title { font-size: 16px; font-weight: 800; }
+  .plan-header .subtitle { font-size: 11px; color: #a1a1aa; }
+
+  .plan-slots { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .plan-slot {
+    display: flex; align-items: center; gap: 10px;
+    background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 10px 12px;
+  }
+  .plan-slot .slot-num {
+    width: 22px; height: 22px; border-radius: 6px; background: #27272a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #71717a; flex-shrink: 0;
+  }
+  .plan-slot.filled .slot-num { background: rgba(217,119,6,0.2); color: #fbbf24; }
+  .plan-slot .slot-icon { font-size: 18px; flex-shrink: 0; }
+  .plan-slot .slot-name { font-size: 13px; font-weight: 700; flex: 1; }
+  .plan-slot .slot-hint { font-size: 12px; color: #52525b; font-style: italic; flex: 1; }
+  .plan-slot .slot-trigger {
+    font-size: 10px; font-weight: 600; color: #a1a1aa; background: #27272a;
+    padding: 2px 8px; border-radius: 6px; flex-shrink: 0;
+  }
+
+  /* Poción */
+  .plan-potion {
+    display: flex; align-items: center; gap: 10px;
+    background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 16px;
+  }
+  .plan-potion .potion-icon { font-size: 18px; flex-shrink: 0; }
+  .plan-potion .potion-info { flex: 1; }
+  .plan-potion .potion-name { font-size: 13px; font-weight: 700; }
+  .plan-potion .potion-cond { font-size: 10px; color: #a1a1aa; }
+
+  /* Botón combatir */
+  .fight-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, #d97706, #b45309); color: #fff;
+    font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.12s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .fight-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(217,119,6,0.3); }
+
+  /* ── Vista combate ── */
+  .combat-view {
+    background: #18181b; border: 1px solid #27272a; border-radius: 16px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .combat-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .fighter { flex: 1; }
+  .fighter-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .fighter-name.hero { color: #60a5fa; }
+  .fighter-name.enemy { color: #f87171; text-align: right; }
+  .hp-bar-bg { height: 8px; background: #27272a; border-radius: 99px; overflow: hidden; }
+  .hp-bar { height: 100%; border-radius: 99px; transition: width 0.3s; }
+  .hp-bar.green { background: #22c55e; }
+  .hp-bar.yellow { background: #f59e0b; }
+  .hp-bar.red { background: #ef4444; }
+  .hp-text { font-size: 10px; font-weight: 700; margin-top: 2px; }
+  .hp-text.hero { color: #22c55e; }
+  .hp-text.enemy { color: #f59e0b; text-align: right; }
+  .vs { font-size: 10px; font-weight: 800; color: #52525b; flex-shrink: 0; }
+
+  .combat-log { display: flex; flex-direction: column; gap: 4px; }
+  .log-entry {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  }
+  .log-entry .round-badge { font-size: 10px; font-weight: 700; color: #52525b; width: 22px; flex-shrink: 0; }
+  .log-entry.attack { background: rgba(39,39,42,0.5); }
+  .log-entry.tactic-used {
+    background: rgba(217,119,6,0.1); border: 1px solid rgba(217,119,6,0.25);
+  }
+  .log-entry.tactic-used .tactic-label { color: #fbbf24; font-weight: 700; }
+  .log-entry.dodge { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2); }
+  .log-entry .dmg { font-weight: 700; margin-left: auto; flex-shrink: 0; }
+  .log-entry .dmg.hero { color: #60a5fa; }
+  .log-entry .dmg.enemy { color: #f87171; }
+
+  .tactic-activation {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, rgba(217,119,6,0.15), rgba(217,119,6,0.05));
+    border: 1px solid rgba(217,119,6,0.3); border-radius: 10px;
+    padding: 10px; margin: 4px 0;
+  }
+  .tactic-activation .ta-icon { font-size: 22px; }
+  .tactic-activation .ta-text { font-size: 13px; font-weight: 700; color: #fbbf24; }
+  .tactic-activation .ta-effect { font-size: 11px; color: #a1a1aa; }
+
+  .divider { height: 1px; background: #27272a; margin: 4px 0; }
+
+  .phase-label {
+    text-align: center; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #52525b; padding: 4px 0;
+  }
+
+  h2 { font-size: 18px; font-weight: 800; color: #fafafa; display: flex; align-items: center; gap: 8px; }
+  h2 span { font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- 1. COLECCIÓN DE TÁCTICAS -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div>
+    <h2><span>📜</span> Mis Tácticas</h2>
+    <p style="font-size: 12px; color: #71717a; margin: 6px 0 12px;">Equipa hasta 3 tácticas en tu Plan de Batalla</p>
+
+    <div class="collection">
+      <!-- Táctica equipada 1 -->
+      <div class="tactic-card equipped">
+        <div class="tactic-icon" style="background: rgba(217,119,6,0.1);">⚔️</div>
+        <div class="tactic-info">
+          <div class="tactic-name">Contraataque</div>
+          <div class="tactic-desc">Si el enemigo ataca esta ronda, devuelves 150% del daño recibido.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-universal">Universal</span>
+            <span class="tactic-tag tag-rarity-rare">Raro</span>
+            <span class="tactic-tag tag-equipped">Equipada</span>
+            <span class="tactic-tag tag-level">Nv. 3</span>
+          </div>
+        </div>
+        <button class="equip-btn unequip">Quitar</button>
+      </div>
+
+      <!-- Táctica equipada 2 -->
+      <div class="tactic-card equipped">
+        <div class="tactic-icon" style="background: rgba(239,68,68,0.1);">💥</div>
+        <div class="tactic-info">
+          <div class="tactic-name">Sacrificio</div>
+          <div class="tactic-desc">Pierdes 20% HP. Tu siguiente ataque hace ×3 daño.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-universal">Universal</span>
+            <span class="tactic-tag tag-rarity-epic">Epico</span>
+            <span class="tactic-tag tag-equipped">Equipada</span>
+            <span class="tactic-tag tag-level">Nv. 2</span>
+          </div>
+        </div>
+        <button class="equip-btn unequip">Quitar</button>
+      </div>
+
+      <!-- Táctica equipada 3 (de clase) -->
+      <div class="tactic-card equipped class-exclusive">
+        <div class="tactic-icon" style="background: rgba(124,58,237,0.1);">🌀</div>
+        <div class="tactic-info">
+          <div class="tactic-name">Descarga Arcana <span style="font-size: 10px; color: #a78bfa;">Arcanista</span></div>
+          <div class="tactic-desc">Golpe mágico puro que ignora toda la defensa del rival.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-class">Arcanista</span>
+            <span class="tactic-tag tag-rarity-epic">Epico</span>
+            <span class="tactic-tag tag-equipped">Equipada</span>
+            <span class="tactic-tag tag-level">Nv. 4</span>
+          </div>
+        </div>
+        <button class="equip-btn unequip">Quitar</button>
+      </div>
+
+      <div class="divider" style="margin: 4px 0;"></div>
+
+      <!-- Táctica no equipada -->
+      <div class="tactic-card">
+        <div class="tactic-icon" style="background: rgba(34,197,94,0.1);">🛡️</div>
+        <div class="tactic-info">
+          <div class="tactic-name">Muro de Escudos</div>
+          <div class="tactic-desc">Bloquea 50% del daño recibido durante 2 rondas.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-universal">Universal</span>
+            <span class="tactic-tag tag-rarity-rare">Raro</span>
+            <span class="tactic-tag tag-level">Nv. 1</span>
+          </div>
+        </div>
+        <button class="equip-btn equip">Equipar</button>
+      </div>
+
+      <!-- Táctica no equipada -->
+      <div class="tactic-card">
+        <div class="tactic-icon" style="background: rgba(96,165,250,0.1);">💨</div>
+        <div class="tactic-info">
+          <div class="tactic-name">Emboscada</div>
+          <div class="tactic-desc">Si tu agilidad es mayor, golpe doble esta ronda.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-universal">Universal</span>
+            <span class="tactic-tag tag-rarity-rare">Raro</span>
+            <span class="tactic-tag tag-level">Nv. 2</span>
+          </div>
+        </div>
+        <button class="equip-btn equip">Equipar</button>
+      </div>
+
+      <!-- Táctica bloqueada -->
+      <div class="tactic-card" style="opacity: 0.4;">
+        <div class="tactic-icon" style="background: rgba(113,113,122,0.1);">🔒</div>
+        <div class="tactic-info">
+          <div class="tactic-name" style="color: #71717a;">Golpe Aturdidor</div>
+          <div class="tactic-desc">Menos daño pero el enemigo pierde su siguiente turno.</div>
+          <div class="tactic-meta">
+            <span class="tactic-tag tag-universal">Universal</span>
+            <span class="tactic-tag" style="color: #71717a; border-color: #3f3f46;">Requiere Nv. 15</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- 2. PLAN DE BATALLA (pre-combate) -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div>
+    <h2><span>🗡️</span> Plan de Batalla</h2>
+    <p style="font-size: 12px; color: #71717a; margin: 6px 0 12px;">Configura tu estrategia antes de combatir</p>
+
+    <div class="battle-plan">
+      <div class="plan-header">
+        <span>⚔️</span>
+        <div>
+          <div class="title">Aegon · Arcanista</div>
+          <div class="subtitle">Rating 845 · Oro II</div>
+        </div>
+      </div>
+
+      <div class="section-label">Tácticas equipadas</div>
+      <div class="plan-slots">
+        <div class="plan-slot filled">
+          <div class="slot-num">1</div>
+          <div class="slot-icon">⚔️</div>
+          <div class="slot-name">Contraataque</div>
+          <div class="slot-trigger">Ronda 2-4</div>
+        </div>
+        <div class="plan-slot filled">
+          <div class="slot-num">2</div>
+          <div class="slot-icon">💥</div>
+          <div class="slot-name">Sacrificio</div>
+          <div class="slot-trigger">Enemigo &lt;30%</div>
+        </div>
+        <div class="plan-slot filled">
+          <div class="slot-num">3</div>
+          <div class="slot-icon">🌀</div>
+          <div class="slot-name">Descarga Arcana</div>
+          <div class="slot-trigger">Al 50% HP</div>
+        </div>
+      </div>
+
+      <div class="section-label">Poción de combate</div>
+      <div class="plan-potion">
+        <div class="potion-icon">🧪</div>
+        <div class="potion-info">
+          <div class="potion-name">Poción de Vida Mayor</div>
+          <div class="potion-cond">Se usa al bajar del 35% HP · Tienes 4</div>
+        </div>
+      </div>
+
+      <button class="fight-btn">
+        ⚔️ Combatir
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- 3. DURANTE EL COMBATE (replay con tácticas) -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div>
+    <h2><span>⚔️</span> En combate</h2>
+    <p style="font-size: 12px; color: #71717a; margin: 6px 0 12px;">Así se ve cuando una táctica se activa</p>
+
+    <div class="combat-view">
+      <!-- HP bars -->
+      <div class="combat-header">
+        <div class="fighter">
+          <div class="fighter-name hero">Aegon</div>
+          <div class="hp-bar-bg"><div class="hp-bar yellow" style="width: 52%;"></div></div>
+          <div class="hp-text hero">156/300</div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="fighter">
+          <div class="fighter-name enemy">Berserker · Fénix</div>
+          <div class="hp-bar-bg"><div class="hp-bar red" style="width: 28%;"></div></div>
+          <div class="hp-text enemy">98/350</div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="combat-log">
+        <div class="phase-label">Rondas 1-3 · Automático</div>
+
+        <div class="log-entry attack">
+          <span class="round-badge">R1</span>
+          <span>⚔ Aegon ataca</span>
+          <span class="dmg hero">-24</span>
+        </div>
+        <div class="log-entry attack">
+          <span class="round-badge">R1</span>
+          <span>🗡 Fénix ataca</span>
+          <span class="dmg enemy">-31</span>
+        </div>
+        <div class="log-entry attack">
+          <span class="round-badge">R2</span>
+          <span>⚔ Aegon ataca</span>
+          <span class="dmg hero">-22</span>
+        </div>
+        <div class="log-entry attack">
+          <span class="round-badge">R2</span>
+          <span>🗡 Fénix ataca · ¡CRIT!</span>
+          <span class="dmg enemy">-48</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="phase-label">Táctica 1 · Contraataque</div>
+
+        <!-- Táctica se activa -->
+        <div class="tactic-activation">
+          <div class="ta-icon">⚔️</div>
+          <div>
+            <div class="ta-text">Aegon usa Contraataque</div>
+            <div class="ta-effect">Si Fénix ataca, recibirá 150% de vuelta</div>
+          </div>
+        </div>
+
+        <div class="log-entry attack">
+          <span class="round-badge">R3</span>
+          <span>🗡 Fénix ataca</span>
+          <span class="dmg enemy">-28</span>
+        </div>
+        <div class="log-entry tactic-used">
+          <span class="round-badge">R3</span>
+          <span>⚔️ <span class="tactic-label">Contraataque!</span> Aegon devuelve el golpe</span>
+          <span class="dmg hero">-42</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="phase-label">Rondas 4-6 · Automático</div>
+
+        <div class="log-entry attack">
+          <span class="round-badge">R4</span>
+          <span>⚔ Aegon ataca</span>
+          <span class="dmg hero">-26</span>
+        </div>
+        <div class="log-entry dodge">
+          <span class="round-badge">R4</span>
+          <span>💨 Aegon esquiva el ataque</span>
+          <span style="color: #a78bfa; font-weight: 600; margin-left: auto;">¡Evasión!</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="phase-label">Aegon baja del 50% HP · Táctica 3</div>
+
+        <div class="tactic-activation">
+          <div class="ta-icon">🌀</div>
+          <div>
+            <div class="ta-text">Aegon usa Descarga Arcana</div>
+            <div class="ta-effect">Daño mágico puro · ignora defensa</div>
+          </div>
+        </div>
+
+        <div class="log-entry tactic-used">
+          <span class="round-badge">R7</span>
+          <span>🌀 <span class="tactic-label">Descarga Arcana!</span></span>
+          <span class="dmg hero">-67</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="phase-label">Fénix baja del 30% · Táctica 2</div>
+
+        <div class="tactic-activation">
+          <div class="ta-icon">💥</div>
+          <div>
+            <div class="ta-text">Aegon usa Sacrificio</div>
+            <div class="ta-effect">-20% HP propio · siguiente ataque ×3</div>
+          </div>
+        </div>
+
+        <div class="log-entry tactic-used" style="background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.25);">
+          <span class="round-badge">R9</span>
+          <span>💥 <span style="color: #f87171; font-weight: 700;">Sacrificio!</span> Aegon pierde 60 HP</span>
+          <span class="dmg enemy">-60</span>
+        </div>
+        <div class="log-entry tactic-used">
+          <span class="round-badge">R9</span>
+          <span>⚔ <span class="tactic-label">Golpe potenciado ×3!</span></span>
+          <span class="dmg hero">-78</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: center; padding: 20px; color: #3f3f46; font-size: 11px;">
+    Mockup conceptual — RPG Legends · Tácticas
+  </div>
+
+</div>
+</body>
+</html>

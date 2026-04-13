@@ -71,7 +71,17 @@ const COMPARE_STAT_META = [
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
-// estimateRepairCost ya no se usa — las reparaciones consumen kits crafteados
+const RARITY_GOLD_PER_POINT = { common: 2, uncommon: 3, rare: 6, epic: 12, legendary: 22 }
+function repairGoldCost(item) {
+  const missing = item.item_catalog.max_durability - item.current_durability
+  return missing * (RARITY_GOLD_PER_POINT[item.item_catalog.rarity] ?? 2)
+}
+
+const RUNE_META = {
+  rune_attack:  { label: 'Ataque',  icon: '⚔️', stat: 'attack_bonus',  color: '#d97706', value: 10 },
+  rune_defense: { label: 'Defensa', icon: '🛡️', stat: 'defense_bonus', color: '#6b7280', value: 10 },
+  rune_hp:      { label: 'Vida',    icon: '💚', stat: 'hp_bonus',       color: '#dc2626', value: 80 },
+}
 
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
@@ -300,8 +310,9 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel, canConfi
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, repairLoading, upgradeLoading, isExploring, heroClass }) {
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, onEnchant, repairLoading, upgradeLoading, enchantLoading, availableRunes, heroClass }) {
   const { label, Icon } = SLOT_META[slotKey]
+  const [showRunePicker, setShowRunePicker] = useState(false)
 
   if (!item) {
     return (
@@ -362,6 +373,42 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
         <DurabilityBar current={item.current_durability} max={cat.max_durability} />
       </div>
 
+      {/* Encantamientos activos */}
+      {item.enchantments && Object.keys(item.enchantments).length > 0 && (
+        <div className="px-3 pb-2 flex gap-1 flex-wrap">
+          {Object.entries(item.enchantments).map(([stat, val]) => {
+            const rune = Object.values(RUNE_META).find(r => r.stat === stat)
+            if (!rune || !val) return null
+            return (
+              <span key={stat} className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-[2px] rounded"
+                style={{ color: rune.color, background: `color-mix(in srgb,${rune.color} 12%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${rune.color} 25%,var(--border))` }}>
+                {rune.icon} +{val} {rune.label}
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Rune picker */}
+      {showRunePicker && (
+        <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
+          {Object.entries(RUNE_META).map(([runeId, rune]) => {
+            const qty = availableRunes?.[runeId] ?? 0
+            return (
+              <button key={runeId}
+                className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded disabled:opacity-30"
+                style={{ color: rune.color, background: `color-mix(in srgb,${rune.color} 10%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${rune.color} 30%,var(--border))` }}
+                disabled={qty <= 0 || enchantLoading}
+                onClick={() => { onEnchant(item.id, runeId); setShowRunePicker(false) }}
+              >
+                {rune.icon} {rune.label} ({qty})
+              </button>
+            )
+          })}
+          <button className="text-[10px] text-text-3 px-1.5 py-1" onClick={() => setShowRunePicker(false)}>✕</button>
+        </div>
+      )}
+
       {/* Footer de acciones */}
       <div className="flex border-t border-border divide-x divide-border">
         <button
@@ -388,6 +435,13 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
             <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
           </button>
         )}
+        <button
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#7c3aed] hover:bg-[color-mix(in_srgb,#7c3aed_6%,transparent)] transition-colors disabled:opacity-40"
+          onClick={() => setShowRunePicker(v => !v)}
+          disabled={enchantLoading || Object.values(availableRunes ?? {}).every(q => q <= 0)}
+        >
+          <Sparkles size={11} strokeWidth={2} /> Encantar
+        </button>
         <button
           className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
           onClick={() => onUnequip(item.id)}
@@ -524,6 +578,33 @@ export default function Equipo() {
     },
   })
 
+  const enchantMutation = useMutation({
+    mutationFn: ({ itemId, recipeId }) => apiPost('/api/item-enchant', { heroId, itemId, recipeId }),
+    onMutate: async ({ itemId, recipeId }) => {
+      const key = queryKeys.inventory(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      const rune = RUNE_META[recipeId]
+      if (rune) {
+        queryClient.setQueryData(key, (previous ?? []).map(i => {
+          if (i.id !== itemId) return i
+          const enc = i.enchantments ?? {}
+          return { ...i, enchantments: { ...enc, [rune.stat]: (enc[rune.stat] ?? 0) + rune.value } }
+        }))
+      }
+      return { previous }
+    },
+    onSuccess: () => notify.success('¡Runa aplicada!'),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.inventory(heroId), ctx.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
+    },
+  })
+
   const tierUpgradeMutation = useMutation({
     mutationFn: ({ inventoryItemId }) => apiPost('/api/item-upgrade-tier', { heroId, inventoryItemId }),
     onSuccess: (data) => {
@@ -564,6 +645,7 @@ export default function Equipo() {
     let totalWeight = 0
     ;(items ?? []).filter(i => i.equipped_slot && i.current_durability > 0).forEach(i => {
       const c = i.item_catalog
+      const durPct = c.max_durability > 0 ? i.current_durability / c.max_durability : 1
       eq.attack       += c.attack_bonus       ?? 0
       eq.defense      += c.defense_bonus      ?? 0
       eq.strength     += c.strength_bonus     ?? 0
@@ -571,6 +653,10 @@ export default function Equipo() {
       eq.intelligence += c.intelligence_bonus ?? 0
       eq.max_hp       += c.hp_bonus           ?? 0
       totalWeight     += c.weight             ?? 0
+      const enc = i.enchantments ?? {}
+      if (enc.attack_bonus)  eq.attack  += Math.round(enc.attack_bonus  * durPct)
+      if (enc.defense_bonus) eq.defense += Math.round(enc.defense_bonus * durPct)
+      if (enc.hp_bonus)      eq.max_hp  += Math.round(enc.hp_bonus      * durPct)
     })
     const weightPenalty = Math.floor(totalWeight / 4)
     return { equipBonus: eq, weightPenalty }
@@ -597,18 +683,24 @@ export default function Equipo() {
     equipMutation.mutate({ endpoint: '/api/item-equip', body: { itemId, equip: false } })
   }
 
-  function handleRepair(item) {
-    const kits = craftedItems?.repair_kit ?? 0
-    const hasKit = kits > 0
+  const availableRunes = {
+    rune_attack:  craftedItems?.rune_attack  ?? 0,
+    rune_defense: craftedItems?.rune_defense ?? 0,
+    rune_hp:      craftedItems?.rune_hp      ?? 0,
+  }
 
+  function handleRepair(item) {
+    const goldCost = repairGoldCost(item)
+    const gold = resources?.gold ?? 0
+    const hasGold = gold >= goldCost
     setConfirm({
       title: `Reparar ${item.item_catalog.name}`,
-      body: hasKit
-        ? `Usar 1 Kit de Reparación (tienes ${kits})`
-        : 'No tienes Kits de Reparación. Craftéalos en el Taller.',
+      body: hasGold
+        ? `Coste: ${goldCost} oro (tienes ${gold})`
+        : `Necesitas ${goldCost} oro (tienes ${gold}).`,
       confirmLabel: 'Reparar',
-      canConfirm: hasKit,
-      disabledReason: hasKit ? null : 'Sin kits de reparación',
+      canConfirm: hasGold,
+      disabledReason: hasGold ? null : 'Oro insuficiente',
       onConfirm: () => {
         setConfirm(null)
         actionMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
@@ -617,8 +709,9 @@ export default function Equipo() {
   }
 
   function handleRepairAll() {
-    const kits = craftedItems?.repair_kit_full ?? 0
-    const hasKit = kits > 0
+    const totalGold = damagedEquipped.reduce((sum, i) => sum + repairGoldCost(i), 0)
+    const gold = resources?.gold ?? 0
+    const hasGold = gold >= totalGold
 
     const body = (
       <div className="flex flex-col gap-2">
@@ -627,15 +720,15 @@ export default function Equipo() {
             <div key={i.id} className="flex justify-between gap-3">
               <span className="truncate">{i.item_catalog.name}</span>
               <span className="font-medium text-text-2 flex-shrink-0">
-                {i.current_durability}/{i.item_catalog.max_durability}
+                {repairGoldCost(i)} oro
               </span>
             </div>
           ))}
         </div>
         <p className="text-[13px] font-semibold text-text-2 pt-2 border-t border-border">
-          {hasKit
-            ? `Usar 1 Kit de Reparación Completo (tienes ${kits})`
-            : 'No tienes Kits de Reparación Completo. Craftéalos en el Taller.'}
+          {hasGold
+            ? `Total: ${totalGold} oro (tienes ${gold})`
+            : `Necesitas ${totalGold} oro (tienes ${gold}).`}
         </p>
       </div>
     )
@@ -644,13 +737,17 @@ export default function Equipo() {
       title: 'Reparar todo el equipo',
       body,
       confirmLabel: 'Reparar todo',
-      canConfirm: hasKit,
-      disabledReason: hasKit ? null : 'Sin kits de reparación completo',
+      canConfirm: hasGold,
+      disabledReason: hasGold ? null : `Necesitas ${totalGold} oro`,
       onConfirm: () => {
         setConfirm(null)
         actionMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })
       },
     })
+  }
+
+  function handleEnchant(itemId, recipeId) {
+    enchantMutation.mutate({ itemId, recipeId })
   }
 
   function handleUpgradeTier(item) {
@@ -722,8 +819,11 @@ export default function Equipo() {
                   onRepair={handleRepair}
                   onUpgradeTier={handleUpgradeTier}
                   onViewDetail={setItemDetail}
+                  onEnchant={handleEnchant}
                   repairLoading={actionMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
+                  enchantLoading={enchantMutation.isPending}
+                  availableRunes={availableRunes}
                   isExploring={isExploring}
                   heroClass={hero?.class}
                 />
