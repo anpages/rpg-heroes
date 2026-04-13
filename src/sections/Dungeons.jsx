@@ -446,12 +446,12 @@ function DetailRow({ icon: Icon, iconColor, label, value, bonus, bonusColor, war
 
 function DungeonDetailModal({
   dungeon, onClose, onStart,
-  effectiveMins, baseMins, agilityPct,
-  hpCost, baseHpCost, strReduction,
-  goldMin, goldMax, baseGoldMin, baseGoldMax, atkPct,
-  xpReward, baseXp,
-  equipChance, tacticChance, baseTacticChance, intellBonus,
-  durLoss, durLossBase, defReduction,
+  effectiveMins, baseMins: _baseMins, agilityPct,
+  hpCost, baseHpCost: _baseHpCost, strReduction,
+  goldMin, goldMax, baseGoldMin: _baseGoldMin, baseGoldMax: _baseGoldMax, atkPct,
+  xpReward, baseXp: _baseXp,
+  equipChance, tacticChance, baseTacticChance: _baseTacticChance, intellBonus,
+  durLoss, durLossBase: _durLossBase, defReduction,
   materialData, isWeekly, weeklyMeta, equipHealth,
   disabled, disabledReason,
 }) {
