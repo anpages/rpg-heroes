@@ -20,7 +20,6 @@ export default async function handler(req, res) {
     .single()
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-  if (hero.status === 'exploring') return res.status(409).json({ error: 'El héroe está en una expedición' })
 
   // Obtener items equipados con durabilidad < máxima
   const { data: items } = await supabase
