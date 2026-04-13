@@ -12,7 +12,6 @@ import { useTrainingTokens } from '../hooks/useTrainingTokens'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { usePotions } from '../hooks/usePotions'
 import { useResources } from '../hooks/useResources'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroTactics } from '../hooks/useHeroTactics'
@@ -797,17 +796,19 @@ function Hero() {
     },
   })
 
-  const potionMutation = useMutation({
-    mutationFn: (potionId) => apiPost('/api/potion-use', { heroId: hero?.id, potionId }),
+  const itemUseMutation = useMutation({
+    mutationFn: (recipeId) => apiPost('/api/item-use', { heroId: hero?.id, recipeId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.potions(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     },
     onError: err => notify.error(err.message),
   })
 
-  const { potions } = usePotions(userId)
-  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
+  const { catalog, inventory } = useCraftedItems(userId)
+  const hpPotions = (catalog ?? [])
+    .filter(c => c.effects?.some(e => e.type === 'hp_restore') && (inventory[c.id] ?? 0) > 0)
+    .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
 
   const mutationPending = itemMutation.isPending
 
@@ -1025,7 +1026,7 @@ function Hero() {
                 {hpPotions.map(p => {
                   const empty    = p.quantity <= 0
                   const full     = hpNow >= effective.max_hp
-                  const disabled = empty || full || isOccupied || potionMutation.isPending
+                  const disabled = empty || full || isOccupied || itemUseMutation.isPending
                   return (
                     <motion.button
                       key={p.id}
@@ -1035,7 +1036,7 @@ function Hero() {
                         borderColor: 'var(--border)',
                         background:  'var(--surface-2)',
                       }}
-                      onClick={() => !disabled && potionMutation.mutate(p.id)}
+                      onClick={() => !disabled && itemUseMutation.mutate(p.id)}
                       disabled={disabled}
                       whileTap={disabled ? {} : { scale: 0.95 }}
                     >

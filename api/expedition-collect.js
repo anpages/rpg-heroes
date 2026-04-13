@@ -1,10 +1,9 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { attackMultiplier as calcAttackMultiplier, xpRequiredForLevel } from '../src/lib/gameFormulas.js'
+import { attackMultiplier as calcAttackMultiplier, DUNGEON_DROP_PROFILE } from '../src/lib/gameFormulas.js'
 import { progressMissions } from './_missions.js'
 import { rollItemDrop, rollTacticDrop, rollMaterialDrop } from './_loot.js'
 import { isUUID } from './_validate.js'
-import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 import { interpolateHP } from './_hp.js'
 
 export default async function handler(req, res) {
@@ -48,10 +47,12 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Modificador semanal del héroe: si esta es su mazmorra del desafío, aplica
-  // multiplicadores a oro, XP, drops y materiales.
-  const weekly = await getOrCreateWeeklyModifier(supabase, hero.id)
-  const mods = getModifierForDungeon(weekly, expedition.dungeon_id)
+  // Perfil de drops de la mazmorra (multiplicadores por mazmorra)
+  const dropProfile = dungeon ? (DUNGEON_DROP_PROFILE[dungeon.name] ?? {}) : {}
+  const dpGold   = dropProfile.goldMult   ?? 1
+  const dpXp     = dropProfile.xpMult     ?? 1
+  const dpItem   = dropProfile.itemMult   ?? 1
+  const dpTactic = dropProfile.tacticMult ?? 1
 
   // Ataque escala oro y XP (hasta +100%)
   const attackMultiplier = calcAttackMultiplier(stats?.attack)
@@ -59,15 +60,15 @@ export default async function handler(req, res) {
   const lootBoost      = hero.active_effects?.loot_boost ?? 0
   const goldBoost      = hero.active_effects?.gold_boost ?? 0
   const tacticGuaranteed = hero.active_effects?.card_guaranteed ?? 0
-  const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier)
-  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult * (1 + goldBoost))
-  const finalGoldNoBoost = Math.round(goldBase * (1 + rb.expedition_gold_pct) * mods.goldMult)
+  const goldBase = Math.round((expedition.gold_earned ?? 0) * attackMultiplier * dpGold)
+  const finalGold = Math.round(goldBase * (1 + rb.expedition_gold_pct) * (1 + goldBoost))
+  const finalGoldNoBoost = Math.round(goldBase * (1 + rb.expedition_gold_pct))
   const goldBonus = goldBoost > 0 ? Math.max(0, finalGold - finalGoldNoBoost) : 0
 
-  const xpBase    = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * (1 + xpBoost))
-  const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct) * mods.xpMult)
-  const xpBaseNoBoost  = Math.round((expedition.experience_earned ?? 0) * attackMultiplier)
-  const finalXpNoBoost = Math.round(xpBaseNoBoost * (1 + rb.expedition_xp_pct) * mods.xpMult)
+  const xpBase    = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * dpXp * (1 + xpBoost))
+  const finalXp   = Math.round(xpBase * (1 + rb.expedition_xp_pct))
+  const xpBaseNoBoost  = Math.round((expedition.experience_earned ?? 0) * attackMultiplier * dpXp)
+  const finalXpNoBoost = Math.round(xpBaseNoBoost * (1 + rb.expedition_xp_pct))
   const xpBonus = xpBoost > 0 ? Math.max(0, finalXp - finalXpNoBoost) : 0
 
   // Pérdida de durabilidad: escala con el peligro del dungeon, reducida por defensa y cartas
@@ -84,22 +85,7 @@ export default async function handler(req, res) {
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
   // Roll de material antes del UPDATE para incluirlo en la misma operación.
-  // El modificador semanal "Vena Rica" multiplica la cantidad obtenida.
-  const baseMaterialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
-  const materialDrop = baseMaterialDrop && mods.materialMult !== 1
-    ? { ...baseMaterialDrop, qty: Math.round(baseMaterialDrop.qty * mods.materialMult) }
-    : baseMaterialDrop
-
-  const addArgs = { p_player_id: user.id, p_gold: finalGold }
-  if (materialDrop?.resource === 'fragments') addArgs.p_fragments = materialDrop.qty
-  if (materialDrop?.resource === 'essence')   addArgs.p_essence   = materialDrop.qty
-  const { error: addResErr } = await supabase.rpc('add_resources', addArgs)
-  if (addResErr) return res.status(500).json({ error: addResErr.message })
-
-  // Añadir XP y subir nivel si corresponde
-  const newXp = hero.experience + finalXp
-  const xpForLevel = xpRequiredForLevel(hero.level)
-  const levelUp = newXp >= xpForLevel
+  const materialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
 
   // Consumir boosts de un solo uso
   const newEffects = { ...(hero.active_effects ?? {}) }
@@ -109,33 +95,25 @@ export default async function handler(req, res) {
   if (tacticGuaranteed) delete newEffects.card_guaranteed
 
   // Aplicar regen pasiva acumulada desde que terminó la expedición (status_ends_at).
-  // Si el jugador recoge inmediatamente, regenFromMs ≈ now → 0 regen. Si tarda,
-  // el héroe regenera normalmente durante ese tiempo.
   const nowIso = new Date().toISOString()
   const regeneratedHp = interpolateHP(hero, Date.now(), stats?.max_hp)
 
-  const { error: updateHeroError } = await supabase
-    .from('heroes')
-    .update({
-      status: 'idle',
-      experience:         levelUp ? newXp - xpForLevel : newXp,
-      level:              levelUp ? hero.level + 1 : hero.level,
-      active_effects:     newEffects,
-      current_hp:         regeneratedHp,
-      hp_last_updated_at: nowIso,
-      status_ends_at:     null,
-    })
-    .eq('id', hero.id)
+  // Atómico: recursos + XP/level-up + hero→idle + expedition→completed
+  const { data: rpcResult, error: rpcErr } = await supabase.rpc('complete_expedition_atomic', {
+    p_player_id:     user.id,
+    p_hero_id:       hero.id,
+    p_expedition_id: expeditionId,
+    p_gold:          finalGold,
+    p_xp:            finalXp,
+    p_fragments:     materialDrop?.resource === 'fragments' ? materialDrop.qty : 0,
+    p_essence:       materialDrop?.resource === 'essence'   ? materialDrop.qty : 0,
+    p_effects:       newEffects,
+    p_hp:            regeneratedHp,
+    p_hp_updated_at: nowIso,
+  })
 
-  if (updateHeroError) return res.status(500).json({ error: updateHeroError.message })
-
-  // Marcar expedición como completada
-  const { error: expUpdateError } = await supabase
-    .from('expeditions')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
-    .eq('id', expeditionId)
-
-  if (expUpdateError) return res.status(500).json({ error: expUpdateError.message })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
+  const levelUp = rpcResult?.level_up ?? false
 
   // Reducir durabilidad del equipo equipado — la fórmula dinámica (peligro +
   // defensa + cartas + research) se queda en este archivo; la función SQL
@@ -145,8 +123,8 @@ export default async function handler(req, res) {
     if (durError) console.error('durability rpc error:', durError.message)
   }
 
-  const drop        = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: mods.dropMult * (1 + lootBoost), heroClass: hero.class }) : null
-  const tacticDrop  = dungeon ? await rollTacticDrop(supabase, hero.id, hero.class, { chance: tacticGuaranteed ? 1.0 : (0.12 + intelligenceBonus), bonusChance: rb.tactic_drop_pct ?? 0 }) : null
+  const drop        = dungeon ? await rollItemDrop(supabase, hero.id, user.id, { difficulty: dungeon.difficulty, poolKey: dungeon.type, dropRateBonus: stats?.itemDropRateBonus ?? 0, dropRateMult: (1 + lootBoost) * dpItem, heroClass: hero.class }) : null
+  const tacticDrop  = dungeon ? await rollTacticDrop(supabase, hero.id, hero.class, { chance: tacticGuaranteed ? 1.0 : ((0.12 + intelligenceBonus) * dpTactic), bonusChance: rb.tactic_drop_pct ?? 0 }) : null
   // materialDrop ya fue rolado y aplicado en el UPDATE de recursos de arriba
 
   // Progreso de misiones diarias (no bloquean la respuesta)

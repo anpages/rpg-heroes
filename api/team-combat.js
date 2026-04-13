@@ -11,7 +11,6 @@ import {
   trainingEnemyStats,
   trainingEnemyName,
   trainingRewards,
-  xpRequiredForLevel,
 } from '../src/lib/gameFormulas.js'
 
 const ALL_CLASSES = ['caudillo', 'arcanista', 'sombra', 'domador']
@@ -189,21 +188,14 @@ export default async function handler(req, res) {
 
   // Recompensas solo si gana
   if (won) {
-    // Oro (atómico via RPC)
-    await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: goldReward })
-
-    // XP a cada héroe (con level-up individual)
-    for (const hero of heroesOrdered) {
-      const newXp = hero.experience + xpPerHero
-      const xpForLevel = xpRequiredForLevel(hero.level)
-      const levelUp = newXp >= xpForLevel
-      await supabase
-        .from('heroes')
-        .update({
-          experience: levelUp ? newXp - xpForLevel : newXp,
-          level:      levelUp ? hero.level + 1 : hero.level,
-        })
-        .eq('id', hero.id)
+    // Oro + XP atómico por héroe (primer héroe recibe el oro, todos reciben XP)
+    for (let i = 0; i < heroesOrdered.length; i++) {
+      await supabase.rpc('reward_gold_and_xp', {
+        p_player_id: user.id,
+        p_hero_id:   heroesOrdered[i].id,
+        p_gold:      i === 0 ? goldReward : 0,
+        p_xp:        xpPerHero,
+      })
     }
   }
 

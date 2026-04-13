@@ -14,9 +14,10 @@ export function useCraftedItems(userId) {
   })
 
   return {
-    catalog:   data?.catalog   ?? [],
-    inventory: data?.inventory ?? {},
-    queue:     data?.queue     ?? [],
+    catalog:       data?.catalog       ?? [],
+    inventory:     data?.inventory     ?? {},
+    queue:         data?.queue         ?? [],
+    refiningSlots: data?.refiningSlots ?? [],
     loading,
     refetch,
   }

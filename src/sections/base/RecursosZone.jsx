@@ -4,8 +4,7 @@ import { LockedBuildingCard } from './BuildingCard.jsx'
 import ProductionCard from './ProductionCard.jsx'
 
 /**
- * Zona de Producción: edificios productivos con barras integradas.
- * Orden por importancia: Aserradero → Mina → Pozo → Jardín.
+ * Zona de Producción: edificios productivos con stock integrado en cada card.
  */
 export default function RecursosZone({
   byType,

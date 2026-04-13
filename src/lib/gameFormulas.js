@@ -324,11 +324,25 @@ export function durabilityLoss(difficulty, defense = 0, durabilityMod = 0, resea
  * Usado por el frontend para mostrar probabilidad y cantidad en la card.
  */
 export const MATERIAL_DROP_DATA = {
-  'Guarida del Dragón':     { resource: 'essence',   chance: 0.20, min: 2, max: 3 },
-  'Templo de los Antiguos': { resource: 'essence',   chance: 0.15, min: 1, max: 2 },
-  'Abismo de las Almas':    { resource: 'fragments', chance: 0.18, min: 1, max: 2 },
-  'Ruinas Encantadas':      { resource: 'fragments', chance: 0.12, min: 1, max: 1 },
-  'Minas de Hierro Oscuro': { resource: 'fragments', chance: 0.20, min: 1, max: 3 },
+  'Mina Abandonada':          { resource: 'fragments', chance: 0.15, min: 1, max: 1 },
+  'Cripta de los Condenados': { resource: 'fragments', chance: 0.20, min: 1, max: 2 },
+  'Templo de los Antiguos':   { resource: 'essence',   chance: 0.18, min: 1, max: 2 },
+  'Guarida del Dragón':       { resource: 'essence',   chance: 0.25, min: 2, max: 3 },
+}
+
+/**
+ * Perfil de drops por mazmorra — multiplicadores sobre las probabilidades base.
+ * Cada mazmorra se especializa en cierto tipo de recompensa.
+ */
+export const DUNGEON_DROP_PROFILE = {
+  'Sendero del Bosque':       { goldMult: 1.5, xpMult: 1.0, itemMult: 0.5, tacticMult: 0.5, focus: 'Oro' },
+  'Cueva de Goblins':         { goldMult: 1.0, xpMult: 1.0, itemMult: 1.5, tacticMult: 0.8, focus: 'Equipo' },
+  'Altar Corrompido':         { goldMult: 0.8, xpMult: 1.0, itemMult: 0.8, tacticMult: 2.0, focus: 'Tácticas' },
+  'Mina Abandonada':          { goldMult: 1.0, xpMult: 1.0, itemMult: 1.0, tacticMult: 0.8, focus: 'Fragmentos' },
+  'Bosque Oscuro':            { goldMult: 1.0, xpMult: 1.5, itemMult: 1.0, tacticMult: 1.0, focus: 'Experiencia' },
+  'Cripta de los Condenados': { goldMult: 1.0, xpMult: 1.0, itemMult: 1.3, tacticMult: 1.0, focus: 'Fragmentos' },
+  'Templo de los Antiguos':   { goldMult: 1.0, xpMult: 1.0, itemMult: 1.0, tacticMult: 1.5, focus: 'Esencia' },
+  'Guarida del Dragón':       { goldMult: 1.2, xpMult: 1.2, itemMult: 1.2, tacticMult: 1.2, focus: 'Todo' },
 }
 
 /**

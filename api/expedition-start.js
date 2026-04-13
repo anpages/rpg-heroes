@@ -3,7 +3,6 @@ import { getEffectiveStats } from './_stats.js'
 import { interpolateHP, expeditionHpDamage } from './_hp.js'
 import { agilityDurationFactor } from '../src/lib/gameFormulas.js'
 import { isUUID } from './_validate.js'
-import { getOrCreateWeeklyModifier, getModifierForDungeon } from './_weeklyModifier.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -68,19 +67,13 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
-  // Modificador semanal: si esta mazmorra es el desafío de la semana del héroe,
-  // aplica multiplicadores de duración y de daño HP recibido al iniciar.
-  const weekly = await getOrCreateWeeklyModifier(supabase, hero.id)
-  const mods = getModifierForDungeon(weekly, dungeonId)
-
   // Agilidad reduce duración (hasta −25%)
   const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
   // Poción de tiempo activa: reduce la duración en effect_value (ej. 0.40 → −40%).
-  // Se aplica sobre el resultado ya ajustado por agilidad y modificador semanal.
   const timeReduction = hero.active_effects?.time_reduction ?? 0
   const effectiveDuration = Math.max(
     1,
-    Math.round(baseDuration * mods.durationMult * (1 - timeReduction)),
+    Math.round(baseDuration * (1 - timeReduction)),
   )
 
   const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
@@ -92,7 +85,8 @@ export default async function handler(req, res) {
   // Deducir HP por peligro de la expedición al iniciar
   // La dificultad aumenta el coste; la fuerza del héroe lo reduce
   const baseHpDamage = expeditionHpDamage(hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
-  const hpDamage = Math.round(baseHpDamage * mods.hpDamageMult)
+  const hpCostReduction = hero.active_effects?.hp_cost_reduction ?? 0
+  const hpDamage = Math.round(baseHpDamage * (1 - hpCostReduction))
   if (currentHp <= hpDamage) {
     return res.status(409).json({
       error: `HP insuficiente. Esta expedición cuesta ${hpDamage} HP y tienes ${currentHp}.`,
@@ -101,10 +95,11 @@ export default async function handler(req, res) {
   }
   const hpAfterExpedition = Math.max(1, currentHp - hpDamage)
 
-  // Consumir time_reduction si estaba activo. Los demás boosts (xp/loot/gold)
-  // se consumen en expedition-collect porque afectan al resultado final.
+  // Consumir time_reduction y hp_cost_reduction si estaban activos.
+  // Los demás boosts (xp/loot/gold) se consumen en expedition-collect.
   const effectsAfter = { ...(hero.active_effects ?? {}) }
   if (timeReduction) delete effectsAfter.time_reduction
+  if (hpCostReduction) delete effectsAfter.hp_cost_reduction
 
   // Reclamar el héroe atómicamente: solo actualiza si sigue en idle.
   // Evita la condición de carrera donde dos peticiones simultáneas ambas

@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status, active_effects')
+    .select('id, player_id, status')
     .eq('id', heroId)
     .single()
 
@@ -32,30 +32,26 @@ export default async function handler(req, res) {
   const damaged = (items ?? []).filter(i => i.current_durability < i.item_catalog.max_durability)
   if (damaged.length === 0) return res.status(409).json({ error: 'Todo el equipo está en perfecto estado' })
 
-  const freeRepair = !!hero.active_effects?.free_repair
+  // Verificar kit de reparación completo
+  const { data: kit } = await supabase
+    .from('player_crafted_items')
+    .select('quantity')
+    .eq('player_id', user.id)
+    .eq('recipe_id', 'repair_kit_full')
+    .maybeSingle()
 
-  if (!freeRepair) {
-    // Verificar kit de reparación completo
-    const { data: kit } = await supabase
-      .from('player_crafted_items')
-      .select('quantity')
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'repair_kit_full')
-      .maybeSingle()
-
-    if (!kit || kit.quantity <= 0) {
-      return res.status(409).json({ error: 'Necesitas un Kit de Reparación Completo. Craftéalo en el Taller.' })
-    }
-
-    // Consumir 1 kit
-    const { error: kitError } = await supabase
-      .from('player_crafted_items')
-      .update({ quantity: kit.quantity - 1 })
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'repair_kit_full')
-
-    if (kitError) return res.status(500).json({ error: kitError.message })
+  if (!kit || kit.quantity <= 0) {
+    return res.status(409).json({ error: 'Necesitas un Kit de Reparación Completo. Craftéalo en el Taller.' })
   }
+
+  // Consumir 1 kit
+  const { error: kitError } = await supabase
+    .from('player_crafted_items')
+    .update({ quantity: kit.quantity - 1 })
+    .eq('player_id', user.id)
+    .eq('recipe_id', 'repair_kit_full')
+
+  if (kitError) return res.status(500).json({ error: kitError.message })
 
   // Reparar todos
   await Promise.all(damaged.map(item =>
@@ -65,11 +61,5 @@ export default async function handler(req, res) {
       .eq('id', item.id)
   ))
 
-  if (freeRepair) {
-    const newEffects = { ...(hero.active_effects ?? {}) }
-    delete newEffects.free_repair
-    await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', heroId)
-  }
-
-  return res.status(200).json({ ok: true, repaired: damaged.length, freeRepair })
+  return res.status(200).json({ ok: true, repaired: damaged.length })
 }

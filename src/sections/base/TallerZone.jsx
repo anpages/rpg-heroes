@@ -1,63 +1,81 @@
-import { useState, useEffect, useReducer } from 'react'
-import { Lock, Clock, Package, Check } from 'lucide-react'
+import { useState, useEffect, useReducer, useRef } from 'react'
+import { Clock, Lock, Check, Minus, Plus, Warehouse } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LAB_BASE_LEVEL_REQUIRED, LAB_INVENTORY_BASE, LAB_INVENTORY_PER_UPGRADE, CRAFTING_SLOTS_BASE } from '../../lib/gameConstants.js'
-import { cardVariants, BUILDING_META } from './constants.js'
-import { baseLevelFromMap } from './helpers.js'
-import { BuildingCard } from './BuildingCard.jsx'
-import { LaboratorySection, LabInventory } from './LaboratorySection.jsx'
-import ScrollHint from '../../components/ScrollHint'
+import { notify } from '../../lib/notifications.js'
+import {
+  buildingUpgradeCost, buildingUpgradeDurationMs,
+  LAB_BASE_LEVEL_REQUIRED,
+} from '../../lib/gameConstants.js'
+import { apiPost } from '../../lib/api.js'
+import { BUILDING_META } from './constants.js'
+import { fmtTime, baseLevelFromMap } from './helpers.js'
+import { cardVariants } from './constants.js'
+import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const CRAFT_TABS = [
-  { id: 'items',    label: 'Crafteo' },
-  { id: 'potions',  label: 'Pociones' },
-]
+const CATEGORY_ORDER = ['potion', 'repair', 'forge']
 
-const CATEGORY_LABELS = {
-  repair:   'Reparación',
-  upgrade:  'Mejora',
-  tactic:   'Tácticas',
-  training: 'Entrenamiento',
+const CATEGORY_META = {
+  potion: { label: 'Pociones', color: '#059669' },
+  repair: { label: 'Reparación', color: '#b45309' },
+  forge:  { label: 'Mejora', color: '#6d28d9' },
 }
 
 const INPUT_LABELS = {
   iron: 'Hierro', wood: 'Madera', mana: 'Maná', herbs: 'Hierbas',
-  coal: 'Carbón', fiber: 'Fibra', arcane_dust: 'Polvo Arcano', flowers: 'Flores',
   fragments: 'Fragmentos', essence: 'Esencia',
-  // Item (crafted material) labels
   steel_ingot: 'Lingote', plank: 'Tablón', mana_crystal: 'Cristal', herbal_extract: 'Extracto',
-  tempered_steel: 'Acero Templ.', composite_wood: 'Madera Comp.', concentrated_mana: 'Maná Conc.', potion_base: 'Base Poción',
+  tempered_steel: 'Acero Templ.', composite_wood: 'Madera Comp.', concentrated_mana: 'Maná Conc.', potion_base: 'Base Poc.',
+  hp_potion_minor: 'Poc. Vida Menor', repair_kit: 'Kit Reparación', forge_stone_t2: 'Piedra T2',
 }
 
-/**
- * Zona del Taller: crafteo de items (kits, piedras, pergaminos) + pociones.
- */
+// Orden explícito dentro de cada categoría: menor primero, mayor después
+const RECIPE_ORDER = [
+  'hp_potion_minor', 'atk_elixir', 'def_elixir', 'hp_potion_major',
+  'repair_kit', 'repair_kit_full',
+  'forge_stone_t2', 'forge_stone_t3',
+]
+
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+function slotProgress(slot) {
+  const now = Date.now()
+  const startedAt = new Date(slot.craft_started_at).getTime()
+  const elapsedMs = now - startedAt
+  const completed = Math.min(slot.quantity, Math.floor(elapsedMs / slot.unit_duration_ms))
+  const remaining = slot.quantity - completed
+  const currentPct = remaining > 0
+    ? ((elapsedMs % slot.unit_duration_ms) / slot.unit_duration_ms) * 100
+    : 100
+  const nextSecondsLeft = remaining > 0
+    ? Math.max(0, Math.ceil((slot.unit_duration_ms - (elapsedMs % slot.unit_duration_ms)) / 1000))
+    : 0
+  return { completed, remaining, currentPct, nextSecondsLeft }
+}
+
+function fmtShort(secs) {
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`
+}
+
+/* ── TallerZone ──────────────────────────────────────────────────────────── */
+
 export default function TallerZone({
-  byType, effectiveResources,
-  // Crafted items
-  catalog, inventory, queue,
-  craftItemPending, collectItemPending,
-  onCraftItem, onCollectItem,
-  // Potions (existing system)
-  potions, potionCraftingMap,
-  craftPotionPending, collectPotionPending,
-  onCraftPotion, onCollectPotion,
-  onLabInventoryUpgrade, labInventoryUpgradePending,
-  // Building upgrade
+  byType, effectiveResources, catalog, inventory, refiningSlots,
+  onRefine, onCollectSlot,
   anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
 }) {
-  const [tab, setTab] = useState('items')
-  const lab       = byType['laboratory']
+  const lab = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
-  const labLevel  = lab?.level ?? 0
+  const [, tick] = useReducer(x => x + 1, 0)
 
-  // Lab capacity for potions
-  const labUpgrades      = effectiveResources?.lab_inventory_upgrades ?? 0
-  const labCapacity      = LAB_INVENTORY_BASE + labUpgrades * LAB_INVENTORY_PER_UPGRADE
-  const potionQty        = (potions ?? []).reduce((s, p) => s + (p.quantity ?? 0), 0)
-  const potionCraftCount = Object.values(potionCraftingMap ?? {}).reduce((s, arr) => s + (arr?.length ?? 0), 0)
-  const labInventoryUsed = potionQty + potionCraftCount
-  const labInventoryFull = labInventoryUsed >= labCapacity
+  // Tick para actualizar barras
+  const labSlots = (refiningSlots ?? []).filter(s => s.building_type === 'laboratory')
+  useEffect(() => {
+    if (labSlots.length === 0) return
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [labSlots.length])
 
   if (!lab) return null
 
@@ -94,329 +112,400 @@ export default function TallerZone({
     )
   }
 
-  return (
-    <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
-      <BuildingCard
-        building={lab}
-        resources={effectiveResources}
-        anyUpgrading={anyUpgrading}
-        onUpgradeStart={onUpgradeStart}
-        onUpgradeCollect={onUpgradeCollect}
-        onOptimisticDeduct={onOptimisticDeduct}
-        onUpgradePending={onUpgradePending}
-      />
+  const recipes = (catalog ?? []).filter(c => c.refinery_type === 'laboratory')
+  const slotMap = Object.fromEntries(labSlots.map(s => [s.recipe_id, s]))
 
-      {labLevel >= 1 && (
-        <>
-          {/* Slots de crafteo — solo items del Taller (building_type null) */}
-          {(() => {
-            const tallerQueue = (queue ?? []).filter(q => !q.building_type)
-            return (
-              <>
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
-                    Slots de crafteo: {tallerQueue.length}/{CRAFTING_SLOTS_BASE}
-                  </span>
-                  {tallerQueue.length >= CRAFTING_SLOTS_BASE && (
-                    <span className="text-[10px] font-semibold text-[#d97706]">Cola llena</span>
-                  )}
-                </div>
-                <CraftingQueue queue={tallerQueue} collectPending={collectItemPending} onCollect={onCollectItem} catalog={catalog} />
-              </>
-            )
-          })()}
-
-          {/* Tabs */}
-          <div className="border-b border-border">
-            <ScrollHint>
-              {CRAFT_TABS.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className="px-3 py-2 text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 border-x-0 border-t-0 transition-[color,border-color] duration-150 bg-transparent font-[inherit]"
-                  style={{
-                    borderBottomColor: tab === t.id ? '#7c3aed' : 'transparent',
-                    color: tab === t.id ? '#7c3aed' : 'var(--text-3)',
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </ScrollHint>
-          </div>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-            >
-              {tab === 'items' && (
-                <CraftingCatalog
-                  catalog={(catalog ?? []).filter(c => c.category !== 'refining')}
-                  inventory={inventory}
-                  labLevel={labLevel}
-                  resources={effectiveResources}
-                  craftPending={craftItemPending}
-                  queueLength={(queue ?? []).filter(q => !q.building_type).length}
-                  onCraft={onCraftItem}
-                />
-              )}
-
-              {tab === 'potions' && (
-                <div className="flex flex-col gap-4">
-                  <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
-                    <LabInventory
-                      potions={potions}
-                      resources={effectiveResources}
-                      onUpgrade={onLabInventoryUpgrade}
-                      upgradePending={labInventoryUpgradePending}
-                      potionCraftingMap={potionCraftingMap}
-                      onPotionCollect={onCollectPotion}
-                      potionCollectPending={collectPotionPending}
-                      inventoryUsed={labInventoryUsed}
-                      capacity={labCapacity}
-                    />
-                  </div>
-                  <div className="bg-surface border border-border rounded-xl p-5 shadow-[var(--shadow-sm)]">
-                    <LaboratorySection
-                      labLevel={labLevel}
-                      potions={potions}
-                      craftingMap={potionCraftingMap}
-                      craftPending={craftPotionPending}
-                      resources={effectiveResources}
-                      craftedItems={inventory}
-                      onCraft={onCraftPotion}
-                      isUpgrading={!!lab.upgrade_ends_at}
-                      inventoryFull={labInventoryFull}
-                    />
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </>
-      )}
-    </motion.div>
-  )
-}
-
-/* ── Cola de crafteo ──────────────────────────────────────────────────────────── */
-
-function CraftingQueue({ queue, collectPending, onCollect, catalog }) {
-  if (!queue?.length) return null
-
-  const catalogMap = Object.fromEntries((catalog ?? []).map(c => [c.id, c]))
-
-  return (
-    <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-      <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">En proceso</span>
-      <div className="flex flex-col gap-1.5">
-        {queue.map(craft => {
-          const recipe = catalogMap[craft.recipe_id]
-          const ready = new Date(craft.craft_ends_at) <= new Date()
-          return (
-            <div key={craft.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-surface border border-border">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[13px]">{recipe?.icon ?? '🔧'}</span>
-                <span className="text-[12px] font-semibold text-text-2 truncate">
-                  {recipe?.name ?? craft.recipe_id}
-                </span>
-              </div>
-              {ready ? (
-                <motion.button
-                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md border-0 text-white bg-emerald-600 disabled:opacity-50"
-                  onClick={() => onCollect(craft.id)}
-                  disabled={collectPending}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Check size={10} strokeWidth={3} />
-                  Recoger
-                </motion.button>
-              ) : (
-                <span className="flex items-center gap-1 text-[11px] text-text-3 font-medium flex-shrink-0">
-                  <Clock size={10} strokeWidth={2} />
-                  <CraftCountdown endsAt={craft.craft_ends_at} />
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/* ── Catálogo de crafteo ──────────────────────────────────────────────────────── */
-
-function CraftingCatalog({ catalog, inventory, labLevel, resources, craftPending, queueLength, onCraft, categoryFilter }) {
-  const maxSlots = 2 // CRAFTING_SLOTS_BASE
-  const slotsAvailable = queueLength < maxSlots
-
-  // Agrupar por categoría
+  // Agrupar por categoría y ordenar menor→mayor
   const byCategory = {}
-  for (const recipe of catalog) {
-    if (!byCategory[recipe.category]) byCategory[recipe.category] = []
-    byCategory[recipe.category].push(recipe)
+  for (const r of recipes) {
+    const cat = r.category || 'other'
+    ;(byCategory[cat] ??= []).push(r)
+  }
+  for (const cat of Object.keys(byCategory)) {
+    byCategory[cat].sort((a, b) =>
+      (RECIPE_ORDER.indexOf(a.id) === -1 ? 99 : RECIPE_ORDER.indexOf(a.id)) -
+      (RECIPE_ORDER.indexOf(b.id) === -1 ? 99 : RECIPE_ORDER.indexOf(b.id))
+    )
   }
 
-  const categoryOrder = categoryFilter === 'refining'
-    ? ['refining']
-    : ['repair', 'upgrade', 'tactic', 'training']
+  const { level } = lab
+  const hasUpgrade = !!lab.upgrade_ends_at
+
+  // Build/upgrade state
+  if (level === 0 || hasUpgrade) {
+    return (
+      <motion.div className="flex flex-col gap-3" variants={cardVariants} initial="initial" animate="animate">
+        <BuildCard
+          building={lab}
+          anyUpgrading={anyUpgrading}
+          onUpgradeStart={onUpgradeStart}
+          onUpgradeCollect={onUpgradeCollect}
+          onOptimisticDeduct={onOptimisticDeduct}
+          onUpgradePending={onUpgradePending}
+        />
+      </motion.div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Inventario de items crafteados */}
-      <CraftedInventory inventory={inventory} catalog={catalog} />
+    <motion.div className="flex flex-col gap-3" variants={cardVariants} initial="initial" animate="animate">
+      {CATEGORY_ORDER.map(cat => {
+        const catRecipes = byCategory[cat]
+        if (!catRecipes?.length) return null
+        const catMeta = CATEGORY_META[cat]
 
-      {categoryOrder.map(cat => {
-        const recipes = byCategory[cat]
-        if (!recipes?.length) return null
         return (
-          <div key={cat} className="flex flex-col gap-2">
-            {categoryFilter !== 'refining' && (
-              <h4 className="text-[12px] font-bold uppercase tracking-[0.06em] text-text-3 px-1">
-                {CATEGORY_LABELS[cat] ?? cat}
-              </h4>
-            )}
-            <div className="flex flex-col gap-2">
-              {recipes.map(recipe => (
+          <div
+            key={cat}
+            className="rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)]"
+          >
+            {/* Category header */}
+            <div
+              className="px-4 py-2.5 flex items-center gap-2"
+              style={{ background: `color-mix(in srgb, ${catMeta.color} 6%, var(--surface))` }}
+            >
+              <span
+                className="text-[12px] font-bold uppercase tracking-[0.08em]"
+                style={{ color: catMeta.color }}
+              >
+                {catMeta.label}
+              </span>
+            </div>
+
+            {/* Recipes — 2 cols on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              {catRecipes.map((recipe, idx) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
-                  qty={inventory[recipe.id] ?? 0}
-                  labLevel={labLevel}
-                  resources={resources}
+                  slot={slotMap[recipe.id]}
                   inventory={inventory}
-                  craftPending={craftPending}
-                  slotsAvailable={slotsAvailable}
-                  onCraft={onCraft}
+                  resources={effectiveResources}
+                  onRefine={onRefine}
+                  onCollectSlot={onCollectSlot}
+                  color={catMeta.color}
+                  hasBorderTop={idx > 0 && idx < 2}
+                  hasBorderLeft={idx % 2 === 1}
                 />
               ))}
             </div>
           </div>
         )
       })}
-    </div>
+    </motion.div>
   )
 }
 
-function CraftedInventory({ inventory, catalog }) {
-  const catalogMap = Object.fromEntries((catalog ?? []).map(c => [c.id, c]))
-  const items = Object.entries(inventory).filter(([, qty]) => qty > 0)
-  if (items.length === 0) return null
+/* ── BuildCard (level 0 / upgrading) ──────────────────────────────────────── */
+
+function BuildCard({
+  building,
+  anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
+}) {
+  const [showModal, setShowModal] = useState(false)
+  const [optimisticEndsAt, setOptimisticEndsAt] = useState(null)
+
+  useEffect(() => {
+    if (building.upgrade_ends_at) {
+      setOptimisticEndsAt(null)
+      setShowModal(false)
+    }
+  }, [building.upgrade_ends_at])
+
+  const effectiveBuilding = optimisticEndsAt
+    ? { ...building, upgrade_started_at: new Date().toISOString(), upgrade_ends_at: optimisticEndsAt }
+    : building
+
+  const { secondsLeft, loading, mountedRef } = useUpgradeTimer(effectiveBuilding, () => {
+    setOptimisticEndsAt(null)
+    onUpgradeCollect()
+  })
+
+  const meta = BUILDING_META['laboratory']
+  const Icon = meta.icon
+  const hasUpgrade = !!effectiveBuilding.upgrade_ends_at
+  const { level } = effectiveBuilding
+
+  const cost = buildingUpgradeCost(building.type, level)
+  const totalSeconds = buildingUpgradeDurationMs(level, building.type) / 1000
+  const elapsed = hasUpgrade ? totalSeconds - (secondsLeft ?? totalSeconds) : 0
+  const upgradePct = hasUpgrade ? Math.min(100, Math.round((elapsed / totalSeconds) * 100)) : 0
+
+  async function handleUpgradeStart() {
+    setOptimisticEndsAt(new Date(Date.now() + buildingUpgradeDurationMs(building.level, building.type)).toISOString())
+    onOptimisticDeduct(cost)
+    onUpgradePending(true)
+    try {
+      await apiPost('/api/building-upgrade-start', { buildingId: building.id })
+      onUpgradeStart()
+    } catch (err) {
+      setOptimisticEndsAt(null)
+      onOptimisticDeduct({ wood: -(cost.wood ?? 0), iron: -(cost.iron ?? 0), mana: -(cost.mana ?? 0) })
+      onUpgradePending(false)
+      notify.error(err.message)
+    }
+  }
 
   return (
-    <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-      <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Inventario</span>
-      <div className="flex gap-2 flex-wrap">
-        {items.map(([id, qty]) => {
-          const recipe = catalogMap[id]
+    <>
+      <div
+        className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)]"
+        style={{ '--accent': meta.color }}
+      >
+        <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              background: `color-mix(in srgb, ${meta.color} 14%, var(--surface-2))`,
+              border: `1px solid color-mix(in srgb, ${meta.color} 25%, var(--border))`,
+            }}
+          >
+            <Icon size={20} strokeWidth={1.8} color={meta.color} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-bold text-text leading-none truncate">{meta.name}</h3>
+          </div>
+        </div>
+
+        {level === 0 && !hasUpgrade && (
+          <div className="px-4 pb-3.5 pt-2 border-t border-border">
+            <p className="text-[13px] text-text-3 mb-3">{meta.description}</p>
+            <motion.button
+              className="w-full py-2.5 rounded-lg font-bold text-[14px] border-0 text-white"
+              style={{ background: `linear-gradient(135deg, ${meta.color}, color-mix(in srgb, ${meta.color} 75%, #000))` }}
+              onClick={() => setShowModal(true)}
+              whileTap={{ scale: 0.97 }}
+            >
+              Construir
+            </motion.button>
+          </div>
+        )}
+
+        {hasUpgrade && (
+          <div className="px-4 pb-3 pt-2 border-t border-border flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold" style={{ color: meta.color }}>Construyendo...</span>
+              <span className="flex items-center gap-1 text-[13px] font-semibold text-text-3">
+                <Clock size={12} strokeWidth={2} />
+                {loading ? 'Aplicando...' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
+              </span>
+            </div>
+            <div className="h-2 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ background: meta.color, width: `${upgradePct}%`, transition: mountedRef.current ? 'width 1s linear' : 'none' }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showModal && (
+          <BuildingInfoModal
+            building={building}
+            resources={{}}
+            anyUpgrading={anyUpgrading}
+            onUpgradeStart={handleUpgradeStart}
+            onClose={() => setShowModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+/* ── useUpgradeTimer ──────────────────────────────────────────────────────── */
+
+function useUpgradeTimer(building, onUpgradeCollect) {
+  const [secondsLeft, setSecondsLeft] = useState(null)
+  const [loading, setLoading]         = useState(false)
+  const mountedRef     = useRef(false)
+  const collectingRef  = useRef(false)
+
+  useEffect(() => {
+    const hasUpgrade = !!building.upgrade_ends_at
+    if (!hasUpgrade) {
+      setSecondsLeft(null)
+      setLoading(false)
+      mountedRef.current    = false
+      collectingRef.current = false
+      return
+    }
+    const endTime = new Date(building.upgrade_ends_at)
+
+    async function autoCollect() {
+      if (collectingRef.current) return
+      collectingRef.current = true
+      setLoading(true)
+      try {
+        await apiPost('/api/building-upgrade-collect', { buildingId: building.id })
+        onUpgradeCollect()
+        setLoading(false)
+      } catch (err) {
+        notify.error(err.message)
+        setLoading(false)
+        collectingRef.current = false
+      }
+    }
+
+    function tick() {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000))
+      setSecondsLeft(remaining)
+      if (remaining === 0) autoCollect()
+    }
+    tick()
+    requestAnimationFrame(() => { mountedRef.current = true })
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [building.upgrade_ends_at, building.id])
+
+  return { secondsLeft, loading, mountedRef }
+}
+
+/* ── RecipeCard ───────────────────────────────────────────────────────────── */
+
+function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlot, color, hasBorderLeft }) {
+  const [qty, setQty] = useState(1)
+  const inputs = recipe.inputs ?? []
+  const stock = inventory?.[recipe.id] ?? 0
+
+  const maxAffordable = inputs.length > 0
+    ? Math.min(...inputs.map(inp => {
+        const available = inp.resource ? (resources?.[inp.resource] ?? 0) : (inventory?.[inp.item] ?? 0)
+        return Math.floor(available / inp.qty)
+      }))
+    : 99
+  const canAfford = maxAffordable >= qty
+
+  const progress = slot ? slotProgress(slot) : null
+  const canCollect = progress && progress.completed > 0
+
+  function handleRefine() {
+    if (!canAfford || qty < 1) return
+    onRefine({ recipeId: recipe.id, quantity: qty })
+    setQty(1)
+  }
+
+  return (
+    <div
+      className={`px-4 py-3 flex flex-col gap-2 border-t border-border ${hasBorderLeft ? 'sm:border-l' : ''}`}
+    >
+      {/* Row 1: icon + name + stock */}
+      <div className="flex items-center gap-2">
+        <span className="text-[18px] flex-shrink-0">{recipe.icon}</span>
+        <span className="text-[14px] font-bold text-text truncate flex-1">{recipe.name}</span>
+        <span
+          className="flex items-center gap-1 text-[12px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+          style={{
+            color: stock > 0 ? color : 'var(--text-3)',
+            background: stock > 0
+              ? `color-mix(in srgb, ${color} 10%, var(--surface-2))`
+              : 'var(--surface-2)',
+            border: stock > 0
+              ? `1px solid color-mix(in srgb, ${color} 25%, var(--border))`
+              : '1px solid var(--border)',
+          }}
+        >
+          <Warehouse size={10} strokeWidth={2} />
+          {stock}
+        </span>
+      </div>
+
+      {/* Row 2: inputs + time */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {inputs.map(inp => {
+          const key = inp.resource ?? inp.item
+          const needed = inp.qty * qty
+          const available = inp.resource ? (resources?.[key] ?? 0) : (inventory?.[key] ?? 0)
+          const has = available >= needed
           return (
-            <span key={id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface border border-border text-[12px] font-semibold text-text-2">
-              <span>{recipe?.icon ?? '🔧'}</span>
-              {recipe?.name ?? id}
-              <span className="text-text-3 ml-0.5">×{qty}</span>
+            <span
+              key={key}
+              className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
+              style={{
+                color: has ? 'var(--text-2)' : '#dc2626',
+                background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
+              }}
+            >
+              {needed} {INPUT_LABELS[key] ?? key}
             </span>
           )
         })}
+        <span className="flex items-center gap-0.5 text-[11px] text-text-3">
+          <Clock size={9} strokeWidth={2} />
+          {recipe.craft_minutes}m
+        </span>
       </div>
-    </div>
-  )
-}
 
-function RecipeCard({ recipe, qty, labLevel, resources, inventory, craftPending, slotsAvailable, onCraft }) {
-  const locked = labLevel < recipe.min_lab_level
-  const inputs = recipe.inputs ?? []
+      {/* Row 3: qty selector + craft button */}
+      <div className="flex items-center gap-1.5">
+        <button
+          className="w-7 h-7 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
+          onClick={() => setQty(q => Math.max(1, q - 1))}
+          disabled={qty <= 1}
+        >
+          <Minus size={11} strokeWidth={2.5} />
+        </button>
+        <span className="w-6 text-center text-[13px] font-bold text-text tabular-nums">{qty}</span>
+        <button
+          className="w-7 h-7 flex items-center justify-center rounded bg-surface-2 border border-border text-text-3 disabled:opacity-30"
+          onClick={() => setQty(q => Math.min(99, q + 1))}
+          disabled={qty >= 99 || qty >= maxAffordable}
+        >
+          <Plus size={11} strokeWidth={2.5} />
+        </button>
+        <motion.button
+          className="flex-1 py-1.5 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30"
+          style={{ background: color }}
+          onClick={handleRefine}
+          disabled={!canAfford}
+          whileTap={canAfford ? { scale: 0.95 } : {}}
+        >
+          Craftear
+        </motion.button>
+      </div>
 
-  const canAfford = inputs.every(inp => {
-    if (inp.resource) return (resources?.[inp.resource] ?? 0) >= inp.qty
-    if (inp.item)     return (inventory?.[inp.item] ?? 0) >= inp.qty
-    return false
-  })
-
-  const canCraft = !locked && canAfford && slotsAvailable && !craftPending
-
-  return (
-    <div className={`flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border bg-surface ${locked ? 'opacity-50 border-border' : 'border-border'}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[15px]">{recipe.icon}</span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[13px] font-bold text-text truncate">{recipe.name}</span>
-              {qty > 0 && <span className="text-[11px] text-text-3 font-medium">×{qty}</span>}
-            </div>
-            {recipe.description && (
-              <p className="text-[11px] text-text-3 leading-tight">{recipe.description}</p>
-            )}
-          </div>
+      {/* Row 4: progress bar — always visible */}
+      <div className="flex flex-col gap-1">
+        <div className="h-1.5 rounded-full overflow-hidden"
+          style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-1000 linear"
+            style={{ background: color, width: `${progress ? progress.currentPct : 0}%` }}
+          />
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        {/* Ingredientes */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {inputs.map(inp => {
-            const key = inp.resource ?? inp.item
-            const needed = inp.qty
-            const available = inp.resource
-              ? (resources?.[inp.resource] ?? 0)
-              : (inventory?.[inp.item] ?? 0)
-            const has = available >= needed
-            return (
-              <span
-                key={key}
-                className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
-                style={{
-                  color: has ? 'var(--text-2)' : '#dc2626',
-                  background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
-                }}
-              >
-                {needed} {INPUT_LABELS[key] ?? key}
+        <div className="flex items-center justify-between text-[11px] min-h-[16px]">
+          <span className="text-text-3">
+            {progress && progress.remaining > 0 ? (
+              <span className="flex items-center gap-0.5">
+                <Clock size={9} strokeWidth={2} />
+                {fmtShort(progress.nextSecondsLeft)}
+                {slot.quantity > 1 && <span className="text-text-3 opacity-60"> · {progress.remaining} restantes</span>}
               </span>
-            )
-          })}
-          <span className="flex items-center gap-0.5 text-[10px] text-text-3">
-            <Clock size={9} strokeWidth={2} />
-            {recipe.craft_minutes}m
+            ) : progress && progress.remaining === 0 ? (
+              <span className="font-semibold" style={{ color }}>Todo listo</span>
+            ) : (
+              <span className="text-text-3 opacity-40">Sin producción</span>
+            )}
           </span>
         </div>
-
-        {locked ? (
-          <span className="flex items-center gap-1 text-[11px] text-text-3 font-medium flex-shrink-0">
-            <Lock size={10} strokeWidth={2} />
-            Taller Nv.{recipe.min_lab_level}
-          </span>
-        ) : (
-          <motion.button
-            className="px-3 py-1 text-[11px] font-bold rounded-md border-0 text-white bg-violet-600 transition-opacity disabled:opacity-40 flex-shrink-0"
-            onClick={() => onCraft(recipe.id)}
-            disabled={!canCraft}
-            whileTap={canCraft ? { scale: 0.95 } : {}}
-          >
-            {recipe.category === 'refining' ? 'Refinar' : 'Craftear'}
-          </motion.button>
-        )}
       </div>
+
+      {/* Collect button — full width, same style as ProductionCard / RefinadoZone */}
+      {canCollect && (
+        <motion.button
+          className="w-full py-2 rounded-lg font-bold text-[13px] border-0 text-white flex items-center justify-center gap-1.5"
+          style={{ background: '#059669' }}
+          onClick={() => onCollectSlot(slot.id)}
+          whileTap={{ scale: 0.97 }}
+        >
+          <Check size={13} strokeWidth={2.5} />
+          Recoger {progress.completed}
+        </motion.button>
+      )}
     </div>
   )
-}
-
-/* ── Countdown helper ────────────────────────────────────────────────────────── */
-
-function CraftCountdown({ endsAt }) {
-  const [, tick] = useReducer(x => x + 1, 0)
-  useEffect(() => {
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [])
-  const ms = new Date(endsAt).getTime() - Date.now()
-  if (ms <= 0) return '¡Listo!'
-  const secs = Math.ceil(ms / 1000)
-  const m = Math.floor(secs / 60)
-  const s = secs % 60
-  return `${m}:${String(s).padStart(2, '0')}`
 }

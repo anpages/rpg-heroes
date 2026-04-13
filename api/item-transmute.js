@@ -5,12 +5,9 @@ import { DISMANTLE_TRANSMUTE_TABLE } from './_constants.js'
 /**
  * POST /api/item-transmute { itemId }
  *
- * Alternativa opcional al desmantelado por oro: el jugador paga al laboratorio
+ * Alternativa al desmantelado: el jugador paga oro al laboratorio
  * para extraer componentes de crafteo (fragmentos/esencia/maná) de un ítem.
  * El ítem se destruye igual que en el desmantelado clásico.
- *
- * El coste y la salida escalan con la rareza; no se multiplican por tier para
- * mantener la economía de drops intacta.
  */
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -41,21 +38,21 @@ export default async function handler(req, res) {
   const rarity = item.item_catalog.rarity
   const entry = DISMANTLE_TRANSMUTE_TABLE[rarity] ?? DISMANTLE_TRANSMUTE_TABLE.common
 
-  // Deducir oro (atómico via RPC)
+  // Deducir oro primero (atómico, con guard de saldo)
   const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: entry.cost })
   if (rpcErr) return res.status(500).json({ error: rpcErr.message })
   if (!ok) return res.status(402).json({ error: 'Oro insuficiente para transmutar' })
 
-  // Borrar item y añadir recursos ganados en paralelo
-  const [deleteResult, addResult] = await Promise.all([
-    supabase.from('inventory_items').delete().eq('id', itemId),
-    supabase.rpc('add_resources', {
-      p_player_id: user.id, p_mana: entry.mana, p_fragments: entry.fragments, p_essence: entry.essence,
-    }),
-  ])
+  // Atómico: borrar item + añadir recursos en una transacción
+  const { error: txErr } = await supabase.rpc('transmute_item_atomic', {
+    p_item_id: itemId,
+    p_player_id: user.id,
+    p_mana: entry.mana,
+    p_fragments: entry.fragments,
+    p_essence: entry.essence,
+  })
 
-  if (deleteResult.error) return res.status(500).json({ error: deleteResult.error.message })
-  if (addResult.error) return res.status(500).json({ error: addResult.error.message })
+  if (txErr) return res.status(500).json({ error: txErr.message })
 
   return res.status(200).json({
     ok: true,

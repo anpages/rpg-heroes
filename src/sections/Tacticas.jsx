@@ -7,11 +7,10 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHeroTactics } from '../hooks/useHeroTactics'
 import { useResources } from '../hooks/useResources'
-import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { TACTIC_SLOT_COUNT, TACTIC_SWAP_COST, TACTIC_MAX_LEVEL } from '../lib/gameConstants'
-import { X, Coins, Lock, Sparkles, ArrowUp } from 'lucide-react'
+import { TACTIC_SLOT_COUNT, TACTIC_SWAP_COST } from '../lib/gameConstants'
+import { X, Coins, Lock, Sparkles } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
@@ -39,6 +38,10 @@ const FILTER_TABS = [
   { key: 'utility',   label: 'Utilidad' },
 ]
 
+const STAT_LABELS = {
+  attack: 'ATQ', defense: 'DEF', max_hp: 'HP',
+  strength: 'FUE', agility: 'AGI', intelligence: 'INT',
+}
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -57,11 +60,6 @@ function firstFreeSlot(slots) {
   return slots.findIndex(s => s === null)
 }
 
-const STAT_LABELS = {
-  attack: 'ATQ', defense: 'DEF', max_hp: 'HP',
-  strength: 'FUE', agility: 'AGI', intelligence: 'INT',
-}
-
 function formatBonuses(catalog) {
   const bonuses = catalog.stat_bonuses
   if (!Array.isArray(bonuses) || bonuses.length === 0) return ''
@@ -71,91 +69,104 @@ function formatBonuses(catalog) {
     .join(', ')
 }
 
+function describeCombatEffect(fx) {
+  if (!fx || !fx.effect) return null
+  const parts = []
+  // trigger
+  if (fx.trigger === 'start_of_combat') parts.push('Al inicio del combate')
+  else if (fx.trigger === 'passive') parts.push('Pasiva')
+  else if (fx.trigger === 'hp_below_pct') parts.push(`Con HP < ${Math.round((fx.threshold ?? 0) * 100)}%`)
+  else if (fx.trigger === 'round_n') parts.push(`En ronda ${fx.n}`)
+  else if (fx.trigger === 'on_crit') parts.push('Al golpe crítico')
+  else if (fx.trigger === 'on_dodge') parts.push('Al esquivar')
+  // effect
+  const e = fx.effect
+  if (e === 'guaranteed_crit') parts.push('crítico garantizado')
+  else if (e === 'damage_mult') parts.push(`daño ×${fx.value}`)
+  else if (e === 'bonus_magic_damage') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% daño mágico`)
+  else if (e === 'heal_pct') parts.push(`cura ${Math.round((fx.value ?? 0) * 100)}% HP`)
+  else if (e === 'armor_pen_boost') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% penetración`)
+  else if (e === 'double_attack') parts.push('ataque doble')
+  else if (e === 'absorb_shield') parts.push(`escudo ${Math.round((fx.value ?? 0) * 100)}% HP`)
+  else if (e === 'reduce_crit_damage') parts.push(`-${Math.round((fx.value ?? 0) * 100)}% daño crítico recibido`)
+  else if (e === 'damage_reduction') parts.push(`-${Math.round((fx.value ?? 0) * 100)}% daño recibido`)
+  else if (e === 'guaranteed_dodge') parts.push('esquiva garantizada')
+  else if (e === 'damage_mult_next') parts.push(`siguiente golpe ×${fx.value}`)
+  else if (e === 'counter_attack') parts.push(`${Math.round((fx.chance ?? 0) * 100)}% contraataque`)
+  else if (e === 'dodge_boost') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% esquiva`)
+  else if (e === 'enemy_debuff') parts.push(`-${Math.round((fx.value ?? 0) * 100)}% ${STAT_LABELS[fx.stat] ?? fx.stat} enemigo`)
+  else if (e === 'all_stats_pct') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% todas las stats`)
+  else if (e === 'stat_buff') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% ${STAT_LABELS[fx.stat] ?? fx.stat}`)
+  else if (e === 'mirror_stance') parts.push('copia postura enemiga')
+  else if (e === 'stealth') parts.push('sigilo')
+  else if (e === 'guaranteed_crit_next') parts.push('siguiente golpe: crítico garantizado')
+  else if (e === 'first_hit_mult') parts.push(`primer golpe ×${fx.value}`)
+  else if (e === 'pure_magic_burst') parts.push(`explosión mágica ${Math.round((fx.value ?? 0) * 100)}%`)
+  else parts.push(e)
+  if (fx.duration && fx.duration < 99) parts.push(`${fx.duration} turnos`)
+  return parts.join(' · ')
+}
 
 /* ─── Sub-componentes ────────────────────────────────────────────────────────── */
 
-function SlotPlaceholder({ index }) {
-  return (
-    <div className="flex flex-col items-center justify-center w-full aspect-square rounded-xl border-2 border-dashed border-border bg-surface/40 select-none">
-      <Lock size={14} strokeWidth={1.5} className="text-text-3 opacity-40 mb-1" />
-      <span className="text-[10px] text-text-3 font-medium opacity-60">Slot {index + 1}</span>
-    </div>
-  )
-}
-
-function EquippedSlotCard({ tactic, index, onUnequip }) {
+/** Chip compacto para slot equipado — tap = desequipa al instante */
+function SlotChip({ tactic, index: _index, onTap }) {
   const cat = tactic.tactic_catalog
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-  const catColor = CATEGORY_COLORS[cat.category] ?? '#6b7280'
+  const bonuses = formatBonuses(cat)
 
   return (
     <motion.button
-      className="relative flex flex-col items-center justify-center w-full aspect-square rounded-xl border-2 bg-surface overflow-hidden cursor-pointer hover:brightness-110 transition-[filter]"
+      className="flex flex-col gap-0.5 p-2 rounded-lg border bg-surface overflow-hidden cursor-pointer min-w-0 text-left"
       style={{ borderColor: rarColor }}
-      onClick={() => onUnequip(tactic)}
+      onClick={() => onTap(tactic)}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.15 }}
-      title={`${cat.name} — Clic para desequipar`}
     >
-      {/* Slot badge */}
-      <span
-        className="absolute top-1 left-1 text-[9px] font-bold px-1.5 py-[1px] rounded"
-        style={{
-          color: rarColor,
-          background: `color-mix(in srgb,${rarColor} 12%,transparent)`,
-          border: `1px solid color-mix(in srgb,${rarColor} 30%,transparent)`,
-        }}
-      >
-        {index + 1}
-      </span>
-
-      {/* Icon */}
-      <span className="text-2xl leading-none mb-1">{cat.icon}</span>
-
-      {/* Name */}
-      <span className="text-[10px] font-semibold text-text text-center leading-tight px-1 line-clamp-2">{cat.name}</span>
-
-      {/* Level */}
-      <span className="text-[9px] font-bold mt-0.5" style={{ color: rarColor }}>Nv. {tactic.level ?? 1}</span>
-
-      {/* Category dot */}
-      <span
-        className="absolute top-1 right-1 w-2 h-2 rounded-full"
-        style={{ background: catColor }}
-        title={CATEGORY_LABELS[cat.category]}
-      />
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-base leading-none flex-shrink-0">{cat.icon}</span>
+        <span className="text-[12px] font-semibold text-text truncate leading-tight flex-1">{cat.name}</span>
+      </div>
+      {bonuses && (
+        <span className="text-[10px] text-text-2 truncate leading-tight">{bonuses}</span>
+      )}
     </motion.button>
   )
 }
 
-function TacticCard({ tactic, isEquipped, slotIndex, onSelect, onLevelUp, scrollQty }) {
+function SlotEmpty({ index }) {
+  return (
+    <div className="flex items-center gap-1.5 p-2 rounded-lg border-2 border-dashed border-border bg-surface/40 select-none min-w-0">
+      <Lock size={11} strokeWidth={1.5} className="text-text-3 opacity-40 flex-shrink-0" />
+      <span className="text-[11px] text-text-3 opacity-50 truncate">Slot {index + 1}</span>
+    </div>
+  )
+}
+
+/** Card de colección — tap = equipa al instante */
+function TacticCard({ tactic, onTap }) {
   const cat = tactic.tactic_catalog
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
   const catColor = CATEGORY_COLORS[cat.category] ?? '#6b7280'
   const bonuses = formatBonuses(cat)
-  const level = tactic.level ?? 1
-  const canLevelUp = level < TACTIC_MAX_LEVEL && scrollQty > 0
+  const effectDesc = describeCombatEffect(cat.combat_effect)
 
   return (
-    <motion.div
-      className="relative flex flex-col rounded-xl border bg-surface overflow-hidden"
+    <motion.button
+      className="relative flex flex-col rounded-xl border bg-surface overflow-hidden text-left w-full"
       style={{ borderColor: `color-mix(in srgb,${rarColor} 50%,var(--border))` }}
+      onClick={() => onTap(tactic)}
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.15 }}
     >
-      {/* Rarity accent bar */}
       <div className="h-[3px] w-full" style={{ background: rarColor }} />
 
-      <button
-        className="flex gap-2.5 p-3 text-left cursor-pointer hover:brightness-105 transition-[filter] w-full"
-        onClick={() => onSelect(tactic)}
-      >
-        {/* Icon */}
+      <div className="flex gap-2.5 p-3">
         <div
           className="w-10 h-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0"
           style={{ background: `color-mix(in srgb,${rarColor} 10%,transparent)` }}
@@ -163,23 +174,8 @@ function TacticCard({ tactic, isEquipped, slotIndex, onSelect, onLevelUp, scroll
           {cat.icon}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-semibold text-text truncate">{cat.name}</span>
-            {isEquipped && (
-              <span
-                className="text-[9px] font-bold px-1.5 py-[1px] rounded flex-shrink-0"
-                style={{
-                  color: rarColor,
-                  background: `color-mix(in srgb,${rarColor} 12%,transparent)`,
-                  border: `1px solid color-mix(in srgb,${rarColor} 30%,transparent)`,
-                }}
-              >
-                Slot {slotIndex + 1}
-              </span>
-            )}
-          </div>
+          <span className="text-[13px] font-semibold text-text truncate">{cat.name}</span>
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-bold" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity]}</span>
@@ -193,45 +189,28 @@ function TacticCard({ tactic, isEquipped, slotIndex, onSelect, onLevelUp, scroll
             )}
           </div>
 
-          <span className="text-[11px] font-bold text-text-2 mt-0.5" style={{ color: rarColor }}>
-            Nv. {level}{level >= TACTIC_MAX_LEVEL ? ' (máx)' : ''}
-          </span>
-
           {bonuses && (
-            <span className="text-[11px] text-text-2 mt-0.5">{bonuses} <span className="text-text-3">/ nv.</span></span>
+            <span className="text-[11px] text-text-2 mt-0.5">{bonuses}</span>
           )}
 
-          {cat.description && (
-            <p className="text-[11px] text-text-3 mt-1 leading-snug line-clamp-2">{cat.description}</p>
+          {effectDesc && (
+            <span className="text-[10px] text-text-3 mt-0.5 leading-snug">{effectDesc}</span>
           )}
         </div>
-      </button>
-
-      {/* Level up button */}
-      {level < TACTIC_MAX_LEVEL && (
-        <div className="px-3 pb-2.5 pt-0">
-          <button
-            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold rounded-lg border-0 text-white transition-opacity disabled:opacity-40"
-            style={{ background: canLevelUp ? '#7c3aed' : 'var(--text-3)' }}
-            disabled={!canLevelUp}
-            onClick={(e) => { e.stopPropagation(); onLevelUp(tactic) }}
-          >
-            <ArrowUp size={11} strokeWidth={2.5} />
-            Subir nivel
-          </button>
-        </div>
-      )}
-    </motion.div>
+      </div>
+    </motion.button>
   )
 }
 
-function SlotPickerModal({ tactic, slots, onPick, onCancel, isPending }) {
+/* ─── Slot picker: solo cuando todos los slots están llenos ─────────────────── */
+
+function SlotPickerModal({ tactic, slots, onPick, onCancel }) {
   const cat = tactic.tactic_catalog
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-5"
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center"
       onClick={onCancel}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -239,57 +218,51 @@ function SlotPickerModal({ tactic, slots, onPick, onCancel, isPending }) {
       transition={{ duration: 0.18 }}
     >
       <motion.div
-        className="bg-surface border border-border rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden"
-        style={{ width: 'min(360px, 92vw)' }}
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 6 }}
+        className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden w-full sm:w-auto"
+        style={{ maxWidth: 'min(380px, 100vw)' }}
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-border">
-          <div className="flex flex-col gap-1.5">
+        <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-border">
+          <div>
             <p className="text-[15px] font-bold text-text leading-none">Reemplazar slot</p>
-            <p className="text-[12px] text-text-3">
+            <p className="text-[12px] text-text-3 mt-1">
               Elige qué slot ocupará <span className="font-semibold" style={{ color: rarColor }}>{cat.name}</span>
             </p>
           </div>
           <button
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 transition-colors mt-0.5"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3 transition-colors"
             onClick={onCancel}
           >
             <X size={14} strokeWidth={2} />
           </button>
         </div>
 
-        {/* Swap cost notice */}
-        <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+        <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border">
           <Coins size={13} strokeWidth={2} className="text-[#d97706]" />
           <span className="text-[12px] text-text-2">
-            Reemplazar una táctica cuesta <span className="font-bold text-[#d97706]">{TACTIC_SWAP_COST} oro</span>
+            Cuesta <span className="font-bold text-[#d97706]">{TACTIC_SWAP_COST} oro</span>
           </span>
         </div>
 
-        {/* Slots */}
         <div className="px-5 py-4 flex flex-col gap-2">
           {slots.map((slot, i) => {
-            const occupied = slot !== null
-            const slotCat = occupied ? slot.tactic_catalog : null
+            const slotCat = slot?.tactic_catalog
             return (
               <button
                 key={i}
-                className="flex items-center gap-3 p-3 rounded-xl border border-border bg-surface-2/50 hover:bg-surface-2 transition-colors disabled:opacity-40"
+                className="flex items-center gap-3 p-3 rounded-xl border border-border bg-surface-2/50 hover:bg-surface-2 transition-colors"
                 onClick={() => onPick(i)}
-                disabled={isPending}
               >
-                <span className="text-[13px] font-bold text-text-3 w-6 text-center">{i + 1}</span>
-                {occupied ? (
+                <span className="text-[13px] font-bold text-text-3 w-5 text-center">{i + 1}</span>
+                {slot ? (
                   <>
                     <span className="text-lg">{slotCat.icon}</span>
                     <div className="flex-1 min-w-0 text-left">
                       <span className="text-[12px] font-semibold text-text truncate block">{slotCat.name}</span>
-                      <span className="text-[10px] text-text-3">Nv. {slot.level ?? 1}</span>
                     </div>
                     <span className="text-[10px] font-bold text-[#dc2626]">Reemplazar</span>
                   </>
@@ -300,143 +273,11 @@ function SlotPickerModal({ tactic, slots, onPick, onCancel, isPending }) {
             )
           })}
         </div>
-
-        {/* Cancel */}
-        <div className="flex gap-2 px-5 pb-5">
-          <button className="btn btn--ghost btn--sm flex-1" onClick={onCancel} disabled={isPending}>
-            Cancelar
-          </button>
-        </div>
       </motion.div>
     </motion.div>,
     document.body,
   )
 }
-
-function UnequipConfirmModal({ tactic, onConfirm, onCancel, isPending }) {
-  const cat = tactic.tactic_catalog
-  const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-
-  return createPortal(
-    <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
-      onClick={onCancel}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-    >
-      <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(340px, 92vw)' }}
-        onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.92, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 8 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] font-bold text-text">Desequipar táctica</span>
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors"
-            onClick={onCancel}
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{cat.icon}</span>
-          <div>
-            <span className="text-[13px] font-semibold block" style={{ color: rarColor }}>{cat.name}</span>
-            <span className="text-[11px] text-text-3">Nv. {tactic.level ?? 1}</span>
-          </div>
-        </div>
-        <p className="text-[13px] text-text-2">
-          La táctica se moverá a tu colección y el slot quedará libre.
-        </p>
-        <div className="flex gap-2 justify-end">
-          <button className="btn btn--ghost btn--sm" onClick={onCancel} disabled={isPending}>Cancelar</button>
-          <button className="btn btn--primary btn--sm" onClick={onConfirm} disabled={isPending}>
-            {isPending ? 'Quitando…' : 'Desequipar'}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>,
-    document.body,
-  )
-}
-
-
-function TacticLevelUpModal({ tactic, scrollQty, onConfirm, onCancel, isPending }) {
-  const cat = tactic.tactic_catalog
-  const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-  const level = tactic.level ?? 1
-  const bonuses = formatBonuses(cat)
-
-  return createPortal(
-    <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
-      onClick={onCancel}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-    >
-      <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(340px, 92vw)' }}
-        onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.92, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 8 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] font-bold text-text">Subir nivel</span>
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3 hover:text-text hover:bg-surface-2 transition-colors"
-            onClick={onCancel}
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{cat.icon}</span>
-          <div>
-            <span className="text-[13px] font-semibold block" style={{ color: rarColor }}>{cat.name}</span>
-            <span className="text-[11px] text-text-3">
-              Nv. {level} → <span className="font-bold text-[#7c3aed]">Nv. {level + 1}</span>
-            </span>
-          </div>
-        </div>
-        {bonuses && (
-          <p className="text-[12px] text-text-2">
-            Bonificación por nivel: <span className="font-semibold">{bonuses}</span>
-          </p>
-        )}
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-surface-2 border border-border">
-          <span className="text-[14px]">📜</span>
-          <span className="text-[12px] text-text-2">
-            Pergamino Táctico: <span className={`font-bold ${scrollQty > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{scrollQty}</span> disponible{scrollQty !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button className="btn btn--ghost btn--sm" onClick={onCancel} disabled={isPending}>Cancelar</button>
-          <button
-            className="btn btn--sm text-white border-0"
-            style={{ background: '#7c3aed' }}
-            onClick={onConfirm}
-            disabled={isPending || scrollQty <= 0}
-          >
-            {isPending ? 'Subiendo…' : 'Subir nivel'}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>,
-    document.body,
-  )
-}
-
 
 /* ─── Componente principal ───────────────────────────────────────────────────── */
 
@@ -445,33 +286,18 @@ export default function Tacticas() {
   const heroId = useHeroId()
   const { tactics, loading } = useHeroTactics(heroId)
   const { resources } = useResources(userId)
-  const { inventory: craftedItems } = useCraftedItems(userId)
   const queryClient = useQueryClient()
-
-  const scrollQty = craftedItems?.tactic_scroll ?? 0
 
   const [filter, setFilter] = useState('all')
   const [slotPickerTactic, setSlotPickerTactic] = useState(null)
-  const [unequipTarget, setUnequipTarget] = useState(null)
-  const [levelUpTarget, setLevelUpTarget] = useState(null)
 
-  // Build slot array
   const slots = useMemo(() => buildSlots(tactics), [tactics])
 
-  // Equipped tactic IDs for quick lookup
-  const equippedMap = useMemo(() => {
-    const map = new Map()
-    if (!tactics) return map
-    for (const t of tactics) {
-      if (t.slot_index != null) map.set(t.id, t.slot_index)
-    }
-    return map
-  }, [tactics])
-
-  // Filtered collection
+  // Collection = only unequipped tactics
   const collection = useMemo(() => {
     if (!tactics) return []
-    const sorted = [...tactics].sort((a, b) => {
+    const unequipped = tactics.filter(t => t.slot_index == null)
+    const sorted = [...unequipped].sort((a, b) => {
       const rarOrder = ['legendary', 'epic', 'rare', 'uncommon', 'common']
       const ra = rarOrder.indexOf(a.tactic_catalog.rarity)
       const rb = rarOrder.indexOf(b.tactic_catalog.rarity)
@@ -482,82 +308,51 @@ export default function Tacticas() {
     return sorted.filter(t => t.tactic_catalog.category === filter)
   }, [tactics, filter])
 
-  // ── Equip mutation ──
+  const tacticsKey = queryKeys.heroTactics(heroId)
+
+  // ── Equip mutation — sin optimistic, solo invalidar ──
   const equipMutation = useMutation({
-    mutationFn: ({ heroId, tacticId, slotIndex }) =>
-      apiPost('/api/tactic-equip', { heroId, tacticId, slotIndex }),
+    mutationFn: ({ heroId: hid, tacticId, slotIndex }) =>
+      apiPost('/api/tactic-equip', { heroId: hid, tacticId, slotIndex }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
-      notify.success('Táctica equipada')
       setSlotPickerTactic(null)
+      queryClient.invalidateQueries({ queryKey: tacticsKey })
     },
-    onError: (err) => {
-      notify.error(err.message)
-    },
+    onError: (err) => notify.error(err.message),
   })
 
-  // ── Unequip mutation ──
+  // ── Unequip mutation — sin optimistic, solo invalidar ──
   const unequipMutation = useMutation({
-    mutationFn: ({ heroId, tacticId }) =>
-      apiPost('/api/tactic-equip', { heroId, tacticId, slotIndex: null }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
-      notify.success('Táctica desequipada')
-      setUnequipTarget(null)
-    },
-    onError: (err) => {
-      notify.error(err.message)
-    },
+    mutationFn: ({ heroId: hid, tacticId }) =>
+      apiPost('/api/tactic-equip', { heroId: hid, tacticId, slotIndex: null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tacticsKey }),
+    onError: (err) => notify.error(err.message),
   })
 
-  // ── Level up mutation ──
-  const levelUpMutation = useMutation({
-    mutationFn: ({ heroId, tacticId }) =>
-      apiPost('/api/tactic-levelup', { heroId, tacticId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
-      notify.success('Táctica mejorada')
-      setLevelUpTarget(null)
-    },
-    onError: (err) => {
-      notify.error(err.message)
-    },
-  })
+  const busy = equipMutation.isPending || unequipMutation.isPending
 
-  // ── Handlers ──
-  function handleSelectTactic(tactic) {
-    // If already equipped, show unequip
-    if (equippedMap.has(tactic.id)) {
-      setUnequipTarget(tactic)
-      return
-    }
+  // ── Handlers: tap = acción directa, sin modales ──
 
+  function handleTapEquipped(tactic) {
+    if (busy) return
+    unequipMutation.mutate({ heroId, tacticId: tactic.tactic_id })
+  }
+
+  function handleTapCollection(tactic) {
+    if (busy) return
     const freeIdx = firstFreeSlot(slots)
     if (freeIdx !== -1) {
-      // Free slot available — equip directly
-      equipMutation.mutate({ heroId, tacticId: tactic.id, slotIndex: freeIdx })
+      equipMutation.mutate({ heroId, tacticId: tactic.tactic_id, slotIndex: freeIdx })
     } else {
-      // No free slot — show slot picker
       setSlotPickerTactic(tactic)
     }
   }
 
-  function handleUnequipFromSlot(tactic) {
-    setUnequipTarget(tactic)
-  }
-
   function handleSlotPick(slotIndex) {
-    if (!slotPickerTactic) return
-    equipMutation.mutate({ heroId, tacticId: slotPickerTactic.id, slotIndex })
+    if (!slotPickerTactic || busy) return
+    equipMutation.mutate({ heroId, tacticId: slotPickerTactic.tactic_id, slotIndex })
   }
 
-  function confirmUnequip() {
-    if (!unequipTarget) return
-    unequipMutation.mutate({ heroId, tacticId: unequipTarget.id })
-  }
-
-  // ── Loading / empty ──
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -567,47 +362,40 @@ export default function Tacticas() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
+    <div className="flex flex-col gap-5">
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Sparkles size={18} strokeWidth={2} className="text-[#7c3aed]" />
           <h2 className="text-[17px] font-bold text-text">Tácticas</h2>
         </div>
-        <div className="flex items-center gap-3">
-          {scrollQty > 0 && (
-            <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2">
-              📜 <span className="tabular-nums">{scrollQty}</span>
-            </span>
-          )}
-          {resources && (
-            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
-              <Coins size={14} strokeWidth={2} className="text-[#d97706]" />
-              <span className="tabular-nums">{resources.gold?.toLocaleString()}</span>
-            </div>
-          )}
-        </div>
+        {resources && (
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
+            <Coins size={14} strokeWidth={2} className="text-[#d97706]" />
+            <span className="tabular-nums">{resources.gold?.toLocaleString()}</span>
+          </div>
+        )}
       </div>
 
-      {/* ── Build slots ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2">
+      {/* ── Equipped slots — compact chips, 3+2 on mobile, tap = unequip ── */}
+      <div className="flex flex-col gap-1.5">
         <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">
-          Build activa — {slots.filter(Boolean).length}/{TACTIC_SLOT_COUNT} slots
+          Build activa — {slots.filter(Boolean).length}/{TACTIC_SLOT_COUNT}
         </p>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
           <AnimatePresence mode="popLayout">
             {slots.map((slot, i) =>
               slot ? (
-                <EquippedSlotCard key={slot.id} tactic={slot} index={i} onUnequip={handleUnequipFromSlot} />
+                <SlotChip key={slot.id} tactic={slot} index={i} onTap={handleTapEquipped} />
               ) : (
-                <SlotPlaceholder key={`empty-${i}`} index={i} />
+                <SlotEmpty key={`empty-${i}`} index={i} />
               ),
             )}
           </AnimatePresence>
         </div>
       </div>
 
-      {/* ── Filter tabs ─────────────────────────────────────────────────── */}
+      {/* ── Filter tabs ── */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
         {FILTER_TABS.map(tab => {
           const active = filter === tab.key
@@ -627,33 +415,25 @@ export default function Tacticas() {
         })}
       </div>
 
-      {/* ── Collection grid ─────────────────────────────────────────────── */}
+      {/* ── Collection: tap = equip ── */}
       {collection.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2">
           <Sparkles size={28} strokeWidth={1.5} className="text-text-3 opacity-40" />
           <p className="text-[13px] text-text-3">
-            {filter === 'all' ? 'Aún no tienes tácticas' : 'Sin tácticas en esta categoría'}
+            {filter === 'all' ? 'Todas las tácticas están equipadas' : 'Sin tácticas en esta categoría'}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <AnimatePresence mode="popLayout">
             {collection.map(t => (
-              <TacticCard
-                key={t.id}
-                tactic={t}
-                isEquipped={equippedMap.has(t.id)}
-                slotIndex={equippedMap.get(t.id) ?? -1}
-                onSelect={handleSelectTactic}
-                onLevelUp={setLevelUpTarget}
-                scrollQty={scrollQty}
-              />
+              <TacticCard key={t.id} tactic={t} onTap={handleTapCollection} />
             ))}
           </AnimatePresence>
         </div>
       )}
 
-      {/* ── Modals ──────────────────────────────────────────────────────── */}
+      {/* ── Slot picker: solo cuando todos los slots están llenos ── */}
       <AnimatePresence>
         {slotPickerTactic && (
           <SlotPickerModal
@@ -662,26 +442,6 @@ export default function Tacticas() {
             slots={slots}
             onPick={handleSlotPick}
             onCancel={() => setSlotPickerTactic(null)}
-            isPending={equipMutation.isPending}
-          />
-        )}
-        {unequipTarget && (
-          <UnequipConfirmModal
-            key="unequip-confirm"
-            tactic={unequipTarget}
-            onConfirm={confirmUnequip}
-            onCancel={() => setUnequipTarget(null)}
-            isPending={unequipMutation.isPending}
-          />
-        )}
-        {levelUpTarget && (
-          <TacticLevelUpModal
-            key="levelup-confirm"
-            tactic={levelUpTarget}
-            scrollQty={scrollQty}
-            onConfirm={() => levelUpMutation.mutate({ heroId, tacticId: levelUpTarget.id })}
-            onCancel={() => setLevelUpTarget(null)}
-            isPending={levelUpMutation.isPending}
           />
         )}
       </AnimatePresence>

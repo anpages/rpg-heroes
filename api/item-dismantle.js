@@ -28,18 +28,17 @@ export default async function handler(req, res) {
 
   if (!hero || hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
 
-  // Calcular oro obtenido
-  const baseRate  = DISMANTLE_GOLD[item.item_catalog.rarity] ?? DISMANTLE_GOLD.common
+  const baseRate   = DISMANTLE_GOLD[item.item_catalog.rarity] ?? DISMANTLE_GOLD.common
   const goldGained = baseRate * (item.item_catalog.tier ?? 1)
 
-  // Desmantelar item y añadir oro en paralelo
-  const [deleteResult, addResult] = await Promise.all([
-    supabase.from('inventory_items').delete().eq('id', itemId),
-    supabase.rpc('add_resources', { p_player_id: user.id, p_gold: goldGained }),
-  ])
+  // Atómico: borrar item + añadir oro en una transacción
+  const { error: rpcError } = await supabase.rpc('dismantle_item_atomic', {
+    p_item_id: itemId,
+    p_player_id: user.id,
+    p_gold: goldGained,
+  })
 
-  if (deleteResult.error) return res.status(500).json({ error: deleteResult.error.message })
-  if (addResult.error) return res.status(500).json({ error: addResult.error.message })
+  if (rpcError) return res.status(500).json({ error: rpcError.message })
 
   return res.status(200).json({ ok: true, gold: goldGained })
 }

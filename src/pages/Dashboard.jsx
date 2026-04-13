@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
-import { useTraining, hasReadyPoint } from '../hooks/useTraining'
+import { useTraining } from '../hooks/useTraining'
 import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
 import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
-import { usePotions } from '../hooks/usePotions'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
@@ -153,16 +153,6 @@ function getHeroExpeditionState(hero, now) {
   return 'exploring'
 }
 
-/**
- * Estado derivado del héroe — usado por el badge del sidebar.
- */
-function getHeroDerivedStatus(hero, now) {
-  const exp = getHeroExpeditionState(hero, now)
-  if (exp === 'ready') return 'ready'
-  if (exp === 'exploring') return 'exploring'
-  return hero.status
-}
-
 const NAV_ITEMS = [
   { id: 'base',      label: 'Base',      icon: Castle },
   { id: 'heroes',    label: 'Héroes',    icon: Sword  },
@@ -192,14 +182,14 @@ function Dashboard({ session }) {
   const recruitOpen       = useAppStore(s => s.recruitOpen)
   const setRecruitOpen    = useAppStore(s => s.setRecruitOpen)
   const { heroes }                   = useHeroes(session.user.id)
-  const { buildings }                = useBuildings(session.user.id)
+  const { buildings: _buildings }    = useBuildings(session.user.id)
   const heroId                       = useHeroId()
-  const { rooms: trainingRooms }     = useTrainingRooms(session.user.id)
-  const { rows: trainingProgress }   = useTraining(heroId)
-  const { research }                 = useResearch(session.user.id)
+  const { rooms: _trainingRooms }    = useTrainingRooms(session.user.id)
+  const { rows: _trainingProgress }  = useTraining(heroId)
+  const { research: _research }      = useResearch(session.user.id)
   const { classes: recruitClasses } = useClasses()
   const { missions }                = useMissions()
-  const { craftingMap: potionCraftingMap } = usePotions(session.user.id)
+  const { refiningSlots: _refiningSlots } = useCraftedItems(session.user.id)
   useRealtimeSync(session.user.id, heroId)
   const { theme, setTheme }        = useTheme()
 
@@ -222,32 +212,11 @@ function Dashboard({ session }) {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeTab])
 
-  // Estado de expediciones para el badge del sidebar — mira todos los héroes
-  const anyHeroReady     = heroes.some(h => getHeroDerivedStatus(h, now) === 'ready')
-  const anyHeroExploring = heroes.some(h => getHeroDerivedStatus(h, now) === 'exploring')
-
   // Dots del sub-nav: reflejan SOLO el héroe seleccionado (no "algún héroe")
   const selectedHero       = heroes.find(h => h.id === heroId) ?? null
   const selExpState        = selectedHero ? getHeroExpeditionState(selectedHero, now) : 'idle'
   const selExpReady        = selExpState === 'ready'
   const selExpExploring    = selExpState === 'exploring'
-
-  const buildingUpgradingReady      = buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) <= now) ?? false
-  const buildingUpgradingInProgress = !buildingUpgradingReady && (buildings?.some(b => b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now) ?? false)
-
-  const progressByStat = Object.fromEntries((trainingProgress ?? []).map(r => [r.stat, r]))
-  const trainingReady  = (trainingRooms ?? []).some(r => hasReadyPoint(progressByStat[r.stat], r.level))
-
-  const researchActive = research?.active
-  const researchReady  = researchActive && new Date(researchActive.ends_at) <= now
-  const researchInProgress = researchActive && !researchReady
-
-  const trainingRoomsInProgress = (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
-  const trainingRoomsDone       = (trainingRooms ?? []).some(r => r.built_at === null && r.building_ends_at && new Date(r.building_ends_at) <= now)
-
-  const allCrafts = Object.values(potionCraftingMap).flat()
-  const craftReady      = allCrafts.some(c => new Date(c.craft_ends_at) <= now)
-  const craftInProgress = !craftReady && allCrafts.some(c => new Date(c.craft_ends_at) > now)
 
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
@@ -257,16 +226,6 @@ function Dashboard({ session }) {
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
   async function handleLogout() { await supabase.auth.signOut() }
-
-  function badgeState(id) {
-    if (id === 'heroes') return anyHeroReady ? 'ready' : anyHeroExploring ? 'active' : null
-    if (id === 'base') {
-      const isReady  = buildingUpgradingReady || trainingReady || trainingRoomsDone || researchReady || craftReady
-      const isActive = !isReady && (buildingUpgradingInProgress || researchInProgress || trainingRoomsInProgress || craftInProgress)
-      return isReady ? 'ready' : isActive ? 'active' : null
-    }
-    return null
-  }
 
   return (
     <div className="h-dvh flex flex-col world-bg overflow-hidden">
@@ -334,7 +293,6 @@ function Dashboard({ session }) {
         <aside className="hidden md:flex w-[220px] flex-shrink-0 glass-sidebar border-r-0 flex-col p-4 pt-4 px-3 overflow-y-auto self-stretch">
           <nav className="flex flex-col gap-1">
             {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
-              const badge    = badgeState(id)
               const isActive = activeTab === id
               const iconColor = isActive ? 'var(--blue-700)' : (accent ?? undefined)
               return (
@@ -356,9 +314,6 @@ function Dashboard({ session }) {
                   )}
                   <span className="relative z-[1] w-5 h-5 flex items-center justify-center flex-shrink-0" style={iconColor ? { color: iconColor } : undefined}>
                     <Icon size={18} strokeWidth={1.8} />
-                    {badge && (
-                      <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
-                    )}
                   </span>
                   <span className="relative z-[1] leading-none">{label}</span>
                 </button>
@@ -493,7 +448,6 @@ function Dashboard({ session }) {
       {/* Bottom nav — mobile only */}
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 glass-nav z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: '4rem' }}>
         {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
-          const badge = badgeState(id)
           const isActive = activeTab === id
           const iconColor = isActive ? 'var(--blue-600)' : (accent ?? undefined)
           return (
@@ -505,9 +459,6 @@ function Dashboard({ session }) {
             >
               <span className="relative w-[22px] h-[22px] flex items-center justify-center" style={iconColor ? { color: iconColor } : undefined}>
                 <Icon size={20} strokeWidth={1.8} />
-                {badge && (
-                  <span className={`absolute -top-[3px] -right-[3px] w-2 h-2 rounded-full border-2 border-surface ${badge === 'active' ? 'bg-[#d97706] animate-nav-badge-pulse' : 'bg-[#16a34a]'}`} />
-                )}
               </span>
               <span className="leading-none">{label}</span>
             </button>

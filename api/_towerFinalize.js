@@ -15,7 +15,7 @@
 import { COMBAT_HP_COST, towerWearForFloor } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { floorRewards } from './_combat.js'
-import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
+
 import { rollItemDrop, rollTacticDrop, floorToDifficulty } from './_loot.js'
 import { progressMissions } from './_missions.js'
 import { computeRatingUpdate, towerDifficulty } from './_rating.js'
@@ -71,10 +71,11 @@ export async function finalizeTowerAttempt({
   const costPct       = won ? COMBAT_HP_COST.tower.win : COMBAT_HP_COST.tower.loss
   const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
 
-  // Limpiar boosts usados de active_effects
+  // Limpiar boosts usados de active_effects + tower_shield (se consume en este intento)
   const effects    = hero.active_effects ?? {}
   const newEffects = { ...effects }
   Object.keys(usedBoosts ?? {}).forEach(k => delete newEffects[k])
+  delete newEffects.tower_shield
 
   const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
@@ -91,8 +92,9 @@ export async function finalizeTowerAttempt({
   if (hpCount === 0) return { error: 'El héroe cambió de estado durante el combate', status: 409 }
 
   // Reducir durabilidad del equipo — escala con el piso (helper centralizado).
-  // La función SQL escalada aplica rareza × slot encima del amount nominal.
-  const durLossFloor = towerWearForFloor(targetFloor)
+  // tower_shield (ya eliminado de newEffects arriba) reduce la pérdida de durabilidad.
+  const towerShield = effects.tower_shield ?? 0
+  const durLossFloor = Math.max(1, Math.round(towerWearForFloor(targetFloor) * (1 - towerShield)))
   const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durLossFloor })
   if (durError) console.error('durability rpc error:', durError.message)
 
@@ -109,23 +111,15 @@ export async function finalizeTowerAttempt({
 
     rewards = floorRewards(targetFloor)
 
-    // Oro (atómico via RPC)
-    const { error: resError } = await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: rewards.gold })
-    if (resError) return { error: resError.message, status: 500 }
-
-    // XP
-    const newXp      = hero.experience + rewards.experience
-    const xpForLevel = xpRequiredForLevel(hero.level)
-    const levelUp    = newXp >= xpForLevel
-    const { error: xpError } = await supabase
-      .from('heroes')
-      .update({
-        experience: levelUp ? newXp - xpForLevel : newXp,
-        level:      levelUp ? hero.level + 1 : hero.level,
-      })
-      .eq('id', hero.id)
-    if (xpError) return { error: xpError.message, status: 500 }
-    rewards.levelUp = levelUp
+    // Oro + XP atómico con level-up (transacción SQL)
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('reward_gold_and_xp', {
+      p_player_id: user.id,
+      p_hero_id:   hero.id,
+      p_gold:      rewards.gold,
+      p_xp:        rewards.experience,
+    })
+    if (rpcError) return { error: rpcError.message, status: 500 }
+    rewards.levelUp = rpcResult?.level_up ?? false
 
     // Drop de item
     const difficulty = floorToDifficulty(targetFloor)

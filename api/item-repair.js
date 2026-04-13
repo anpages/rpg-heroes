@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   // Verificar propiedad
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, player_id, status, active_effects')
+    .select('id, player_id, status')
     .eq('id', item.hero_id)
     .single()
 
@@ -38,31 +38,26 @@ export default async function handler(req, res) {
   const missing = catalog.max_durability - item.current_durability
   if (missing === 0) return res.status(409).json({ error: 'El item ya está en perfecto estado' })
 
-  // Poción free_repair: no consume kit
-  const freeRepair = !!hero.active_effects?.free_repair
+  // Verificar kit de reparación
+  const { data: kit } = await supabase
+    .from('player_crafted_items')
+    .select('quantity')
+    .eq('player_id', user.id)
+    .eq('recipe_id', 'repair_kit')
+    .maybeSingle()
 
-  if (!freeRepair) {
-    // Verificar kit de reparación
-    const { data: kit } = await supabase
-      .from('player_crafted_items')
-      .select('quantity')
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'repair_kit')
-      .maybeSingle()
-
-    if (!kit || kit.quantity <= 0) {
-      return res.status(409).json({ error: 'Necesitas un Kit de Reparación. Craftéalo en el Taller.' })
-    }
-
-    // Consumir 1 kit
-    const { error: kitError } = await supabase
-      .from('player_crafted_items')
-      .update({ quantity: kit.quantity - 1 })
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'repair_kit')
-
-    if (kitError) return res.status(500).json({ error: kitError.message })
+  if (!kit || kit.quantity <= 0) {
+    return res.status(409).json({ error: 'Necesitas un Kit de Reparación. Craftéalo en el Taller.' })
   }
+
+  // Consumir 1 kit
+  const { error: kitError } = await supabase
+    .from('player_crafted_items')
+    .update({ quantity: kit.quantity - 1 })
+    .eq('player_id', user.id)
+    .eq('recipe_id', 'repair_kit')
+
+  if (kitError) return res.status(500).json({ error: kitError.message })
 
   // Reparar item
   const { error: repairError } = await supabase
@@ -72,12 +67,5 @@ export default async function handler(req, res) {
 
   if (repairError) return res.status(500).json({ error: repairError.message })
 
-  // Limpiar efecto free_repair si se usó
-  if (freeRepair) {
-    const newEffects = { ...(hero.active_effects ?? {}) }
-    delete newEffects.free_repair
-    await supabase.from('heroes').update({ active_effects: newEffects }).eq('id', hero.id)
-  }
-
-  return res.status(200).json({ ok: true, freeRepair })
+  return res.status(200).json({ ok: true })
 }

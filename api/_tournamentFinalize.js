@@ -5,7 +5,6 @@
  */
 import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
-import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 import { tournamentRoundRewards } from './_tournament.js'
 import { computeRatingUpdate, tournamentDifficulty } from './_rating.js'
 import { rollTacticDrop } from './_loot.js'
@@ -75,19 +74,15 @@ export async function finalizeTournamentFight({
   let rewards = null
   if (won) {
     rewards = tournamentRoundRewards(nextRound, champion)
-    await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: rewards.gold })
 
-    const newXp      = hero.experience + rewards.experience
-    const xpForLevel = xpRequiredForLevel(hero.level)
-    const levelUp    = newXp >= xpForLevel
-    await supabase
-      .from('heroes')
-      .update({
-        experience: levelUp ? newXp - xpForLevel : newXp,
-        level:      levelUp ? hero.level + 1 : hero.level,
-      })
-      .eq('id', hero.id)
-    rewards.levelUp = levelUp
+    // Oro + XP atómico con level-up (transacción SQL)
+    const { data: rpcResult } = await supabase.rpc('reward_gold_and_xp', {
+      p_player_id: user.id,
+      p_hero_id:   hero.id,
+      p_gold:      rewards.gold,
+      p_xp:        rewards.experience,
+    })
+    rewards.levelUp = rpcResult?.level_up ?? false
 
     // Táctica garantizada al ganar el torneo (100% chance)
     if (champion) {

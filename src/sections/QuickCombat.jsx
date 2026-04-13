@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
-import { usePotions } from '../hooks/usePotions'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
@@ -189,18 +189,20 @@ export default function QuickCombat() {
   const queryClient          = useQueryClient()
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items }  = useInventory(hero?.id)
-  const { potions }  = usePotions(userId)
+  const { catalog, inventory } = useCraftedItems(userId)
   const [matchmaking, setMatchmaking] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
   const [result, setResult] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
-  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
-  const potionMutation = useMutation({
-    mutationFn: async (potionId) => {
-      await apiPost('/api/potion-use', { heroId: hero?.id, potionId })
+  const hpPotions = (catalog ?? [])
+    .filter(c => c.effects?.some(e => e.type === 'hp_restore') && (inventory[c.id] ?? 0) > 0)
+    .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
+  const itemUseMutation = useMutation({
+    mutationFn: async (recipeId) => {
+      await apiPost('/api/item-use', { heroId: hero?.id, recipeId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.craftedItems(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
       ])
     },
@@ -438,13 +440,13 @@ export default function QuickCombat() {
                 {hpPotions.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap mt-1">
                     {hpPotions.map(p => {
-                      const disabled = full || isBusy || potionMutation.isPending
+                      const disabled = full || isBusy || itemUseMutation.isPending
                       return (
                         <motion.button
                           key={p.id}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
                           style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
-                          onClick={() => !disabled && potionMutation.mutate(p.id)}
+                          onClick={() => !disabled && itemUseMutation.mutate(p.id)}
                           disabled={disabled}
                           whileTap={disabled ? {} : { scale: 0.95 }}
                         >

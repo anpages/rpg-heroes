@@ -5,7 +5,7 @@ import { Swords, Users, Heart, Shield, Check, Coins, Star, AlertTriangle, FlaskC
 import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHeroes } from '../hooks/useHeroes'
-import { usePotions } from '../hooks/usePotions'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { teamCombatsKey } from '../hooks/useTeamCombats'
 import { apiPost } from '../lib/api'
@@ -174,12 +174,14 @@ export default function TeamCombat() {
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
   const queryClient          = useQueryClient()
   const { heroes, loading } = useHeroes(userId)
-  const { potions } = usePotions(userId)
+  const { catalog, inventory } = useCraftedItems(userId)
   const [selected, setSelected] = useState([])
   const [result, setResult] = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
-  const hpPotions = (potions ?? []).filter(p => p.effect_type === 'hp_restore' && p.quantity > 0)
+  const hpPotions = (catalog ?? [])
+    .filter(c => c.effects?.some(e => e.type === 'hp_restore') && (inventory[c.id] ?? 0) > 0)
+    .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
 
   useEffect(() => {
     const id = setInterval(forceUpdate, 10000)
@@ -193,11 +195,11 @@ export default function TeamCombat() {
     }
   }, [heroes, selected.length])
 
-  const potionMutation = useMutation({
-    mutationFn: async ({ heroId, potionId }) => {
-      await apiPost('/api/potion-use', { heroId, potionId })
+  const itemUseMutation = useMutation({
+    mutationFn: async ({ heroId, recipeId }) => {
+      await apiPost('/api/item-use', { heroId, recipeId })
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.potions(userId) }),
+        queryClient.refetchQueries({ queryKey: queryKeys.craftedItems(userId) }),
         queryClient.refetchQueries({ queryKey: queryKeys.heroes(userId) }),
       ])
     },
@@ -320,8 +322,8 @@ export default function TeamCombat() {
               disabled={combatMutation.isPending || (!autoLocked && selected.length >= 3 && !selected.includes(h.id))}
               onToggle={toggle}
               hpPotions={hpPotions}
-              onUsePotion={(heroId, potionId) => potionMutation.mutate({ heroId, potionId })}
-              potionPending={potionMutation.isPending}
+              onUsePotion={(heroId, recipeId) => itemUseMutation.mutate({ heroId, recipeId })}
+              potionPending={itemUseMutation.isPending}
             />
           ))}
         </div>

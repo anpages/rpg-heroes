@@ -1,6 +1,12 @@
-import { Castle, Coins } from 'lucide-react'
+import { Castle, Coins, Sparkles, Droplets } from 'lucide-react'
 import { fmt, baseLevelFromMap, getBaseTier } from './helpers.js'
-import { HEADER_RESOURCES } from './constants.js'
+
+const FOOTER_ITEMS = [
+  { key: 'level',     Icon: Castle,   color: null,      label: 'Nivel',      short: 'Nv'   },
+  { key: 'gold',      Icon: Coins,    color: '#d97706', label: 'Oro',        short: 'Oro'  },
+  { key: 'fragments', Icon: Sparkles, color: '#f59e0b', label: 'Fragmentos', short: 'Frag' },
+  { key: 'essence',   Icon: Droplets, color: '#8b5cf6', label: 'Esencia',    short: 'Esen' },
+]
 
 export default function BaseHeader({ byType, resources }) {
   const baseLevel = baseLevelFromMap(byType)
@@ -19,114 +25,57 @@ export default function BaseHeader({ byType, resources }) {
 
       {/* Título */}
       <div className="px-5 pt-4 pb-3">
-
-        {/* Mobile: título a ancho completo, badges debajo en 2 cols */}
-        {/* Desktop (sm+): título + badges a la derecha en fila */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Castle size={12} strokeWidth={2.5} style={{ color: tier.color }} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: tier.color }}>
-                Tu Base
-              </span>
-            </div>
-            <h1 style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 38,
-              lineHeight: 1,
-              letterSpacing: '0.04em',
-              color: 'var(--text)',
-              marginBottom: 4,
-            }}>
-              {tier.name}
-            </h1>
-            <p className="text-[13px] text-text-3 leading-snug">{tier.subtitle}</p>
-          </div>
-
-          {/* Badges — solo visibles en sm+ */}
-          <div className="hidden sm:flex flex-shrink-0 items-center gap-2">
-            <div
-              className="flex flex-col items-center justify-center w-[52px] h-[52px] rounded-2xl border"
-              style={{
-                background:  `color-mix(in srgb, ${tier.color} 10%, var(--surface-2))`,
-                borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
-              }}
-            >
-              <span className="text-[22px] font-extrabold leading-none" style={{ color: tier.color }}>{baseLevel}</span>
-              <span className="text-[9px] font-bold text-text-3 uppercase tracking-wide">nv.</span>
-            </div>
-            {resources && (
-              <div
-                className="flex flex-col items-center gap-1 px-2.5 py-2 rounded-2xl border h-[52px] justify-center min-w-[56px]"
-                style={{
-                  background:  'color-mix(in srgb,#d97706 8%,var(--surface-2))',
-                  borderColor: 'color-mix(in srgb,#d97706 25%,var(--border))',
-                }}
-              >
-                <Coins size={13} strokeWidth={2} color="#d97706" />
-                <span className="text-[14px] font-extrabold leading-none tabular-nums text-text">{fmt(resources.gold)}</span>
-                <span className="text-[8px] font-bold text-text-3 uppercase tracking-wide">Oro</span>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Castle size={12} strokeWidth={2.5} style={{ color: tier.color }} />
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: tier.color }}>
+            Tu Base
+          </span>
         </div>
-
-        {/* Mobile: nivel + oro en 2 columnas, bajo el título */}
-        <div className="sm:hidden grid grid-cols-2 gap-2 mt-3">
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-            style={{
-              background:  `color-mix(in srgb, ${tier.color} 10%, var(--surface-2))`,
-              borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
-            }}
-          >
-            <span className="text-[22px] font-extrabold leading-none" style={{ color: tier.color }}>{baseLevel}</span>
-            <span className="text-[11px] font-bold text-text-3 uppercase tracking-wide">Nivel</span>
-          </div>
-          {resources && (
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-              style={{
-                background:  'color-mix(in srgb,#d97706 8%,var(--surface-2))',
-                borderColor: 'color-mix(in srgb,#d97706 25%,var(--border))',
-              }}
-            >
-              <Coins size={15} strokeWidth={2} color="#d97706" />
-              <span className="text-[15px] font-extrabold leading-none tabular-nums text-text">{fmt(resources.gold)}</span>
-              <span className="text-[11px] font-bold text-text-3 uppercase tracking-wide">Oro</span>
-            </div>
-          )}
-        </div>
+        <h1 style={{
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: 38,
+          lineHeight: 1,
+          letterSpacing: '0.04em',
+          color: 'var(--text)',
+          marginBottom: 4,
+        }}>
+          {tier.name}
+        </h1>
+        <p className="text-[13px] text-text-3 leading-snug">{tier.subtitle}</p>
       </div>
 
-      {/* Resource grid */}
+      {/* Footer: nivel + oro + fragmentos + esencia */}
       {resources && (
         <div
           className="border-t grid grid-cols-4 bg-surface-2"
           style={{ borderColor: `color-mix(in srgb, ${tier.color} 20%, var(--border))` }}
         >
-          {HEADER_RESOURCES.map(({ key, Icon, color, label, short }, idx, arr) => (
-            <div
-              key={key}
-              className={`flex flex-col items-center gap-1 sm:gap-1.5 py-2 sm:py-3 relative ${idx < arr.length - 1 ? 'border-r' : ''}`}
-              style={{ borderColor: `color-mix(in srgb, ${tier.color} 15%, var(--border))` }}
-            >
+          {FOOTER_ITEMS.map(({ key, Icon, color, label, short }, idx, arr) => {
+            const itemColor = color ?? tier.color
+            const value = key === 'level' ? baseLevel : (resources[key] ?? 0)
+            return (
               <div
-                className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center"
-                style={{ background: `color-mix(in srgb,${color} 14%,transparent)` }}
+                key={key}
+                className={`flex flex-col items-center gap-1 sm:gap-1.5 py-2 sm:py-3 relative ${idx < arr.length - 1 ? 'border-r' : ''}`}
+                style={{ borderColor: `color-mix(in srgb, ${tier.color} 15%, var(--border))` }}
               >
-                <Icon size={11} strokeWidth={2} style={{ color }} className="sm:hidden" />
-                <Icon size={14} strokeWidth={2} style={{ color }} className="hidden sm:block" />
+                <div
+                  className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center"
+                  style={{ background: `color-mix(in srgb,${itemColor} 14%,transparent)` }}
+                >
+                  <Icon size={11} strokeWidth={2} style={{ color: itemColor }} className="sm:hidden" />
+                  <Icon size={14} strokeWidth={2} style={{ color: itemColor }} className="hidden sm:block" />
+                </div>
+                <p className="text-[13px] sm:text-[18px] font-extrabold text-text leading-none tabular-nums">
+                  {fmt(value)}
+                </p>
+                <span className="text-[8px] sm:text-[9px] font-semibold text-text-3 uppercase tracking-wide leading-none">
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden">{short}</span>
+                </span>
               </div>
-              <p className="text-[13px] sm:text-[18px] font-extrabold text-text leading-none tabular-nums">
-                {fmt(resources[key] ?? 0)}
-              </p>
-              <span className="text-[8px] sm:text-[9px] font-semibold text-text-3 uppercase tracking-wide leading-none">
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sm:hidden">{short}</span>
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

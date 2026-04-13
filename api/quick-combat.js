@@ -5,7 +5,6 @@ import {
   tierAnchoredEnemyStats,
   trainingEnemyName,
   trainingRewards,
-  xpRequiredForLevel,
   randomArchetype,
   applyArchetype,
   decoratedEnemyName,
@@ -172,23 +171,14 @@ export default async function handler(req, res) {
 
   // Recompensas solo si gana
   if (won) {
-    // Oro (atómico via RPC)
-    await supabase.rpc('add_resources', { p_player_id: user.id, p_gold: rewards.gold })
-
-    // XP
-    const newXp = hero.experience + rewards.experience
-    const xpForLevel = xpRequiredForLevel(hero.level)
-    const levelUp = newXp >= xpForLevel
-
-    await supabase
-      .from('heroes')
-      .update({
-        experience: levelUp ? newXp - xpForLevel : newXp,
-        level: levelUp ? hero.level + 1 : hero.level,
-      })
-      .eq('id', hero.id)
-
-    rewards.levelUp = levelUp
+    // Oro + XP atómico con level-up (transacción SQL)
+    const { data: rpcResult } = await supabase.rpc('reward_gold_and_xp', {
+      p_player_id: user.id,
+      p_hero_id:   hero.id,
+      p_gold:      rewards.gold,
+      p_xp:        rewards.experience,
+    })
+    rewards.levelUp = rpcResult?.level_up ?? false
 
     // Drop de táctica (8% en victoria)
     const tacticDrop = await rollTacticDrop(supabase, heroId, hero.class, { chance: 0.08, bonusChance: rb.tactic_drop_pct ?? 0 })

@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { Clock, Info } from 'lucide-react'
+import { ArrowUpCircle, Check, Clock, Warehouse } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { notify } from '../../lib/notifications.js'
 import {
-  buildingUpgradeCost, buildingUpgradeDurationMs, buildingRateAndCap,
+  buildingUpgradeCost, buildingUpgradeDurationMs, buildingRate,
   BUILDING_MAX_LEVEL,
 } from '../../lib/gameConstants.js'
 import { apiPost } from '../../lib/api.js'
-import { BUILDING_META, SECONDARY_RESOURCE_ITEMS, RESOURCE_ITEMS } from './constants.js'
-import { fmtTime } from './helpers.js'
+import { BUILDING_META, RESOURCE_ITEMS } from './constants.js'
+import { fmtTime, fmt } from './helpers.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const SEC_META = Object.fromEntries(SECONDARY_RESOURCE_ITEMS.map(r => [r.key, r]))
 const RES_META = Object.fromEntries(RESOURCE_ITEMS.map(r => [r.key, r]))
 
 /* ── Upgrade timer ─────────────────────────────────────────────────────────── */
@@ -102,7 +101,7 @@ export default function ProductionCard({
   const hasUpgrade = !!effectiveBuilding.upgrade_ends_at
   const isMaxLevel = level >= BUILDING_MAX_LEVEL
   const Icon = meta.icon
-  const { rate, cap } = buildingRateAndCap(building.type, level)
+  const { rate } = buildingRate(building.type, level)
 
   const cost = buildingUpgradeCost(building.type, level)
   const totalSeconds = buildingUpgradeDurationMs(level, building.type) / 1000
@@ -124,8 +123,8 @@ export default function ProductionCard({
     }
   }
 
-  // Resource meta for primary
   const resMeta = RES_META[prod?.resource] ?? { label: meta.name, color: meta.color }
+  const totalStock = resources?.[prod?.resource] ?? 0
 
   return (
     <>
@@ -133,7 +132,7 @@ export default function ProductionCard({
         className="bc-accent flex flex-col rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] transition-[box-shadow,border-color] duration-200"
         style={{ '--accent': meta.color }}
       >
-        {/* ── Header: icon + name + level + info ── */}
+        {/* ── Header: icon + name + level + stock ── */}
         <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -148,71 +147,76 @@ export default function ProductionCard({
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[15px] font-bold text-text leading-none truncate">{meta.name}</h3>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {level === 0 ? (
-                  <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1.5 py-0.5 leading-none">
-                    Sin construir
-                  </span>
-                ) : (
+                {level > 0 && (
                   <span
-                    className="text-[12px] font-bold rounded px-1.5 py-0.5 leading-none"
+                    className="h-7 flex items-center gap-1 px-2 text-[12px] font-bold rounded-lg leading-none"
                     style={{
                       color: meta.color,
                       background: `color-mix(in srgb, ${meta.color} 10%, var(--surface-2))`,
                       border: `1px solid color-mix(in srgb, ${meta.color} 25%, var(--border))`,
                     }}
                   >
-                    Nv.{level}
+                    <Warehouse size={11} strokeWidth={2} />
+                    {fmt(totalStock)} {resMeta.label}
                   </span>
                 )}
-                {!hasUpgrade && (
-                  <button
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface-2 border border-border text-text-3 hover:text-text transition-colors"
-                    onClick={() => setShowModal(true)}
-                  >
-                    <Info size={14} strokeWidth={2} />
-                  </button>
+                {level === 0 && (
+                  <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1.5 py-0.5 leading-none">
+                    Sin construir
+                  </span>
+                )}
+                {level > 0 && !hasUpgrade && (
+                  isMaxLevel ? (
+                    <span
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border"
+                      style={{
+                        background: `color-mix(in srgb, ${meta.color} 12%, var(--surface-2))`,
+                        borderColor: `color-mix(in srgb, ${meta.color} 30%, var(--border))`,
+                        color: meta.color,
+                      }}
+                    >
+                      <Check size={14} strokeWidth={2.5} />
+                    </span>
+                  ) : (
+                    <button
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border transition-colors"
+                      style={{
+                        background: `color-mix(in srgb, ${meta.color} 8%, var(--surface-2))`,
+                        borderColor: `color-mix(in srgb, ${meta.color} 25%, var(--border))`,
+                        color: meta.color,
+                      }}
+                      onClick={() => setShowModal(true)}
+                    >
+                      <ArrowUpCircle size={14} strokeWidth={2} />
+                    </button>
+                  )
                 )}
               </div>
             </div>
             {level > 0 && (
-              <p className="text-[13px] text-text-3 mt-1 leading-snug">{meta.description}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[13px] text-text-3">Nv.{level}</span>
+                <span className="text-[12px] text-text-3">·</span>
+                <span className="text-[12px] text-text-3">{rate}/h</span>
+              </div>
             )}
           </div>
         </div>
 
-        {/* ── Production: bars + collect (only when built) ── */}
+        {/* ── Production: capacity bar + collect ── */}
         {prod && level > 0 && (
-          <div className="px-4 py-3 flex flex-col gap-2.5">
-            {/* Primary resource */}
-            <ProductionBar
-              label={resMeta.label}
+          <div className="px-4 py-3 flex flex-col gap-2.5 border-t border-border">
+            <CapacityBar
               stored={prod.stored}
-              cap={cap}
-              rate={rate}
-              pct={prod.pct}
+              cap={prod.cap}
+              fillPct={prod.fillPct}
+              isFull={prod.isFull}
+              secondsToFull={prod.secondsToFull}
               color={meta.color}
-              fullAt={prod.fullAt}
             />
 
-            {/* Secondary resource */}
-            {prod.secondary && (() => {
-              const secMeta = SEC_META[prod.secondary.resource]
-              return (
-                <ProductionBar
-                  label={secMeta?.label ?? prod.secondary.resource}
-                  stored={prod.secondary.stored}
-                  cap={prod.secondary.cap}
-                  rate={prod.secondary.rate}
-                  pct={prod.secondary.pct}
-                  color={secMeta?.color ?? '#94a3b8'}
-                  small
-                />
-              )
-            })()}
-
-            {/* Collect button */}
             <motion.button
-              className="w-full py-2.5 rounded-lg font-bold text-[14px] border-0 transition-opacity disabled:opacity-30"
+              className="w-full py-2 rounded-lg font-bold text-[13px] border-0 disabled:opacity-30 flex items-center justify-center gap-1.5"
               style={{
                 background: prod.canCollect
                   ? `linear-gradient(135deg, ${meta.color}, color-mix(in srgb, ${meta.color} 80%, #000))`
@@ -223,7 +227,7 @@ export default function ProductionCard({
               disabled={!prod.canCollect}
               whileTap={prod.canCollect ? { scale: 0.97 } : {}}
             >
-              {prod.canCollect ? 'Recolectar' : 'Almacen vacio'}
+              {prod.canCollect ? `Recoger ${prod.stored}` : 'Sin producción'}
             </motion.button>
           </div>
         )}
@@ -268,12 +272,6 @@ export default function ProductionCard({
           </div>
         )}
 
-        {/* ── Max level ── */}
-        {isMaxLevel && !hasUpgrade && (
-          <div className="px-4 py-2 border-t border-border">
-            <span className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel maximo</span>
-          </div>
-        )}
       </div>
 
       {/* ── Modal ── */}
@@ -292,47 +290,64 @@ export default function ProductionCard({
   )
 }
 
-/* ── ProductionBar ─────────────────────────────────────────────────────────── */
+/* ── CapacityBar (barra de almacén) ──────────────────────────────────────── */
 
-function ProductionBar({ label, stored, cap, rate, pct, color, fullAt, small }) {
+function CapacityBar({ stored, cap, fillPct, isFull, secondsToFull, color }) {
+  const barRef = useRef(null)
+  const prevPct = useRef(fillPct)
+
+  useEffect(() => {
+    if (fillPct < prevPct.current - 5 && barRef.current) {
+      barRef.current.style.transition = 'none'
+      barRef.current.style.width = `${Math.min(100, fillPct)}%`
+      void barRef.current.offsetWidth
+      barRef.current.style.transition = 'width 1.8s linear'
+    }
+    prevPct.current = fillPct
+  })
+
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className={`font-semibold text-text-2 ${small ? 'text-[12px]' : 'text-[14px]'}`}>
-          {label}
-          <span className="text-text-3 font-normal ml-1.5">{stored} / {cap}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold text-text-2">
+          {stored} <span className="text-text-3 font-normal">/ {cap}</span>
         </span>
-        <span className={`text-text-3 ${small ? 'text-[11px]' : 'text-[12px]'}`}>
-          {rate}/h
-          {!small && fullAt && pct < 100 && (
-            <span className="ml-1.5">· lleno en {formatTimeUntil(fullAt)}</span>
-          )}
-          {!small && pct >= 100 && (
-            <span className="ml-1.5 font-semibold" style={{ color }}>· Lleno</span>
+        <span className="text-[12px] text-text-3 flex items-center gap-0.5">
+          {isFull ? (
+            <span className="font-semibold" style={{ color }}>Almacén lleno</span>
+          ) : (
+            <>
+              <Clock size={10} strokeWidth={2} />
+              {fmtShort(secondsToFull)}
+            </>
           )}
         </span>
       </div>
-      <div className={`${small ? 'h-2' : 'h-2.5'} rounded-full overflow-hidden`}
+      <div className="h-2 rounded-full overflow-hidden"
         style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
       >
-        <motion.div
+        <div
+          ref={barRef}
           className="h-full rounded-full"
-          style={{ background: color }}
-          initial={false}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.4 }}
+          style={{
+            background: isFull
+              ? `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 70%, #f59e0b))`
+              : color,
+            width: `${Math.min(100, fillPct)}%`,
+            transition: 'width 1.8s linear',
+          }}
         />
       </div>
     </div>
   )
 }
 
-function formatTimeUntil(date) {
-  const ms = date.getTime() - Date.now()
-  if (ms <= 0) return 'listo'
-  const mins = Math.ceil(ms / 60_000)
-  if (mins < 60) return `${mins}m`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
+function fmtShort(secs) {
+  if (secs <= 0) return '0s'
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}:${String(s).padStart(2, '0')}`
+  return `${s}s`
 }

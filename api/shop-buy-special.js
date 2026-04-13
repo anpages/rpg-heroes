@@ -1,7 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { isUUID, effectiveBagLimit } from './_validate.js'
-import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
+import { xpRequiredForLevel } from '../src/lib/gameFormulas.js' // xp_scroll still needs JS-side multi-level calc
 
 function tierForLevel(level) {
   if (level >= 26) return 3
@@ -44,6 +44,13 @@ export default async function handler(req, res) {
 
   if (special.effect_type === 'repair_all' && hero.status === 'exploring') {
     return res.status(409).json({ error: 'El héroe está en expedición' })
+  }
+
+  // Deducir oro ANTES de aplicar el efecto (fragments_grant gestiona su propio pago)
+  if (special.effect_type !== 'fragments_grant') {
+    const { data: deductOk, error: resErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: special.gold_price })
+    if (resErr) return res.status(500).json({ error: resErr.message })
+    if (!deductOk) return res.status(409).json({ error: 'Oro insuficiente' })
   }
 
   let result = {}
@@ -169,11 +176,6 @@ export default async function handler(req, res) {
   else {
     return res.status(400).json({ error: `Efecto desconocido: ${special.effect_type}` })
   }
-
-  // Deducir oro (atómico via RPC)
-  const { data: deductOk, error: resErr } = await supabase.rpc('deduct_resources', { p_player_id: user.id, p_gold: special.gold_price })
-  if (resErr) return res.status(500).json({ error: resErr.message })
-  if (!deductOk) return res.status(409).json({ error: 'Oro insuficiente' })
 
   await supabase.from('hero_shop_special_purchases')
     .insert({ hero_id: heroId, special_id: specialId, purchase_date: dateStr })

@@ -10,9 +10,8 @@ import { useBuildingProduction } from '../hooks/useBuildingProduction'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useTraining, hasReadyPoint } from '../hooks/useTraining'
 import { useTrainingRooms } from '../hooks/useTrainingRooms'
-import { usePotions } from '../hooks/usePotions'
 import { useResearch } from '../hooks/useResearch'
-import { REFINING_BUILDING_TYPES, buildingRateAndCap, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
+import { REFINING_BUILDING_TYPES, buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import BaseHeader from './base/BaseHeader.jsx'
@@ -31,10 +30,9 @@ export default function Base({ mainRef }) {
   const { buildings, loading } = useBuildings(userId)
   const { resources }          = useResources(userId)
   const { production, anyReady } = useBuildingProduction(userId)
-  const { catalog, inventory, queue } = useCraftedItems(userId)
+  const { catalog, inventory, refiningSlots } = useCraftedItems(userId)
   const { rooms: trainingRooms } = useTrainingRooms(userId)
   const { rows: trainingProgress } = useTraining(heroId)
-  const { potions, craftingMap: potionCraftingMap } = usePotions(userId)
   const { research }                       = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('produccion')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
@@ -58,13 +56,11 @@ export default function Base({ mainRef }) {
   // ── Helpers: optimistic cache ────────────────────────────────────────────────
   const RESOURCE_NAMES = {
     iron: 'hierro', wood: 'madera', mana: 'maná', herbs: 'hierbas',
-    coal: 'carbón', fiber: 'fibra', arcane_dust: 'polvo arcano', flowers: 'flores',
   }
 
   const bKey = queryKeys.buildings(userId)
   const rKey = queryKeys.resources(userId)
   const cKey = queryKeys.craftedItems(userId)
-  const pKey = queryKeys.potions(userId)
   const xKey = queryKeys.research(userId)
 
   function cancelAndSnapshot(...keys) {
@@ -95,30 +91,31 @@ export default function Base({ mainRef }) {
 
   const collectMutation = useMutation({
     mutationKey: COLLECT_KEY,
-    mutationFn: (buildingType) => apiPost('/api/building-collect', { buildingType }),
-    onMutate: async (buildingType) => {
+    mutationFn: ({ buildingType }) => apiPost('/api/building-collect', { buildingType }),
+    onMutate: async ({ buildingType }) => {
       const snap = cancelAndSnapshot(bKey, rKey)
       const blds = queryClient.getQueryData(bKey)
       const res  = queryClient.getQueryData(rKey)
       if (blds && res) {
         const b = blds.find(x => x.type === buildingType)
         if (b) {
-          const { resource, rate, cap, secondary } = buildingRateAndCap(buildingType, b.level)
+          const { resource, rate, cap } = buildingRate(buildingType, b.level)
           const elapsed = Math.max(0, (Date.now() - new Date(b.production_collected_at).getTime()) / 3_600_000)
-          const produced = Math.min(Math.floor(rate * elapsed), cap)
-          let secProduced = 0
-          if (secondary) secProduced = Math.min(Math.floor(secondary.rate * elapsed), secondary.cap)
+          const produced = Math.min(cap, Math.floor(rate * elapsed))
 
-          if (produced > 0 || secProduced > 0) {
-            const nowIso = new Date().toISOString()
+          if (produced > 0) {
             queryClient.setQueryData(rKey, {
               ...res,
               [resource]: (res[resource] ?? 0) + produced,
-              ...(secProduced > 0 ? { [secondary.resource]: (res[secondary.resource] ?? 0) + secProduced } : {}),
             })
-            queryClient.setQueryData(bKey, blds.map(x =>
-              x.id === b.id ? { ...x, production_collected_at: nowIso } : x
-            ))
+            queryClient.setQueryData(bKey, blds.map(x => {
+              if (x.id !== b.id) return x
+              const advanceMs = (produced / rate) * 3_600_000
+              const updates = {
+                production_collected_at: new Date(new Date(b.production_collected_at).getTime() + advanceMs).toISOString(),
+              }
+              return { ...x, ...updates }
+            }))
           }
         }
       }
@@ -143,19 +140,19 @@ export default function Base({ mainRef }) {
       const blds = queryClient.getQueryData(bKey)
       const res  = queryClient.getQueryData(rKey)
       if (blds && res) {
-        const nowIso = new Date().toISOString()
         const newRes = { ...res }
         const newBlds = blds.map(b => {
           if (!PRODUCTION_BUILDING_TYPES.includes(b.type) || !b.unlocked || b.level <= 0) return b
-          const { resource, rate, cap, secondary } = buildingRateAndCap(b.type, b.level)
+          const { resource, rate, cap } = buildingRate(b.type, b.level)
           const elapsed = Math.max(0, (Date.now() - new Date(b.production_collected_at).getTime()) / 3_600_000)
-          const produced = Math.min(Math.floor(rate * elapsed), cap)
-          if (produced > 0) newRes[resource] = (newRes[resource] ?? 0) + produced
-          if (secondary) {
-            const secProduced = Math.min(Math.floor(secondary.rate * elapsed), secondary.cap)
-            if (secProduced > 0) newRes[secondary.resource] = (newRes[secondary.resource] ?? 0) + secProduced
+          const produced = Math.min(cap, Math.floor(rate * elapsed))
+          if (produced <= 0) return b
+          newRes[resource] = (newRes[resource] ?? 0) + produced
+          const advanceMs = (produced / rate) * 3_600_000
+          return {
+            ...b,
+            production_collected_at: new Date(new Date(b.production_collected_at).getTime() + advanceMs).toISOString(),
           }
-          return (produced > 0) ? { ...b, production_collected_at: nowIso } : b
         })
         queryClient.setQueryData(rKey, newRes)
         queryClient.setQueryData(bKey, newBlds)
@@ -170,60 +167,85 @@ export default function Base({ mainRef }) {
     },
   })
 
-  // ── Mutations: Crafteo de items ─────────────────────────────────────────────
+  // ── Mutations: Refinado + Taller (sistema unificado sin bloqueo) ─────────────
 
-  const craftItemMutation = useMutation({
-    mutationFn: (recipeId) => apiPost('/api/craft-start', { recipeId }),
-    onMutate: async (recipeId) => {
+  const REFINE_KEY = ['refining-start']
+
+  const refiningStartMutation = useMutation({
+    mutationKey: REFINE_KEY,
+    mutationFn: ({ recipeId, quantity }) => apiPost('/api/refining-start', { recipeId, quantity }),
+    onMutate: async ({ recipeId, quantity }) => {
       const snap = cancelAndSnapshot(cKey, rKey)
       const crafted = queryClient.getQueryData(cKey)
-      const res     = queryClient.getQueryData(rKey)
+      const res = queryClient.getQueryData(rKey)
       if (crafted && res) {
         const recipe = crafted.catalog.find(c => c.id === recipeId)
         if (recipe) {
           const newRes = { ...res }
           const newInv = { ...crafted.inventory }
           for (const inp of recipe.inputs ?? []) {
-            if (inp.resource) newRes[inp.resource] = (newRes[inp.resource] ?? 0) - inp.qty
-            if (inp.item)     newInv[inp.item] = Math.max(0, (newInv[inp.item] ?? 0) - inp.qty)
+            if (inp.resource) newRes[inp.resource] = (newRes[inp.resource] ?? 0) - inp.qty * quantity
+            if (inp.item) newInv[inp.item] = Math.max(0, (newInv[inp.item] ?? 0) - inp.qty * quantity)
           }
-          const optimisticCraft = {
-            id: `opt-${Date.now()}`,
-            recipe_id: recipeId,
-            craft_ends_at: new Date(Date.now() + (recipe.craft_minutes ?? 1) * 60_000).toISOString(),
-            building_type: recipe.refinery_type ?? null,
+          // Optimistic: añadir o actualizar slot
+          const existingSlots = [...(crafted.refiningSlots ?? [])]
+          const idx = existingSlots.findIndex(s => s.recipe_id === recipeId && s.building_type === recipe.refinery_type)
+          if (idx >= 0) {
+            existingSlots[idx] = { ...existingSlots[idx], quantity: existingSlots[idx].quantity + quantity }
+          } else {
+            existingSlots.push({
+              id: `opt-${Date.now()}`,
+              building_type: recipe.refinery_type,
+              recipe_id: recipeId,
+              quantity,
+              craft_started_at: new Date().toISOString(),
+              unit_duration_ms: (recipe.craft_minutes ?? 1) * 60_000,
+            })
           }
           queryClient.setQueryData(rKey, newRes)
-          queryClient.setQueryData(cKey, {
-            ...crafted,
-            inventory: newInv,
-            queue: [...crafted.queue, optimisticCraft],
-          })
+          queryClient.setQueryData(cKey, { ...crafted, inventory: newInv, refiningSlots: existingSlots })
         }
       }
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => reconcile(cKey, rKey),
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: REFINE_KEY }) === 0) {
+        reconcile(cKey, rKey)
+      }
+    },
   })
 
-  const collectItemMutation = useMutation({
-    mutationFn: (craftId) => apiPost('/api/craft-collect', { craftId }),
-    onMutate: async (craftId) => {
+  const refiningCollectMutation = useMutation({
+    mutationFn: (slotId) => apiPost('/api/refining-collect', { slotId }),
+    onMutate: async (slotId) => {
       const snap = cancelAndSnapshot(cKey)
       const crafted = queryClient.getQueryData(cKey)
       if (crafted) {
-        const craft = crafted.queue.find(q => q.id === craftId)
-        if (craft) {
-          const recipe = crafted.catalog.find(c => c.id === craft.recipe_id)
-          const outputQty = recipe?.output_qty ?? 1
-          const newInv = { ...crafted.inventory }
-          newInv[craft.recipe_id] = (newInv[craft.recipe_id] ?? 0) + outputQty
-          queryClient.setQueryData(cKey, {
-            ...crafted,
-            inventory: newInv,
-            queue: crafted.queue.filter(q => q.id !== craftId),
-          })
+        const slots = [...(crafted.refiningSlots ?? [])]
+        const idx = slots.findIndex(s => s.id === slotId)
+        if (idx >= 0) {
+          const slot = slots[idx]
+          const now = Date.now()
+          const startedAt = new Date(slot.craft_started_at).getTime()
+          const completed = Math.min(slot.quantity, Math.floor((now - startedAt) / slot.unit_duration_ms))
+          if (completed > 0) {
+            const recipe = crafted.catalog.find(c => c.id === slot.recipe_id)
+            const outputPerUnit = recipe?.output_qty ?? 1
+            const newInv = { ...crafted.inventory }
+            newInv[slot.recipe_id] = (newInv[slot.recipe_id] ?? 0) + completed * outputPerUnit
+            const remaining = slot.quantity - completed
+            if (remaining <= 0) {
+              slots.splice(idx, 1)
+            } else {
+              slots[idx] = {
+                ...slot,
+                quantity: remaining,
+                craft_started_at: new Date(startedAt + completed * slot.unit_duration_ms).toISOString(),
+              }
+            }
+            queryClient.setQueryData(cKey, { ...crafted, inventory: newInv, refiningSlots: slots })
+          }
         }
       }
       return snap
@@ -232,72 +254,43 @@ export default function Base({ mainRef }) {
     onSettled: () => reconcile(cKey),
   })
 
-  // ── Mutations: Pociones ─────────────────────────────────────────────────────
-
-  const craftPotionMutation = useMutation({
-    mutationFn: (potionId) => apiPost('/api/potion-craft', { potionId }),
-    onMutate: async (potionId) => {
-      const snap = cancelAndSnapshot(pKey, rKey, cKey)
-      const potionData = queryClient.getQueryData(pKey)
-      const res        = queryClient.getQueryData(rKey)
-      const crafted    = queryClient.getQueryData(cKey)
-      if (potionData && res) {
-        const potion = potionData.potions?.find(p => p.id === potionId)
-        if (potion) {
-          const newRes = { ...res }
-          const newInv = crafted ? { ...crafted.inventory } : {}
-          for (const inp of potion.recipe_items ?? []) {
-            if (inp.resource) newRes[inp.resource] = (newRes[inp.resource] ?? 0) - inp.qty
-            if (inp.item) newInv[inp.item] = Math.max(0, (newInv[inp.item] ?? 0) - inp.qty)
+  const refiningCollectAllMutation = useMutation({
+    mutationFn: (buildingType) => apiPost('/api/refining-collect-all', { buildingType }),
+    onMutate: async (buildingType) => {
+      const snap = cancelAndSnapshot(cKey)
+      const crafted = queryClient.getQueryData(cKey)
+      if (crafted) {
+        const slots = [...(crafted.refiningSlots ?? [])]
+        const newInv = { ...crafted.inventory }
+        const newSlots = []
+        for (const slot of slots) {
+          // Solo procesar slots del edificio indicado
+          if (slot.building_type !== buildingType) { newSlots.push(slot); continue }
+          const now = Date.now()
+          const startedAt = new Date(slot.craft_started_at).getTime()
+          const completed = Math.min(slot.quantity, Math.floor((now - startedAt) / slot.unit_duration_ms))
+          if (completed > 0) {
+            const recipe = crafted.catalog.find(c => c.id === slot.recipe_id)
+            const outputPerUnit = recipe?.output_qty ?? 1
+            newInv[slot.recipe_id] = (newInv[slot.recipe_id] ?? 0) + completed * outputPerUnit
+            const remaining = slot.quantity - completed
+            if (remaining > 0) {
+              newSlots.push({
+                ...slot,
+                quantity: remaining,
+                craft_started_at: new Date(startedAt + completed * slot.unit_duration_ms).toISOString(),
+              })
+            }
+          } else {
+            newSlots.push(slot)
           }
-          const optCraft = {
-            id: `opt-${Date.now()}`,
-            potion_id: potionId,
-            craft_ends_at: new Date(Date.now() + (potion.craft_minutes ?? 1) * 60_000).toISOString(),
-          }
-          const newMap = { ...potionData.craftingMap }
-          newMap[potionId] = [...(newMap[potionId] ?? []), optCraft]
-          queryClient.setQueryData(rKey, newRes)
-          queryClient.setQueryData(pKey, { ...potionData, craftingMap: newMap })
-          if (crafted) queryClient.setQueryData(cKey, { ...crafted, inventory: newInv })
         }
+        queryClient.setQueryData(cKey, { ...crafted, inventory: newInv, refiningSlots: newSlots })
       }
       return snap
     },
     onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => reconcile(pKey, rKey, cKey),
-  })
-
-  const collectPotionMutation = useMutation({
-    mutationFn: (craftId) => apiPost('/api/potion-collect', { craftId }),
-    onMutate: async (craftId) => {
-      const snap = cancelAndSnapshot(pKey)
-      const potionData = queryClient.getQueryData(pKey)
-      if (potionData) {
-        let potionId = null
-        for (const [pid, crafts] of Object.entries(potionData.craftingMap ?? {})) {
-          if (crafts.some(c => c.id === craftId)) { potionId = pid; break }
-        }
-        if (potionId) {
-          const newMap = { ...potionData.craftingMap }
-          newMap[potionId] = (newMap[potionId] ?? []).filter(c => c.id !== craftId)
-          const newPotions = potionData.potions.map(p =>
-            p.id === potionId ? { ...p, quantity: (p.quantity ?? 0) + 1 } : p
-          )
-          queryClient.setQueryData(pKey, { ...potionData, potions: newPotions, craftingMap: newMap })
-        }
-      }
-      return snap
-    },
-    onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => reconcile(pKey),
-  })
-
-  const labInventoryUpgradeMutation = useMutation({
-    mutationFn: () => apiPost('/api/lab-inventory-upgrade', {}),
-    onSuccess: () => notify.success('Inventario del laboratorio ampliado'),
-    onError: err => notify.error(err.message),
-    onSettled: () => reconcile(rKey),
+    onSettled: () => reconcile(cKey),
   })
 
   // ── Mutations: Investigación ────────────────────────────────────────────────
@@ -357,22 +350,27 @@ export default function Base({ mainRef }) {
 
   // ── Badges para zone pills ──────────────────────────────────────────────────
   const produccionBadge = anyReady
-    ? Object.values(production).filter(p => p.canCollect).length
+    ? Object.values(production).filter(p => p.isFull).length
     : 0
 
-  const craftQueueReady = queue.filter(c => !c.building_type && new Date(c.craft_ends_at) <= now).length
-  const potionCraftReady = Object.values(potionCraftingMap ?? {}).flat().filter(c => new Date(c.craft_ends_at) <= now).length
-  const tallerBadge = craftQueueReady + potionCraftReady
+  const tallerSlotsReady = (refiningSlots ?? []).filter(s => {
+    if (s.building_type !== 'laboratory') return false
+    const elapsed = now - new Date(s.craft_started_at).getTime()
+    return Math.floor(elapsed / s.unit_duration_ms) > 0
+  }).length
+  const tallerBadge = tallerSlotsReady
 
   const progressByStat = Object.fromEntries((trainingProgress ?? []).map(r => [r.stat, r]))
   const entrenamientoBadge = (trainingRooms ?? []).filter(r =>
     r.built_at !== null && hasReadyPoint(progressByStat[r.stat], r.level)
   ).length
 
-  const refinadoQueueReady = queue.filter(c =>
-    c.building_type && REFINING_BUILDING_TYPES.includes(c.building_type) && new Date(c.craft_ends_at) <= now
-  ).length
-  const refinadoBadge = refinadoQueueReady
+  const refinadoSlotsReady = (refiningSlots ?? []).filter(s => {
+    if (!REFINING_BUILDING_TYPES.includes(s.building_type)) return false
+    const elapsed = now - new Date(s.craft_started_at).getTime()
+    return Math.floor(elapsed / s.unit_duration_ms) > 0
+  }).length
+  const refinadoBadge = refinadoSlotsReady
 
   const researchReady = research?.active && new Date(research.active.ends_at) <= now
   const bibliotecaBadge = researchReady ? 1 : 0
@@ -411,7 +409,7 @@ export default function Base({ mainRef }) {
             <RecursosZone
               byType={byType}
               production={production}
-              onCollect={(type) => collectMutation.mutate(type)}
+              onCollect={(buildingType, collectType) => collectMutation.mutate({ buildingType, collectType })}
               anyUpgrading={recursosUpgrading}
               {...sharedBuildingProps}
             />
@@ -423,9 +421,9 @@ export default function Base({ mainRef }) {
               effectiveResources={effectiveResources}
               catalog={catalog}
               inventory={inventory}
-              queue={queue}
-              onCraft={(recipeId) => craftItemMutation.mutate(recipeId)}
-              onCollect={(craftId) => collectItemMutation.mutate(craftId)}
+              refiningSlots={refiningSlots}
+              onRefine={({ recipeId, quantity }) => refiningStartMutation.mutate({ recipeId, quantity })}
+              onCollectAllSlots={(buildingType) => refiningCollectAllMutation.mutate(buildingType)}
               anyUpgrading={refinadoUpgrading}
               {...sharedBuildingProps}
             />
@@ -437,15 +435,9 @@ export default function Base({ mainRef }) {
               effectiveResources={effectiveResources}
               catalog={catalog}
               inventory={inventory}
-              queue={queue}
-              onCraftItem={(recipeId) => craftItemMutation.mutate(recipeId)}
-              onCollectItem={(craftId) => collectItemMutation.mutate(craftId)}
-              potions={potions}
-              potionCraftingMap={potionCraftingMap}
-              onCraftPotion={(potionId) => craftPotionMutation.mutate(potionId)}
-              onCollectPotion={(craftId) => collectPotionMutation.mutate(craftId)}
-              onLabInventoryUpgrade={() => labInventoryUpgradeMutation.mutate()}
-              labInventoryUpgradePending={labInventoryUpgradeMutation.isPending}
+              refiningSlots={refiningSlots}
+              onRefine={({ recipeId, quantity }) => refiningStartMutation.mutate({ recipeId, quantity })}
+              onCollectSlot={(slotId) => refiningCollectMutation.mutate(slotId)}
               anyUpgrading={tallerUpgrading}
               {...sharedBuildingProps}
             />

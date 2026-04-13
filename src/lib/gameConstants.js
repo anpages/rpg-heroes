@@ -89,39 +89,35 @@ export function manaRateForLevel(level) {
  * y almacena hasta un cap. El jugador recolecta manualmente.
  * Sin nexo de energía — cada edificio funciona independientemente.
  *
- * ratePerHour[i] = rate al nivel i+1.  storageCap[i] = capacidad al nivel i+1.
- * Storage ≈ 2h de producción → el jugador debe entrar cada ~2h para recolectar.
+ * ratePerHour[i] = rate al nivel i+1. Sin cap — se acumula sin límite.
  */
 export const BUILDING_PRODUCTION = {
-  gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], storageCap: [24, 34, 48, 68, 96],  secondary: { resource: 'coal',        minLevel: 3, rateFraction: 0.4 } },
-  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60], storageCap: [30, 42, 60, 84, 120], secondary: { resource: 'fiber',       minLevel: 3, rateFraction: 0.4 } },
-  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], storageCap: [16, 24, 34, 48, 68],  secondary: { resource: 'arcane_dust', minLevel: 3, rateFraction: 0.4 } },
-  herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34], storageCap: [16, 24, 34, 48, 68],  secondary: { resource: 'flowers',    minLevel: 3, rateFraction: 0.4 } },
+  gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48] },
+  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60] },
+  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34] },
+  herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34] },
 }
 
 /** Tipos de edificio productivo (los que se recolectan). */
 export const PRODUCTION_BUILDING_TYPES = Object.keys(BUILDING_PRODUCTION)
 
+/** Horas de producción que caben en el almacén del edificio */
+export const BUILDING_STORAGE_HOURS = 2
+
 /**
- * Rate y cap de un edificio productivo dado su nivel.
- * Nivel 0 = sin construir → rate 0, cap 0.
+ * Rate de un edificio productivo dado su nivel.
+ * Nivel 0 = sin construir → rate 0.
+ * Cap = rate × BUILDING_STORAGE_HOURS (el edificio deja de producir al llenarse).
  */
-export function buildingRateAndCap(type, level) {
+export function buildingRate(type, level) {
   const prod = BUILDING_PRODUCTION[type]
-  if (!prod || level <= 0) return { resource: prod?.resource ?? 'iron', rate: 0, cap: 0, secondary: null }
+  if (!prod || level <= 0) return { resource: prod?.resource ?? 'iron', rate: 0, cap: 0 }
   const idx = Math.min(level - 1, prod.ratePerHour.length - 1)
-  const primaryRate = prod.ratePerHour[idx]
-  const primaryCap  = prod.storageCap[idx]
-
-  let secondary = null
-  if (prod.secondary && level >= prod.secondary.minLevel) {
-    const secRate = Math.floor(primaryRate * prod.secondary.rateFraction)
-    const secCap  = Math.floor(primaryCap * prod.secondary.rateFraction)
-    secondary = { resource: prod.secondary.resource, rate: secRate, cap: secCap }
-  }
-
-  return { resource: prod.resource, rate: primaryRate, cap: primaryCap, secondary }
+  const rate = prod.ratePerHour[idx]
+  return { resource: prod.resource, rate, cap: rate * BUILDING_STORAGE_HOURS }
 }
+/** @deprecated alias para compatibilidad — usar buildingRate */
+export const buildingRateAndCap = buildingRate
 
 /** Slots de crafteo disponibles (base 2, expansible con investigación). */
 export const CRAFTING_SLOTS_BASE = 2
@@ -132,6 +128,16 @@ export const REFINING_BUILDING_TYPES = ['carpinteria', 'fundicion', 'destileria_
 /** Slots de refinado por edificio (1 base, 2 a nivel 4+) */
 export const REFINING_SLOTS_BASE = 1
 export const REFINING_SLOTS_EXPANDED_LEVEL = 4
+
+/** Bonus de velocidad de refinado: 15% más rápido por cada nivel por encima del mínimo de la receta */
+export const REFINING_SPEED_BONUS_PER_LEVEL = 0.15
+
+/** Calcula los minutos efectivos de una receta según el nivel del edificio */
+export function refiningCraftMinutes(recipeCraftMinutes, recipeMinLevel, buildingLevel) {
+  const levelsAbove = Math.max(0, buildingLevel - recipeMinLevel)
+  const multiplier = Math.max(0.4, 1 - levelsAbove * REFINING_SPEED_BONUS_PER_LEVEL)
+  return Math.round(recipeCraftMinutes * multiplier * 10) / 10
+}
 
 // ── Edificios: costes y tiempos de mejora ─────────────────────────────────────
 
@@ -228,6 +234,10 @@ export const LIBRARY_BASE_LEVEL_REQUIRED = 3
 
 /** Nivel máximo de cualquier edificio de base */
 export const BUILDING_MAX_LEVEL = 5
+
+/** Edificios de refinado y taller solo tienen nivel 1 (construir = desbloquear) */
+export const REFINING_MAX_LEVEL = 1
+export const LAB_MAX_LEVEL = 1
 
 /** Nivel máximo de cualquier sala de entrenamiento */
 export const TRAINING_ROOM_MAX_LEVEL = 5

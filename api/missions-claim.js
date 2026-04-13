@@ -1,7 +1,13 @@
 import { requireAuth } from './_auth.js'
 import { isUUID } from './_validate.js'
-import { xpRequiredForLevel } from '../src/lib/gameFormulas.js'
 
+/**
+ * POST /api/missions-claim
+ * Reclama la recompensa de una misión diaria completada.
+ * Body: { missionId: uuid }
+ *
+ * Usa RPC atómica: oro + XP (con level-up) + marcar claimed en una transacción.
+ */
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
@@ -26,37 +32,22 @@ export default async function handler(req, res) {
   // Obtener héroe para XP (el de menor slot si hay varios)
   const { data: heroes } = await supabase
     .from('heroes')
-    .select('id, experience, level')
+    .select('id')
     .eq('player_id', user.id)
     .order('slot')
   const hero = heroes?.[0]
 
   if (!hero) return res.status(500).json({ error: 'Error al obtener datos' })
 
-  // Aplicar recompensas — misiones solo dan oro y XP
-  const newXp = hero.experience + mission.reward_xp
-  const xpForLevel = xpRequiredForLevel(hero.level)
-  const levelUp = newXp >= xpForLevel
+  const { data: result, error: rpcErr } = await supabase.rpc('claim_mission_atomic', {
+    p_player_id: user.id,
+    p_hero_id: hero.id,
+    p_mission_id: missionId,
+    p_gold: mission.reward_gold,
+    p_xp: mission.reward_xp,
+  })
 
-  const results = await Promise.all([
-    supabase.rpc('add_resources', { p_player_id: user.id, p_gold: mission.reward_gold }),
-
-    supabase
-      .from('heroes')
-      .update({
-        experience: levelUp ? newXp - xpForLevel : newXp,
-        level: levelUp ? hero.level + 1 : hero.level,
-      })
-      .eq('id', hero.id),
-
-    supabase
-      .from('daily_missions')
-      .update({ claimed: true })
-      .eq('id', missionId),
-  ])
-
-  const firstError = results.find(r => r.error)
-  if (firstError) return res.status(500).json({ error: firstError.error.message })
+  if (rpcErr) return res.status(500).json({ error: rpcErr.message })
 
   return res.status(200).json({
     ok: true,
@@ -64,5 +55,6 @@ export default async function handler(req, res) {
       gold: mission.reward_gold,
       xp:   mission.reward_xp,
     },
+    levelUp: result?.level_up ?? false,
   })
 }

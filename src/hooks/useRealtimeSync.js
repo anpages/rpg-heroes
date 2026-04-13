@@ -4,11 +4,12 @@ import { supabase } from '../lib/supabase'
 import { queryKeys } from '../lib/queryKeys'
 
 /**
- * Mutation key usada por collectMutation / _collectAllMutation en Base.jsx.
- * Mientras haya mutaciones pendientes con esta key, Realtime no invalida
- * buildings ni resources — el onSettled de la última mutación reconcilia.
+ * Mutation keys usadas por Base.jsx.
+ * Mientras haya mutaciones pendientes con estas keys, Realtime no invalida
+ * los queries afectados — el onSettled de la última mutación reconcilia.
  */
 const COLLECT_KEY = ['building-collect']
+const REFINE_KEY  = ['refining-start']
 
 /**
  * Hook centralizado de Supabase Realtime.
@@ -29,17 +30,19 @@ export function useRealtimeSync(userId, heroId) {
   useEffect(() => {
     if (!userId) return
 
-    // Helpers: solo invalidar si no hay recolecciones en vuelo
-    const safeInvalidateBuildings  = () => { if (qc.isMutating({ mutationKey: COLLECT_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.buildings(userId) }) }
-    const safeInvalidateResources  = () => { if (qc.isMutating({ mutationKey: COLLECT_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.resources(userId) }) }
+    // Helpers: solo invalidar si no hay mutaciones en vuelo que afecten estos datos
+    const noCollect = () => qc.isMutating({ mutationKey: COLLECT_KEY }) === 0
+    const noRefine  = () => qc.isMutating({ mutationKey: REFINE_KEY })  === 0
+    const safeInvalidateBuildings  = () => { if (noCollect()) qc.invalidateQueries({ queryKey: queryKeys.buildings(userId) }) }
+    const safeInvalidateResources  = () => { if (noCollect() && noRefine()) qc.invalidateQueries({ queryKey: queryKeys.resources(userId) }) }
+    const safeInvalidateCrafted    = () => { if (noRefine()) qc.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) }) }
 
     const channel = supabase
       .channel(`user:${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'resources',               filter: `player_id=eq.${userId}` }, safeInvalidateResources)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings',               filter: `player_id=eq.${userId}` }, safeInvalidateBuildings)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_crafting_queue',   filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_potion_crafting',  filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.potions(userId) }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_potions',          filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.potions(userId) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_crafted_items',    filter: `player_id=eq.${userId}` }, safeInvalidateCrafted)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_refining_slots',   filter: `player_id=eq.${userId}` }, safeInvalidateCrafted)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_research',         filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.research(userId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'training_rooms',          filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_training_tokens',  filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) }))
@@ -48,8 +51,7 @@ export function useRealtimeSync(userId, heroId) {
           // Reconexión: invalidar todo para ponerse al día (respetando mutaciones en vuelo)
           safeInvalidateResources()
           safeInvalidateBuildings()
-          qc.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
-          qc.invalidateQueries({ queryKey: queryKeys.potions(userId) })
+          safeInvalidateCrafted()
           qc.invalidateQueries({ queryKey: queryKeys.research(userId) })
           qc.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
           qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
@@ -73,6 +75,7 @@ export function useRealtimeSync(userId, heroId) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_training',   filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.training(heroId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items', filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expeditions',     filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.activeExpedition(heroId) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_tactics',   filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) }))
       .subscribe((status) => {
         if (status === 'SUBSCRIBED' && initializedRef.current.hero) {
           qc.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
@@ -80,6 +83,7 @@ export function useRealtimeSync(userId, heroId) {
           qc.invalidateQueries({ queryKey: queryKeys.training(heroId) })
           qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
           qc.invalidateQueries({ queryKey: queryKeys.activeExpedition(heroId) })
+          qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
         }
         if (status === 'SUBSCRIBED') initializedRef.current.hero = true
       })

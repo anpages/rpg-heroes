@@ -28,5 +28,4 @@ export const queryKeys = {
   potions:         (userId) => ['potions', userId],
   research:        (userId) => ['research', userId],
   trainingTokens:  (userId) => ['training-tokens', userId],
-  weeklyModifier:  (heroId) => ['weekly-modifier', heroId],
 }

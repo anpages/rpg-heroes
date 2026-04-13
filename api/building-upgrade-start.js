@@ -10,6 +10,9 @@ import {
   LAB_BASE_LEVEL_REQUIRED,
   LIBRARY_BASE_LEVEL_REQUIRED,
   BUILDING_MAX_LEVEL,
+  REFINING_MAX_LEVEL,
+  LAB_MAX_LEVEL,
+  REFINING_BUILDING_TYPES,
 } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -30,7 +33,10 @@ export default async function handler(req, res) {
   if (!building) return res.status(404).json({ error: 'Edificio no encontrado' })
   if (building.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (!building.unlocked) return res.status(403).json({ error: 'Este edificio no está desbloqueado todavía' })
-  if (building.level >= BUILDING_MAX_LEVEL) return res.status(409).json({ error: `Nivel máximo alcanzado (${BUILDING_MAX_LEVEL})` })
+  const maxLevel = REFINING_BUILDING_TYPES.includes(building.type) ? REFINING_MAX_LEVEL
+    : building.type === 'laboratory' ? LAB_MAX_LEVEL
+    : BUILDING_MAX_LEVEL
+  if (building.level >= maxLevel) return res.status(409).json({ error: `Nivel máximo alcanzado (${maxLevel})` })
   if (building.upgrade_ends_at && new Date(building.upgrade_ends_at) > new Date()) {
     return res.status(409).json({ error: 'El edificio ya está mejorando' })
   }
