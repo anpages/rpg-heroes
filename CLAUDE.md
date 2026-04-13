@@ -33,21 +33,20 @@ api/                          # Serverless functions (Vercel)
   _missions.js                # Generación de misiones
   _rating.js                  # Rating de combate
   _research.js                # Lógica de investigación
-  _stats.js                   # Stats efectivas del héroe (durabilidad, peso, equipo)
+  _stats.js                   # Stats efectivas del héroe (durabilidad, peso, equipo, encantamientos)
   _teamCombat.js              # Combate de equipo
   _tournament.js, _tournamentFinalize.js
   _towerFinalize.js           # Finalización de torre
   _validate.js                # Validación de inputs
   _weeklyModifier.js          # Modificadores semanales (legacy, sin usar)
   building-*.js               # Edificios: collect, upgrade
-  craft-*.js                  # Crafteo de laboratorio
   expedition-*.js             # Expediciones a mazmorras
   hero-*.js                   # Reclutar, renombrar, descansar
   item-*.js                   # Equipar, reparar, desmantelar, transmutar, upgrade, usar
-  refining-*.js               # Refinado: start, collect, collect-all
+  item-enchant.js             # Aplicar runas de encantamiento a ítems
+  refining-*.js               # Slots de laboratorio: start, collect, collect-all
   lab-inventory-upgrade.js    # Ampliar inventario lab
   missions-*.js               # Obtener/reclamar misiones
-  potion-*.js                 # Pociones: craftear, recoger, usar
   quick-combat.js             # Combate de práctica
   research-*.js               # Investigación
   shop-*.js                   # Tienda: comprar, refresh, daily
@@ -87,6 +86,10 @@ src/
     CazaBotin.jsx             # Caza de Botín (APARCADO)
     Escuadron.jsx             # Escuadrón (comentado)
     base/                     # Sub-secciones de Base (zonas, cards, modales)
+      RecursosZone.jsx        # Edificios de producción
+      TallerZone.jsx          # Laboratorio (crafteo)
+      EntrenamientoZone.jsx   # Salas de entrenamiento
+      BibliotecaZone.jsx      # Árbol de investigación
 
   hooks/                      # TanStack Query hooks para cada entidad
   lib/
@@ -108,12 +111,12 @@ src/
   components/                  # Componentes reutilizables (modales, combat replay, etc.)
   store/appStore.js            # Zustand: tabs, modales, hero seleccionado
 
-supabase/migrations/           # ~111 migraciones SQL
+supabase/migrations/           # ~125 migraciones SQL
 ```
 
 ## Navegación
 
-- **Base** — Edificios, recursos, entrenamiento, investigación, crafteo
+- **Base** — Zonas: Producción, Laboratorio, Entrenamiento, Biblioteca
 - **Héroes** — Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
 - **Combate** — Sub-tabs: Práctica, Torre, Torneos, Historial, Clasificación
 - **Arena** — PvP de equipo (placeholder "próximamente" para 1v1 asíncrono)
@@ -121,17 +124,28 @@ supabase/migrations/           # ~111 migraciones SQL
 ## Sistemas del juego
 
 ### Economía de recursos
-- **Producción idle**: gold_mine, lumber_mill, mana_well, herb_garden + edificios de refinado
-- **wood/iron/mana NUNCA salen de drops de actividad** — solo de edificios productores
+- **Producción idle**: gold_mine (hierro), lumber_mill (madera), herb_garden (hierbas), mana_well (maná)
+- **Orden en UI**: aserradero → mina → hierbas → pozo de maná
+- **wood/iron/mana/herbs NUNCA salen de drops de actividad** — solo de edificios productores
 - **gold/fragments/essence** sí pueden ser loot de actividad
 - **essence** exclusiva de Templo de los Antiguos y Guarida del Dragón
 - **fragments** gateados por dificultad (≥5 mazmorras, ≥2 cámaras)
+
+### Producción idle — caps fijos por edificio
+- Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
+- `gold_mine`: cap=48 hierro → L1: 4h, L5: 1h
+- `lumber_mill`: cap=90 madera → L1: 6h, L5: 1.5h
+- `herb_garden`: cap=64 hierbas → L1: 8h, L5: 1.9h
+- `mana_well`: cap=102 maná → L1: 12.75h, L5: 3h (recurso escaso, ritmo lento)
+- RPC: `collect_building_production` y `collect_all_buildings_production` (solo si lleno)
+- Mejora del jardín (L2+) requiere también hierbas: L2→L3: 24, L3→L4: 36, L4→L5: 48
 
 ### Héroes
 - Clases: Universal, Caudillo, Arcanista, Sombra, Domador
 - Stats base: strength, agility, intelligence → derivadas: HP, attack, defense
 - Slots de héroe: 2º requiere base Nv.4, 3º base Nv.5
 - Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence)
+- **Recogida simultánea**: cada sala tiene su propio estado pending (Set de stats en curso)
 
 ### Equipamiento
 - 7 slots: helmet, chest, arms, legs, main_hand, off_hand, accessory
@@ -140,6 +154,14 @@ supabase/migrations/           # ~111 migraciones SQL
 - Peso penaliza agilidad: `floor(totalWeight / 4)`
 - Torre reduce durabilidad: 1pt (1-10), 2pt (11-25), 3pt (26-40), 4pt (41+)
 - Desmantelar da oro: common:10, uncommon:25, rare:60, epic:150, legendary:400
+- **Reparación**: cuesta oro directamente (sin kits). RPC `deduct_resources`.
+- **Encantamientos**: columna `inventory_items.enchantments` (JSONB). Escalan por durabilidad igual que bonos base.
+
+### Runas de encantamiento
+- 6 tipos: rune_attack (+10 ATQ), rune_defense (+10 DEF), rune_hp (+80 HP), rune_strength (+8 FUE), rune_agility (+8 AGI), rune_intelligence (+8 INT)
+- Cap por tier del ítem: T1=1 runa, T2=2 runas, T3=3 runas (verificado en `api/item-enchant.js`)
+- Crafteadas en el Laboratorio con recursos brutos
+- UI en Equipo.jsx: badge de encantamientos + picker inline en cada slot
 
 ### Tácticas
 - 5 slots por héroe (sin sistema de nivel, el level-up fue eliminado)
@@ -151,7 +173,9 @@ supabase/migrations/           # ~111 migraciones SQL
 
 ### Expediciones y mazmorras
 - Idle con timer, coste de HP basado en fórmulas de gameFormulas.js
-- Pociones usables antes de empezar
+- **Provisiones de expedición**: opt-in toggle antes de iniciar (+15% oro, +10% XP). Se consume 1 si activado.
+- **Poción de Vida**: se usa desde la ficha del héroe (restaura 40% HP al momento), NO desde expediciones
+- Mazmorras bloqueadas por nivel: muestran botón deshabilitado con "Requiere Nv. X"
 - Modificadores semanales eliminados del sistema activo
 
 ### Torre
@@ -165,21 +189,28 @@ supabase/migrations/           # ~111 migraciones SQL
 - Sistema de rating para matchmaking
 - Firma HMAC para verificar resultados
 
-### Laboratorio y Biblioteca
-- Ambos requieren base nivel 3
-- Lab: crafteo de items con cola y ingredientes
-- Biblioteca: árbol de investigación
+### Laboratorio (antes "Taller")
+- Requiere base nivel 3
+- Crafteo de **1 unidad a la vez** por receta — sin selector de cantidad
+- Botón único por receta: "Craftear" → deshabilitado con timer → "Recoger" (verde al terminar)
+- Categorías en UI: **Consumibles** (poción de vida + provisiones), **Runas**, **Mejora de tier**
+- Ingredientes: solo recursos brutos (iron, wood, mana, herbs, fragments, essence) — sin refinados
+- Piedras de forja (forge_stone_t2, forge_stone_t3) para upgrade de tier de ítems
 
-### Producción idle
-- Edificios producen recursos pasivamente con caps por edificio (~2h de acumulación)
-- `snapshotResources()` interpola antes de operar
-- Cron jobs: process-expeditions (5min), process-buildings (1min)
+### Biblioteca
+- Requiere base nivel 3
+- Árbol de investigación con bonos permanentes
+
+### Refinado — ELIMINADO
+- Las zonas de Carpintería, Fundición, Destilería Arcana y Herbolario están ocultas del nav
+- Los edificios siguen en la DB pero no tienen función activa
+- No hay materiales intermedios (lingotes, tablones, cristales, extractos)
 
 ## Patrones técnicos
 
 - **RPCs atómicas**: todos los endpoints usan RPCs de Supabase, CAS eliminado
 - **Realtime**: Supabase subscriptions para recursos, edificios, expediciones (`useRealtimeSync`)
-- **Stats efectivas**: calculadas en `api/_stats.js` (durabilidad proporcional + peso)
+- **Stats efectivas**: calculadas en `api/_stats.js` (durabilidad proporcional + peso + encantamientos)
 - **Constantes compartidas**: `gameConstants.js` y `gameFormulas.js` importados por frontend y backend
 - **Lazy mount de tabs**: `mountedTabs` Set en Dashboard
 - **Notificaciones**: usar solo `notify.*` de `src/lib/notifications.js` — nunca sonner directo
