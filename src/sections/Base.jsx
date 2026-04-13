@@ -355,8 +355,10 @@ export default function Base({ mainRef }) {
 
   const tallerSlotsReady = (refiningSlots ?? []).filter(s => {
     if (s.building_type !== 'laboratory') return false
+    if (!s.unit_duration_ms || s.unit_duration_ms <= 0) return false
     const elapsed = now - new Date(s.craft_started_at).getTime()
-    return Math.floor(elapsed / s.unit_duration_ms) > 0
+    const completed = Math.min(s.quantity, Math.floor(elapsed / s.unit_duration_ms))
+    return completed >= s.quantity
   }).length
   const tallerBadge = tallerSlotsReady
 
