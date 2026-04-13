@@ -81,9 +81,10 @@ export default async function handler(req, res) {
 
   // Deducir recursos (atómico via RPC)
   const deductArgs = { p_player_id: user.id }
-  if (cost.wood) deductArgs.p_wood = cost.wood
-  if (cost.iron) deductArgs.p_iron = cost.iron
-  if (cost.mana) deductArgs.p_mana = cost.mana
+  if (cost.wood)  deductArgs.p_wood  = cost.wood
+  if (cost.iron)  deductArgs.p_iron  = cost.iron
+  if (cost.mana)  deductArgs.p_mana  = cost.mana
+  if (cost.herbs) deductArgs.p_herbs = cost.herbs
 
   const { data: ok, error: rpcErr } = await supabase.rpc('deduct_resources', deductArgs)
   if (rpcErr) return res.status(500).json({ error: rpcErr.message })

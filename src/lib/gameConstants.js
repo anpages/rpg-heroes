@@ -191,7 +191,11 @@ export function buildingUpgradeCost(type, currentLevel) {
       return { wood: Math.round(55 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)), mana: Math.round(20 * Math.pow(currentLevel, 1.3)) }
     case 'herb_garden':
       if (currentLevel === 0) return { wood: 50, iron: 25 }
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(20 * Math.pow(currentLevel, 1.4)) }
+      return {
+        wood:  Math.round(45 * Math.pow(currentLevel, 1.5)),
+        iron:  Math.round(20 * Math.pow(currentLevel, 1.4)),
+        ...(currentLevel >= 2 && { herbs: currentLevel * 12 }),
+      }
     case 'carpinteria':
       if (currentLevel === 0) return { wood: 40, iron: 20 }
       return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(20 * Math.pow(currentLevel, 1.4)) }
