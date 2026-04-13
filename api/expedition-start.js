@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { dungeonId, heroId } = req.body
+  const { dungeonId, heroId, potionRecipeId } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
   if (!heroId)    return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(dungeonId)) return res.status(400).json({ error: 'dungeonId inválido' })
@@ -53,7 +53,25 @@ export default async function handler(req, res) {
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
 
   const nowMs = Date.now()
-  const currentHp = interpolateHP(hero, nowMs, stats?.max_hp)
+  let currentHp = interpolateHP(hero, nowMs, stats?.max_hp)
+
+  // Poción de vida — opcional, elegida por el jugador antes de iniciar
+  let potionUsed = false
+  let potionStock = null
+  if (potionRecipeId === 'potion_vida') {
+    const { data: ps } = await supabase
+      .from('player_crafted_items')
+      .select('quantity')
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'potion_vida')
+      .maybeSingle()
+    if (ps && ps.quantity > 0) {
+      potionStock = ps
+      const restored = Math.round((stats?.max_hp ?? hero.max_hp) * 0.40)
+      currentHp = Math.min(stats?.max_hp ?? hero.max_hp, currentHp + restored)
+      potionUsed = true
+    }
+  }
 
   // Obtener mazmorra
   const { data: dungeon } = await supabase
@@ -165,14 +183,27 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: expError.message })
   }
 
-  // Consumir provisiones tras insertar expedición con éxito
+  // Consumir provisiones y poción tras insertar expedición con éxito
+  const consumeOps = []
   if (hasProvisions) {
-    await supabase
-      .from('player_crafted_items')
-      .update({ quantity: provStock.quantity - 1 })
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'expedition_provisions')
+    consumeOps.push(
+      supabase
+        .from('player_crafted_items')
+        .update({ quantity: provStock.quantity - 1 })
+        .eq('player_id', user.id)
+        .eq('recipe_id', 'expedition_provisions')
+    )
   }
+  if (potionUsed && potionStock) {
+    consumeOps.push(
+      supabase
+        .from('player_crafted_items')
+        .update({ quantity: potionStock.quantity - 1 })
+        .eq('player_id', user.id)
+        .eq('recipe_id', 'potion_vida')
+    )
+  }
+  await Promise.all(consumeOps)
 
-  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition, provisionsUsed: hasProvisions })
+  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition, provisionsUsed: hasProvisions, potionUsed })
 }

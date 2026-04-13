@@ -12,11 +12,12 @@ import { fmtTime, baseLevelFromMap } from './helpers.js'
 import { cardVariants } from './constants.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const CATEGORY_ORDER = ['rune', 'expedition', 'forge']
+const CATEGORY_ORDER = ['potion', 'rune', 'expedition', 'forge']
 
 const CATEGORY_META = {
-  rune:       { label: 'Runas', color: '#7c3aed' },
-  expedition: { label: 'Expedición', color: '#0891b2' },
+  potion:     { label: 'Pociones',      color: '#dc2626' },
+  rune:       { label: 'Runas',         color: '#7c3aed' },
+  expedition: { label: 'Expedición',    color: '#0891b2' },
   forge:      { label: 'Mejora de tier', color: '#b45309' },
 }
 
@@ -26,6 +27,7 @@ const INPUT_LABELS = {
 }
 
 const RECIPE_ORDER = [
+  'potion_vida',
   'rune_attack', 'rune_defense', 'rune_hp', 'rune_strength', 'rune_agility', 'rune_intelligence',
   'expedition_provisions',
   'forge_stone_t2', 'forge_stone_t3',
