@@ -99,8 +99,8 @@ export const BUILDING_PRODUCTION = {
   // herb_garden: L1=8h, L5=1.9h
   gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], cap: 48  },
   lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60], cap: 90  },
-  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], cap: 102 },
   herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34], cap: 64  },
+  mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], cap: 102 },
 }
 
 /** Tipos de edificio productivo (los que se recolectan). */
