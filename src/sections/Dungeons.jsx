@@ -746,7 +746,7 @@ function Dungeons() {
       ends_at: new Date(now + effectiveMs).toISOString(),
       consumables_used: consumablesUsed,
     })
-    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    topRef.current?.closest('main')?.scrollTo({ top: 0, behavior: 'smooth' })
 
     try {
       const data = await apiPost('/api/expedition-start', {
