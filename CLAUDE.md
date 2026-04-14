@@ -124,8 +124,9 @@ supabase/migrations/           # ~125 migraciones SQL
 ## Sistemas del juego
 
 ### Economía de recursos
-- **Producción idle**: gold_mine (hierro), lumber_mill (madera), herb_garden (hierbas), mana_well (maná)
-- **Orden en UI**: aserradero → mina → hierbas → pozo de maná
+- **Producción idle**: lumber_mill (madera), gold_mine (hierro), herb_garden (hierbas), mana_well (maná)
+- **Orden en UI y prioridad**: aserradero → mina → hierbas → pozo de maná
+- **El aserradero es el edificio principal** — siempre llena más rápido que la mina en cada nivel
 - **wood/iron/mana/herbs NUNCA salen de drops de actividad** — solo de edificios productores
 - **gold/fragments/essence** sí pueden ser loot de actividad
 - **essence** exclusiva de Templo de los Antiguos y Guarida del Dragón
@@ -133,8 +134,8 @@ supabase/migrations/           # ~125 migraciones SQL
 
 ### Producción idle — caps fijos por edificio
 - Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
+- `lumber_mill`: cap=60 madera → L1: 3h20m, L5: 49m ← **recurso principal, más rápido que mina**
 - `gold_mine`: cap=48 hierro → L1: 4h, L5: 1h
-- `lumber_mill`: cap=90 madera → L1: 6h, L5: 1.5h
 - `herb_garden`: cap=64 hierbas → L1: 8h, L5: 1.9h
 - `mana_well`: cap=102 maná → L1: 12.75h, L5: 3h (recurso escaso, ritmo lento)
 - RPC: `collect_building_production` y `collect_all_buildings_production` (solo si lleno)

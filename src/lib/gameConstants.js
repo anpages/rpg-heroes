@@ -93,12 +93,13 @@ export function manaRateForLevel(level) {
  */
 export const BUILDING_PRODUCTION = {
   // cap fijo por edificio → mayor nivel llena más rápido
-  // gold_mine:  L1=4h, L5=1h
-  // lumber_mill: L1=6h, L5=1.5h
-  // mana_well:  L1=12.75h, L5=3h   (recurso escaso, ritmo lento)
-  // herb_garden: L1=8h, L5=1.9h
+  // ORDEN DE PRIORIDAD UI: aserradero → mina → hierbas → pozo de maná
+  // lumber_mill: L1=3h20m, L5=49m  ← recurso principal, SIEMPRE más rápido que mina
+  // gold_mine:   L1=4h,    L5=1h
+  // herb_garden: L1=8h,    L5=1.9h
+  // mana_well:   L1=12.75h, L5=3h  (recurso escaso, ritmo lento)
+  lumber_mill: { resource: 'wood',  ratePerHour: [18, 26, 37, 52, 74], cap: 60  },
   gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], cap: 48  },
-  lumber_mill: { resource: 'wood',  ratePerHour: [15, 21, 30, 42, 60], cap: 90  },
   herb_garden: { resource: 'herbs', ratePerHour: [8,  12, 17, 24, 34], cap: 64  },
   mana_well:   { resource: 'mana',  ratePerHour: [8,  12, 17, 24, 34], cap: 102 },
 }
