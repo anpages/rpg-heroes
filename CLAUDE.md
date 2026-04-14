@@ -136,7 +136,7 @@ supabase/migrations/           # ~125 migraciones SQL
 - Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
 - `lumber_mill`: cap=60 madera → L1: 3h20m, L5: 49m ← **recurso principal, más rápido que mina**
 - `gold_mine`: cap=48 hierro → L1: 4h, L5: 1h
-- `herb_garden`: cap=64 hierbas → L1: 4h34m, L5: 1h9m
+- `herb_garden`: cap=56 hierbas → L1: 4h, L5: 1h (mismo tier que mina)
 - `mana_well`: cap=102 maná → L1: 6h, L5: 1h27m (recurso escaso, ritmo lento)
 - Spread entre aserradero y maná: ~1.8× constante en todos los niveles
 - RPC: `collect_building_production` y `collect_all_buildings_production` (solo si lleno)

@@ -97,11 +97,11 @@ export const BUILDING_PRODUCTION = {
   // spread máximo ~1.8x entre aserradero y maná en cada nivel
   // lumber_mill: L1=3h20m, L5=49m  ← recurso principal, SIEMPRE más rápido que mina
   // gold_mine:   L1=4h,    L5=1h
-  // herb_garden: L1=4h34m, L5=1h9m
+  // herb_garden: L1=4h,    L5=1h   (mismo tier que mina)
   // mana_well:   L1=6h,    L5=1h27m (recurso escaso, ritmo lento)
   lumber_mill: { resource: 'wood',  ratePerHour: [18, 26, 37, 52, 74], cap: 60  },
   gold_mine:   { resource: 'iron',  ratePerHour: [12, 17, 24, 34, 48], cap: 48  },
-  herb_garden: { resource: 'herbs', ratePerHour: [14, 20, 28, 40, 56], cap: 64  },
+  herb_garden: { resource: 'herbs', ratePerHour: [14, 20, 28, 40, 56], cap: 56  },
   mana_well:   { resource: 'mana',  ratePerHour: [17, 25, 35, 49, 70], cap: 102 },
 }
 
