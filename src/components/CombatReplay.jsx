@@ -142,6 +142,10 @@ function EventRow({ ev, heroName, enemyName, index }) {
         <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
           {name}
         </span>
+        <span className="text-[9px] font-bold px-1 py-[1px] rounded border flex-shrink-0 uppercase tracking-wide"
+          style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 40%, var(--border))', background: 'color-mix(in srgb, #d97706 12%, var(--bg))' }}>
+          clase
+        </span>
         <span className="text-[11px] font-extrabold text-[#d97706] uppercase tracking-wide flex-shrink-0">
           {ev.label}
         </span>
@@ -168,6 +172,10 @@ function EventRow({ ev, heroName, enemyName, index }) {
         <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '✨'}</span>
         <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
           {name}
+        </span>
+        <span className="text-[9px] font-bold px-1 py-[1px] rounded border flex-shrink-0 uppercase tracking-wide"
+          style={{ color: '#a855f7', borderColor: 'color-mix(in srgb, #a855f7 40%, var(--border))', background: 'color-mix(in srgb, #a855f7 12%, var(--bg))' }}>
+          clase
         </span>
         <span className="text-[10px] font-bold text-[#a855f7] uppercase tracking-wide flex-shrink-0">
           {ev.label}
@@ -196,6 +204,10 @@ function EventRow({ ev, heroName, enemyName, index }) {
         <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '⚔'}</span>
         <span className="font-semibold flex-1 truncate" style={{ color: isHero ? 'var(--blue-700)' : '#dc2626' }}>
           {name}
+        </span>
+        <span className="text-[9px] font-bold px-1 py-[1px] rounded border flex-shrink-0 uppercase tracking-wide"
+          style={{ color: '#7c3aed', borderColor: 'color-mix(in srgb, #7c3aed 40%, var(--border))', background: 'color-mix(in srgb, #7c3aed 12%, var(--bg))' }}>
+          táct.
         </span>
         <span className="text-[10px] font-extrabold text-[#7c3aed] uppercase tracking-wide flex-shrink-0">
           {ev.label}
