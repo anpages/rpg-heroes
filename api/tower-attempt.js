@@ -139,6 +139,7 @@ export default async function handler(req, res) {
       archetype:     archetypeKey,
       heroClass:     hero.class,
       floor:         targetFloor,
+      enemyTactics:  enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
     })
   }
 

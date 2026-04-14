@@ -181,6 +181,11 @@ export default async function handler(req, res) {
       wood_earned: woodEarned,
       mana_earned: manaEarned,
       experience_earned: xpEarned,
+      consumables_used: [
+        hasProvisions ? 'expedition_provisions' : null,
+        vialUsed      ? 'vial_aceleracion'      : null,
+        amuletoUsed   ? 'amuleto_fortuna'        : null,
+      ].filter(Boolean),
     })
 
   if (expError) {

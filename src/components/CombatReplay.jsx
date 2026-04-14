@@ -184,6 +184,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
   // Tactic activation event
   if (type === 'tactic') {
     const hasDmg = ev.damage != null && ev.damage > 0
+    const hasHeal = ev.heal != null && ev.heal > 0
     return (
       <motion.div
         initial={{ opacity: 0, y: 6 }}
@@ -202,6 +203,11 @@ function EventRow({ ev, heroName, enemyName, index }) {
         {hasDmg && (
           <span className="font-bold text-[14px] flex-shrink-0 tabular-nums text-[#7c3aed]">
             −{ev.damage}
+          </span>
+        )}
+        {hasHeal && (
+          <span className="font-bold text-[14px] flex-shrink-0 tabular-nums text-[#16a34a]">
+            +{ev.heal}
           </span>
         )}
       </motion.div>
@@ -474,6 +480,7 @@ export function CombatReplay({
   won, rewards, rating, onClose,
   heroClass, archetype,
   keyMomentPause, decisions, onDecide, resolving,
+  enemyTactics,
 }) {
   const resolvedHeroClass  = heroClass ?? null
   const resolvedEnemyClass = archetype ? (ARCHETYPE_TO_CLASS[archetype] ?? archetype) : null
@@ -604,11 +611,26 @@ export function CombatReplay({
         {/* ── Resultado — footer fijo bajo el log ── */}
         {phase === 'done' && !keyMomentPause && (
           <motion.div
-            className="flex-shrink-0 border-t border-border bg-[var(--surface)] px-5 py-4"
+            className="flex-shrink-0 border-t border-border bg-[var(--surface)] px-5 py-4 flex flex-col gap-3"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
+            {enemyTactics?.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-3">Tácticas del rival</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {enemyTactics.map((t, i) => (
+                    <span
+                      key={i}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-surface-2 border border-border rounded-lg text-[11px] font-semibold text-text-2"
+                    >
+                      {t.icon} {t.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <ResultPanel won={won} rewards={rewards} rating={rating} onClose={onClose} />
           </motion.div>
         )}

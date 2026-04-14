@@ -12,6 +12,7 @@ import { useAppStore } from '../store/appStore'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
+import { TacticsStrip } from '../components/TacticsStrip'
 
 const ROUND_LABELS = ['Cuartos', 'Semifinal', 'Final']
 const ROUND_COLORS = ['#2563eb', '#d97706', '#dc2626']
@@ -134,7 +135,7 @@ function WeekBracket({ todayOffset, matchByRound, nextRound, eliminated, champio
 const STAT_KEYS   = ['max_hp', 'attack', 'defense', 'strength', 'agility']
 const STAT_LABELS = { max_hp: 'HP', attack: 'ATQ', defense: 'DEF', strength: 'FUE', agility: 'AGI' }
 
-function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId, userId, activeEffects }) {
+function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId, userId, activeEffects, navigateToTacticas }) {
   const color = ROUND_COLORS[round - 1]
 
   return (
@@ -224,6 +225,14 @@ function VSCard({ hero, rival, round, onFight, isPending, heroExploring, heroId,
       {/* Pociones de combate */}
       <div className="px-4 pb-2">
         <PotionPanel heroId={heroId} userId={userId} activeEffects={activeEffects} />
+      </div>
+
+      {/* Tácticas */}
+      <div className="px-4 pb-2">
+        <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Tus tácticas</span>
+          <TacticsStrip heroId={heroId} onNavigate={navigateToTacticas} />
+        </div>
       </div>
 
       {/* CTA */}
@@ -330,6 +339,7 @@ export default function Torneos() {
   const queryClient          = useQueryClient()
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
   const userId               = useAppStore(s => s.userId)
+  const navigateToHeroTab    = useAppStore(s => s.navigateToHeroTab)
   const [replay, setReplay]              = useState(null)
   const [showCountdown, setShowCountdown] = useState(false)
 
@@ -355,12 +365,13 @@ export default function Torneos() {
         // Final del torneo: Momento clave activado, esperamos la decisión del jugador
         setPauseToken(data.token)
         setReplay({
-          log:        data.log,
-          heroMaxHp:  data.heroMaxHp,
-          rivalMaxHp: data.rivalMaxHp,
-          rival:      data.rival,
-          paused:     true,
-          decisions:  data.decisions,
+          log:          data.log,
+          heroMaxHp:    data.heroMaxHp,
+          rivalMaxHp:   data.rivalMaxHp,
+          rival:        data.rival,
+          paused:       true,
+          decisions:    data.decisions,
+          enemyTactics: data.enemyTactics ?? [],
         })
         return
       }
@@ -370,7 +381,7 @@ export default function Torneos() {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
       if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
+      setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards, enemyTactics: data.enemyTactics ?? [] })
     },
     onError: err => notify.error(err.message),
   })
@@ -385,7 +396,7 @@ export default function Torneos() {
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
       if (data.rewards) queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      setReplay({ log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards })
+      setReplay(prev => ({ ...prev, log: data.log, heroMaxHp: data.heroMaxHp, rivalMaxHp: data.rivalMaxHp, rival: data.rival, won: data.won, rewards: data.rewards, paused: false }))
     },
     onError: err => {
       notify.error(err.message)
@@ -618,6 +629,7 @@ export default function Torneos() {
           heroId={heroId}
           userId={userId}
           activeEffects={hero?.active_effects ?? {}}
+          navigateToTacticas={() => navigateToHeroTab('tacticas')}
         />
       )}
 
@@ -660,6 +672,7 @@ export default function Torneos() {
           rating={replay.rating}
           heroClass={replay.heroClass}
           archetype={replay.rival?.archetype}
+          enemyTactics={replay.enemyTactics}
           onClose={() => { setReplay(null); setPauseToken(null) }}
           keyMomentPause={replay.paused === true}
           decisions={replay.decisions}

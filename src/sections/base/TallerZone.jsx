@@ -382,12 +382,11 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
       {/* Barra de acento superior */}
       <div className="h-[3px]" style={{ background: isDone ? '#059669' : inProgress ? '#0891b2' : `color-mix(in srgb, ${color} 40%, var(--border))` }} />
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-3 pt-3 pb-2">
-        <span className="text-[18px] leading-none flex-shrink-0">{recipe.icon}</span>
+      <div className="flex items-start gap-2.5 px-3 pt-3 pb-2">
+        <span className="text-[18px] leading-none flex-shrink-0 mt-0.5">{recipe.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-bold text-text leading-tight truncate">{recipe.name}</span>
-            {/* Stock */}
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-[13px] font-bold text-text leading-tight">{recipe.name}</span>
             {stock > 0 && (
               <span
                 className="text-[11px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
@@ -397,6 +396,9 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
               </span>
             )}
           </div>
+          {recipe.description && (
+            <p className="text-[13px] text-text-3 leading-snug mt-0.5">{recipe.description}</p>
+          )}
         </div>
       </div>
 

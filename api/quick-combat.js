@@ -202,6 +202,7 @@ export default async function handler(req, res) {
     heroClass:    hero.class,
     tierShift:    shift,
     durabilityLoss: durLoss,
+    enemyTactics: enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,

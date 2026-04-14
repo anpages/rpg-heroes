@@ -143,6 +143,7 @@ export default async function handler(req, res) {
       round:       nextRound,
       rival,
       heroClass:   hero.class,
+      enemyTactics: enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
     })
   }
 

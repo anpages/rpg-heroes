@@ -161,7 +161,7 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
   const dungeonName   = activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'
   const dungeonType   = activeDungeon?.type ?? expedition.dungeons?.type
   const typeColor     = DUNGEON_TYPE_META[dungeonType]?.color ?? '#6b7280'
-  const usedConsumables = expedition.consumablesUsed ?? []
+  const usedConsumables = expedition.consumables_used ?? []
 
   async function handleCollect() {
     setCollecting(true)
@@ -187,15 +187,25 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
             : <Compass size={16} strokeWidth={2} style={{ color: typeColor }} className="animate-[spin_8s_linear_infinite]" />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 mb-1">
             <span className="text-[14px] font-bold text-text truncate">{dungeonName}</span>
             {canCollect && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#16a34a]/15 text-[#16a34a] flex-shrink-0">LISTA</span>}
-            {usedConsumables.map(id => {
-              const m = CONSUMABLE_META[id]
-              return m ? <span key={id} className="text-[13px] leading-none" title={m.label}>{m.icon}</span> : null
-            })}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          {usedConsumables.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+              {usedConsumables.map(id => {
+                const m = CONSUMABLE_META[id]
+                if (!m) return null
+                return (
+                  <span key={id} className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
+                    style={{ background: `color-mix(in srgb,${m.color} 15%,var(--bg))`, color: m.color }}>
+                    {m.icon} {m.label}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
             <div className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-none" style={{ width: `${pct}%`, background: canCollect ? '#16a34a' : typeColor }} />
             </div>
@@ -226,19 +236,23 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
 function DungeonCard({
   dungeon, effectiveMins, hpCost, goldMin, goldMax, xpReward,
   equipChance, tacticChance, materialData,
-  locked, busy, lowHp, isExploring,
+  locked, busy, isExploring,
   onOpen,
 }) {
   const meta      = DUNGEON_TYPE_META[dungeon.type]
   const matMeta   = materialData ? MATERIAL_META[materialData.resource] : null
   const slotChips = DUNGEON_TYPE_SLOTS[dungeon.type] ?? []
-  const canOpen   = !locked && !isExploring
+  const canOpen   = !locked && !busy && !isExploring
+
+  const dimmed = locked || busy || isExploring
 
   return (
     <div
       className={`relative flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] overflow-hidden
         transition-[box-shadow,border-color] duration-200
-        ${locked ? 'border-border opacity-55' : isExploring ? 'border-blue-500/50 opacity-65' : 'border-border cursor-pointer hover:border-[color-mix(in_srgb,var(--border)_60%,#6366f1)]'}`}
+        ${dimmed ? 'opacity-55' : 'cursor-pointer'}
+        ${isExploring ? 'border-blue-500/50' : 'border-border'}
+        ${canOpen ? 'hover:border-[color-mix(in_srgb,var(--border)_60%,#6366f1)]' : ''}`}
       onClick={() => canOpen && onOpen(dungeon)}
     >
       {meta && <div className="h-[3px] w-full" style={{ background: meta.color }} />}
@@ -287,10 +301,11 @@ function DungeonCard({
 
       {/* Footer — puramente visual, el click lo maneja la card */}
       <div className="flex items-center justify-end px-4 py-2.5 border-t border-border mt-auto pointer-events-none">
-        <div className={`btn btn--primary flex-shrink-0 ${!canOpen ? 'opacity-60' : ''}`}>
+        <div className={`btn btn--primary flex-shrink-0 ${dimmed ? 'opacity-60' : ''}`}>
           {locked
             ? <><Lock size={13} strokeWidth={2} /><span>Nv. {dungeon.min_hero_level}</span></>
             : isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></>
+            : busy ? <><Compass size={13} strokeWidth={2} /><span>En expedición</span></>
             : <><span>Preparar</span><ChevronRight size={15} strokeWidth={2} /></>}
         </div>
       </div>
@@ -359,7 +374,9 @@ function PrepareExpeditionModal({
   dungeon, onClose, onStart,
   preview, craftedItems, equipHealth, disabled, disabledReason,
 }) {
-  const [sel, setSel] = useState({ provisions: false, vial: false, amuleto: false })
+  const [sel, setSel]         = useState({ provisions: false, vial: false, amuleto: false })
+  const mountedAt             = useRef(Date.now())
+  function handleBackdrop() { if (Date.now() - mountedAt.current > 120) onClose() }
 
   const provisions = craftedItems?.expedition_provisions ?? 0
   const vials      = craftedItems?.vial_aceleracion      ?? 0
@@ -397,9 +414,9 @@ function PrepareExpeditionModal({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={handleBackdrop}>
       <motion.div
-        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-lg)] w-full sm:max-w-md max-h-[90vh] overflow-y-auto"
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-lg)] w-full sm:max-w-md max-h-[90vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
@@ -727,7 +744,7 @@ function Dungeons() {
       dungeon_id: dungeon.id,
       started_at: new Date(now).toISOString(),
       ends_at: new Date(now + effectiveMs).toISOString(),
-      consumablesUsed,
+      consumables_used: consumablesUsed,
     })
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
@@ -785,24 +802,26 @@ function Dungeons() {
       )}
 
       {/* Modal de preparación */}
-      <AnimatePresence>
-        {prepDungeon && (() => {
-          const p = computePreview(prepDungeon)
-          return createPortal(
-            <PrepareExpeditionModal
-              dungeon={prepDungeon}
-              onClose={() => setPrepDungeon(null)}
-              onStart={handleStart}
-              preview={p}
-              craftedItems={craftedItems}
-              equipHealth={equipHealth}
-              disabled={p.disabled}
-              disabledReason={p.disabledReason}
-            />,
-            document.body
-          )
-        })()}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {prepDungeon && (() => {
+            const p = computePreview(prepDungeon)
+            return (
+              <PrepareExpeditionModal
+                dungeon={prepDungeon}
+                onClose={() => setPrepDungeon(null)}
+                onStart={handleStart}
+                preview={p}
+                craftedItems={craftedItems}
+                equipHealth={equipHealth}
+                disabled={p.disabled}
+                disabledReason={p.disabledReason}
+              />
+            )
+          })()}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Expedición activa */}
       {expedition && (

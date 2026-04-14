@@ -156,7 +156,7 @@ function runCombatLoop(a, b, state, opts) {
       if (eff.trigger === 'passive') {
         if (round === 1 && !triggered[id + '_passive']) {
           triggered[id + '_passive'] = true
-          applyTacticEffect(eff, level, buffs, 999)
+          applyTacticEffect(eff, level, buffs, 999, t.name, t.icon)
           events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: eff.effect, hpA: actor === 'a' ? fighter.hp : opponentHp, hpB: actor === 'a' ? opponentHp : fighter.hp })
         }
         continue
@@ -164,14 +164,14 @@ function runCombatLoop(a, b, state, opts) {
 
       // ── start_of_combat: solo ronda 1 ──
       if (eff.trigger === 'start_of_combat' && round === 1) {
-        applyTacticEffect(eff, level, buffs, eff.duration ?? 1)
+        applyTacticEffect(eff, level, buffs, eff.duration ?? 1, t.name, t.icon)
         events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: eff.effect, hpA: actor === 'a' ? fighter.hp : opponentHp, hpB: actor === 'a' ? opponentHp : fighter.hp })
         continue
       }
 
       // ── round_n: se activa en la ronda indicada ──
       if (eff.trigger === 'round_n' && round === (eff.n ?? 3)) {
-        applyTacticEffect(eff, level, buffs, eff.duration ?? 1)
+        applyTacticEffect(eff, level, buffs, eff.duration ?? 1, t.name, t.icon)
         events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: eff.effect, hpA: actor === 'a' ? fighter.hp : opponentHp, hpB: actor === 'a' ? opponentHp : fighter.hp })
         continue
       }
@@ -181,7 +181,7 @@ function runCombatLoop(a, b, state, opts) {
         const below = fighter.hp / maxHp <= (eff.threshold ?? 0.50)
         if (below && (!eff.once || !triggered[id])) {
           triggered[id] = true
-          applyTacticEffect(eff, level, buffs, eff.duration ?? 2)
+          applyTacticEffect(eff, level, buffs, eff.duration ?? 2, t.name, t.icon)
           events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: eff.effect, hpA: actor === 'a' ? fighter.hp : opponentHp, hpB: actor === 'a' ? opponentHp : fighter.hp })
         }
         continue
@@ -190,16 +190,17 @@ function runCombatLoop(a, b, state, opts) {
   }
 
   /** Registra un buff activo desde un efecto de táctica. */
-  function applyTacticEffect(eff, level, buffs, duration) {
+  function applyTacticEffect(eff, level, buffs, duration, tacticName, tacticIcon) {
     const key = eff.effect
     const val = scaleTacticValue(eff.value ?? 0, level)
     // Acumular o reemplazar
-    buffs[key] = { value: val, duration, stat: eff.stat, chance: eff.chance }
+    buffs[key] = { value: val, duration, stat: eff.stat, chance: eff.chance, tacticName, tacticIcon }
   }
 
   /** Decrementa duración de buffs activos, elimina los caducados. */
   function tickBuffs(buffs) {
     for (const key of Object.keys(buffs)) {
+      if (key.startsWith('_') || typeof buffs[key] !== 'object' || buffs[key] === null || buffs[key].duration == null) continue
       buffs[key].duration--
       if (buffs[key].duration <= 0) delete buffs[key]
     }
@@ -283,6 +284,24 @@ function runCombatLoop(a, b, state, opts) {
     if (hasBuff(tacticBuffsB, 'heal_pct') && !tacticBuffsB.heal_pct._fromCrit) {
       const healAmt = Math.round(b.max_hp * getBuff(tacticBuffsB, 'heal_pct'))
       hpB = Math.min(b.max_hp, hpB + healAmt)
+    }
+
+    // dot_damage: daño por ronda al oponente
+    if (hasBuff(tacticBuffsA, 'dot_damage') && hpB > 0) {
+      const dot = Math.round(b.max_hp * getBuff(tacticBuffsA, 'dot_damage'))
+      if (dot > 0) {
+        hpB = Math.max(0, hpB - dot)
+        const tb = tacticBuffsA.dot_damage
+        events.push({ type: 'tactic', actor: 'a', tactic: tb.tacticName ?? 'Veneno', label: tb.tacticName ?? 'Veneno', icon: tb.tacticIcon ?? '☠', effect: 'dot_damage', damage: dot, hpA, hpB })
+      }
+    }
+    if (hasBuff(tacticBuffsB, 'dot_damage') && hpA > 0) {
+      const dot = Math.round(a.max_hp * getBuff(tacticBuffsB, 'dot_damage'))
+      if (dot > 0) {
+        hpA = Math.max(0, hpA - dot)
+        const tb = tacticBuffsB.dot_damage
+        events.push({ type: 'tactic', actor: 'b', tactic: tb.tacticName ?? 'Veneno', label: tb.tacticName ?? 'Veneno', icon: tb.tacticIcon ?? '☠', effect: 'dot_damage', damage: dot, hpA, hpB })
+      }
     }
 
     // ── Habilidades activas (inicio de ronda) ──
@@ -381,18 +400,22 @@ function runCombatLoop(a, b, state, opts) {
     const tacDmgRedB = 1 - getBuff(tacticBuffsB, 'damage_reduction')
     const tacCritRedA = getBuff(tacticBuffsA, 'reduce_crit_damage')
     const tacCritRedB = getBuff(tacticBuffsB, 'reduce_crit_damage')
-    // enemy_debuff: reduce ataque del oponente
-    const tacEnemyDebuffA = hasBuff(tacticBuffsB, 'enemy_debuff') && tacticBuffsB.enemy_debuff.stat === 'attack'
+    // enemy_debuff: reduce ataque o defensa del oponente
+    const tacEnemyAtkDebuffA = hasBuff(tacticBuffsB, 'enemy_debuff') && tacticBuffsB.enemy_debuff.stat === 'attack'
       ? 1 - getBuff(tacticBuffsB, 'enemy_debuff') : 1
-    const tacEnemyDebuffB = hasBuff(tacticBuffsA, 'enemy_debuff') && tacticBuffsA.enemy_debuff.stat === 'attack'
+    const tacEnemyAtkDebuffB = hasBuff(tacticBuffsA, 'enemy_debuff') && tacticBuffsA.enemy_debuff.stat === 'attack'
       ? 1 - getBuff(tacticBuffsA, 'enemy_debuff') : 1
+    const tacEnemyDefDebuffOnB = hasBuff(tacticBuffsA, 'enemy_debuff') && tacticBuffsA.enemy_debuff.stat === 'defense'
+      ? 1 - getBuff(tacticBuffsA, 'enemy_debuff') : 1
+    const tacEnemyDefDebuffOnA = hasBuff(tacticBuffsB, 'enemy_debuff') && tacticBuffsB.enemy_debuff.stat === 'defense'
+      ? 1 - getBuff(tacticBuffsB, 'enemy_debuff') : 1
     // dodge_boost de tácticas
     const tacDodgeBoostA = getBuff(tacticBuffsA, 'dodge_boost')
     const tacDodgeBoostB = getBuff(tacticBuffsB, 'dodge_boost')
 
     function calcDmgA(isCrit) {
-      const effDef = Math.round((b.defense ?? 0) * (1 - Math.min(tacPenA, 0.60)) * stanceB.defMult)
-      const base = physDamage(a.attack * tacEnemyDebuffA, a.strength, effDef) + magicDamage(a.intelligence)
+      const effDef = Math.round((b.defense ?? 0) * tacEnemyDefDebuffOnB * (1 - Math.min(tacPenA, 0.60)) * stanceB.defMult)
+      const base = physDamage(a.attack * tacEnemyAtkDebuffA, a.strength, effDef) + magicDamage(a.intelligence)
       const tacDmg = hasBuff(tacticBuffsA, 'damage_mult') ? getBuff(tacticBuffsA, 'damage_mult') : 1
       const scaled = base * dmgMult * stanceA.dmgMult * abilityAtkMultA * tacDmg
       const critMult = isCrit ? (1.5 - tacCritRedB) : 1
@@ -402,8 +425,8 @@ function runCombatLoop(a, b, state, opts) {
     }
 
     function calcDmgB(isCrit) {
-      const effDef = Math.round((a.defense ?? 0) * (1 - Math.min(tacPenB, 0.60)) * stanceA.defMult)
-      const base = physDamage(b.attack * tacEnemyDebuffB, b.strength, effDef) + magicDamage(b.intelligence)
+      const effDef = Math.round((a.defense ?? 0) * tacEnemyDefDebuffOnA * (1 - Math.min(tacPenB, 0.60)) * stanceA.defMult)
+      const base = physDamage(b.attack * tacEnemyAtkDebuffB, b.strength, effDef) + magicDamage(b.intelligence)
       const tacDmg = hasBuff(tacticBuffsB, 'damage_mult') ? getBuff(tacticBuffsB, 'damage_mult') : 1
       const scaled = base * stanceB.dmgMult * abilityAtkMultB * tacDmg
       const critMult = isCrit ? (1.5 - tacCritRedA) : 1
@@ -443,6 +466,24 @@ function runCombatLoop(a, b, state, opts) {
       hpB = Math.max(0, hpB - dmg)
       events.push({ type: 'attack', actor: 'a', damage: dmg, crit, hpA, hpB })
       hasAttackedA = true
+      // Lifesteal
+      if (hasBuff(tacticBuffsA, 'lifesteal') && dmg > 0 && hpA < a.max_hp) {
+        const steal = Math.round(dmg * getBuff(tacticBuffsA, 'lifesteal'))
+        if (steal > 0) {
+          hpA = Math.min(a.max_hp, hpA + steal)
+          const tb = tacticBuffsA.lifesteal
+          events.push({ type: 'tactic', actor: 'a', tactic: tb.tacticName ?? 'Vampirismo', label: tb.tacticName ?? 'Vampirismo', icon: tb.tacticIcon ?? '🧛', effect: 'lifesteal', heal: steal, hpA, hpB })
+        }
+      }
+      // Reflect damage
+      if (hasBuff(tacticBuffsB, 'reflect_damage') && dmg > 0 && hpA > 0) {
+        const reflected = Math.round(dmg * getBuff(tacticBuffsB, 'reflect_damage'))
+        if (reflected > 0) {
+          hpA = Math.max(0, hpA - reflected)
+          const tb = tacticBuffsB.reflect_damage
+          events.push({ type: 'tactic', actor: 'b', tactic: tb.tacticName ?? 'Espejo', label: tb.tacticName ?? 'Espejo', icon: tb.tacticIcon ?? '🪞', effect: 'reflect_damage', damage: reflected, hpA, hpB })
+        }
+      }
       // Consumir guaranteed_crit_next
       if (hasBuff(tacticBuffsA, 'guaranteed_crit_next')) delete tacticBuffsA.guaranteed_crit_next
       // on_crit trigger
@@ -473,6 +514,24 @@ function runCombatLoop(a, b, state, opts) {
       hpA = Math.max(0, hpA - dmg)
       events.push({ type: 'attack', actor: 'b', damage: dmg, crit, hpA, hpB })
       hasAttackedB = true
+      // Lifesteal
+      if (hasBuff(tacticBuffsB, 'lifesteal') && dmg > 0 && hpB < b.max_hp) {
+        const steal = Math.round(dmg * getBuff(tacticBuffsB, 'lifesteal'))
+        if (steal > 0) {
+          hpB = Math.min(b.max_hp, hpB + steal)
+          const tb = tacticBuffsB.lifesteal
+          events.push({ type: 'tactic', actor: 'b', tactic: tb.tacticName ?? 'Vampirismo', label: tb.tacticName ?? 'Vampirismo', icon: tb.tacticIcon ?? '🧛', effect: 'lifesteal', heal: steal, hpA, hpB })
+        }
+      }
+      // Reflect damage
+      if (hasBuff(tacticBuffsA, 'reflect_damage') && dmg > 0 && hpB > 0) {
+        const reflected = Math.round(dmg * getBuff(tacticBuffsA, 'reflect_damage'))
+        if (reflected > 0) {
+          hpB = Math.max(0, hpB - reflected)
+          const tb = tacticBuffsA.reflect_damage
+          events.push({ type: 'tactic', actor: 'a', tactic: tb.tacticName ?? 'Espejo', label: tb.tacticName ?? 'Espejo', icon: tb.tacticIcon ?? '🪞', effect: 'reflect_damage', damage: reflected, hpA, hpB })
+        }
+      }
       if (hasBuff(tacticBuffsB, 'guaranteed_crit_next')) delete tacticBuffsB.guaranteed_crit_next
       if (crit) handleOnCrit(tacticsB, tacticBuffsB, tacticTriggeredB, 'b', b, hpA, hpB, events)
     }
@@ -487,6 +546,9 @@ function runCombatLoop(a, b, state, opts) {
           if (actor === 'a') hpA = Math.min(a.max_hp, hpA + healAmt)
           else hpB = Math.min(b.max_hp, hpB + healAmt)
           events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: 'heal_on_crit', hpA, hpB })
+        } else if (eff.effect === 'guaranteed_crit_next') {
+          buffs.guaranteed_crit_next = { value: 1, duration: 1 }
+          events.push({ type: 'tactic', actor, tactic: t.name, label: t.name, icon: t.icon, effect: 'guaranteed_crit_next', hpA, hpB })
         }
       }
     }

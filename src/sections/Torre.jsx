@@ -19,6 +19,7 @@ import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
 import RatingBanner from '../components/RatingBanner'
 import { PotionPanel } from '../components/PotionPanel'
+import { TacticsStrip } from '../components/TacticsStrip'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -188,7 +189,7 @@ export default function Torre() {
     mutationFn: (decision) => apiPost('/api/combat-resume', { token: pauseToken, decision }),
     onSuccess: (data) => {
       setPauseToken(null)
-      setResult(data)
+      setResult(prev => ({ ...data, enemyTactics: prev?.enemyTactics }))
     },
     onError: (err) => {
       notify.error(err.message)
@@ -229,6 +230,7 @@ export default function Torre() {
           rating={result.rating}
           heroClass={result.heroClass}
           archetype={result.archetype}
+          enemyTactics={result.enemyTactics}
           onClose={() => { applyPostCombat(result); setResult(null); setPauseToken(null) }}
           keyMomentPause={result.paused === true}
           decisions={result.decisions}
@@ -387,6 +389,12 @@ export default function Torre() {
         })()}
 
         <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} effectTypes={['atk_boost', 'def_boost', 'tower_shield']} title="Consumibles" />
+
+        {/* Tácticas */}
+        <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Tus tácticas</span>
+          <TacticsStrip heroId={heroId} onNavigate={() => navigateToHeroTab('tacticas')} />
+        </div>
 
         <motion.button
           className="btn btn--primary btn--lg btn--full"
