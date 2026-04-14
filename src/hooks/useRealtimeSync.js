@@ -71,8 +71,9 @@ export function useRealtimeSync(userId, heroId) {
         if (status === 'SUBSCRIBED') initializedRef.current.user = true
       })
 
+    const initRef = initializedRef.current
     return () => {
-      initializedRef.current.user = false
+      initRef.user = false
       supabase.removeChannel(channel)
     }
   }, [userId, qc])
@@ -106,8 +107,9 @@ export function useRealtimeSync(userId, heroId) {
         if (status === 'SUBSCRIBED') initializedRef.current.hero = true
       })
 
+    const initRef = initializedRef.current
     return () => {
-      initializedRef.current.hero = false
+      initRef.hero = false
       supabase.removeChannel(channel)
     }
   }, [heroId, userId, qc])

@@ -526,7 +526,7 @@ export function CombatReplay({
       setEventIndex(i => i + 1)
     }, delay)
     return () => clearTimeout(t)
-  }, [eventIndex, phase, speedIdx, allEvents.length])
+  }, [eventIndex, phase, speedIdx, allEvents])
 
   // Auto-scroll al último evento
   useEffect(() => {
