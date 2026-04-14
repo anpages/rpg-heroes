@@ -13,6 +13,16 @@ const SLOT_META = {
   accessory_2: { label: 'Complemento 2',   icon: Gem    },
 }
 
+// Keys = stat names guardadas en inventory_items.enchantments
+const RUNE_META = {
+  attack_bonus:       { label: 'Ataque',       color: '#d97706', base: 10 },
+  defense_bonus:      { label: 'Defensa',      color: '#6b7280', base: 10 },
+  hp_bonus:           { label: 'Vida',         color: '#dc2626', base: 80 },
+  strength_bonus:     { label: 'Fuerza',       color: '#b91c1c', base: 8  },
+  agility_bonus:      { label: 'Agilidad',     color: '#2563eb', base: 8  },
+  intelligence_bonus: { label: 'Inteligencia', color: '#7c3aed', base: 8  },
+}
+
 const RARITY_META = {
   common:    { label: 'Común',       color: '#6b7280' },
   uncommon:  { label: 'Poco común',  color: '#16a34a' },
@@ -147,6 +157,29 @@ export function ItemDetailModal({ item, onClose, heroClass }) {
                       <Weight size={10} strokeWidth={2} />{catalog.weight} peso
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* Encantamientos */}
+              {item.enchantments && Object.values(item.enchantments).some(v => v > 0) && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[12px] font-semibold text-text-3 uppercase tracking-wide">Encantamientos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(item.enchantments)
+                      .filter(([, v]) => v > 0)
+                      .map(([key, val]) => {
+                        const meta = RUNE_META[key]
+                        const count = meta ? Math.round(val / meta.base) : 1
+                        const color = meta?.color ?? '#6b7280'
+                        return (
+                          <span key={key}
+                            className="text-[11px] font-bold px-2 py-1 rounded-md border"
+                            style={{ color, background: `color-mix(in srgb,${color} 10%,var(--surface))`, borderColor: `color-mix(in srgb,${color} 30%,var(--border))` }}>
+                            ✨ +{val} {meta?.label ?? key}{count > 1 ? ` ×${count}` : ''}
+                          </span>
+                        )
+                      })}
+                  </div>
                 </div>
               )}
 

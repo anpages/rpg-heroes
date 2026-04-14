@@ -7,6 +7,90 @@
  */
 
 /**
+ * Calcula las stats efectivas del héroe en el frontend, con la misma lógica exacta
+ * que api/_stats.js. Función pura — sin llamadas async ni Supabase.
+ *
+ * @param {object} hero            — fila de heroes (attack, defense, strength, agility, intelligence, max_hp)
+ * @param {Array}  items           — inventory_items con item_catalog, current_durability, equipped_slot, enchantments
+ * @param {Array}  tactics         — hero_tactics con tactic_catalog, level, slot_index
+ * @param {object} researchBonuses — resultado de computeResearchBonuses() de gameConstants.js
+ * @returns {{ attack, defense, strength, agility, intelligence, max_hp, totalWeight, weightPenalty }}
+ */
+export function computeEffectiveStats(hero, items = [], tactics = [], researchBonuses = {}) {
+  if (!hero) return null
+
+  const stats = {
+    attack:       hero.attack       ?? 0,
+    defense:      hero.defense      ?? 0,
+    strength:     hero.strength     ?? 0,
+    agility:      hero.agility      ?? 0,
+    intelligence: hero.intelligence ?? 0,
+    max_hp:       hero.max_hp       ?? 0,
+  }
+
+  const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
+
+  let totalWeight = 0
+
+  for (const item of items) {
+    if (!item.equipped_slot || item.current_durability <= 0) continue
+    const c = item.item_catalog
+    totalWeight += c.weight ?? 0
+    const durPct = c.max_durability > 0 ? item.current_durability / c.max_durability : 1
+
+    stats.attack       += Math.round((c.attack_bonus       ?? 0) * durPct)
+    stats.defense      += Math.round((c.defense_bonus      ?? 0) * durPct)
+    stats.max_hp       += Math.round((c.hp_bonus           ?? 0) * durPct)
+    stats.strength     += Math.round((c.strength_bonus     ?? 0) * durPct)
+    stats.agility      += Math.round((c.agility_bonus      ?? 0) * durPct)
+    stats.intelligence += Math.round((c.intelligence_bonus ?? 0) * durPct)
+
+    const enc = item.enchantments ?? {}
+    if (enc.attack_bonus)       stats.attack       += Math.round(enc.attack_bonus       * durPct)
+    if (enc.defense_bonus)      stats.defense      += Math.round(enc.defense_bonus      * durPct)
+    if (enc.hp_bonus)           stats.max_hp       += Math.round(enc.hp_bonus           * durPct)
+    if (enc.strength_bonus)     stats.strength     += Math.round(enc.strength_bonus     * durPct)
+    if (enc.agility_bonus)      stats.agility      += Math.round(enc.agility_bonus      * durPct)
+    if (enc.intelligence_bonus) stats.intelligence += Math.round(enc.intelligence_bonus * durPct)
+  }
+
+  // Bonos de tácticas equipadas (slot_index != null), escalados por nivel
+  const equippedTactics = tactics.filter(t => t.slot_index != null)
+  for (const t of equippedTactics) {
+    const cat = t.tactic_catalog
+    for (const { stat, value } of cat?.stat_bonuses ?? []) {
+      if (stat in STAT_MAP) {
+        stats[STAT_MAP[stat]] += Math.round((value ?? 0) * (t.level ?? 1))
+      }
+    }
+  }
+
+  // Bonos de investigación
+  const rb = researchBonuses ?? {}
+  if (rb.attack_pct > 0)       stats.attack       = Math.round(stats.attack       * (1 + rb.attack_pct))
+  if (rb.defense_pct > 0)      stats.defense      = Math.round(stats.defense      * (1 + rb.defense_pct))
+  if (rb.intelligence_pct > 0) stats.intelligence = Math.round(stats.intelligence * (1 + rb.intelligence_pct))
+
+  // Amplificación de tácticas por investigación
+  if (rb.tactic_bonus_pct > 0) {
+    for (const t of equippedTactics) {
+      const cat = t.tactic_catalog
+      for (const { stat, value } of cat?.stat_bonuses ?? []) {
+        if (stat in STAT_MAP) {
+          stats[STAT_MAP[stat]] += Math.round((value ?? 0) * (t.level ?? 1) * rb.tactic_bonus_pct)
+        }
+      }
+    }
+  }
+
+  // Penalización de agilidad por peso
+  const weightPenalty = Math.floor(totalWeight / 4)
+  stats.agility = Math.max(0, stats.agility - weightPenalty)
+
+  return { ...stats, totalWeight, weightPenalty }
+}
+
+/**
  * Coste de HP de una expedición.
  * - Base: 20% del max_hp por hora (proporcional a la duración).
  * - Peligro escala el coste (hasta +45% en dificultad 9).
@@ -336,13 +420,26 @@ export const MATERIAL_DROP_DATA = {
  */
 export const DUNGEON_DROP_PROFILE = {
   'Sendero del Bosque':       { goldMult: 1.5, xpMult: 1.0, itemMult: 0.5, tacticMult: 0.5, focus: 'Oro' },
-  'Cueva de Goblins':         { goldMult: 1.0, xpMult: 1.0, itemMult: 1.5, tacticMult: 0.8, focus: 'Equipo' },
+  'Cueva de Goblins':         { goldMult: 1.0, xpMult: 1.0, itemMult: 1.5, tacticMult: 0.8, focus: null },
   'Altar Corrompido':         { goldMult: 0.8, xpMult: 1.0, itemMult: 0.8, tacticMult: 2.0, focus: 'Tácticas' },
   'Mina Abandonada':          { goldMult: 1.0, xpMult: 1.0, itemMult: 1.0, tacticMult: 0.8, focus: 'Fragmentos' },
-  'Bosque Oscuro':            { goldMult: 1.0, xpMult: 1.5, itemMult: 1.0, tacticMult: 1.0, focus: 'Experiencia' },
+  'Bosque Oscuro':            { goldMult: 1.0, xpMult: 1.5, itemMult: 1.0, tacticMult: 1.0, focus: null },
   'Cripta de los Condenados': { goldMult: 1.0, xpMult: 1.0, itemMult: 1.3, tacticMult: 1.0, focus: 'Fragmentos' },
   'Templo de los Antiguos':   { goldMult: 1.0, xpMult: 1.0, itemMult: 1.0, tacticMult: 1.5, focus: 'Esencia' },
   'Guarida del Dragón':       { goldMult: 1.2, xpMult: 1.2, itemMult: 1.2, tacticMult: 1.2, focus: 'Todo' },
+}
+
+/**
+ * Slots de equipo primarios por tipo de mazmorra — refleja SLOT_POOL_BY_TYPE de _loot.js.
+ * Usado por el frontend para mostrar visualmente qué piezas de equipo prioriza cada mazmorra.
+ */
+export const DUNGEON_TYPE_SLOTS = {
+  combat:     [{ slot: 'main_hand', label: 'Arma' }, { slot: 'off_hand', label: 'Escudo' }, { slot: 'chest', label: 'Pecho' }],
+  wilderness: [{ slot: 'legs', label: 'Piernas' }, { slot: 'arms', label: 'Brazos' }, { slot: 'accessory', label: 'Accesorio' }],
+  magic:      [{ slot: 'accessory', label: 'Accesorio' }, { slot: 'helmet', label: 'Yelmo' }],
+  crypt:      [{ slot: 'off_hand', label: 'Escudo' }, { slot: 'chest', label: 'Pecho' }, { slot: 'helmet', label: 'Yelmo' }],
+  mine:       [{ slot: 'arms', label: 'Brazos' }, { slot: 'chest', label: 'Pecho' }, { slot: 'main_hand', label: 'Arma' }],
+  ancient:    [{ slot: 'accessory', label: 'Accesorio' }, { slot: 'helmet', label: 'Yelmo' }, { slot: 'chest', label: 'Pecho' }],
 }
 
 /**

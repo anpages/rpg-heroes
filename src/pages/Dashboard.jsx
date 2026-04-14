@@ -138,6 +138,150 @@ function CatalogDebug() {
   )
 }
 
+/* ─── DEV ONLY: Catálogo de tácticas ────────────────────────────────────────── */
+
+const TCAT_COLORS = {
+  common: '#6b7280', uncommon: '#16a34a', rare: '#2563eb', epic: '#7c3aed', legendary: '#d97706',
+}
+const TCAT_RARITY_LABELS = {
+  common: 'Común', uncommon: 'Poco Común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario',
+}
+const TCAT_CATEGORY_LABELS = {
+  offensive: 'Ofensiva', defensive: 'Defensiva', tactical: 'Táctica', utility: 'Utilidad',
+}
+const TCAT_CATEGORY_COLORS = {
+  offensive: '#dc2626', defensive: '#2563eb', tactical: '#7c3aed', utility: '#16a34a',
+}
+const TCAT_STAT_LABELS = {
+  attack: 'ATQ', defense: 'DEF', max_hp: 'HP',
+  strength: 'FUE', agility: 'AGI', intelligence: 'INT',
+}
+const TCAT_CATEGORY_ORDER = ['offensive', 'defensive', 'tactical', 'utility']
+const TCAT_MAX_LEVEL = 5
+
+function scaledFx(base, level) { return base * (1 + (level - 1) * 0.15) }
+function fmtFxTcat(effect, base, level) {
+  const v = scaledFx(base, level)
+  if (['damage_mult', 'damage_mult_next', 'first_hit_mult'].includes(effect)) return `×${v.toFixed(2)}`
+  return `${Math.round(v * 100)}%`
+}
+
+function TacticCatalogDebug() {
+  const [tactics, setTactics] = useState(null)
+  const [catFilter, setCatFilter] = useState('all')
+
+  useEffect(() => {
+    supabase.from('tactic_catalog').select('*').order('category').order('rarity')
+      .then(({ data }) => setTactics(data ?? []))
+  }, [])
+
+  if (!tactics) return <p style={{ padding: 40, color: '#94a3b8' }}>Cargando catálogo...</p>
+
+  const filtered = catFilter === 'all' ? tactics : tactics.filter(t => t.category === catFilter)
+  const byCategory = TCAT_CATEGORY_ORDER.reduce((acc, cat) => {
+    acc[cat] = filtered.filter(t => t.category === cat)
+    return acc
+  }, {})
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Catálogo de tácticas</h2>
+        <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>DEV ONLY</span>
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>{filtered.length} tácticas</span>
+      </div>
+
+      {/* Filtro categoría */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+        {['all', ...TCAT_CATEGORY_ORDER].map(c => (
+          <button key={c} onClick={() => setCatFilter(c)} style={{
+            padding: '3px 10px', borderRadius: 6, border: '1px solid',
+            borderColor: catFilter === c ? '#7c3aed' : '#e2e8f0',
+            background: catFilter === c ? '#f5f3ff' : 'white',
+            color: catFilter === c ? '#7c3aed' : '#475569',
+            fontWeight: 600, fontSize: 11, cursor: 'pointer',
+          }}>{c === 'all' ? 'Todas' : TCAT_CATEGORY_LABELS[c]}</button>
+        ))}
+      </div>
+
+      {TCAT_CATEGORY_ORDER.map(cat => {
+        const rows = byCategory[cat]
+        if (!rows?.length) return null
+        return (
+          <div key={cat} style={{ marginBottom: 32 }}>
+            <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: TCAT_CATEGORY_COLORS[cat], marginBottom: 8 }}>
+              {TCAT_CATEGORY_LABELS[cat]}
+            </p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', fontSize: 11 }}>
+                  {['', 'Nombre', 'Rareza', 'Stat bonuses (Nv1 / 2 / 3)', 'Efecto combate (Nv1 / 2 / 3)'].map(h => (
+                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700, borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(t => {
+                  const rarColor = TCAT_COLORS[t.rarity] ?? '#6b7280'
+                  const bonuses = Array.isArray(t.stat_bonuses) ? t.stat_bonuses.filter(b => b.value) : []
+                  const fx = t.combat_effect
+                  const levels = [1, 2, 3]
+                  return (
+                    <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '6px 8px', fontSize: 18 }}>{t.icon}</td>
+                      <td style={{ padding: '6px 10px', fontWeight: 600, color: rarColor }}>{t.name}</td>
+                      <td style={{ padding: '6px 10px', color: rarColor, whiteSpace: 'nowrap' }}>{TCAT_RARITY_LABELS[t.rarity]}</td>
+                      <td style={{ padding: '6px 10px' }}>
+                        {bonuses.length === 0 ? <span style={{ color: '#94a3b8' }}>—</span> : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {bonuses.map(b => (
+                              <span key={b.stat} style={{ color: '#334155' }}>
+                                {TCAT_STAT_LABELS[b.stat] ?? b.stat}:{' '}
+                                {levels.map((lv, i) => (
+                                  <span key={lv}>
+                                    <span style={{ fontWeight: lv === 1 ? 400 : 600, color: lv === 1 ? '#64748b' : '#1e293b' }}>+{b.value * lv}</span>
+                                    {i < levels.length - 1 && <span style={{ color: '#cbd5e1' }}> / </span>}
+                                  </span>
+                                ))}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '6px 10px' }}>
+                        {!fx ? <span style={{ color: '#94a3b8' }}>—</span> : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ color: '#64748b', fontSize: 11 }}>{fx.trigger} · {fx.effect}</span>
+                            {fx.value != null && !['guaranteed_crit', 'double_attack', 'guaranteed_dodge'].includes(fx.effect) ? (
+                              <span style={{ color: '#334155' }}>
+                                {levels.map((lv, i) => (
+                                  <span key={lv}>
+                                    <span style={{ fontWeight: lv === 1 ? 400 : 600, color: lv === 1 ? '#64748b' : '#1e293b' }}>{fmtFxTcat(fx.effect, fx.value, lv)}</span>
+                                    {i < levels.length - 1 && <span style={{ color: '#cbd5e1' }}> / </span>}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#64748b', fontSize: 11 }}>binario (+15%/nv)</span>
+                            )}
+                            {fx.chance != null && <span style={{ color: '#94a3b8', fontSize: 11 }}>chance: {Math.round(fx.chance * 100)}%</span>}
+                            {fx.threshold != null && <span style={{ color: '#94a3b8', fontSize: 11 }}>threshold: {Math.round(fx.threshold * 100)}%</span>}
+                            {fx.duration && fx.duration < 99 && <span style={{ color: '#94a3b8', fontSize: 11 }}>dur: {fx.duration}t</span>}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -341,6 +485,13 @@ function Dashboard({ session }) {
                   <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><FlaskConical size={18} strokeWidth={1.8} /></span>
                   <span className="leading-none">Items</span>
                 </button>
+                <button
+                  className={`flex items-center gap-3 px-3 py-[10px] rounded-lg border-0 bg-transparent text-[14px] font-medium text-left transition-[background,color] duration-150 w-full relative opacity-50 ${activeTab === 'dev-tacticas' ? 'text-[var(--blue-700)] font-semibold' : 'text-text-2 hover:bg-bg hover:text-text'}`}
+                  onClick={() => navigateTo('dev-tacticas')}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0"><Layers size={18} strokeWidth={1.8} /></span>
+                  <span className="leading-none">Tácticas</span>
+                </button>
               </>
             )}
           </nav>
@@ -435,6 +586,9 @@ function Dashboard({ session }) {
             <>
               <div className={activeTab === 'dev-catalogo' ? 'block animate-section-in' : 'hidden'}>
                 {mountedTabs.has('dev-catalogo') && <CatalogDebug />}
+              </div>
+              <div className={activeTab === 'dev-tacticas' ? 'block animate-section-in' : 'hidden'}>
+                {mountedTabs.has('dev-tacticas') && <TacticCatalogDebug />}
               </div>
             </>
           )}

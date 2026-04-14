@@ -10,6 +10,7 @@ export function useInventory(heroId) {
         .from('inventory_items')
         .select('*, item_catalog(*)')
         .eq('hero_id', heroId)
+        .order('id')
       return data ?? []
     },
     enabled:   !!heroId,

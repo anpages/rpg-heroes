@@ -7,27 +7,35 @@ import {
   TRAINING_ROOM_BUILD_COST, TRAINING_ROOM_BUILD_TIME_MS, TRAINING_ROOM_MAX_LEVEL,
 } from '../../lib/gameConstants.js'
 import { xpThreshold } from '../../hooks/useTraining.js'
-import { STAT_LABEL_MAP } from './constants.js'
-import { fmt, fmtHours, fmtTime } from './helpers.js'
+import { fmt, fmtTime } from './helpers.js'
+
+function fmtDuration(secs) {
+  if (secs <= 0) return '0s'
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  if (m > 0) return `${m}m`
+  return `${s}s`
+}
 
 export default function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onBuildCollect, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const collectingRef = useRef(false)
   const [, tick] = useReducer(x => x + 1, 0)
 
-  // Re-render periódico para que la barra de XP avance en tiempo real
   useEffect(() => {
     const id = setInterval(tick, 10_000)
     return () => clearInterval(id)
   }, [])
 
-  const Icon           = room.icon
-  const exists         = !!roomData
-  const isBuilt        = exists && roomData.built_at !== null
+  const Icon             = room.icon
+  const exists           = !!roomData
+  const isBuilt          = exists && roomData.built_at !== null
   const building_ends_at = roomData?.building_ends_at ?? null
-  const isConstructing = exists && !!building_ends_at
-  const roomLevel      = roomData?.level ?? 0
-  const lockedByBase   = !exists && baseLevel < room.baseLevelMin
+  const isConstructing   = exists && !!building_ends_at
+  const roomLevel        = roomData?.level ?? 0
+  const lockedByBase     = !exists && baseLevel < room.baseLevelMin
 
   useEffect(() => {
     if (!isConstructing) { setSecondsLeft(null); collectingRef.current = false; return }
@@ -46,18 +54,29 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building_ends_at])
 
-  const rate   = xpRateForLevel(isBuilt ? roomLevel : 1)
-  const thr    = xpThreshold(progressRow?.total_gained ?? 0)
+  const rate    = xpRateForLevel(isBuilt ? roomLevel : 1)
+  const thr     = xpThreshold(progressRow?.total_gained ?? 0)
   const upgrading = isBuilt && isConstructing
-  const xp     = isBuilt && progressRow && !upgrading
+
+  // XP actual interpolada en tiempo real
+  const xp = isBuilt && progressRow && !upgrading
     ? (() => {
-        const hoursToThr  = Math.max(0, (thr - progressRow.xp_bank) / rate)
+        const hoursToThr   = Math.max(0, (thr - progressRow.xp_bank) / rate)
         const hoursElapsed = (Date.now() - new Date(progressRow.last_collected_at).getTime()) / 3_600_000
         return progressRow.xp_bank + Math.min(hoursElapsed, hoursToThr) * rate
       })()
     : (progressRow?.xp_bank ?? 0)
+
   const xpPct  = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
   const ready  = isBuilt && progressRow && !upgrading ? xp >= thr : false
+
+  // Segundos restantes para el próximo punto
+  const secsToNext = isBuilt && progressRow && !ready && !upgrading
+    ? Math.max(0, Math.round((thr - xp) / rate * 3600))
+    : 0
+
+  // Horas por punto (para mostrar cadencia)
+  const hoursPerPoint = thr / rate
 
   const upgCost   = isBuilt ? trainingRoomUpgradeCost(roomLevel) : TRAINING_ROOM_BUILD_COST
   const canAfford = resources
@@ -70,26 +89,20 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
   const buildElapsed = buildDurationSec - (secondsLeft ?? buildDurationSec)
   const buildPct = buildDurationSec > 0 ? Math.min(100, Math.round((buildElapsed / buildDurationSec) * 100)) : 0
 
-  const cardStyle = ready
-    ? { borderColor: `color-mix(in srgb,${room.color} 35%,var(--border))`, background: `color-mix(in srgb,${room.color} 4%,var(--surface))` }
-    : isConstructing
-      ? { borderColor: `color-mix(in srgb,#0891b2 25%,var(--border))`, background: `color-mix(in srgb,#0891b2 3%,var(--surface))` }
-      : {}
-
   return (
     <div
-      className={`flex flex-col rounded-xl border overflow-hidden transition-[border-color,box-shadow] duration-200 ${
+      className={`flex flex-col rounded-xl border overflow-hidden transition-[border-color] duration-200 ${
         lockedByBase
           ? 'border-dashed border-border bg-surface opacity-50 pointer-events-none'
           : ready
-            ? 'shadow-[var(--shadow-sm)] border-border'
+            ? 'border-border bg-surface shadow-[var(--shadow-sm)]'
             : isBuilt
-              ? 'border-border bg-surface hover:border-border-2'
+              ? 'border-border bg-surface'
               : isConstructing
                 ? 'border-border bg-surface'
                 : 'border-dashed border-border bg-surface'
       }`}
-      style={cardStyle}
+      style={ready ? { borderColor: `color-mix(in srgb,${room.color} 40%,var(--border))` } : {}}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
@@ -104,67 +117,82 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
             <p className={`text-[14px] font-bold leading-none ${isBuilt || isConstructing ? 'text-text' : 'text-text-3'}`}>
               {room.label}
             </p>
-            {isBuilt ? (
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none"
-                  style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
-                  Nv.{roomLevel}
-                </span>
-                {isConstructing && (
-                  <span className="text-[11px] font-semibold text-[#0891b2]">Mejorando…</span>
-                )}
-              </div>
-            ) : isConstructing ? (
-              <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">Construyendo…</span>
-            ) : lockedByBase ? (
+            {isBuilt && !isConstructing && (
+              <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none flex-shrink-0"
+                style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
+                Nv.{roomLevel}
+              </span>
+            )}
+            {isConstructing && (
+              <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">
+                {isBuilt ? 'Mejorando…' : 'Construyendo…'}
+              </span>
+            )}
+            {!isBuilt && !isConstructing && lockedByBase && (
               <span className="text-[11px] text-text-3 flex-shrink-0 flex items-center gap-1">
                 <Lock size={10} strokeWidth={2.5} />Base {room.baseLevelMin}
               </span>
-            ) : (
+            )}
+            {!isBuilt && !isConstructing && !lockedByBase && (
               <span className="text-[11px] text-text-3 flex-shrink-0">Sin construir</span>
             )}
           </div>
+
+          {/* Cadencia */}
           <p className="text-[11px] text-text-3 mt-0.5">
-            {isBuilt ? (upgrading ? 'Entrenamiento pausado' : `${rate} XP/h`) : `${xpRateForLevel(1)} XP/h al construir`}
+            {isBuilt && !upgrading
+              ? `+1 cada ~${fmtDuration(Math.round(hoursPerPoint * 3600))}`
+              : isBuilt && upgrading
+                ? 'Pausado durante la mejora'
+                : `+1 cada ~${fmtDuration(Math.round(xpThreshold(0) / xpRateForLevel(1) * 3600))} al construir`
+            }
           </p>
         </div>
       </div>
 
-      {/* Contenido central */}
-      {isBuilt ? (
-        <div className="px-4 pb-3 flex flex-col gap-2 border-t border-border pt-3">
-          {/* Progreso de entrenamiento — siempre visible si está construida */}
-          <div className={`h-2 rounded-full overflow-hidden ${upgrading ? 'bg-border/50' : 'bg-border'}`}>
-            <div className={`h-full rounded-full transition-[width] duration-[600ms] ease-out ${upgrading ? 'opacity-30 grayscale' : ''}`}
-              style={{ width: `${xpPct}%`, background: upgrading ? 'var(--text-3)' : room.color }} />
+      {/* Progreso */}
+      {isBuilt && !upgrading && (
+        <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
+          {/* Barra */}
+          <div className="h-2 rounded-full overflow-hidden bg-border">
+            <div
+              className="h-full rounded-full transition-[width] duration-[600ms] ease-out"
+              style={{ width: `${xpPct}%`, background: ready ? `linear-gradient(90deg,${room.color},color-mix(in srgb,${room.color} 70%,#f59e0b))` : room.color }}
+            />
           </div>
           <div className="flex items-center justify-between">
-            <span className={`text-[11px] ${upgrading ? 'text-text-3/50' : 'text-text-3'}`}>{progressRow ? `${xp.toFixed(1)} / ${thr} XP` : '—'}</span>
-            {upgrading
-              ? <span className="text-[11px] text-text-3/50">Pausado</span>
-              : ready
-                ? <span className="text-[11px] font-bold" style={{ color: room.color }}>¡Listo! Recoge para continuar</span>
-                : <span className="text-[11px] text-text-3">{progressRow && thr - xp > 0 ? fmtHours((thr - xp) / rate) : ''}</span>
-            }
+            <span className="text-[11px] font-semibold" style={{ color: ready ? room.color : 'var(--text-3)' }}>
+              {ready ? '¡Punto listo!' : `${xpPct}%`}
+            </span>
+            {!ready && secsToNext > 0 && (
+              <span className="flex items-center gap-1 text-[11px] text-text-3">
+                <Clock size={10} strokeWidth={2} />
+                {fmtDuration(secsToNext)}
+              </span>
+            )}
           </div>
-          {/* Barra de mejora — solo visible mientras se mejora */}
-          {isConstructing && (
-            <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
-              <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
-                  style={{ width: `${buildPct}%` }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-text-3">Mejora en curso</span>
-                <span className="flex items-center gap-1 text-[10px] font-semibold text-[#0891b2]">
-                  <Clock size={9} strokeWidth={2} />
-                  {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
-      ) : isConstructing ? (
+      )}
+
+      {/* Pausado durante mejora */}
+      {isBuilt && upgrading && (
+        <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
+          <div className="h-2 rounded-full overflow-hidden bg-border">
+            <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
+              style={{ width: `${buildPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-text-3">Mejora en curso</span>
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-[#0891b2]">
+              <Clock size={10} strokeWidth={2} />
+              {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Construcción */}
+      {!isBuilt && isConstructing && (
         <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
           <div className="h-2 bg-border rounded-full overflow-hidden">
             <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
@@ -178,12 +206,15 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
             </span>
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Sin construir */}
+      {!isBuilt && !isConstructing && (
         <div className="px-4 pb-3 border-t border-border pt-3">
           <p className="text-[12px] text-text-3 leading-relaxed">
             {lockedByBase
               ? `Requiere base nivel ${room.baseLevelMin} para construir.`
-              : `Construye esta sala para entrenar ${room.label.toLowerCase()} de forma pasiva.`
+              : `Genera +1 a ${room.label.toLowerCase()} de forma pasiva.`
             }
           </p>
         </div>
@@ -201,7 +232,7 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                 whileTap={collectPending ? {} : { scale: 0.96 }}
               >
                 <PackageOpen size={12} strokeWidth={2} />
-                Recoger
+                {collectPending ? 'Recogiendo…' : 'Recoger +1'}
               </motion.button>
             </div>
           ) : isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (

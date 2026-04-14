@@ -8,11 +8,17 @@ import { queryKeys } from '../lib/queryKeys'
  * Mientras haya mutaciones pendientes con estas keys, Realtime no invalida
  * los queries afectados — el onSettled de la última mutación reconcilia.
  */
-const COLLECT_KEY        = ['building-collect']
-const REFINE_KEY         = ['refining-start']
-const TACTIC_KEY         = ['tactic-equip']
-const TRAINING_COLL_KEY  = ['training-collect']
-const TRAINING_BUILD_KEY = ['training-build-collect']
+const COLLECT_KEY          = ['building-collect']
+const REFINE_KEY           = ['refining-start']
+const TACTIC_KEY           = ['tactic-equip']
+const TACTIC_LEVELUP_KEY   = ['tactic-levelup']
+const TRAINING_COLL_KEY    = ['training-collect']
+const TRAINING_BUILD_KEY   = ['training-build-collect']
+const TRAINING_ASSIGN_KEY  = ['training-assign']
+const EQUIP_KEY            = ['equip']
+const REPAIR_KEY           = ['repair']
+const DISMANTLE_KEY        = ['dismantle']
+const ENCHANT_KEY          = ['enchant']
 
 /**
  * Hook centralizado de Supabase Realtime.
@@ -34,11 +40,14 @@ export function useRealtimeSync(userId, heroId) {
     if (!userId) return
 
     // Helpers: solo invalidar si no hay mutaciones en vuelo que afecten estos datos
-    const noCollect = () => qc.isMutating({ mutationKey: COLLECT_KEY }) === 0
-    const noRefine  = () => qc.isMutating({ mutationKey: REFINE_KEY })  === 0
+    const noCollect   = () => qc.isMutating({ mutationKey: COLLECT_KEY })   === 0
+    const noRefine    = () => qc.isMutating({ mutationKey: REFINE_KEY })    === 0
+    const noRepair    = () => qc.isMutating({ mutationKey: REPAIR_KEY })    === 0
+    const noDismantle = () => qc.isMutating({ mutationKey: DISMANTLE_KEY }) === 0
     const safeInvalidateBuildings  = () => { if (noCollect()) qc.invalidateQueries({ queryKey: queryKeys.buildings(userId) }) }
-    const safeInvalidateResources  = () => { if (noCollect() && noRefine()) qc.invalidateQueries({ queryKey: queryKeys.resources(userId) }) }
-    const safeInvalidateCrafted    = () => { if (noRefine()) qc.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) }) }
+    const safeInvalidateResources  = () => { if (noCollect() && noRefine() && noRepair() && noDismantle()) qc.invalidateQueries({ queryKey: queryKeys.resources(userId) }) }
+    const noLevelup = () => qc.isMutating({ mutationKey: TACTIC_LEVELUP_KEY }) === 0
+    const safeInvalidateCrafted    = () => { if (noRefine() && noLevelup()) qc.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) }) }
 
     const channel = supabase
       .channel(`user:${userId}`)
@@ -48,7 +57,7 @@ export function useRealtimeSync(userId, heroId) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_refining_slots',   filter: `player_id=eq.${userId}` }, safeInvalidateCrafted)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_research',         filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.research(userId) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'training_rooms',          filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_BUILD_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) }) })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_training_tokens',  filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_COLL_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) }) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_training_tokens',  filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_COLL_KEY }) === 0 && qc.isMutating({ mutationKey: TRAINING_ASSIGN_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) }) })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED' && initializedRef.current.user) {
           // Reconexión: invalidar todo para ponerse al día (respetando mutaciones en vuelo)
@@ -74,11 +83,17 @@ export function useRealtimeSync(userId, heroId) {
 
     const channel = supabase
       .channel(`hero:${heroId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'heroes',          filter: `id=eq.${heroId}` },      () => { qc.invalidateQueries({ queryKey: queryKeys.hero(heroId) }); qc.invalidateQueries({ queryKey: queryKeys.heroes(userId) }) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'heroes',          filter: `id=eq.${heroId}` },      () => { if (qc.isMutating({ mutationKey: TRAINING_ASSIGN_KEY }) === 0) { qc.invalidateQueries({ queryKey: queryKeys.hero(heroId) }); qc.invalidateQueries({ queryKey: queryKeys.heroes(userId) }) } })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_training',   filter: `hero_id=eq.${heroId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_COLL_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.training(heroId) }) })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items', filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items', filter: `hero_id=eq.${heroId}` }, () => {
+        const noPending = qc.isMutating({ mutationKey: EQUIP_KEY })    === 0
+                       && qc.isMutating({ mutationKey: REPAIR_KEY })   === 0
+                       && qc.isMutating({ mutationKey: DISMANTLE_KEY }) === 0
+                       && qc.isMutating({ mutationKey: ENCHANT_KEY })  === 0
+        if (noPending) qc.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expeditions',     filter: `hero_id=eq.${heroId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.activeExpedition(heroId) }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_tactics',   filter: `hero_id=eq.${heroId}` }, () => { if (qc.isMutating({ mutationKey: TACTIC_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) }) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hero_tactics',   filter: `hero_id=eq.${heroId}` }, () => { if (qc.isMutating({ mutationKey: TACTIC_KEY }) === 0 && qc.isMutating({ mutationKey: TACTIC_LEVELUP_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) }) })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED' && initializedRef.current.hero) {
           qc.invalidateQueries({ queryKey: queryKeys.hero(heroId) })

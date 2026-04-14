@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ArrowUpCircle, Check, Clock, Warehouse } from 'lucide-react'
+import { ArrowUpCircle, Check, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { notify } from '../../lib/notifications.js'
 import {
@@ -7,11 +7,9 @@ import {
   BUILDING_MAX_LEVEL,
 } from '../../lib/gameConstants.js'
 import { apiPost } from '../../lib/api.js'
-import { BUILDING_META, RESOURCE_ITEMS } from './constants.js'
-import { fmtTime, fmt } from './helpers.js'
+import { BUILDING_META } from './constants.js'
+import { fmtTime } from './helpers.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
-
-const RES_META = Object.fromEntries(RESOURCE_ITEMS.map(r => [r.key, r]))
 
 /* ── Upgrade timer ─────────────────────────────────────────────────────────── */
 
@@ -123,8 +121,6 @@ export default function ProductionCard({
     }
   }
 
-  const resMeta = RES_META[prod?.resource] ?? { label: meta.name, color: meta.color }
-  const totalStock = resources?.[prod?.resource] ?? 0
 
   return (
     <>
@@ -147,19 +143,6 @@ export default function ProductionCard({
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[15px] font-bold text-text leading-none truncate">{meta.name}</h3>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {level > 0 && (
-                  <span
-                    className="h-7 flex items-center gap-1 px-2 text-[12px] font-bold rounded-lg leading-none"
-                    style={{
-                      color: meta.color,
-                      background: `color-mix(in srgb, ${meta.color} 10%, var(--surface-2))`,
-                      border: `1px solid color-mix(in srgb, ${meta.color} 25%, var(--border))`,
-                    }}
-                  >
-                    <Warehouse size={11} strokeWidth={2} />
-                    {fmt(totalStock)} {resMeta.label}
-                  </span>
-                )}
                 {level === 0 && (
                   <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1.5 py-0.5 leading-none">
                     Sin construir

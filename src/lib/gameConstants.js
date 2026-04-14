@@ -373,29 +373,25 @@ export const REPAIR_IRON_SLOT_MULT = {
 }
 
 /**
- * Oro base obtenido al desmantelar un ítem, multiplicado por el tier.
- * `oro = DISMANTLE_GOLD_TABLE[rarity] * tier`
+ * Recursos base obtenidos al desmantelar un ítem.
+ * Todos los valores se multiplican × tier del ítem.
+ * Adicionalmente, cada runa aplicada suma: gold +8, mana +5.
  */
-export const DISMANTLE_GOLD_TABLE = {
-  common:    10,
-  uncommon:  25,
-  rare:      60,
-  epic:      150,
-  legendary: 400,
+export const DISMANTLE_TABLE = {
+  common:    { gold: 15,  mana: 0,  fragments: 0,  essence: 0 },
+  uncommon:  { gold: 30,  mana: 4,  fragments: 0,  essence: 0 },
+  rare:      { gold: 70,  mana: 10, fragments: 2,  essence: 0 },
+  epic:      { gold: 180, mana: 25, fragments: 6,  essence: 2 },
+  legendary: { gold: 450, mana: 60, fragments: 15, essence: 5 },
 }
 
-/**
- * Transmutación alternativa al desmantelar: en vez de vender por oro, el
- * jugador paga oro al laboratorio y obtiene materiales de crafteo
- * (fragmentos/esencia/maná). Los retornos están deliberadamente por debajo
- * del farmeo directo para que sea un atajo de conveniencia, no un exploit.
- */
-export const DISMANTLE_TRANSMUTE_TABLE = {
-  common:    { cost: 50,   fragments: 2,  essence: 0,  mana: 0  },
-  uncommon:  { cost: 120,  fragments: 4,  essence: 1,  mana: 0  },
-  rare:      { cost: 300,  fragments: 8,  essence: 2,  mana: 10 },
-  epic:      { cost: 700,  fragments: 15, essence: 5,  mana: 30 },
-  legendary: { cost: 1500, fragments: 30, essence: 10, mana: 80 },
+/** Bonus por cada runa aplicada al desmantelar */
+export const DISMANTLE_RUNE_BONUS = { gold: 8, mana: 5 }
+
+// Aliases legacy — se mantienen para no romper referencias antiguas
+/** @deprecated usar DISMANTLE_TABLE */
+export const DISMANTLE_GOLD_TABLE = {
+  common: 15, uncommon: 30, rare: 70, epic: 180, legendary: 450,
 }
 
 // ── Entrenamiento: XP ─────────────────────────────────────────────────────────

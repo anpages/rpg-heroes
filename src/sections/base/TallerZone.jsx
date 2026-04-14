@@ -12,12 +12,13 @@ import { fmtTime, baseLevelFromMap } from './helpers.js'
 import { cardVariants } from './constants.js'
 import BuildingInfoModal from './BuildingInfoModal.jsx'
 
-const CATEGORY_ORDER = ['consumable', 'rune', 'forge']
+const CATEGORY_ORDER = ['consumable', 'tactic', 'forge', 'rune']
 
 const CATEGORY_META = {
-  consumable: { label: 'Consumibles',   color: '#0891b2' },
-  rune:       { label: 'Runas',         color: '#7c3aed' },
+  consumable: { label: 'Consumibles',    color: '#0891b2' },
+  rune:       { label: 'Runas',          color: '#7c3aed' },
   forge:      { label: 'Mejora de tier', color: '#b45309' },
+  tactic:     { label: 'Tácticas',       color: '#16a34a' },
 }
 
 const INPUT_LABELS = {
@@ -27,9 +28,10 @@ const INPUT_LABELS = {
 
 const RECIPE_ORDER = [
   'potion_vida',
+  'expedition_provisions', 'vial_aceleracion', 'amuleto_fortuna',
   'rune_attack', 'rune_defense', 'rune_hp', 'rune_strength', 'rune_agility', 'rune_intelligence',
-  'expedition_provisions',
   'forge_stone_t2', 'forge_stone_t3',
+  'tactic_scroll',
 ]
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -169,9 +171,9 @@ export default function TallerZone({
               </span>
             </div>
 
-            {/* Recipes — 2 cols on desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2">
-              {catRecipes.map((recipe, idx) => (
+            {/* Recipes */}
+            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {catRecipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
@@ -181,8 +183,6 @@ export default function TallerZone({
                   onRefine={onRefine}
                   onCollectSlot={onCollectSlot}
                   color={catMeta.color}
-                  hasBorderTop={idx > 0 && idx < 2}
-                  hasBorderLeft={idx % 2 === 1}
                 />
               ))}
             </div>
@@ -363,65 +363,90 @@ function useUpgradeTimer(building, onUpgradeCollect) {
 
 /* ── RecipeCard ───────────────────────────────────────────────────────────── */
 
-function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlot, color, hasBorderLeft }) {
-  const inputs = recipe.inputs ?? []
-  const stock = inventory?.[recipe.id] ?? 0
+function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlot, color }) {
+  const inputs   = recipe.inputs ?? []
+  const stock    = inventory?.[recipe.id] ?? 0
+  const progress = slot ? slotProgress(slot) : null
+  const isDone   = !!slot && progress.remaining === 0
+  const inProgress = !!slot && !isDone
 
   const canAfford = inputs.length === 0 || inputs.every(inp => {
     const available = inp.resource ? (resources?.[inp.resource] ?? 0) : (inventory?.[inp.item] ?? 0)
     return available >= inp.qty
   })
 
-  const progress = slot ? slotProgress(slot) : null
-  const isDone = !!slot && progress.remaining === 0
+  const stateColor = isDone ? '#059669' : inProgress ? '#0891b2' : color
 
   return (
-    <div className={`px-4 py-3 flex flex-col gap-2.5 border-t border-border ${hasBorderLeft ? 'sm:border-l' : ''}`}>
-
-      {/* Línea principal: icono + info + botón */}
-      <div className="flex items-center gap-2">
-        <span className="text-[16px] flex-shrink-0">{recipe.icon}</span>
+    <div className="flex flex-col rounded-xl border border-border bg-surface overflow-hidden">
+      {/* Barra de acento superior */}
+      <div className="h-[3px]" style={{ background: isDone ? '#059669' : inProgress ? '#0891b2' : `color-mix(in srgb, ${color} 40%, var(--border))` }} />
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-3 pt-3 pb-2">
+        <span className="text-[18px] leading-none flex-shrink-0">{recipe.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-[13px] font-bold text-text truncate">{recipe.name}</span>
-            <span
-              className="flex items-center gap-0.5 text-[10px] font-bold px-1 py-0.5 rounded flex-shrink-0"
-              style={{
-                color: stock > 0 ? color : 'var(--text-3)',
-                background: stock > 0 ? `color-mix(in srgb, ${color} 10%, var(--surface-2))` : 'var(--surface-2)',
-                border: `1px solid ${stock > 0 ? `color-mix(in srgb, ${color} 25%, var(--border))` : 'var(--border)'}`,
-              }}
-            >
-              <Warehouse size={9} strokeWidth={2} />{stock}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {inputs.map(inp => {
-              const key = inp.resource ?? inp.item
-              const available = inp.resource ? (resources?.[key] ?? 0) : (inventory?.[key] ?? 0)
-              const has = available >= inp.qty
-              return (
-                <span key={key} className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
-                  style={{
-                    color: has ? 'var(--text-2)' : '#dc2626',
-                    background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
-                  }}
-                >
-                  {inp.qty} {INPUT_LABELS[key] ?? key}
-                </span>
-              )
-            })}
-            <span className="flex items-center gap-0.5 text-[11px] text-text-3">
-              <Clock size={9} strokeWidth={2} />{recipe.craft_minutes}m
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-bold text-text leading-tight truncate">{recipe.name}</span>
+            {/* Stock */}
+            {stock > 0 && (
+              <span
+                className="text-[11px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                style={{ color, background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
+              >
+                ×{stock}
+              </span>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Botón acción */}
+      {/* Ingredientes */}
+      <div className="flex items-center gap-1.5 flex-wrap px-3 pb-2.5">
+        {inputs.map(inp => {
+          const key       = inp.resource ?? inp.item
+          const available = inp.resource ? (resources?.[key] ?? 0) : (inventory?.[key] ?? 0)
+          const has       = available >= inp.qty
+          return (
+            <span key={key}
+              className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
+              style={{
+                color:      has ? 'var(--text-2)' : '#dc2626',
+                background: has ? 'var(--surface-2)' : 'color-mix(in srgb, #dc2626 8%, var(--surface))',
+              }}
+            >
+              {inp.qty} {INPUT_LABELS[key] ?? key}
+            </span>
+          )
+        })}
+        <span className="flex items-center gap-0.5 text-[11px] text-text-3">
+          <Clock size={9} strokeWidth={2} />{recipe.craft_minutes}m
+        </span>
+      </div>
+
+      {/* Barra de progreso */}
+      {inProgress && (
+        <div className="px-3 pb-2">
+          <div className="h-1.5 rounded-full overflow-hidden bg-border">
+            <div
+              className="h-full rounded-full transition-[width] duration-1000 linear"
+              style={{ background: stateColor, width: `${progress.currentPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Footer acción */}
+      <div className="px-3 pb-3 mt-auto flex items-center justify-between gap-2">
+        {/* Estado */}
+        <span className="text-[11px] font-semibold" style={{ color: isDone ? '#059669' : inProgress ? '#0891b2' : 'var(--text-3)' }}>
+          {isDone ? '¡Listo para recoger!' : inProgress ? fmtShort(progress.nextSecondsLeft) : stock > 0 ? `×${stock} en inventario` : ''}
+        </span>
+
+        {/* Botón */}
         {!slot ? (
           <motion.button
-            className="w-20 py-2 text-[12px] font-bold rounded-lg border-0 text-white disabled:opacity-30 flex-shrink-0 flex items-center justify-center"
-            style={{ background: color }}
+            className="px-3 py-1.5 text-[12px] font-bold rounded-lg text-white disabled:opacity-30 flex-shrink-0"
+            style={{ background: canAfford ? color : 'var(--surface-2)', color: canAfford ? '#fff' : 'var(--text-3)' }}
             onClick={() => onRefine({ recipeId: recipe.id, quantity: 1 })}
             disabled={!canAfford}
             whileTap={canAfford ? { scale: 0.95 } : {}}
@@ -430,37 +455,19 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
           </motion.button>
         ) : (
           <motion.button
-            className="w-20 py-2 text-[12px] font-bold rounded-lg border-0 disabled:opacity-40 flex items-center justify-center gap-1 flex-shrink-0"
+            className="px-3 py-1.5 text-[12px] font-bold rounded-lg flex items-center gap-1 flex-shrink-0 disabled:opacity-40"
             style={{
-              background: isDone
-                ? 'linear-gradient(135deg, #059669, #047857)'
-                : `color-mix(in srgb, ${color} 12%, var(--surface-2))`,
+              background: isDone ? 'linear-gradient(135deg,#059669,#047857)' : 'var(--surface-2)',
               color: isDone ? '#fff' : 'var(--text-3)',
             }}
             onClick={() => isDone && onCollectSlot(slot.id)}
             disabled={!isDone}
             whileTap={isDone ? { scale: 0.95 } : {}}
           >
-            {isDone ? (
-              <><Check size={12} strokeWidth={2.5} />Recoger</>
-            ) : (
-              <><Clock size={12} strokeWidth={2} />{fmtShort(progress.nextSecondsLeft)}</>
-            )}
+            {isDone ? <Check size={14} strokeWidth={2.5} /> : <><Clock size={12} strokeWidth={2} />En curso</>}
           </motion.button>
         )}
       </div>
-
-      {/* Barra de progreso — solo cuando hay slot activo */}
-      {slot && (
-        <div className="h-1.5 rounded-full overflow-hidden ml-7"
-          style={{ background: `color-mix(in srgb, ${color} 12%, var(--surface-2))` }}
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-1000 linear"
-            style={{ background: color, width: `${progress.currentPct}%` }}
-          />
-        </div>
-      )}
     </div>
   )
 }

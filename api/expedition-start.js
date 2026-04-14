@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { dungeonId, heroId, useProvisions } = req.body
+  const { dungeonId, heroId, useProvisions, useVial, useAmuleto } = req.body
   if (!dungeonId) return res.status(400).json({ error: 'dungeonId requerido' })
   if (!heroId)    return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(dungeonId)) return res.status(400).json({ error: 'dungeonId inválido' })
@@ -31,11 +31,7 @@ export default async function handler(req, res) {
   const rb = await getResearchBonuses(supabase, user.id)
   const maxExpeditions = 1 + rb.expedition_slots
 
-  if (maxExpeditions < 2) {
-    // Sin investigación: solo se puede tener 1 expedición activa (comportamiento original)
-    // El check de hero.status === 'idle' ya lo cubre arriba
-  } else {
-    // Con investigación: contar expediciones activas del jugador
+  if (maxExpeditions >= 2) {
     const { count } = await supabase
       .from('expeditions')
       .select('id', { count: 'exact', head: true })
@@ -49,7 +45,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // Stats efectivas del héroe (antes de interpolar HP para usar max_hp con equipo)
+  // Stats efectivas del héroe
   const stats = await getEffectiveStats(supabase, hero.id, user.id)
 
   const nowMs = Date.now()
@@ -67,18 +63,9 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }
 
-  // Agilidad reduce duración (hasta −25%)
-  const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
-  // Poción de tiempo activa: reduce la duración en effect_value (ej. 0.40 → −40%).
-  const timeReduction = hero.active_effects?.time_reduction ?? 0
-  const effectiveDuration = Math.max(
-    1,
-    Math.round(baseDuration * (1 - timeReduction)),
-  )
+  // ── Verificar consumibles ──────────────────────────────────────────────────
 
-  const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
-
-  // Provisiones de expedición: solo si el jugador lo eligió explícitamente
+  // Provisiones (+15% oro, +10% XP)
   let provStock = null
   let hasProvisions = false
   if (useProvisions) {
@@ -92,20 +79,59 @@ export default async function handler(req, res) {
     hasProvisions = ps && ps.quantity > 0
   }
 
+  // Vial de Aceleración (-35% duración)
+  let vialStock = null
+  let vialUsed = false
+  if (useVial) {
+    const { data: vs } = await supabase
+      .from('player_crafted_items')
+      .select('quantity')
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'vial_aceleracion')
+      .maybeSingle()
+    vialStock = vs
+    vialUsed = vs && vs.quantity > 0
+  }
+
+  // Amuleto de Fortuna (+80% drop de equipo, aplicado en collect via loot_boost)
+  let amuletoStock = null
+  let amuletoUsed = false
+  if (useAmuleto) {
+    const { data: as } = await supabase
+      .from('player_crafted_items')
+      .select('quantity')
+      .eq('player_id', user.id)
+      .eq('recipe_id', 'amuleto_fortuna')
+      .maybeSingle()
+    amuletoStock = as
+    amuletoUsed = as && as.quantity > 0
+  }
+
+  // ── Duración efectiva ──────────────────────────────────────────────────────
+  // Agilidad (hasta −25%) + active_effects.time_reduction (potiones) + Vial (−35%)
+  const baseDuration = dungeon.duration_minutes * (stats ? agilityDurationFactor(stats.agility) : 1)
+  const existingTimeReduction = hero.active_effects?.time_reduction ?? 0
+  const vialReduction = vialUsed ? 0.35 : 0
+  const effectiveDuration = Math.max(
+    1,
+    Math.round(baseDuration * (1 - existingTimeReduction - vialReduction)),
+  )
+
+  const endsAt = new Date(Date.now() + effectiveDuration * 60 * 1000)
+
+  // ── Oro y XP base (con bonus de provisiones) ──────────────────────────────
   const goldEarned = Math.floor(
     (dungeon.gold_min + Math.random() * (dungeon.gold_max - dungeon.gold_min)) *
     (hasProvisions ? 1.15 : 1)
   )
   const xpEarned = Math.round(dungeon.experience_reward * (hasProvisions ? 1.10 : 1))
 
-  // Madera, hierro y maná solo se producen en edificios — las expediciones solo dan oro e items
   const woodEarned = 0
   const manaEarned = 0
 
-  // Deducir HP por peligro de la expedición al iniciar
-  // La dificultad aumenta el coste; la fuerza del héroe lo reduce
-  const baseHpDamage = expeditionHpDamage(hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
+  // ── HP cost ────────────────────────────────────────────────────────────────
   const hpCostReduction = hero.active_effects?.hp_cost_reduction ?? 0
+  const baseHpDamage = expeditionHpDamage(stats?.max_hp ?? hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
   const hpDamage = Math.round(baseHpDamage * (1 - hpCostReduction))
   if (currentHp <= hpDamage) {
     return res.status(409).json({
@@ -115,15 +141,16 @@ export default async function handler(req, res) {
   }
   const hpAfterExpedition = Math.max(1, currentHp - hpDamage)
 
-  // Consumir time_reduction y hp_cost_reduction si estaban activos.
-  // Los demás boosts (xp/loot/gold) se consumen en expedition-collect.
+  // ── active_effects tras inicio ─────────────────────────────────────────────
+  // Consumir time_reduction y hp_cost_reduction (potiones activas).
+  // El Amuleto añade loot_boost para que expedition-collect lo aplique.
+  // xp/loot/gold boost se consumen en collect.
   const effectsAfter = { ...(hero.active_effects ?? {}) }
-  if (timeReduction) delete effectsAfter.time_reduction
-  if (hpCostReduction) delete effectsAfter.hp_cost_reduction
+  if (existingTimeReduction) delete effectsAfter.time_reduction
+  if (hpCostReduction)       delete effectsAfter.hp_cost_reduction
+  if (amuletoUsed)           effectsAfter.loot_boost = (effectsAfter.loot_boost ?? 0) + 0.80
 
-  // Reclamar el héroe atómicamente: solo actualiza si sigue en idle.
-  // Evita la condición de carrera donde dos peticiones simultáneas ambas
-  // pasan la comprobación de status pero solo una debe continuar.
+  // ── Reclamar héroe atómicamente ───────────────────────────────────────────
   const { data: claimed, error: claimError } = await supabase
     .from('heroes')
     .update({
@@ -142,7 +169,7 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'El héroe ya está en una expedición' })
   }
 
-  // Crear expedición (héroe ya está bloqueado en exploring)
+  // ── Crear expedición ───────────────────────────────────────────────────────
   const { error: expError } = await supabase
     .from('expeditions')
     .insert({
@@ -170,14 +197,40 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: expError.message })
   }
 
-  // Consumir provisiones tras insertar expedición con éxito
+  // ── Consumir items tras insertar expedición ────────────────────────────────
+  const consumePromises = []
+
   if (hasProvisions) {
-    await supabase
-      .from('player_crafted_items')
-      .update({ quantity: provStock.quantity - 1 })
-      .eq('player_id', user.id)
-      .eq('recipe_id', 'expedition_provisions')
+    consumePromises.push(
+      supabase.from('player_crafted_items')
+        .update({ quantity: provStock.quantity - 1 })
+        .eq('player_id', user.id).eq('recipe_id', 'expedition_provisions')
+    )
+  }
+  if (vialUsed) {
+    consumePromises.push(
+      supabase.from('player_crafted_items')
+        .update({ quantity: vialStock.quantity - 1 })
+        .eq('player_id', user.id).eq('recipe_id', 'vial_aceleracion')
+    )
+  }
+  if (amuletoUsed) {
+    consumePromises.push(
+      supabase.from('player_crafted_items')
+        .update({ quantity: amuletoStock.quantity - 1 })
+        .eq('player_id', user.id).eq('recipe_id', 'amuleto_fortuna')
+    )
   }
 
-  return res.status(200).json({ ok: true, endsAt, hpDamage, heroCurrentHp: hpAfterExpedition, provisionsUsed: hasProvisions })
+  if (consumePromises.length > 0) await Promise.all(consumePromises)
+
+  return res.status(200).json({
+    ok: true,
+    endsAt,
+    hpDamage,
+    heroCurrentHp: hpAfterExpedition,
+    provisionsUsed: hasProvisions,
+    vialUsed,
+    amuletoUsed,
+  })
 }

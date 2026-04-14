@@ -8,10 +8,13 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
+import { useHeroTactics } from '../hooks/useHeroTactics'
+import { useResearch } from '../hooks/useResearch'
 import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, BAG_UPGRADE_COSTS, BAG_MAX_UPGRADES, CLASS_COLORS, computeResearchBonuses } from '../lib/gameConstants'
+import { computeEffectiveStats } from '../lib/gameFormulas'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
@@ -19,7 +22,7 @@ import ItemComparisonModal from '../components/ItemComparisonModal'
 import {
   Crown, Shirt, Hand, Move, Sword, Shield, Gem,
   Heart, Dumbbell, Wind, Brain, Backpack, Wrench, Trash2, X, Sparkles, ArrowUp,
-  Coins, Layers, Info, Pickaxe, Axe, Scale,
+  Coins, Layers, Pickaxe, Axe, Scale,
 } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -75,6 +78,36 @@ const RARITY_GOLD_PER_POINT = { common: 2, uncommon: 3, rare: 6, epic: 12, legen
 function repairGoldCost(item) {
   const missing = item.item_catalog.max_durability - item.current_durability
   return missing * (RARITY_GOLD_PER_POINT[item.item_catalog.rarity] ?? 2)
+}
+
+// Cuenta el total de aplicaciones de runas sobre un ítem
+function countRunesApplied(enchantments) {
+  if (!enchantments) return 0
+  return Object.entries(enchantments).reduce((n, [stat, val]) => {
+    const rune = Object.values(RUNE_META).find(r => r.stat === stat)
+    return rune && val ? n + Math.round(val / rune.value) : n
+  }, 0)
+}
+
+// Muestra los encantamientos activos de un ítem en una línea compacta
+function EnchantBadges({ enchantments }) {
+  if (!enchantments) return null
+  const entries = Object.entries(enchantments).filter(([, v]) => v > 0)
+  if (!entries.length) return null
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {entries.map(([stat, val]) => {
+        const rune = Object.values(RUNE_META).find(r => r.stat === stat)
+        if (!rune) return null
+        return (
+          <span key={stat} className="text-[10px] font-bold px-1.5 py-[1px] rounded leading-tight"
+            style={{ color: rune.color, background: `color-mix(in srgb,${rune.color} 12%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${rune.color} 25%,var(--border))` }}>
+            {rune.icon}+{val}
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 const RUNE_META = {
@@ -313,9 +346,78 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel, canConfi
   )
 }
 
-function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, onEnchant, repairLoading, upgradeLoading, enchantLoading, availableRunes, heroClass }) {
+function EnchantModal({ item, availableRunes, onEnchant, onClose, isPending }) {
+  const cat = item.item_catalog
+  const maxRunes = cat.tier          // T1=1, T2=2, T3=3
+  const runesApplied = countRunesApplied(item.enchantments)
+  const slotsLeft = maxRunes - runesApplied
+  const atCap = slotsLeft <= 0
+  const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[250] flex items-end sm:items-center justify-center"
+      onClick={onClose}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
+        className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.3)] w-full sm:w-[380px] overflow-hidden"
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-bold text-text truncate" style={{ color: rarColor }}>{cat.name}</p>
+            <p className="text-[11px] text-text-3">T{cat.tier} · Runas: {runesApplied}/{maxRunes}</p>
+          </div>
+          <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3" onClick={onClose}>
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Runas disponibles */}
+        <div className="px-4 pt-3 pb-4">
+          {atCap ? (
+            <p className="text-[13px] text-text-3 text-center py-4">Este ítem ha alcanzado el máximo de encantamientos para su tier (T{cat.tier}).</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {Object.entries(RUNE_META).map(([runeId, rune]) => {
+                const qty = availableRunes?.[runeId] ?? 0
+                return (
+                  <button key={runeId}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                    style={{
+                      borderColor: qty > 0 ? `color-mix(in srgb,${rune.color} 30%,var(--border))` : 'var(--border)',
+                      background: qty > 0 ? `color-mix(in srgb,${rune.color} 6%,var(--surface-2))` : 'var(--surface-2)',
+                    }}
+                    disabled={qty <= 0 || isPending}
+                    onClick={() => { onEnchant(item.id, runeId); onClose() }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base leading-none">{rune.icon}</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-[13px] font-semibold" style={{ color: qty > 0 ? rune.color : 'var(--text-3)' }}>{rune.label}</span>
+                        <span className="text-[11px] text-text-3">+{rune.value} {rune.label}</span>
+                      </div>
+                    </div>
+                    <span className={`text-[12px] font-bold tabular-nums ${qty > 0 ? 'text-text-2' : 'text-text-3'}`}>×{qty}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
+  )
+}
+
+function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onViewDetail, onOpenEnchant, repairLoading, upgradeLoading, availableRunes, heroClass }) {
   const { label, Icon } = SLOT_META[slotKey]
-  const [showRunePicker, setShowRunePicker] = useState(false)
 
   if (!item) {
     return (
@@ -328,131 +430,97 @@ function EquipmentSlot({ slotKey, item, onUnequip, onRepair, onUpgradeTier, onVi
     )
   }
 
-  const cat         = item.item_catalog
-  const rarColor    = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-  const durPct      = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
-  const durColor    = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-  const needsRepair = durPct < 100
-  const canUpgrade  = cat.tier < 3 && durPct >= 100
-  const isClassItem = cat.required_class && cat.required_class === heroClass
-  const classColor  = CLASS_COLORS[cat.required_class]
+  const cat          = item.item_catalog
+  const rarColor     = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+  const durPct       = cat.max_durability > 0 ? Math.round((item.current_durability / cat.max_durability) * 100) : 100
+  const durColor     = durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
+  const needsRepair  = durPct < 100
+  const canUpgrade   = cat.tier < 3 && durPct >= 100
+  const isClassItem  = cat.required_class && cat.required_class === heroClass
+  const classColor   = CLASS_COLORS[cat.required_class]
+  const maxRunes     = cat.tier
+  const runesApplied = countRunesApplied(item.enchantments)
+  const atCap        = runesApplied >= maxRunes
+  const hasAnyRune   = Object.values(availableRunes ?? {}).some(q => q > 0)
+  const canEnchant   = !atCap && hasAnyRune
 
   return (
     <div className="flex rounded-xl border border-border bg-surface w-full overflow-hidden"
       style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}>
       {isClassItem && <div className="w-1 flex-shrink-0" style={{ background: `color-mix(in srgb,${classColor} 60%,transparent)` }} />}
       <div className="flex flex-col flex-1 min-w-0">
-      {/* Info */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ color: rarColor }}>
-          <Icon size={13} strokeWidth={1.8} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <span className="text-[13px] font-semibold truncate block" style={{ color: rarColor }}>{cat.name}</span>
-          <span className="text-[11px] text-text-3 capitalize flex items-center gap-1.5">
-            {label}
-            {cat.is_two_handed && (
-              <span
-                className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-[1px] rounded"
-                style={{
-                  color: '#b45309',
-                  background: 'color-mix(in srgb,#b45309 10%,transparent)',
-                  border: '1px solid color-mix(in srgb,#b45309 30%,transparent)',
-                }}
-                title="Ocupa ambas manos"
-              >
-                2 manos
-              </span>
-            )}
-          </span>
-        </div>
-        <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
-      </div>
 
-      <div className="px-3 pb-2">
-        <div className="flex items-center justify-end gap-2 mb-1">
-          <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
-        </div>
-        <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-      </div>
-
-      {/* Encantamientos activos */}
-      {item.enchantments && Object.keys(item.enchantments).length > 0 && (
-        <div className="px-3 pb-2 flex gap-1 flex-wrap">
-          {Object.entries(item.enchantments).map(([stat, val]) => {
-            const rune = Object.values(RUNE_META).find(r => r.stat === stat)
-            if (!rune || !val) return null
-            return (
-              <span key={stat} className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-[2px] rounded"
-                style={{ color: rune.color, background: `color-mix(in srgb,${rune.color} 12%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${rune.color} 25%,var(--border))` }}>
-                {rune.icon} +{val} {rune.label}
-              </span>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Rune picker */}
-      {showRunePicker && (
-        <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
-          {Object.entries(RUNE_META).map(([runeId, rune]) => {
-            const qty = availableRunes?.[runeId] ?? 0
-            return (
-              <button key={runeId}
-                className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded disabled:opacity-30"
-                style={{ color: rune.color, background: `color-mix(in srgb,${rune.color} 10%,var(--surface-2))`, border: `1px solid color-mix(in srgb,${rune.color} 30%,var(--border))` }}
-                disabled={qty <= 0 || enchantLoading}
-                onClick={() => { onEnchant(item.id, runeId); setShowRunePicker(false) }}
-              >
-                {rune.icon} {rune.label} ({qty})
-              </button>
-            )
-          })}
-          <button className="text-[10px] text-text-3 px-1.5 py-1" onClick={() => setShowRunePicker(false)}>✕</button>
-        </div>
-      )}
-
-      {/* Footer de acciones */}
-      <div className="flex border-t border-border divide-x divide-border">
+        {/* Info + durabilidad — clickable para abrir detalle */}
         <button
-          className="flex items-center justify-center gap-1 px-3 py-2 text-[11px] font-semibold text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
+          className="flex items-start gap-2 px-3 pt-3 pb-2.5 text-left w-full hover:bg-surface-2 transition-colors"
           onClick={() => onViewDetail(item)}
         >
-          <Info size={11} strokeWidth={2} /> + Info
+          <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5" style={{ color: rarColor }}>
+            <Icon size={13} strokeWidth={1.8} />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] font-semibold truncate flex-1" style={{ color: rarColor }}>{cat.name}</span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {runesApplied > 0 && (
+                  <span className="text-[11px] font-bold px-1 rounded border" style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 12%,var(--surface-2))', borderColor: 'color-mix(in srgb,#7c3aed 25%,var(--border))' }}>
+                    ✨{runesApplied}
+                  </span>
+                )}
+                <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
+              </div>
+            </div>
+            <span className="text-[11px] text-text-3">
+              {label}{cat.is_two_handed && <span className="ml-1 text-[11px] font-semibold" style={{ color: '#d97706' }}>· 2 manos</span>}
+            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex-1">
+                <DurabilityBar current={item.current_durability} max={cat.max_durability} />
+              </div>
+              <span className="text-[11px] font-bold flex-shrink-0 tabular-nums" style={{ color: durColor }}>{durPct}%</span>
+            </div>
+          </div>
         </button>
-        {needsRepair && (
+
+        {/* Footer de acciones */}
+        <div className="flex border-t border-border divide-x divide-border mt-auto">
+          {needsRepair && (
+            <button
+              className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
+              onClick={() => onRepair(item)} disabled={repairLoading}
+            >
+              <Wrench size={11} strokeWidth={2} /> Reparar
+            </button>
+          )}
+          {canUpgrade && (
+            <button
+              className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
+              onClick={() => onUpgradeTier(item)} disabled={upgradeLoading}
+            >
+              <ArrowUp size={11} strokeWidth={2.5} /> T{cat.tier}→{cat.tier + 1}
+            </button>
+          )}
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#d97706] hover:bg-[color-mix(in_srgb,#d97706_6%,transparent)] transition-colors disabled:opacity-40"
-            onClick={() => onRepair(item)}
-            disabled={repairLoading}
+            className={`flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors
+              ${atCap
+                ? 'text-[#d97706] opacity-60 cursor-default'
+                : canEnchant
+                  ? 'text-[#7c3aed] hover:bg-[color-mix(in_srgb,#7c3aed_6%,transparent)]'
+                  : 'text-text-3 opacity-40 cursor-default'}`}
+            onClick={canEnchant ? () => onOpenEnchant(item) : undefined}
+            disabled={!canEnchant && !atCap}
+            title={atCap ? `Slots llenos (${runesApplied}/${maxRunes})` : !hasAnyRune ? 'Sin runas disponibles' : undefined}
           >
-            <Wrench size={12} strokeWidth={2} /> Reparar
+            <Sparkles size={11} strokeWidth={2} />
+            {atCap ? `✓${runesApplied}/${maxRunes}` : 'Encantar'}
           </button>
-        )}
-        {canUpgrade && (
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#0f766e] hover:bg-[color-mix(in_srgb,#0f766e_6%,transparent)] transition-colors disabled:opacity-40"
-            onClick={() => onUpgradeTier(item)}
-            disabled={upgradeLoading}
+            className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors"
+            onClick={() => onUnequip(item.id)}
           >
-            <ArrowUp size={12} strokeWidth={2.5} /> T{cat.tier}→T{cat.tier + 1}
+            <X size={11} strokeWidth={2.5} /> Quitar
           </button>
-        )}
-        <button
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#7c3aed] hover:bg-[color-mix(in_srgb,#7c3aed_6%,transparent)] transition-colors disabled:opacity-40"
-          onClick={() => setShowRunePicker(v => !v)}
-          disabled={enchantLoading || Object.values(availableRunes ?? {}).every(q => q <= 0)}
-        >
-          <Sparkles size={11} strokeWidth={2} /> Encantar
-        </button>
-        <button
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
-          onClick={() => onUnequip(item.id)}
-          disabled={false}
-        >
-          <X size={12} strokeWidth={2.5} /> Quitar
-        </button>
-      </div>
+        </div>
       </div>
     </div>
   )
@@ -499,9 +567,11 @@ function StatRow({ label, color, Icon: StatIcon, base, equipBonus, penalty = 0 }
 export default function Equipo() {
   const userId      = useAppStore(s => s.userId)
   const heroId      = useHeroId()
-  const { hero }    = useHero(heroId)
-  const isExploring = hero?.status === 'exploring'
-  const { items }   = useInventory(heroId)
+  const { hero }      = useHero(heroId)
+  const isExploring   = hero?.status === 'exploring'
+  const { items }     = useInventory(heroId)
+  const { tactics }   = useHeroTactics(heroId)
+  const { research }  = useResearch(userId)
   const { resources } = useResources(userId)
   const { inventory: craftedItems } = useCraftedItems(userId)
   const queryClient    = useQueryClient()
@@ -510,11 +580,13 @@ export default function Equipo() {
   const [tierUpgradeTarget, setTierUpgradeTarget] = useState(null)
   const [itemDetail, setItemDetail] = useState(null)
   const [compareTarget, setCompareTarget] = useState(null)
+  const [enchantTarget, setEnchantTarget] = useState(null)
   const equipPending   = useRef(0)  // contador de mutaciones equip en vuelo
 
   // Equip / unequip — optimistic desde el cache actual, invalida solo cuando
   // todas las mutaciones en vuelo hayan terminado (evita el caos visual)
   const equipMutation = useMutation({
+    mutationKey: ['equip'],
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ body }) => {
       equipPending.current++
@@ -527,7 +599,12 @@ export default function Equipo() {
       if (equip) {
         const item = current.find(i => i.id === itemId)
         if (item) {
-          const targetSlot = item.item_catalog.slot
+          let targetSlot = item.item_catalog.slot
+          // Para accesorios: buscar el primer slot libre, igual que el backend
+          if (targetSlot === 'accessory') {
+            const occupiedAcc = new Set(current.filter(i => i.equipped_slot === 'accessory' || i.equipped_slot === 'accessory_2').map(i => i.equipped_slot))
+            targetSlot = !occupiedAcc.has('accessory') ? 'accessory' : !occupiedAcc.has('accessory_2') ? 'accessory_2' : 'accessory'
+          }
           queryClient.setQueryData(key, current.map(i => {
             if (i.id === itemId) return { ...i, equipped_slot: targetSlot }
             if (i.equipped_slot === targetSlot) return { ...i, equipped_slot: null }
@@ -558,16 +635,26 @@ export default function Equipo() {
     },
   })
 
-  // Repair / dismantle — bloquea solo su botón de confirmación
-  const actionMutation = useMutation({
+  // Reparar — optimistic update de durabilidad + mutationKey para proteger Realtime
+  const repairMutation = useMutation({
+    mutationKey: ['repair'],
     mutationFn: ({ endpoint, body }) => apiPost(endpoint, body),
     onMutate: async ({ body }) => {
-      if (!body.itemId) return
       const key = queryKeys.inventory(heroId)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData(key)
-      if (body._dismantle) {
-        queryClient.setQueryData(key, (previous ?? []).filter(i => i.id !== body.itemId))
+      if (body.itemId) {
+        // Reparar uno: poner durabilidad al máximo
+        queryClient.setQueryData(key, (previous ?? []).map(i =>
+          i.id === body.itemId
+            ? { ...i, current_durability: i.item_catalog.max_durability }
+            : i
+        ))
+      } else {
+        // Reparar todo: todos los equipados van a máximo
+        queryClient.setQueryData(key, (previous ?? []).map(i =>
+          i.equipped_slot ? { ...i, current_durability: i.item_catalog.max_durability } : i
+        ))
       }
       return { previous }
     },
@@ -581,7 +668,29 @@ export default function Equipo() {
     },
   })
 
+  // Desmantelar — optimistic remove + mutationKey para proteger del Realtime
+  const dismantleMutation = useMutation({
+    mutationKey: ['dismantle', heroId],
+    mutationFn: ({ itemId }) => apiPost('/api/item-dismantle', { itemId }),
+    onMutate: async ({ itemId }) => {
+      const key = queryKeys.inventory(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, (previous ?? []).filter(i => i.id !== itemId))
+      return { previous }
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), context.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
+  })
+
   const enchantMutation = useMutation({
+    mutationKey: ['enchant'],
     mutationFn: ({ itemId, recipeId }) => apiPost('/api/item-enchant', { heroId, itemId, recipeId }),
     onMutate: async ({ itemId, recipeId }) => {
       const key = queryKeys.inventory(heroId)
@@ -643,30 +752,11 @@ export default function Equipo() {
     onError: (err) => notify.error(err.message),
   })
 
-  const { equipBonus, weightPenalty } = useMemo(() => {
-    const eq = { attack: 0, defense: 0, strength: 0, agility: 0, intelligence: 0, max_hp: 0 }
-    let totalWeight = 0
-    ;(items ?? []).filter(i => i.equipped_slot && i.current_durability > 0).forEach(i => {
-      const c = i.item_catalog
-      const durPct = c.max_durability > 0 ? i.current_durability / c.max_durability : 1
-      eq.attack       += c.attack_bonus       ?? 0
-      eq.defense      += c.defense_bonus      ?? 0
-      eq.strength     += c.strength_bonus     ?? 0
-      eq.agility      += c.agility_bonus      ?? 0
-      eq.intelligence += c.intelligence_bonus ?? 0
-      eq.max_hp       += c.hp_bonus           ?? 0
-      totalWeight     += c.weight             ?? 0
-      const enc = i.enchantments ?? {}
-      if (enc.attack_bonus)       eq.attack       += Math.round(enc.attack_bonus       * durPct)
-      if (enc.defense_bonus)      eq.defense      += Math.round(enc.defense_bonus      * durPct)
-      if (enc.hp_bonus)           eq.max_hp       += Math.round(enc.hp_bonus           * durPct)
-      if (enc.strength_bonus)     eq.strength     += Math.round(enc.strength_bonus     * durPct)
-      if (enc.agility_bonus)      eq.agility      += Math.round(enc.agility_bonus      * durPct)
-      if (enc.intelligence_bonus) eq.intelligence += Math.round(enc.intelligence_bonus * durPct)
-    })
-    const weightPenalty = Math.floor(totalWeight / 4)
-    return { equipBonus: eq, weightPenalty }
-  }, [items])
+  const effectiveStats = useMemo(() => {
+    if (!hero) return null
+    const rb = computeResearchBonuses(research?.completed ?? [])
+    return computeEffectiveStats(hero, items ?? [], tactics ?? [], rb)
+  }, [hero, items, tactics, research])
 
   const damagedEquipped = useMemo(() =>
     (items ?? []).filter(i => i.equipped_slot && i.current_durability < i.item_catalog.max_durability),
@@ -712,7 +802,7 @@ export default function Equipo() {
       disabledReason: hasGold ? null : 'Oro insuficiente',
       onConfirm: () => {
         setConfirm(null)
-        actionMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
+        repairMutation.mutate({ endpoint: '/api/item-repair', body: { itemId: item.id } })
       },
     })
   }
@@ -750,7 +840,7 @@ export default function Equipo() {
       disabledReason: hasGold ? null : `Necesitas ${totalGold} oro`,
       onConfirm: () => {
         setConfirm(null)
-        actionMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })
+        repairMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })
       },
     })
   }
@@ -780,8 +870,7 @@ export default function Equipo() {
 
           <div className="flex items-center justify-around p-3 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] sm:hidden">
             {STAT_CONFIG.map(({ key, color, Icon }) => {
-              const pen   = key === 'agility' ? weightPenalty : 0
-              const total = (hero[key] ?? 0) + (equipBonus[key] ?? 0) - pen
+              const total = effectiveStats?.[key] ?? (hero[key] ?? 0)
               return (
                 <div key={key} className="flex flex-col items-center gap-0.5 py-1">
                   <Icon size={13} strokeWidth={2} style={{ color }} />
@@ -792,12 +881,16 @@ export default function Equipo() {
           </div>
 
           <div className="hidden sm:flex flex-col gap-3 p-4 rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
-            {STAT_CONFIG.map(({ key, label, color, Icon }) => (
-              <StatRow key={key} label={label} color={color} Icon={Icon}
-                base={hero[key] ?? 0} equipBonus={equipBonus[key] ?? 0}
-                penalty={key === 'agility' ? weightPenalty : 0}
-              />
-            ))}
+            {STAT_CONFIG.map(({ key, label, color, Icon }) => {
+              const base  = hero[key] ?? 0
+              const total = effectiveStats?.[key] ?? base
+              const bonus = total - base
+              return (
+                <StatRow key={key} label={label} color={color} Icon={Icon}
+                  base={base} equipBonus={bonus} penalty={0}
+                />
+              )
+            })}
           </div>
         </div>
 
@@ -810,7 +903,7 @@ export default function Equipo() {
                 className="btn btn--sm flex items-center gap-1.5 disabled:opacity-40"
                 style={{ fontSize: '11px', padding: '3px 10px', height: '24px', minHeight: 'unset', background: '#d97706', color: '#fff', borderColor: 'transparent' }}
                 onClick={handleRepairAll}
-                disabled={actionMutation.isPending}
+                disabled={repairMutation.isPending}
               >
                 <Wrench size={11} strokeWidth={2.5} />
                 Reparar todo ({damagedEquipped.length})
@@ -828,8 +921,8 @@ export default function Equipo() {
                   onRepair={handleRepair}
                   onUpgradeTier={handleUpgradeTier}
                   onViewDetail={setItemDetail}
-                  onEnchant={handleEnchant}
-                  repairLoading={actionMutation.isPending}
+                  onOpenEnchant={setEnchantTarget}
+                  repairLoading={repairMutation.isPending}
                   upgradeLoading={tierUpgradeMutation.isPending}
                   enchantLoading={enchantMutation.isPending}
                   availableRunes={availableRunes}
@@ -889,31 +982,34 @@ export default function Equipo() {
                 // Si no hay rival que comparar, la acción no aporta nada.
                 const rival = equippedBySlot[cat.slot] ?? null
                 return (
-                  <div key={item.id} className="rounded-xl border border-border bg-surface-2 overflow-hidden flex"
+                  <div key={item.id} className="rounded-xl border border-border bg-surface overflow-hidden flex"
                     style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}>
                     {isClassItem && <div className="w-1 flex-shrink-0" style={{ background: `color-mix(in srgb,${classColor} 60%,transparent)` }} />}
                     <div className="flex-1 min-w-0 flex flex-col">
-                    {/* Info */}
-                    <div className="px-3 pt-3 pb-2 flex flex-col gap-1">
+                    {/* Info — clickable */}
+                    <button className="px-3 pt-3 pb-2 flex flex-col gap-1 text-left w-full hover:bg-surface-2 transition-colors"
+                      onClick={() => setItemDetail(item)}>
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[13px] font-semibold truncate" style={{ color: rarColor }}>{cat.name}</span>
-                        <span className="text-[11px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {countRunesApplied(item.enchantments) > 0 && (
+                            <span className="text-[11px] font-bold px-1 rounded border" style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 12%,var(--surface-2))', borderColor: 'color-mix(in srgb,#7c3aed 25%,var(--border))' }}>
+                              ✨{countRunesApplied(item.enchantments)}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] font-medium">
                         <span style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity] ?? cat.rarity}</span>
                         <span className="text-text-3">·</span>
                         <span className="text-text-3">{SLOT_META[cat.slot]?.label ?? cat.slot}</span>
+                        {cat.is_two_handed && <><span className="text-text-3">·</span><span style={{ color: '#d97706' }}>2 manos</span></>}
                       </div>
                       <DurabilityBar current={item.current_durability} max={cat.max_durability} />
-                    </div>
+                    </button>
                     {/* Footer */}
                     <div className="flex border-t border-border divide-x divide-border">
-                      <button
-                        className="flex items-center justify-center gap-1 px-3 py-2 text-[11px] font-semibold text-text-3 hover:text-text-2 hover:bg-surface-2 transition-colors"
-                        onClick={() => setItemDetail(item)}
-                      >
-                        <Info size={11} strokeWidth={2} /> + Info
-                      </button>
                       {rival && (
                         <button
                           type="button"
@@ -939,7 +1035,6 @@ export default function Equipo() {
                       <button
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
                         onClick={() => handleDismantle(item)}
-                        disabled={actionMutation.isPending}
                       >
                         <Trash2 size={12} strokeWidth={2} /> Desmantelar
                       </button>
@@ -1021,16 +1116,10 @@ export default function Equipo() {
         {dismantleTarget && (
           <DismantleChoiceModal
             item={dismantleTarget}
-            gold={resources?.gold ?? 0}
-            onSell={() => {
+            onConfirm={() => {
               const item = dismantleTarget
               setDismantleTarget(null)
-              actionMutation.mutate({ endpoint: '/api/item-dismantle', body: { itemId: item.id, _dismantle: true } })
-            }}
-            onTransmute={() => {
-              const item = dismantleTarget
-              setDismantleTarget(null)
-              actionMutation.mutate({ endpoint: '/api/item-transmute', body: { itemId: item.id, _dismantle: true } })
+              dismantleMutation.mutate({ itemId: item.id })
             }}
             onCancel={() => setDismantleTarget(null)}
           />
@@ -1048,6 +1137,19 @@ export default function Equipo() {
           onCancel={() => { tierUpgradeMutation.reset(); setTierUpgradeTarget(null) }}
         />
       )}
+
+      <AnimatePresence>
+        {enchantTarget && (
+          <EnchantModal
+            key="enchant-modal"
+            item={enchantTarget}
+            availableRunes={availableRunes}
+            onEnchant={handleEnchant}
+            onClose={() => setEnchantTarget(null)}
+            isPending={enchantMutation.isPending}
+          />
+        )}
+      </AnimatePresence>
 
     </div>
   )

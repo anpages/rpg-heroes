@@ -2,12 +2,8 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../../lib/notifications.js'
 import { motion } from 'framer-motion'
-import { FlaskConical, Award } from 'lucide-react'
 import { apiPost } from '../../lib/api.js'
 import { queryKeys } from '../../lib/queryKeys.js'
-import { useHero } from '../../hooks/useHero.js'
-import { useCraftedItems } from '../../hooks/useCraftedItems.js'
-import { useTrainingTokens } from '../../hooks/useTrainingTokens.js'
 import { hasReadyPoint } from '../../hooks/useTraining.js'
 import { cardVariants, TRAINING_ROOMS, STAT_LABEL_MAP } from './constants.js'
 import { baseLevelFromMap } from './helpers.js'
@@ -15,19 +11,12 @@ import RoomCard from './RoomCard.jsx'
 
 export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, byType, anyUpgrading }) {
   const queryClient = useQueryClient()
-  const { hero } = useHero(heroId)
-  const { inventory: craftedItems } = useCraftedItems(userId)
-  const { tokens, totalTokens } = useTrainingTokens(userId)
-
   const baseLevel      = baseLevelFromMap(byType)
   const roomByStat     = Object.fromEntries(trainingRooms.map(r => [r.stat, r]))
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const builtRooms     = trainingRooms.filter(r => r.built_at !== null)
   const anyReady       = builtRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
   const needsInit      = heroId && builtRooms.some(r => !progressByStat[r.stat])
-
-  const tonicQty      = craftedItems?.training_tonic ?? 0
-  const hasBoost      = !!(hero?.active_effects?.training_boost)
 
   const isQueueBusy = anyUpgrading
   const [collectingStats, setCollectingStats] = useState(() => new Set())
@@ -110,10 +99,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       })
       return { prev }
     },
-    onSuccess: (data) => {
-      const names = Object.entries(data.gained ?? {}).map(([s, pts]) => `+${pts} token ${STAT_LABEL_MAP[s]}`)
-      if (names.length > 0) notify.success(`¡Entrenamiento! ${names.join(' · ')}`)
-    },
+    onSuccess: () => {},
     onError: (err, stat, ctx) => {
       setCollectingStats(prev => { const n = new Set(prev); n.delete(stat); return n })
       if (ctx?.prev) queryClient.setQueryData(tpKey, ctx.prev)
@@ -128,13 +114,6 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
     },
   })
 
-  const tonicMutation = useMutation({
-    mutationFn: () => apiPost('/api/training-tonic-use', { heroId }),
-    onSuccess: () => notify.success('Tonico activado'),
-    onError: err => notify.error(err.message),
-    onSettled: () => { queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }); queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) }) },
-  })
-
   const mutPending = buildMutation.isPending || upgradeMutation.isPending || collectMutation.isPending
 
   return (
@@ -146,57 +125,6 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
         )}
       </div>
 
-      {/* Tokens acumulados */}
-      {totalTokens > 0 && (
-        <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
-              <Award size={12} strokeWidth={2.5} className="text-[#d97706]" />
-              Tokens disponibles
-            </span>
-            <span className="text-[11px] font-semibold text-[#d97706]">
-              Asigna en la ficha del héroe
-            </span>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {TRAINING_ROOMS.filter(r => (tokens[r.stat] ?? 0) > 0).map(r => (
-              <span
-                key={r.stat}
-                className="flex items-center gap-1 px-2 py-1 rounded-md border text-[12px] font-semibold"
-                style={{ borderColor: r.color, color: r.color, background: `color-mix(in srgb, ${r.color} 8%, var(--surface))` }}
-              >
-                {r.label}: {tokens[r.stat]}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tónico de entrenamiento */}
-      {builtRooms.length > 0 && (
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-          <div className="flex items-center gap-2 min-w-0">
-            <FlaskConical size={14} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />
-            {hasBoost ? (
-              <span className="text-[12px] font-semibold text-[#7c3aed]">Tónico activo — próxima recolección ×2 XP</span>
-            ) : (
-              <span className="text-[12px] text-text-3">
-                Tónico de Entrenamiento: <span className="font-semibold text-text-2">{tonicQty}</span>
-              </span>
-            )}
-          </div>
-          {!hasBoost && (
-            <motion.button
-              className="px-2.5 py-1 text-[11px] font-bold rounded-md border-0 text-white bg-[#7c3aed] transition-opacity disabled:opacity-40 flex-shrink-0"
-              onClick={() => tonicMutation.mutate()}
-              disabled={tonicQty <= 0 || tonicMutation.isPending}
-              whileTap={tonicQty > 0 ? { scale: 0.95 } : {}}
-            >
-              Usar
-            </motion.button>
-          )}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {TRAINING_ROOMS.map(room => (

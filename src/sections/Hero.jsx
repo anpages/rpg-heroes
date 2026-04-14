@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from 'react'
+import { useState, useEffect, useReducer, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { tierForRating } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { xpRequiredForLevel } from '../lib/gameFormulas'
+import { xpRequiredForLevel, computeEffectiveStats } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 
@@ -67,40 +67,30 @@ const ALL_STATS = [
 ]
 
 
-function StatsDetailModal({ hero, items, weightPenalty = 0, researchBonuses = {}, tactics = [], onClose }) {
-  const STAT_KEYS = ALL_STATS.map(s => s.key)
+function StatsDetailModal({ hero, items, effectiveStats = {}, researchBonuses = {}, tactics = [], onClose }) {
+  const RESEARCH_PCT_MAP = { attack: 'attack_pct', defense: 'defense_pct', intelligence: 'intelligence_pct' }
 
+  // Equipo equipado con durabilidad aplicada (igual que computeEffectiveStats)
   const equippedItems = (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
     .map(i => {
       const c = i.item_catalog
-      const base = {
-        attack: c.attack_bonus ?? 0, defense: c.defense_bonus ?? 0,
-        max_hp: c.hp_bonus ?? 0, strength: c.strength_bonus ?? 0,
-        agility: c.agility_bonus ?? 0, intelligence: c.intelligence_bonus ?? 0,
+      const durPct = c.max_durability > 0 ? i.current_durability / c.max_durability : 1
+      const enc = i.enchantments ?? {}
+      const contrib = {
+        attack:       Math.round((c.attack_bonus       ?? 0) * durPct) + Math.round((enc.attack_bonus       ?? 0) * durPct),
+        defense:      Math.round((c.defense_bonus      ?? 0) * durPct) + Math.round((enc.defense_bonus      ?? 0) * durPct),
+        max_hp:       Math.round((c.hp_bonus           ?? 0) * durPct) + Math.round((enc.hp_bonus           ?? 0) * durPct),
+        strength:     Math.round((c.strength_bonus     ?? 0) * durPct) + Math.round((enc.strength_bonus     ?? 0) * durPct),
+        agility:      Math.round((c.agility_bonus      ?? 0) * durPct) + Math.round((enc.agility_bonus      ?? 0) * durPct),
+        intelligence: Math.round((c.intelligence_bonus ?? 0) * durPct) + Math.round((enc.intelligence_bonus ?? 0) * durPct),
       }
-      const contributions = { ...base }
-      return { name: c.name, tier: c.tier, base, contributions }
+      const durLabel = durPct < 1 ? ` (${Math.round(durPct * 100)}% dur)` : ''
+      return { name: c.name, tier: c.tier, durLabel, contrib }
     })
-    .filter(i => STAT_KEYS.some(k => i.contributions[k] !== 0))
+    .filter(i => Object.values(i.contrib).some(v => v !== 0))
 
-  // Mapeo de stat → key de investigación %
-  const RESEARCH_PCT_MAP = { attack: 'attack_pct', defense: 'defense_pct', intelligence: 'intelligence_pct' }
-
-  const totalEquipBonus = equippedItems.reduce((sum, item) =>
-    sum + STAT_KEYS.reduce((s, k) => s + Math.max(0, item.contributions[k]), 0), 0)
-  const totalResearchNet = STAT_KEYS.reduce((s, k) => {
-    const pctKey = RESEARCH_PCT_MAP[k]
-    if (!pctKey || !researchBonuses[pctKey]) return s
-    const baseWithBonuses = hero[k] + equippedItems.reduce((sum, item) => sum + (item.contributions[k] ?? 0), 0)
-    return s + Math.round(baseWithBonuses * researchBonuses[pctKey])
-  }, 0)
-
-  const totalTacticBonus = (tactics ?? []).reduce((sum, t) => {
-    const cat = t.tactic_catalog
-    if (!cat?.stat_bonuses) return sum
-    return sum + cat.stat_bonuses.reduce((s, b) => s + Math.round((b.value ?? 0) * (t.level ?? 1)), 0)
-  }, 0)
+  const equippedTactics = (tactics ?? []).filter(t => t.slot_index != null)
 
   return createPortal(
     <AnimatePresence>
@@ -127,38 +117,11 @@ function StatsDetailModal({ hero, items, weightPenalty = 0, researchBonuses = {}
             </button>
           </div>
 
-          {/* Summary strip */}
-          {(totalEquipBonus > 0 || totalResearchNet > 0) && (
-            <div className="flex items-center gap-2 px-5 py-2.5 border-b border-border flex-shrink-0 flex-wrap">
-              {totalEquipBonus > 0 && (
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
-                  style={{ color: '#d97706', background: 'color-mix(in srgb,#d97706 10%,transparent)', borderColor: 'color-mix(in srgb,#d97706 28%,transparent)' }}>
-                  <Sword size={11} strokeWidth={2.5} />
-                  +{totalEquipBonus} de equipo
-                </span>
-              )}
-              {totalResearchNet > 0 && (
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
-                  style={{ color: '#0f766e', background: 'color-mix(in srgb,#0f766e 10%,transparent)', borderColor: 'color-mix(in srgb,#0f766e 28%,transparent)' }}>
-                  <Telescope size={11} strokeWidth={2.5} />
-                  +{totalResearchNet} de investigación
-                </span>
-              )}
-              {totalTacticBonus > 0 && (
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg border"
-                  style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 10%,transparent)', borderColor: 'color-mix(in srgb,#7c3aed 28%,transparent)' }}>
-                  <Gem size={11} strokeWidth={2.5} />
-                  +{totalTacticBonus} de tácticas
-                </span>
-              )}
-            </div>
-          )}
-
           {/* Stats grid */}
           <div className="overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 content-start">
             {ALL_STATS.map(({ key, label, Icon, color }) => {
-              const classBase = hero.classes?.[key] ?? hero[key] ?? 0
+              const classBase   = hero.classes?.[key] ?? hero[key] ?? 0
               const trainingPts = (hero[key] ?? 0) - classBase
               const rows = []
 
@@ -166,27 +129,16 @@ function StatsDetailModal({ hero, items, weightPenalty = 0, researchBonuses = {}
                 rows.push({ label: 'Entrenamiento', value: trainingPts, source: 'training' })
               }
 
+              // Equipo escalado por durabilidad (incl. encantamientos)
               equippedItems.forEach(item => {
-                const v = item.base[key]
-                if (v !== 0) rows.push({ label: `${item.name} T${item.tier}`, value: v, source: 'equip' })
+                const v = item.contrib[key]
+                if (v !== 0) rows.push({ label: `${item.name} T${item.tier}${item.durLabel}`, value: v, source: 'equip' })
               })
-              if (key === 'agility' && weightPenalty > 0) {
-                rows.push({ label: 'Peso del equipo', value: -weightPenalty, source: 'weight' })
-              }
 
-              // Bonos de investigación (% sobre subtotal)
-              const pctKey = RESEARCH_PCT_MAP[key]
-              if (pctKey && researchBonuses[pctKey]) {
-                const subtotal = classBase + rows.reduce((s, r) => s + r.value, 0)
-                const researchVal = Math.round(subtotal * researchBonuses[pctKey])
-                if (researchVal !== 0) rows.push({ label: `Investigación (${Math.round(researchBonuses[pctKey] * 100)}%)`, value: researchVal, source: 'research' })
-              }
-
-              // Bonos de tácticas equipadas
-              for (const t of tactics) {
+              // Tácticas (antes de research para calcular la base correcta del %)
+              for (const t of equippedTactics) {
                 const cat = t.tactic_catalog
-                if (!cat?.stat_bonuses) continue
-                for (const b of cat.stat_bonuses) {
+                for (const b of cat?.stat_bonuses ?? []) {
                   if (b.stat === key && b.value) {
                     const val = Math.round(b.value * (t.level ?? 1))
                     if (val !== 0) rows.push({ label: `${cat.name} Nv.${t.level ?? 1}`, value: val, source: 'tactic' })
@@ -194,7 +146,35 @@ function StatsDetailModal({ hero, items, weightPenalty = 0, researchBonuses = {}
                 }
               }
 
-              const total = Math.max(0, classBase + rows.reduce((s, r) => s + r.value, 0))
+              // Research % sobre la base+equipo+tácticas (igual que _stats.js)
+              const pctKey = RESEARCH_PCT_MAP[key]
+              if (pctKey && researchBonuses[pctKey]) {
+                const subtotal = hero[key] + rows.reduce((s, r) => s + r.value, 0)
+                const researchVal = Math.round(subtotal * researchBonuses[pctKey])
+                if (researchVal !== 0) rows.push({ label: `Investigación (${Math.round(researchBonuses[pctKey] * 100)}%)`, value: researchVal, source: 'research' })
+              }
+
+              // Amplificación de tácticas por investigación
+              if (researchBonuses.tactic_bonus_pct > 0) {
+                for (const t of equippedTactics) {
+                  const cat = t.tactic_catalog
+                  for (const b of cat?.stat_bonuses ?? []) {
+                    if (b.stat === key && b.value) {
+                      const val = Math.round(b.value * (t.level ?? 1) * researchBonuses.tactic_bonus_pct)
+                      if (val !== 0) rows.push({ label: `Amplif. tácticas (${Math.round(researchBonuses.tactic_bonus_pct * 100)}%)`, value: val, source: 'research' })
+                    }
+                  }
+                }
+              }
+
+              // Peso (se aplica al final, igual que _stats.js)
+              const weightPenalty = effectiveStats.weightPenalty ?? 0
+              if (key === 'agility' && weightPenalty > 0) {
+                rows.push({ label: 'Peso del equipo', value: -weightPenalty, source: 'weight' })
+              }
+
+              // Total autoritativo desde effectiveStats (no recalculado)
+              const total = effectiveStats[key] ?? Math.max(0, classBase + rows.reduce((s, r) => s + r.value, 0))
 
               return (
                 <div key={key} className="flex flex-col bg-surface-2 rounded-xl border border-border overflow-hidden">
@@ -293,7 +273,7 @@ const TOKEN_STATS = [
   { key: 'intelligence', label: 'INT',   Icon: Brain,    color: '#7c3aed' },
 ]
 
-function TokenAssignPanel({ tokens, onAssign, pending }) {
+function TokenAssignPanel({ tokens, onAssign }) {
   const available = TOKEN_STATS.filter(s => (tokens[s.key] ?? 0) > 0)
   if (available.length === 0) return null
 
@@ -309,11 +289,10 @@ function TokenAssignPanel({ tokens, onAssign, pending }) {
         {available.map(({ key, label, Icon, color }) => (
           <motion.button
             key={key}
-            className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-bold transition-opacity disabled:opacity-40"
+            className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-bold"
             style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 6%, var(--surface))` }}
             onClick={() => onAssign(key)}
-            disabled={pending}
-            whileTap={pending ? {} : { scale: 0.95 }}
+            whileTap={{ scale: 0.92 }}
           >
             <Icon size={11} strokeWidth={2} />
             +1 {label}
@@ -355,6 +334,15 @@ const RARITY_META = {
 }
 
 const EQUIPMENT_SLOTS = ['helmet', 'chest', 'arms', 'legs', 'main_hand', 'off_hand', 'accessory', 'accessory_2']
+
+const RUNE_META = {
+  rune_attack:       { label: 'Ataque',       icon: '⚔️', stat: 'attack_bonus',       color: '#d97706' },
+  rune_defense:      { label: 'Defensa',      icon: '🛡️', stat: 'defense_bonus',      color: '#6b7280' },
+  rune_hp:           { label: 'Vida',         icon: '💚', stat: 'hp_bonus',            color: '#dc2626' },
+  rune_strength:     { label: 'Fuerza',       icon: '💪', stat: 'strength_bonus',     color: '#b91c1c' },
+  rune_agility:      { label: 'Agilidad',     icon: '💨', stat: 'agility_bonus',      color: '#2563eb' },
+  rune_intelligence: { label: 'Inteligencia', icon: '🔮', stat: 'intelligence_bonus', color: '#7c3aed' },
+}
 
 // estimateRepairCost ya no se usa — las reparaciones consumen kits crafteados
 
@@ -570,26 +558,34 @@ function EquipmentSlot({ slot, item, onSlotClick, onRepair, loading, isOccupied 
 
 /* ─── Bag item ────────────────────────────────────────────────────────────────── */
 
-function BagItem({ item, onDiscard, loading, isOccupied }) {
+function BagItem({ item, onDiscard, onViewDetail, loading, isOccupied }) {
   const catalog  = item.item_catalog
   const rarity   = RARITY_META[catalog.rarity]
   const slotMeta = SLOT_META[catalog.slot]
+  const hasEnchants = item.enchantments && Object.values(item.enchantments).some(v => v > 0)
+  const enchantCount = hasEnchants ? Object.values(item.enchantments).filter(v => v > 0).length : 0
 
   return (
-    <div className="bg-surface border border-border rounded-[10px] p-3 flex flex-col gap-1.5 transition-[border-color] duration-150 hover:border-border-2">
-      <div className="flex items-start justify-between gap-1.5">
-        <span className="text-[13px] font-bold leading-[1.3] flex-1" style={{ color: rarity.color }}>{catalog.name}</span>
-        <span className="text-[10px] font-bold bg-surface-2 border border-border rounded-[4px] px-[5px] py-px text-text-2 flex-shrink-0">T{catalog.tier}</span>
-      </div>
-      <div className="flex gap-1.5 flex-wrap">
-        <span className="text-[11px] font-semibold" style={{ color: rarity.color }}>{rarity.label}</span>
-        <span className="text-[11px] font-semibold text-text-3">{slotMeta.label}</span>
-        {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
-      </div>
-      <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
-      <div className="flex gap-1.5 mt-0.5">
-        <button className="btn btn--danger btn--icon" onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
-          <Trash2 size={13} strokeWidth={2} />
+    <div className="bg-surface border border-border rounded-[10px] flex flex-col overflow-hidden">
+      <button className="p-3 flex flex-col gap-1.5 text-left w-full hover:bg-surface-2 transition-colors" onClick={() => onViewDetail(item)}>
+        <div className="flex items-start justify-between gap-1.5">
+          <span className="text-[13px] font-bold leading-[1.3] flex-1" style={{ color: rarity.color }}>{catalog.name}</span>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {hasEnchants && <span className="text-[10px] font-bold px-[5px] py-px rounded-[4px] border" style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 10%,var(--surface-2))', borderColor: 'color-mix(in srgb,#7c3aed 25%,var(--border))' }}>✨{enchantCount}</span>}
+            <span className="text-[10px] font-bold bg-surface-2 border border-border rounded-[4px] px-[5px] py-px text-text-2">T{catalog.tier}</span>
+          </div>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold" style={{ color: rarity.color }}>{rarity.label}</span>
+          <span className="text-[11px] font-semibold text-text-3">{slotMeta.label}</span>
+          {catalog.is_two_handed && <span className="text-[11px] font-semibold text-[#d97706]">2 manos</span>}
+        </div>
+        <DurabilityBar current={item.current_durability} max={catalog.max_durability} />
+      </button>
+      <div className="flex border-t border-border">
+        <button className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-semibold text-text-3 hover:text-[#dc2626] hover:bg-[color-mix(in_srgb,#dc2626_5%,transparent)] transition-colors disabled:opacity-40"
+          onClick={() => onDiscard(item)} disabled={loading || isOccupied} title={isOccupied ? 'El héroe está en expedición' : undefined}>
+          <Trash2 size={11} strokeWidth={2} /> Descartar
         </button>
       </div>
     </div>
@@ -612,7 +608,7 @@ function BagEmpty({ children }) {
 
 /* ─── Bag modal ───────────────────────────────────────────────────────────────── */
 
-function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupied }) {
+function BagModal({ bag, bagLimit, onDiscard, onViewDetail, loading, error, onClose, isOccupied }) {
   const sv = sheetVariants()
   return createPortal(
     <ModalOverlay onClick={onClose}>
@@ -625,7 +621,7 @@ function BagModal({ bag, bagLimit, onDiscard, loading, error, onClose, isOccupie
           : (
             <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
               {bag.map(item => (
-                <BagItem key={item.id} item={item} onDiscard={onDiscard} loading={loading} isOccupied={isOccupied} />
+                <BagItem key={item.id} item={item} onDiscard={onDiscard} onViewDetail={onViewDetail} loading={loading} isOccupied={isOccupied} />
               ))}
             </div>
           )
@@ -738,7 +734,6 @@ function Hero() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items, loading: invLoading  } = useInventory(hero?.id)
   const { tactics }                    = useHeroTactics(hero?.id)
-  const equippedTactics = (tactics ?? []).filter(t => t.slot_index != null)
   const { resources } = useResources(userId)
   const { research }  = useResearch(userId)
   const { inventory: craftedItems } = useCraftedItems(userId)
@@ -753,6 +748,7 @@ function Hero() {
   const [renameOpen,  setRenameOpen]  = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
+  const assignPending = useRef(0)
 
   const renameMutation = useMutation({
     mutationFn: (name) => apiPost('/api/hero-rename', { heroId: hero?.id, name }),
@@ -765,15 +761,22 @@ function Hero() {
   })
 
   const assignTokenMutation = useMutation({
+    mutationKey: ['training-assign'],
     mutationFn: ({ stat, amount }) => apiPost('/api/training-assign', { heroId: hero?.id, stat, amount }),
-    onSuccess: (_, { stat }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
-      const LABELS = { strength: 'Fuerza', agility: 'Agilidad', attack: 'Ataque', defense: 'Defensa', max_hp: 'Resistencia', intelligence: 'Inteligencia' }
-      notify.success(`+1 ${LABELS[stat] ?? stat} asignado`)
+    onMutate: ({ stat }) => {
+      assignPending.current++
+      queryClient.setQueryData(queryKeys.hero(heroId), (old) => old ? { ...old, [stat]: (old[stat] ?? 0) + 1 } : old)
+      queryClient.setQueryData(queryKeys.trainingTokens(userId), (old) => old ? { ...old, [stat]: Math.max(0, (old[stat] ?? 0) - 1) } : old)
     },
     onError: (err) => notify.error(err.message),
+    onSettled: () => {
+      assignPending.current--
+      if (assignPending.current === 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
+      }
+    },
   })
 
   const itemMutation = useMutation({
@@ -839,46 +842,7 @@ function Hero() {
     return acc
   }, {})
 
-  const equipBonuses = (items ?? [])
-    .filter(i => i.equipped_slot && i.current_durability > 0)
-    .reduce((acc, i) => {
-      const c = i.item_catalog
-      acc.attack       += c.attack_bonus       ?? 0
-      acc.defense      += c.defense_bonus      ?? 0
-      acc.max_hp       += c.hp_bonus           ?? 0
-      acc.strength     += c.strength_bonus     ?? 0
-      acc.agility      += c.agility_bonus      ?? 0
-      acc.intelligence += c.intelligence_bonus ?? 0
-      acc._weight      += c.weight             ?? 0
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0, intelligence: 0, _weight: 0 })
-
-  const weightPenalty = Math.floor(equipBonuses._weight / 4)
-
-  const bonuses = {
-    attack:       equipBonuses.attack,
-    defense:      equipBonuses.defense,
-    max_hp:       equipBonuses.max_hp,
-    strength:     equipBonuses.strength,
-    agility:      equipBonuses.agility - weightPenalty,
-    intelligence: equipBonuses.intelligence,
-  }
-
-  const preResearch = {
-    attack:       hero.attack       + bonuses.attack,
-    defense:      hero.defense      + bonuses.defense,
-    max_hp:       hero.max_hp       + bonuses.max_hp,
-    strength:     hero.strength     + bonuses.strength,
-    agility:      Math.max(0, hero.agility + bonuses.agility),
-    intelligence: hero.intelligence + bonuses.intelligence,
-  }
-
-  const effective = {
-    ...preResearch,
-    attack:       researchBonuses.attack_pct       ? Math.round(preResearch.attack       * (1 + researchBonuses.attack_pct))       : preResearch.attack,
-    defense:      researchBonuses.defense_pct      ? Math.round(preResearch.defense      * (1 + researchBonuses.defense_pct))      : preResearch.defense,
-    intelligence: researchBonuses.intelligence_pct ? Math.round(preResearch.intelligence * (1 + researchBonuses.intelligence_pct)) : preResearch.intelligence,
-  }
+  const effective    = computeEffectiveStats(hero, items ?? [], tactics ?? [], researchBonuses) ?? {}
 
   const hpNow    = interpolateHp(hero, Date.now(), effective.max_hp)
   const bag      = items?.filter(i => !i.equipped_slot) ?? []
@@ -1059,7 +1023,6 @@ function Hero() {
               <TokenAssignPanel
                 tokens={trainingTokens}
                 onAssign={(stat) => assignTokenMutation.mutate({ stat, amount: 1 })}
-                pending={assignTokenMutation.isPending}
               />
             )}
 
@@ -1077,9 +1040,9 @@ function Hero() {
             <StatsDetailModal
               hero={hero}
               items={items}
-              weightPenalty={weightPenalty}
+              effectiveStats={effective}
               researchBonuses={researchBonuses}
-              tactics={equippedTactics}
+              tactics={tactics ?? []}
               onClose={() => setStatsDetailOpen(false)}
             />
           )}
@@ -1107,7 +1070,7 @@ function Hero() {
                   return (
                     <button
                       key={slot}
-                      className="flex rounded-lg border border-border bg-surface-2 min-w-0 text-left hover:border-[color:var(--blue-400)] transition-colors overflow-hidden"
+                      className="flex rounded-lg border border-border bg-surface min-w-0 text-left hover:bg-surface-2 transition-colors overflow-hidden"
                       style={isClassItem ? { borderColor: `color-mix(in srgb,${classColor} 40%,var(--border))` } : undefined}
                       onClick={() => setItemDetail(item)}
                     >
@@ -1119,10 +1082,20 @@ function Hero() {
                           <Icon size={11} strokeWidth={1.8} className="text-text-3 flex-shrink-0" />
                           <span className="text-[11px] font-semibold text-text-3 truncate">{meta.label}</span>
                         </div>
-                        <span className="text-[11px] font-bold text-text-3 bg-surface border border-border rounded px-1 flex-shrink-0">T{cat.tier}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {item.enchantments && Object.values(item.enchantments).some(v => v > 0) && (
+                            <span className="text-[11px] font-bold px-1 rounded border" style={{ color: '#7c3aed', background: 'color-mix(in srgb,#7c3aed 12%,var(--surface-2))', borderColor: 'color-mix(in srgb,#7c3aed 25%,var(--border))' }}>
+                              ✨{Object.values(item.enchantments).filter(v => v > 0).length}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-bold text-text-3 bg-surface-2 border border-border rounded px-1">T{cat.tier}</span>
+                        </div>
                       </div>
                       {/* Row 2: item name */}
-                      <span className="text-[13px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[13px] font-bold leading-tight truncate" style={{ color: rarColor }}>{cat.name}</span>
+                        {cat.is_two_handed && <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: '#d97706' }}>2 manos</span>}
+                      </div>
                       {/* Row 3: durability */}
                       <div className="flex items-center justify-end gap-1">
                         <span className="text-[11px] font-bold flex-shrink-0" style={{ color: durColor }}>{durPct}%</span>
@@ -1175,6 +1148,7 @@ function Hero() {
             bag={bag}
             bagLimit={bagLimit}
             onDiscard={handleDiscard}
+            onViewDetail={setItemDetail}
             loading={mutationPending}
             onClose={() => setBagOpen(false)}
             isOccupied={isOccupied}

@@ -7,10 +7,11 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHeroTactics } from '../hooks/useHeroTactics'
 import { useResources } from '../hooks/useResources'
+import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { TACTIC_SLOT_COUNT } from '../lib/gameConstants'
-import { X, Coins, Sparkles, Plus } from 'lucide-react'
+import { TACTIC_SLOT_COUNT, TACTIC_MAX_LEVEL } from '../lib/gameConstants'
+import { X, Coins, Sparkles, Plus, ArrowUp } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
@@ -40,6 +41,10 @@ const STAT_LABELS = {
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
+function scaledEffectValue(baseValue, level) {
+  return baseValue * (1 + (level - 1) * 0.15)
+}
+
 function buildSlots(tactics) {
   const slots = Array.from({ length: TACTIC_SLOT_COUNT }, () => null)
   if (!tactics) return slots
@@ -55,10 +60,10 @@ function firstFreeSlot(slots) {
   return slots.findIndex(s => s === null)
 }
 
-function formatBonuses(catalog) {
+function formatBonuses(catalog, level = 1) {
   const bonuses = catalog.stat_bonuses
   if (!Array.isArray(bonuses) || bonuses.length === 0) return ''
-  return bonuses.filter(b => b.value).map(b => `+${b.value} ${STAT_LABELS[b.stat] ?? b.stat}`).join(', ')
+  return bonuses.filter(b => b.value).map(b => `+${b.value * level} ${STAT_LABELS[b.stat] ?? b.stat}`).join(', ')
 }
 
 function describeCombatEffect(fx) {
@@ -94,14 +99,143 @@ function describeCombatEffect(fx) {
   return parts.join(' · ')
 }
 
+/* ─── Modal confirmación de mejora ──────────────────────────────────────────── */
+
+function UpgradeConfirmModal({ tactic, scrolls, onConfirm, onClose, isPending }) {
+  const cat = tactic.tactic_catalog
+  const level = tactic.level ?? 1
+  const nextLevel = level + 1
+  const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
+  const bonuses = Array.isArray(cat.stat_bonuses) ? cat.stat_bonuses.filter(b => b.value) : []
+  const fx = cat.combat_effect
+
+  // Combat effect values scaled by level
+  const MULT_EFFECTS = ['damage_mult', 'damage_mult_next', 'first_hit_mult']
+  const fxHasScale = fx && fx.value != null && !['guaranteed_crit', 'double_attack', 'guaranteed_dodge'].includes(fx.effect)
+  const fxCurrent = fxHasScale ? scaledEffectValue(fx.value, level) : null
+  const fxNext = fxHasScale ? scaledEffectValue(fx.value, nextLevel) : null
+  const fxIsMult = fx && MULT_EFFECTS.includes(fx.effect)
+  const fmtFxVal = (v) => fxIsMult ? `×${v.toFixed(2)}` : `${Math.round(v * 100)}%`
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[300] flex items-end sm:items-center justify-center"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
+        className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.3)] w-full sm:w-[380px] overflow-hidden"
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
+          <div
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-xl flex-shrink-0"
+            style={{ background: `color-mix(in srgb,${rarColor} 14%,transparent)` }}
+          >
+            {cat.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-bold text-text truncate">{cat.name}</p>
+            <p className="text-[11px] text-text-3">Nv. {level} → Nv. {nextLevel}</p>
+          </div>
+          <button
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-2 text-text-3"
+            onClick={onClose}
+          >
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Comparativa */}
+        <div className="px-4 py-3 flex flex-col gap-3">
+          {/* Stat bonuses */}
+          {bonuses.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wider mb-1.5">Estadísticas</p>
+              <div className="flex flex-col gap-1">
+                {bonuses.map(b => (
+                  <div key={b.stat} className="flex items-center justify-between">
+                    <span className="text-[12px] text-text-2">{STAT_LABELS[b.stat] ?? b.stat}</span>
+                    <div className="flex items-center gap-2 tabular-nums">
+                      <span className="text-[12px] text-text-3">+{b.value * level}</span>
+                      <span className="text-[10px] text-text-3">→</span>
+                      <span className="text-[13px] font-bold" style={{ color: rarColor }}>+{b.value * nextLevel}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Combat effect */}
+          {fx && (
+            <div>
+              <p className="text-[10px] font-bold text-text-3 uppercase tracking-wider mb-1.5">Efecto de combate</p>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-text-2 flex-1 pr-2">{describeCombatEffect(fx)}</span>
+                {fxHasScale ? (
+                  <div className="flex items-center gap-2 tabular-nums flex-shrink-0">
+                    <span className="text-[12px] text-text-3">{fmtFxVal(fxCurrent)}</span>
+                    <span className="text-[10px] text-text-3">→</span>
+                    <span className="text-[13px] font-bold" style={{ color: rarColor }}>{fmtFxVal(fxNext)}</span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-text-3">+15%</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Coste */}
+          <div className="flex items-center justify-between pt-1 border-t border-border">
+            <span className="text-[12px] text-text-2">Coste</span>
+            <div className="flex items-center gap-1.5">
+              <span>📜</span>
+              <span className="text-[13px] font-semibold text-text">×1 Pergamino Táctico</span>
+              <span className="text-[11px] text-text-3">({scrolls} disp.)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="flex gap-2 px-4 pb-4">
+          <button
+            className="flex-1 py-2.5 rounded-xl border border-border text-[13px] font-semibold text-text-2 bg-surface-2"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white disabled:opacity-50"
+            style={{ background: rarColor }}
+            onClick={onConfirm}
+            disabled={isPending}
+          >
+            {isPending ? 'Mejorando…' : 'Mejorar'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
+  )
+}
+
 /* ─── Slot card (vista principal, tamaño fijo) ───────────────────────────────── */
 
-function SlotCard({ tactic, onTap }) {
+function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevelingUp }) {
   if (!tactic) {
     return (
       <button
         className="flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-2 p-3 sm:py-4 rounded-xl border-2 border-dashed border-border bg-surface/20 w-full text-left sm:text-center min-h-[60px] sm:min-h-[90px]"
-        onClick={onTap}
+        onClick={onEmpty}
       >
         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg border-2 border-dashed border-border flex items-center justify-center flex-shrink-0">
           <Plus size={14} strokeWidth={2} className="text-text-3 opacity-40" />
@@ -113,27 +247,61 @@ function SlotCard({ tactic, onTap }) {
 
   const cat = tactic.tactic_catalog
   const rarColor = RARITY_COLORS[cat.rarity] ?? '#6b7280'
-  const bonuses = formatBonuses(cat)
+  const level = tactic.level ?? 1
+  const bonuses = formatBonuses(cat, level)
   const effectDesc = describeCombatEffect(cat.combat_effect)
+  const maxed = level >= TACTIC_MAX_LEVEL
+  const hasScrolls = (scrolls ?? 0) > 0 && !isLevelingUp
 
   return (
-    <button
-      className="flex sm:flex-col items-start sm:items-center gap-3 sm:gap-2 p-3 sm:py-3 rounded-xl border bg-surface w-full text-left sm:text-center min-h-[60px] sm:min-h-[90px]"
+    <div
+      className="flex flex-col rounded-xl border bg-surface overflow-hidden"
       style={{ borderColor: rarColor }}
-      onClick={onTap}
     >
-      <div
-        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0"
-        style={{ background: `color-mix(in srgb,${rarColor} 14%,transparent)` }}
-      >
-        {cat.icon}
+      {/* Contenido */}
+      <div className="flex sm:flex-col items-start sm:items-center gap-3 sm:gap-2 p-3 sm:py-3">
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xl"
+            style={{ background: `color-mix(in srgb,${rarColor} 14%,transparent)` }}
+          >
+            {cat.icon}
+          </div>
+          {/* Badge nivel */}
+          <span
+            className="absolute -bottom-1 -right-1 text-[9px] font-bold px-1 rounded-sm text-white leading-tight"
+            style={{ background: maxed ? '#d97706' : rarColor }}
+          >
+            {maxed ? 'MAX' : `${level}`}
+          </span>
+        </div>
+        <div className="flex-1 sm:flex-none min-w-0 sm:w-full flex flex-col gap-0.5">
+          <span className="text-[13px] font-semibold text-text truncate block">{cat.name}</span>
+          {bonuses && <span className="text-[10px] text-text-2 truncate block">{bonuses}</span>}
+          {effectDesc && <span className="text-[10px] text-text-3 truncate block">{effectDesc}</span>}
+        </div>
       </div>
-      <div className="flex-1 sm:flex-none min-w-0 sm:w-full flex flex-col gap-0.5">
-        <span className="text-[13px] font-semibold text-text truncate block">{cat.name}</span>
-        {bonuses && <span className="text-[10px] text-text-2 truncate block">{bonuses}</span>}
-        {effectDesc && <span className="text-[10px] text-text-3 truncate block">{effectDesc}</span>}
+
+      {/* Footer */}
+      <div className="flex border-t border-border">
+        <button
+          className="flex-1 py-2 text-[12px] font-semibold text-text-3 hover:bg-surface-2 transition-colors"
+          onClick={onUnequip}
+        >
+          Desequipar
+        </button>
+        <div className="w-px bg-border" />
+        <button
+          className={`flex-1 py-2 text-[12px] font-semibold flex items-center justify-center gap-1 transition-colors
+            ${maxed ? 'text-[#d97706] opacity-60 cursor-default' : hasScrolls ? 'text-[#16a34a] hover:bg-surface-2' : 'text-text-3 opacity-50 cursor-default'}`}
+          onClick={!maxed && hasScrolls ? onLevelUpClick : undefined}
+          disabled={maxed || !hasScrolls}
+        >
+          <ArrowUp size={11} strokeWidth={2.5} />
+          {maxed ? 'Máx.' : 'Mejorar'}
+        </button>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -261,9 +429,13 @@ export default function Tacticas() {
   const heroId = useHeroId()
   const { tactics, loading } = useHeroTactics(heroId)
   const { resources } = useResources(userId)
+  const { inventory } = useCraftedItems(userId)
   const queryClient = useQueryClient()
 
+  const scrolls = inventory['tactic_scroll'] ?? 0
+
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [upgradeConfirmSlot, setUpgradeConfirmSlot] = useState(null)
 
   const slots = useMemo(() => buildSlots(tactics), [tactics])
 
@@ -330,13 +502,48 @@ export default function Tacticas() {
     },
   })
 
-  function handleSlotTap(slotIndex) {
+  const levelUpMutation = useMutation({
+    mutationKey: ['tactic-levelup'],
+    mutationFn: ({ heroId: hid, tacticRowId }) =>
+      apiPost('/api/tactic-levelup', { heroId: hid, tacticId: tacticRowId }),
+    onMutate: async ({ tacticRowId }) => {
+      const craftedKey = queryKeys.craftedItems(userId)
+      await queryClient.cancelQueries({ queryKey: tacticsKey })
+      await queryClient.cancelQueries({ queryKey: craftedKey })
+      const prev = queryClient.getQueryData(tacticsKey)
+      const prevCrafted = queryClient.getQueryData(craftedKey)
+      queryClient.setQueryData(tacticsKey, (old) => {
+        if (!old) return old
+        return old.map(t => t.id === tacticRowId ? { ...t, level: (t.level ?? 1) + 1 } : t)
+      })
+      queryClient.setQueryData(craftedKey, (old) => {
+        if (!old) return old
+        return { ...old, tactic_scroll: Math.max(0, (old.tactic_scroll ?? 0) - 1) }
+      })
+      return { prev, prevCrafted }
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(tacticsKey, ctx.prev)
+      if (ctx?.prevCrafted) queryClient.setQueryData(queryKeys.craftedItems(userId), ctx.prevCrafted)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: tacticsKey })
+      queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
+    },
+  })
+
+  function handleUnequip(slotIndex) {
     const slot = slots[slotIndex]
-    if (slot) {
-      unequipMutation.mutate({ heroId, tacticId: slot.tactic_id })
-    } else {
-      setInventoryOpen(true)
-    }
+    if (!slot) return
+    unequipMutation.mutate({ heroId, tacticId: slot.tactic_id })
+  }
+
+  function handleLevelUp(slotIndex) {
+    const slot = slots[slotIndex]
+    if (!slot) return
+    setUpgradeConfirmSlot(null)
+    levelUpMutation.mutate({ heroId, tacticRowId: slot.id })
   }
 
   function handleEquip(tactic) {
@@ -364,18 +571,34 @@ export default function Tacticas() {
           <h2 className="text-[17px] font-bold text-text">Tácticas</h2>
           <span className="text-[12px] text-text-3 font-medium">{equippedCount}/{TACTIC_SLOT_COUNT}</span>
         </div>
-        {resources && (
-          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
-            <Coins size={14} strokeWidth={2} className="text-[#d97706]" />
-            <span className="tabular-nums">{resources.gold?.toLocaleString()}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {scrolls > 0 && (
+            <div className="flex items-center gap-1 text-[12px] font-semibold text-[#16a34a]">
+              <span>📜</span>
+              <span className="tabular-nums">×{scrolls}</span>
+            </div>
+          )}
+          {resources && (
+            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
+              <Coins size={14} strokeWidth={2} className="text-[#d97706]" />
+              <span className="tabular-nums">{resources.gold?.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 5 slots fijos — nunca cambian de tamaño */}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
         {slots.map((slot, i) => (
-          <SlotCard key={i} tactic={slot} onTap={() => handleSlotTap(i)} />
+          <SlotCard
+            key={i}
+            tactic={slot}
+            onEmpty={() => setInventoryOpen(true)}
+            onUnequip={() => handleUnequip(i)}
+            onLevelUpClick={() => setUpgradeConfirmSlot(i)}
+            scrolls={scrolls}
+            isLevelingUp={levelUpMutation.isPending}
+          />
         ))}
       </div>
 
@@ -390,6 +613,21 @@ export default function Tacticas() {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal confirmación de mejora */}
+      <AnimatePresence>
+        {upgradeConfirmSlot != null && slots[upgradeConfirmSlot] && (
+          <UpgradeConfirmModal
+            key="upgrade-confirm"
+            tactic={slots[upgradeConfirmSlot]}
+            scrolls={scrolls}
+            onConfirm={() => handleLevelUp(upgradeConfirmSlot)}
+            onClose={() => setUpgradeConfirmSlot(null)}
+            isPending={levelUpMutation.isPending}
+          />
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }

@@ -22,6 +22,7 @@ import {
   durabilityLoss as calcDurabilityLoss,
   MATERIAL_DROP_DATA,
   DUNGEON_DROP_PROFILE,
+  DUNGEON_TYPE_SLOTS,
 } from '../lib/gameFormulas'
 import {
   Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword,
@@ -29,7 +30,6 @@ import {
   Wrench, AlertTriangle, Lock, Compass, TrendingUp,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { PotionPanel } from '../components/PotionPanel'
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
  *  Constantes                                                                *
@@ -57,31 +57,19 @@ function fmtDuration(mins) {
 }
 
 const DUNGEON_TYPE_META = {
-  combat:     { label: 'Combate',    color: '#dc2626', loot: 'Armas y escudos'              },
-  wilderness: { label: 'Naturaleza', color: '#16a34a', loot: 'Armadura ligera y accesorios'  },
-  magic:      { label: 'Arcana',     color: '#7c3aed', loot: 'Accesorios mágicos'            },
-  crypt:      { label: 'Cripta',     color: '#475569', loot: 'Escudos y armadura pesada'      },
-  mine:       { label: 'Mina',       color: '#b45309', loot: 'Armas y armadura de brazos'     },
-  ancient:    { label: 'Antigua',    color: '#0369a1', loot: 'Accesorios y yelmos antiguos'   },
+  combat:     { label: 'Combate',    color: '#dc2626' },
+  wilderness: { label: 'Naturaleza', color: '#16a34a' },
+  magic:      { label: 'Arcana',     color: '#7c3aed' },
+  crypt:      { label: 'Cripta',     color: '#475569' },
+  mine:       { label: 'Mina',       color: '#b45309' },
+  ancient:    { label: 'Antigua',    color: '#0369a1' },
 }
+
 const MATERIAL_META = {
   fragments: { label: 'Fragmentos', Icon: Layers,   color: '#b45309' },
   essence:   { label: 'Esencia',    Icon: Sparkles, color: '#7c3aed' },
 }
 
-const FOCUS_META = {
-  'Oro':          { icon: Coins,  color: '#d97706' },
-  'Equipo':       { icon: Sword,  color: '#7c3aed' },
-  'Tácticas':     { icon: Brain,  color: '#0891b2' },
-  'Fragmentos':   { icon: Layers, color: '#b45309' },
-  'Experiencia':  { icon: Star,   color: '#0369a1' },
-  'Esencia':      { icon: Sparkles, color: '#7c3aed' },
-  'Todo':         { icon: TrendingUp, color: '#16a34a' },
-}
-
-const EXPEDITION_POTION_EFFECTS = [
-  'hp_cost_reduction', 'time_reduction', 'xp_boost', 'loot_boost', 'gold_boost',
-]
 
 const RARITY_COLORS = {
   common:    '#78716c',
@@ -89,6 +77,12 @@ const RARITY_COLORS = {
   rare:      '#2563eb',
   epic:      '#7c3aed',
   legendary: '#d97706',
+}
+
+const CONSUMABLE_META = {
+  expedition_provisions: { icon: '🎒', label: 'Provisiones',        color: '#0891b2' },
+  vial_aceleracion:      { icon: '🍶', label: 'Vial de Aceleración', color: '#16a34a' },
+  amuleto_fortuna:       { icon: '🌟', label: 'Amuleto de Fortuna',  color: '#d97706' },
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
@@ -157,16 +151,17 @@ function DifficultyDots({ value, size = 7 }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
- *  ActiveExpeditionBanner — banner compacto de expedición en curso            *
+ *  ActiveExpeditionBanner                                                    *
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
   const [collecting, setCollecting] = useState(false)
   const { secondsLeft, canCollect, pct } = useExpeditionTimer(expedition)
 
-  const dungeonName = activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'
-  const dungeonType = activeDungeon?.type ?? expedition.dungeons?.type
-  const typeColor   = DUNGEON_TYPE_META[dungeonType]?.color ?? '#6b7280'
+  const dungeonName   = activeDungeon?.name ?? expedition.dungeons?.name ?? 'Mazmorra'
+  const dungeonType   = activeDungeon?.type ?? expedition.dungeons?.type
+  const typeColor     = DUNGEON_TYPE_META[dungeonType]?.color ?? '#6b7280'
+  const usedConsumables = expedition.consumablesUsed ?? []
 
   async function handleCollect() {
     setCollecting(true)
@@ -180,67 +175,43 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
   }
 
   return (
-    <motion.div
-      className="mb-3"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-    >
+    <motion.div className="mb-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
       <div
         className="relative flex items-center gap-3 px-4 py-3 bg-surface border rounded-xl overflow-hidden"
         style={{ borderColor: canCollect ? '#16a34a' : `color-mix(in srgb,${typeColor} 60%,var(--border))` }}
       >
-        {/* Barra de progreso de fondo */}
-        <div
-          className="absolute inset-0 opacity-[0.06] pointer-events-none transition-none"
-          style={{ background: canCollect ? '#16a34a' : typeColor, width: `${pct}%` }}
-        />
-
-        {/* Icono estado */}
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: `color-mix(in srgb,${canCollect ? '#16a34a' : typeColor} 15%,transparent)` }}
-        >
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: `color-mix(in srgb,${canCollect ? '#16a34a' : typeColor} 15%,transparent)` }}>
           {canCollect
             ? <PackageOpen size={16} strokeWidth={2} style={{ color: '#16a34a' }} />
-            : <Compass size={16} strokeWidth={2} style={{ color: typeColor }} className="animate-[spin_8s_linear_infinite]" />
-          }
+            : <Compass size={16} strokeWidth={2} style={{ color: typeColor }} className="animate-[spin_8s_linear_infinite]" />}
         </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0 relative">
-          <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[14px] font-bold text-text truncate">{dungeonName}</span>
-            {canCollect && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#16a34a]/15 text-[#16a34a] flex-shrink-0">LISTA</span>
-            )}
+            {canCollect && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#16a34a]/15 text-[#16a34a] flex-shrink-0">LISTA</span>}
+            {usedConsumables.map(id => {
+              const m = CONSUMABLE_META[id]
+              return m ? <span key={id} className="text-[13px] leading-none" title={m.label}>{m.icon}</span> : null
+            })}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <div className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-none"
-                style={{
-                  width: `${pct}%`,
-                  background: canCollect ? '#16a34a' : typeColor,
-                }}
-              />
+              <div className="h-full rounded-full transition-none" style={{ width: `${pct}%`, background: canCollect ? '#16a34a' : typeColor }} />
             </div>
             <span className="text-[11px] font-semibold text-text-3 flex-shrink-0 tabular-nums">
               {canCollect ? '100%' : secondsLeft !== null ? fmtTime(secondsLeft) : '...'}
             </span>
           </div>
         </div>
-
-        {/* Botón recoger */}
         {canCollect && (
           <motion.button
-            className="px-3 py-2 rounded-lg font-bold text-[13px] text-white flex-shrink-0 relative"
+            className={`px-3 py-2 rounded-lg font-bold text-[13px] text-white flex-shrink-0 transition-opacity ${collecting ? 'opacity-50 cursor-not-allowed' : ''}`}
             style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
-            onClick={handleCollect}
-            disabled={collecting}
+            onClick={handleCollect} disabled={collecting}
             whileTap={!collecting ? { scale: 0.95 } : {}}
           >
-            {collecting ? '...' : 'Recoger'}
+            {collecting ? 'Recogiendo' : 'Recoger'}
           </motion.button>
         )}
       </div>
@@ -249,225 +220,276 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
- *  DungeonCard — card compacta de mazmorra                                   *
+ *  DungeonCard — card compacta, al pulsar abre PrepareModal                  *
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 function DungeonCard({
   dungeon, effectiveMins, hpCost, goldMin, goldMax, xpReward,
-  equipChance, tacticChance, materialData, focusLabel,
+  equipChance, tacticChance, materialData,
   locked, busy, lowHp, isExploring,
-  onStart, onDetail,
+  onOpen,
 }) {
-  const disabled = locked || busy || lowHp || isExploring
-  const meta     = DUNGEON_TYPE_META[dungeon.type]
-  const matMeta  = materialData ? MATERIAL_META[materialData.resource] : null
-  const focusMeta = FOCUS_META[focusLabel]
+  const meta      = DUNGEON_TYPE_META[dungeon.type]
+  const matMeta   = materialData ? MATERIAL_META[materialData.resource] : null
+  const slotChips = DUNGEON_TYPE_SLOTS[dungeon.type] ?? []
+  const canOpen   = !locked && !isExploring
 
   return (
     <div
-      className={`group relative flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] overflow-hidden cursor-pointer
+      className={`relative flex flex-col bg-surface border rounded-xl shadow-[var(--shadow-sm)] overflow-hidden
         transition-[box-shadow,border-color] duration-200
-        ${locked ? 'border-border opacity-55' : isExploring ? 'border-blue-500/50 opacity-65' : 'border-border'}`}
-      onClick={() => !locked && onDetail(dungeon)}
+        ${locked ? 'border-border opacity-55' : isExploring ? 'border-blue-500/50 opacity-65' : 'border-border cursor-pointer hover:border-[color-mix(in_srgb,var(--border)_60%,#6366f1)]'}`}
+      onClick={() => canOpen && onOpen(dungeon)}
     >
-      {/* Accent bar — type color */}
       {meta && <div className="h-[3px] w-full" style={{ background: meta.color }} />}
 
-      {/* Header */}
-      <div className="px-4 pt-3 pb-1">
-        <div className="flex items-start justify-between gap-2 mb-1">
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
           <h3 className="text-[15px] font-bold text-text leading-tight">{dungeon.name}</h3>
           <DifficultyDots value={dungeon.difficulty} />
         </div>
+        {/* Tipo + slots en una sola línea */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {meta && <span className="text-[11px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>{meta.label}</span>}
-          {focusMeta && (
-            <span className="flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-0.5 rounded border"
-              style={{ color: focusMeta.color, background: `color-mix(in srgb, ${focusMeta.color} 8%, var(--bg))`, borderColor: `color-mix(in srgb, ${focusMeta.color} 20%, var(--border))` }}>
-              <focusMeta.icon size={9} strokeWidth={2.5} />{focusLabel}
+          {meta && (
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>
+              {meta.label}
             </span>
+          )}
+          {slotChips.length > 0 && (
+            <>
+              <span className="text-[11px] text-border select-none">·</span>
+              <span className="text-[12px] text-text-2">
+                {slotChips.map(s => s.label).join(' · ')}
+              </span>
+            </>
           )}
         </div>
       </div>
 
       {/* Stats compactos */}
-      {!locked && (
-        <div className="px-4 pt-1.5 pb-2.5 flex flex-col gap-1.5">
-          <div className="flex items-center gap-3 flex-wrap text-[13px]">
-            <span className="flex items-center gap-1 text-text-2"><Clock size={13} strokeWidth={2} color="#6366f1" /><span className="font-semibold">{fmtDuration(effectiveMins)}</span></span>
-            <span className="flex items-center gap-1 text-text-2"><Heart size={13} strokeWidth={2} color="#dc2626" /><span className="font-semibold">-{hpCost}</span></span>
-            <span className="flex items-center gap-1 text-text-2"><Coins size={13} strokeWidth={2} color="#d97706" /><span className="font-semibold">{goldMin}–{goldMax}</span></span>
-            <span className="flex items-center gap-1 text-text-2"><Star size={13} strokeWidth={2} color="#0369a1" /><span className="font-semibold">{xpReward}</span></span>
-          </div>
-
-          <div className="flex items-center gap-3 text-[12px] text-text-3">
-            <span className="flex items-center gap-1"><Sword size={12} strokeWidth={2} color="#7c3aed" />{fmtPct(equipChance)}</span>
-            <span className="flex items-center gap-1"><Brain size={12} strokeWidth={2} color="#0891b2" />{fmtPct(tacticChance)}</span>
-            {materialData && matMeta && (
-              <span className="flex items-center gap-1" style={{ color: matMeta.color }}>
-                <matMeta.Icon size={12} strokeWidth={2} />{fmtPct(materialData.chance)} <span className="text-text-3">×{materialData.min}–{materialData.max}</span>
-              </span>
-            )}
-          </div>
+      <div className="px-4 pb-2.5 flex flex-col gap-1.5">
+        <div className="flex items-center gap-3 flex-wrap text-[13px]">
+          <span className="flex items-center gap-1 text-text-2"><Clock size={13} strokeWidth={2} color="#6366f1" /><span className="font-semibold">{fmtDuration(effectiveMins)}</span></span>
+          <span className="flex items-center gap-1 text-text-2"><Heart size={13} strokeWidth={2} color="#dc2626" /><span className="font-semibold">-{hpCost}</span></span>
+          <span className="flex items-center gap-1 text-text-2"><Coins size={13} strokeWidth={2} color="#d97706" /><span className="font-semibold">{goldMin}–{goldMax}</span></span>
+          <span className="flex items-center gap-1 text-text-2"><Star size={13} strokeWidth={2} color="#0369a1" /><span className="font-semibold">{xpReward}</span></span>
         </div>
-      )}
-
-      {/* Locked: info mínima */}
-      {locked && meta && (
-        <div className="px-4 pb-3 pt-1 flex items-center gap-2">
-          <span className="text-[12px] font-semibold text-text-3">
-            <Lock size={11} strokeWidth={2.5} className="inline mr-1" />Nv. {dungeon.min_hero_level}+
-          </span>
-          <span className="text-[12px] font-semibold opacity-70" style={{ color: meta.color }}>{meta.loot}</span>
+        <div className="flex items-center gap-3 text-[12px] text-text-3">
+          <span className="flex items-center gap-1"><Sword size={12} strokeWidth={2} color="#7c3aed" />{fmtPct(equipChance)}</span>
+          <span className="flex items-center gap-1"><Brain size={12} strokeWidth={2} color="#0891b2" />{fmtPct(tacticChance)}</span>
+          {materialData && matMeta && (
+            <span className="flex items-center gap-1" style={{ color: matMeta.color }}>
+              <matMeta.Icon size={12} strokeWidth={2} />{fmtPct(materialData.chance)} <span className="text-text-3">×{materialData.min}–{materialData.max}</span>
+            </span>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-end px-4 py-2.5 border-t border-border mt-auto">
-        <motion.button
-          className="btn btn--primary flex-shrink-0"
-          onClick={e => { e.stopPropagation(); if (!disabled) onStart(dungeon) }}
-          disabled={disabled}
-          whileTap={disabled ? {} : { scale: 0.96 }}
-        >
+      {/* Footer — puramente visual, el click lo maneja la card */}
+      <div className="flex items-center justify-end px-4 py-2.5 border-t border-border mt-auto pointer-events-none">
+        <div className={`btn btn--primary flex-shrink-0 ${!canOpen ? 'opacity-60' : ''}`}>
           {locked
-            ? <><Lock size={13} strokeWidth={2} /><span>Requiere Nv. {dungeon.min_hero_level}</span></>
+            ? <><Lock size={13} strokeWidth={2} /><span>Nv. {dungeon.min_hero_level}</span></>
             : isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></>
-            : busy ? 'Héroe ocupado'
-            : lowHp ? 'HP insuficiente'
-            : <><span>Explorar</span><ChevronRight size={15} strokeWidth={2} /></>}
-        </motion.button>
+            : <><span>Preparar</span><ChevronRight size={15} strokeWidth={2} /></>}
+        </div>
       </div>
     </div>
   )
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
- *  DungeonDetailModal                                                        *
+ *  PrepareExpeditionModal                                                    *
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-function DetailRow({ icon: Icon, iconColor, label, value, bonus, bonusColor, warning }) {
+function StatRow({ icon: Icon, iconColor, label, baseValue, finalValue, changed }) {
   return (
     <div className="flex items-center justify-between gap-2 py-1.5">
-      <div className="flex items-center gap-2 min-w-0">
-        <Icon size={15} strokeWidth={2} color={iconColor} className="flex-shrink-0" />
+      <div className="flex items-center gap-2">
+        <Icon size={14} strokeWidth={2} color={iconColor} className="flex-shrink-0" />
         <span className="text-[13px] font-semibold text-text-2">{label}</span>
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className="text-[14px] font-bold text-text">{value}</span>
-        {bonus && <span className="text-[11px] font-bold" style={{ color: bonusColor ?? '#16a34a' }}>{bonus}</span>}
-        {warning && (
-          <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#dc2626]">
-            <AlertTriangle size={10} strokeWidth={2.5} />{warning}
-          </span>
-        )}
+      <div className="flex items-center gap-1.5">
+        {changed && <span className="text-[12px] text-text-3 line-through">{baseValue}</span>}
+        <span className="text-[14px] font-bold" style={{ color: changed ? '#16a34a' : 'var(--text)' }}>{finalValue}</span>
       </div>
     </div>
   )
 }
 
-function DungeonDetailModal({
+function ConsumableToggle({ id, qty, active, disabled, onToggle }) {
+  const meta = CONSUMABLE_META[id]
+  if (!meta) return null
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      className={`flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all text-left w-full ${disabled ? 'opacity-40 cursor-not-allowed' : 'active:scale-[0.98]'}`}
+      style={{
+        borderColor: active ? meta.color : `color-mix(in srgb,${meta.color} 25%,var(--border))`,
+        background:  active ? `color-mix(in srgb,${meta.color} 10%,var(--surface))` : 'var(--surface)',
+      }}
+    >
+      <span className="text-[20px] leading-none flex-shrink-0">{meta.icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold" style={{ color: active ? meta.color : 'var(--text)' }}>{meta.label}</p>
+        <p className="text-[12px] text-text-3 mt-0.5">{getConsumableEffect(id)}</p>
+      </div>
+      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-surface-2 text-text-3">×{qty}</span>
+        <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
+          style={{ borderColor: active ? meta.color : 'var(--border)', background: active ? meta.color : 'transparent' }}>
+          {active && <span className="text-white text-[9px] font-bold leading-none">✓</span>}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+function getConsumableEffect(id) {
+  switch (id) {
+    case 'expedition_provisions': return '+15% oro · +10% XP'
+    case 'vial_aceleracion':      return '−35% duración de la expedición'
+    case 'amuleto_fortuna':       return '+80% probabilidad de drop de equipo'
+    default: return ''
+  }
+}
+
+function PrepareExpeditionModal({
   dungeon, onClose, onStart,
-  effectiveMins, agilityPct,
-  hpCost, strReduction,
-  goldMin, goldMax, atkPct,
-  xpReward,
-  equipChance, tacticChance, intellBonus,
-  durLoss, defReduction,
-  materialData, equipHealth,
-  disabled, disabledReason,
+  preview, craftedItems, equipHealth, disabled, disabledReason,
 }) {
-  const meta    = DUNGEON_TYPE_META[dungeon.type]
-  const matMeta = materialData ? MATERIAL_META[materialData.resource] : null
-  const profile = DUNGEON_DROP_PROFILE[dungeon.name]
+  const [sel, setSel] = useState({ provisions: false, vial: false, amuleto: false })
+
+  const provisions = craftedItems?.expedition_provisions ?? 0
+  const vials      = craftedItems?.vial_aceleracion      ?? 0
+  const amuletos   = craftedItems?.amuleto_fortuna       ?? 0
+  const hasAny     = provisions > 0 || vials > 0 || amuletos > 0
+
+  const meta      = DUNGEON_TYPE_META[dungeon.type]
+  const slotChips = DUNGEON_TYPE_SLOTS[dungeon.type] ?? []
+  const matMeta   = preview.materialData ? MATERIAL_META[preview.materialData.resource] : null
+
+  // Cálculos dinámicos con consumibles activos
+  const vialActive     = sel.vial && vials > 0
+  const amuletoActive  = sel.amuleto && amuletos > 0
+  const provActive     = sel.provisions && provisions > 0
+
+  const finalMins     = vialActive ? Math.max(1, Math.round(preview.effectiveMins * 0.65)) : preview.effectiveMins
+  const finalEquip    = amuletoActive ? Math.min(1, preview.equipChance * 1.80) : preview.equipChance
+  const finalGoldMin  = provActive ? Math.round(preview.goldMin * 1.15) : preview.goldMin
+  const finalGoldMax  = provActive ? Math.round(preview.goldMax * 1.15) : preview.goldMax
+  const finalXp       = provActive ? Math.round(preview.xpReward * 1.10) : preview.xpReward
+
+  const minsChanged  = finalMins     !== preview.effectiveMins
+  const equipChanged = finalEquip    !== preview.equipChance
+  const goldChanged  = finalGoldMin  !== preview.goldMin
+  const xpChanged    = finalXp       !== preview.xpReward
+
+  function toggle(key) {
+    setSel(s => ({ ...s, [key]: !s[key] }))
+  }
+
+  function handleStart() {
+    onStart(dungeon, sel)
+    onClose()
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <motion.div
-        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-lg)] w-full sm:max-w-md max-h-[85vh] overflow-y-auto"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-lg)] w-full sm:max-w-md max-h-[90vh] overflow-y-auto"
+        initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-surface border-b border-border px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+        {/* Header con barra de color */}
+        {meta && <div className="h-1 w-full rounded-t-2xl sm:rounded-t-2xl" style={{ background: meta.color }} />}
+        <div className="px-5 pt-4 pb-3 border-b border-border flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[18px] font-bold text-text">{dungeon.name}</h3>
+            <p className="text-[12px] font-bold uppercase tracking-[0.08em] mb-0.5" style={{ color: meta?.color ?? '#6b7280' }}>
+              Preparar expedición
+            </p>
+            <h3 className="text-[18px] font-bold text-text leading-tight">{dungeon.name}</h3>
             <div className="flex items-center gap-2 mt-1">
-              {meta && <span className="text-[12px] font-bold uppercase tracking-[0.05em]" style={{ color: meta.color }}>{meta.label}</span>}
+              {meta && <span className="text-[11px] font-semibold text-text-2">{meta.label}</span>}
               <DifficultyDots value={dungeon.difficulty} size={6} />
             </div>
           </div>
-          <button className="btn btn--ghost btn--icon flex-shrink-0" onClick={onClose} aria-label="Cerrar"><X size={16} strokeWidth={2} /></button>
+          <button className="btn btn--ghost btn--icon flex-shrink-0 mt-1" onClick={onClose}><X size={16} strokeWidth={2} /></button>
         </div>
 
-        {/* Description */}
-        <div className="px-5 pt-3 pb-2">
-          <p className="text-[13px] text-text-3 leading-[1.5]">{dungeon.description}</p>
-        </div>
+        <div className="px-5 pt-4 pb-2 flex flex-col gap-5">
 
-        {/* Focus badge */}
-        {profile && (() => {
-          const fm = FOCUS_META[profile.focus]
-          if (!fm) return null
-          return (
-            <div className="mx-5 mb-2 px-3 py-2 rounded-lg border flex items-center gap-2"
-              style={{ background: `color-mix(in srgb, ${fm.color} 6%, var(--bg))`, borderColor: `color-mix(in srgb, ${fm.color} 20%, var(--border))` }}>
-              <fm.icon size={14} strokeWidth={2.5} color={fm.color} />
-              <span className="text-[12px] font-bold" style={{ color: fm.color }}>Especialidad: {profile.focus}</span>
+          {/* Loot primario */}
+          <div>
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-2">Loot principal</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {slotChips.map(({ slot, label }) => (
+                <span key={slot} className="text-[13px] font-bold px-3 py-1.5 rounded-lg"
+                  style={{ background: `color-mix(in srgb,${meta?.color ?? '#6b7280'} 13%,var(--bg))`, color: meta?.color ?? '#6b7280' }}>
+                  {label}
+                </span>
+              ))}
             </div>
-          )
-        })()}
-
-        {/* Stats breakdown */}
-        <div className="px-5 py-3 flex flex-col divide-y divide-border">
-          <div className="pb-2">
-            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-1">Costes</p>
-            <DetailRow icon={Clock} iconColor="#6366f1" label="Duración" value={fmtDuration(effectiveMins)}
-              bonus={agilityPct > 0 ? `−${agilityPct}% Agi` : null} />
-            <DetailRow icon={Heart} iconColor="#dc2626" label="Vida" value={`-${hpCost} HP`}
-              bonus={strReduction > 0 ? `−${strReduction} Fza` : null} />
-            {durLoss > 0 && (
-              <DetailRow icon={Wrench} iconColor="#78716c" label="Desgaste" value={`${durLoss} pts`}
-                bonus={defReduction > 0 ? `−${defReduction} Def` : null}
-                warning={equipHealth?.hasDamagedGear ? 'Dañado' : null} />
-            )}
           </div>
 
-          <div className="pt-2">
-            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-1">Recompensas</p>
-            <DetailRow icon={Coins} iconColor="#d97706" label="Oro" value={`${goldMin}–${goldMax}`}
-              bonus={atkPct > 0 ? `+${atkPct}% Atq` : null} bonusColor="#d97706" />
-            <DetailRow icon={Star} iconColor="#0369a1" label="Experiencia" value={`${xpReward} XP`}
-              bonus={atkPct > 0 ? `+${atkPct}% Atq` : null} bonusColor="#0369a1" />
-            <DetailRow icon={Sword} iconColor="#7c3aed" label="Equipo" value={fmtPct(equipChance)} />
-            <DetailRow icon={Brain} iconColor="#0891b2" label="Táctica" value={fmtPct(tacticChance)}
-              bonus={intellBonus > 0 ? `+${intellBonus}% Int` : null} bonusColor="#0891b2" />
-            {materialData && matMeta && (
-              <DetailRow icon={matMeta.Icon} iconColor={matMeta.color} label={matMeta.label}
-                value={`${fmtPct(materialData.chance)} (×${materialData.min}–${materialData.max})`} />
-            )}
+          {/* Consumibles */}
+          {hasAny && !disabled && (
+            <div>
+              <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-2">Consumibles</p>
+              <div className="flex flex-col gap-2">
+                {provisions > 0 && <ConsumableToggle id="expedition_provisions" qty={provisions} active={sel.provisions} onToggle={() => toggle('provisions')} />}
+                {vials > 0      && <ConsumableToggle id="vial_aceleracion"      qty={vials}      active={sel.vial}       onToggle={() => toggle('vial')} />}
+                {amuletos > 0   && <ConsumableToggle id="amuleto_fortuna"       qty={amuletos}   active={sel.amuleto}    onToggle={() => toggle('amuleto')} />}
+              </div>
+            </div>
+          )}
+
+          {/* Resumen de stats — con preview dinámico */}
+          <div>
+            <p className="text-[11px] font-bold text-text-3 uppercase tracking-[0.08em] mb-1">Resumen</p>
+            <div className="divide-y divide-border">
+              <StatRow icon={Clock}  iconColor="#6366f1" label="Duración"
+                baseValue={fmtDuration(preview.effectiveMins)} finalValue={fmtDuration(finalMins)} changed={minsChanged} />
+              <StatRow icon={Heart}  iconColor="#dc2626" label="Coste HP"
+                baseValue={`-${preview.hpCost}`} finalValue={`-${preview.hpCost}`} changed={false} />
+              <StatRow icon={Coins}  iconColor="#d97706" label="Oro"
+                baseValue={`${preview.goldMin}–${preview.goldMax}`} finalValue={`${finalGoldMin}–${finalGoldMax}`} changed={goldChanged} />
+              <StatRow icon={Star}   iconColor="#0369a1" label="XP"
+                baseValue={`${preview.xpReward}`} finalValue={`${finalXp}`} changed={xpChanged} />
+              <StatRow icon={Sword}  iconColor="#7c3aed" label="Drop equipo"
+                baseValue={fmtPct(preview.equipChance)} finalValue={fmtPct(finalEquip)} changed={equipChanged} />
+              <StatRow icon={Brain}  iconColor="#0891b2" label="Drop táctica"
+                baseValue={fmtPct(preview.tacticChance)} finalValue={fmtPct(preview.tacticChance)} changed={false} />
+              {preview.materialData && matMeta && (
+                <StatRow icon={matMeta.Icon} iconColor={matMeta.color} label={matMeta.label}
+                  baseValue={`${fmtPct(preview.materialData.chance)} ×${preview.materialData.min}–${preview.materialData.max}`}
+                  finalValue={`${fmtPct(preview.materialData.chance)} ×${preview.materialData.min}–${preview.materialData.max}`}
+                  changed={false} />
+              )}
+              {preview.durLoss > 0 && (
+                <StatRow icon={Wrench} iconColor="#78716c" label="Desgaste equipo"
+                  baseValue={`${preview.durLoss} pts`} finalValue={`${preview.durLoss} pts`} changed={false} />
+              )}
+            </div>
           </div>
+
+          {/* Advertencia equipo dañado */}
+          {equipHealth?.hasDamagedGear && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,#dc2626_8%,var(--bg))] border border-[color-mix(in_srgb,#dc2626_25%,var(--border))]">
+              <AlertTriangle size={14} color="#dc2626" strokeWidth={2} className="flex-shrink-0" />
+              <p className="text-[12px] font-semibold text-[#dc2626]">Equipo dañado — considera reparar antes</p>
+            </div>
+          )}
         </div>
 
-        {/* Loot types */}
-        {meta && (
-          <div className="px-5 pb-3">
-            <p className="text-[12px] text-text-3"><span className="font-semibold" style={{ color: meta.color }}>Loot:</span> {meta.loot}</p>
-          </div>
-        )}
-
-        {/* Action */}
+        {/* Botón confirmar */}
         <div className="sticky bottom-0 bg-surface border-t border-border px-5 py-4">
           <motion.button
             className="btn btn--primary btn--full"
-            onClick={() => { onStart(dungeon); onClose() }}
+            onClick={handleStart}
             disabled={disabled}
             whileTap={disabled ? {} : { scale: 0.97 }}
           >
@@ -480,22 +502,17 @@ function DungeonDetailModal({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ *
- *  RewardModal — muestra TODOS los drops obtenidos                           *
+ *  RewardModal                                                               *
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 function RewardModal({ reward, onClose }) {
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }} onClick={onClose}>
       <motion.div
         className="relative bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm overflow-hidden"
-        initial={{ opacity: 0, scale: 0.92, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 8 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
+        initial={{ opacity: 0, scale: 0.92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }} transition={{ duration: 0.22, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
@@ -503,11 +520,10 @@ function RewardModal({ reward, onClose }) {
             <p className="text-[17px] font-bold text-text">¡Expedición completada!</p>
             <p className="text-[13px] text-text-3 mt-0.5">Has vuelto con recompensas</p>
           </div>
-          <button className="btn btn--ghost btn--icon" onClick={onClose} aria-label="Cerrar"><X size={16} strokeWidth={2} /></button>
+          <button className="btn btn--ghost btn--icon" onClick={onClose}><X size={16} strokeWidth={2} /></button>
         </div>
 
         <div className="flex flex-col gap-3 px-5 py-4">
-          {/* Gold & XP */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#d97706_8%,var(--bg))] border border-[color-mix(in_srgb,#d97706_25%,var(--border))] rounded-xl px-3.5 py-3">
               <Coins size={18} color="#d97706" strokeWidth={2} />
@@ -535,7 +551,6 @@ function RewardModal({ reward, onClose }) {
             </div>
           </div>
 
-          {/* Level up */}
           {reward.levelUp && (
             <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,#16a34a_8%,var(--bg))] border border-[color-mix(in_srgb,#16a34a_25%,var(--border))] rounded-xl px-3.5 py-3">
               <TrendingUp size={18} color="#16a34a" strokeWidth={2} />
@@ -543,14 +558,13 @@ function RewardModal({ reward, onClose }) {
             </div>
           )}
 
-          {/* Material drop */}
           {reward.materialDrop && (() => {
             const mat = MATERIAL_META[reward.materialDrop.resource]
             if (!mat) return null
             const MIcon = mat.Icon
             return (
               <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 border"
-                style={{ background: `color-mix(in srgb, ${mat.color} 8%, var(--bg))`, borderColor: `color-mix(in srgb, ${mat.color} 25%, var(--border))` }}>
+                style={{ background: `color-mix(in srgb,${mat.color} 8%,var(--bg))`, borderColor: `color-mix(in srgb,${mat.color} 25%,var(--border))` }}>
                 <MIcon size={18} color={mat.color} strokeWidth={2} />
                 <div>
                   <p className="text-[18px] font-bold text-text leading-none">+{reward.materialDrop.qty}</p>
@@ -560,25 +574,22 @@ function RewardModal({ reward, onClose }) {
             )
           })()}
 
-          {/* Item drop */}
           {reward.itemDrop && reward.itemDrop.item_catalog && (
             <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 border"
               style={{
-                background: `color-mix(in srgb, ${RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c'} 8%, var(--bg))`,
-                borderColor: `color-mix(in srgb, ${RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c'} 25%, var(--border))`,
+                background: `color-mix(in srgb,${RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c'} 8%,var(--bg))`,
+                borderColor: `color-mix(in srgb,${RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c'} 25%,var(--border))`,
               }}>
               <Sword size={18} color={RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c'} strokeWidth={2} />
               <div>
                 <p className="text-[14px] font-bold text-text leading-tight">{reward.itemDrop.item_catalog.name}</p>
-                <p className="text-[11px] font-semibold mt-0.5"
-                  style={{ color: RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c' }}>
+                <p className="text-[11px] font-semibold mt-0.5" style={{ color: RARITY_COLORS[reward.itemDrop.item_catalog.rarity] ?? '#78716c' }}>
                   {reward.itemDrop.item_catalog.rarity}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Item drop — bag full */}
           {reward.itemDrop && reward.itemDrop.full && (
             <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 border border-[color-mix(in_srgb,#dc2626_25%,var(--border))] bg-[color-mix(in_srgb,#dc2626_6%,var(--bg))]">
               <AlertTriangle size={18} color="#dc2626" strokeWidth={2} />
@@ -586,27 +597,18 @@ function RewardModal({ reward, onClose }) {
             </div>
           )}
 
-          {/* Tactic drop */}
-          {reward.tacticDrop && reward.tacticDrop.tactic_catalog && (
+          {reward.tacticDrop && (reward.tacticDrop.tactic_catalog ?? reward.tacticDrop.tactic) && (
             <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 border border-[color-mix(in_srgb,#0891b2_25%,var(--border))] bg-[color-mix(in_srgb,#0891b2_8%,var(--bg))]">
               <Brain size={18} color="#0891b2" strokeWidth={2} />
               <div>
-                <p className="text-[14px] font-bold text-text leading-tight">{reward.tacticDrop.tactic_catalog.name}</p>
-                <p className="text-[11px] font-semibold mt-0.5 text-[#0891b2]">
-                  {reward.tacticDrop.isNew ? 'Nueva táctica' : reward.tacticDrop.leveledUp ? `Nv. ${reward.tacticDrop.newLevel}` : reward.tacticDrop.compensated ? `+${reward.tacticDrop.goldCompensation} oro` : 'Táctica'}
+                <p className="text-[14px] font-bold text-text leading-tight">
+                  {(reward.tacticDrop.tactic_catalog ?? reward.tacticDrop.tactic)?.name}
                 </p>
-              </div>
-            </div>
-          )}
-
-          {/* Tactic drop without catalog (just basic info) */}
-          {reward.tacticDrop && !reward.tacticDrop.tactic_catalog && reward.tacticDrop.tactic && (
-            <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 border border-[color-mix(in_srgb,#0891b2_25%,var(--border))] bg-[color-mix(in_srgb,#0891b2_8%,var(--bg))]">
-              <Brain size={18} color="#0891b2" strokeWidth={2} />
-              <div>
-                <p className="text-[14px] font-bold text-text leading-tight">{reward.tacticDrop.tactic.name}</p>
                 <p className="text-[11px] font-semibold mt-0.5 text-[#0891b2]">
-                  {reward.tacticDrop.isNew ? 'Nueva táctica' : reward.tacticDrop.leveledUp ? `Nv. ${reward.tacticDrop.newLevel}` : reward.tacticDrop.compensated ? `+${reward.tacticDrop.goldCompensation} oro` : 'Táctica'}
+                  {reward.tacticDrop.isNew ? 'Nueva táctica'
+                    : reward.tacticDrop.leveledUp ? `Nv. ${reward.tacticDrop.newLevel}`
+                    : reward.tacticDrop.compensated ? `+${reward.tacticDrop.goldCompensation} oro`
+                    : 'Táctica'}
                 </p>
               </div>
             </div>
@@ -626,37 +628,31 @@ function RewardModal({ reward, onClose }) {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 function Dungeons() {
-  const userId                = useAppStore(s => s.userId)
-  const triggerResourceFlash  = useAppStore(s => s.triggerResourceFlash)
-  const heroId                = useHeroId()
-  const queryClient           = useQueryClient()
-  const { hero, loading: heroLoading }       = useHero(heroId)
+  const userId               = useAppStore(s => s.userId)
+  const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+  const heroId               = useHeroId()
+  const queryClient          = useQueryClient()
+  const { hero, loading: heroLoading }         = useHero(heroId)
   const { dungeons, loading: dungeonsLoading } = useDungeons()
   const { expedition, loading: expLoading, setExpedition } = useActiveExpedition(hero?.id)
-  const { items }             = useInventory(heroId)
+  const { items }            = useInventory(heroId)
   const { inventory: craftedItems } = useCraftedItems(userId)
-  const provisions              = craftedItems?.expedition_provisions ?? 0
-  const equipHealth             = useEquipmentHealth(items)
-  const [reward, setReward]     = useState(null)
-  const [detailDungeon, setDetailDungeon] = useState(null)
-  const [useProvisions, setUseProvisions] = useState(false)
-  const [, forceUpdate]       = useReducer(x => x + 1, 0)
-  const topRef                = useRef(null)
+  const equipHealth          = useEquipmentHealth(items)
+  const [reward, setReward]  = useState(null)
+  const [prepDungeon, setPrepDungeon] = useState(null)   // mazmorra abierta en PrepareModal
+  const [, forceUpdate]      = useReducer(x => x + 1, 0)
+  const topRef               = useRef(null)
 
-  // Tick cada 10s para actualizar previews
   useEffect(() => { const id = setInterval(forceUpdate, 10000); return () => clearInterval(id) }, [])
-
   useWakeLock(!!expedition)
 
-  const agilityFactor  = hero ? agilityDurationFactor(hero.agility) : 1
-  const atkMultiplier  = hero ? calcAttackMultiplier(hero.attack)   : 1
-  const heroLevel      = hero?.level ?? 1
+  const agilityFactor = hero ? agilityDurationFactor(hero.agility) : 1
+  const atkMultiplier = hero ? calcAttackMultiplier(hero.attack)   : 1
+  const heroLevel     = hero?.level ?? 1
 
-  // Separar mazmorras en: disponibles (por dificultad) y bloqueadas
   const { available, locked: lockedDungeons } = useMemo(() => {
     if (!dungeons) return { available: [], locked: [] }
-    const avail = []
-    const lock  = []
+    const avail = [], lock = []
     for (const d of dungeons) {
       if (heroLevel >= d.min_hero_level) avail.push(d)
       else lock.push(d)
@@ -666,7 +662,6 @@ function Dungeons() {
     return { available: avail, locked: lock }
   }, [dungeons, heroLevel])
 
-  // Dungeon activa
   const activeDungeon = useMemo(
     () => expedition ? dungeons?.find(d => d.id === expedition.dungeon_id) : null,
     [expedition, dungeons],
@@ -675,42 +670,36 @@ function Dungeons() {
   function computePreview(d) {
     const effectiveMins = Math.round(d.duration_minutes * agilityFactor)
     const agilityPct    = agilityFactor < 1 ? Math.round((1 - agilityFactor) * 100) : 0
+    const profile       = DUNGEON_DROP_PROFILE[d.name] ?? {}
 
-    const profile    = DUNGEON_DROP_PROFILE[d.name] ?? {}
-    const dpGold     = profile.goldMult ?? 1
-    const dpXp       = profile.xpMult ?? 1
-    const dpItem     = profile.itemMult ?? 1
-    const dpTactic   = profile.tacticMult ?? 1
-
-    const hpCost     = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, hero?.strength ?? 0)
-    const baseHpCost = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, 0)
+    const hpCost      = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, hero?.strength ?? 0)
+    const baseHpCost  = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, 0)
     const strReduction = baseHpCost > hpCost ? baseHpCost - hpCost : 0
 
-    const goldMin    = Math.round(d.gold_min * atkMultiplier * dpGold)
-    const goldMax    = Math.round(d.gold_max * atkMultiplier * dpGold)
-    const atkPct     = atkMultiplier > 1 ? Math.round((atkMultiplier - 1) * 100) : 0
-    const xpReward   = Math.round(d.experience_reward * atkMultiplier * dpXp)
+    const goldMin  = Math.round(d.gold_min  * atkMultiplier * (profile.goldMult ?? 1))
+    const goldMax  = Math.round(d.gold_max  * atkMultiplier * (profile.goldMult ?? 1))
+    const atkPct   = atkMultiplier > 1 ? Math.round((atkMultiplier - 1) * 100) : 0
+    const xpReward = Math.round(d.experience_reward * atkMultiplier * (profile.xpMult ?? 1))
 
-    const equipChance     = itemDropChance(d.difficulty) * dpItem
-    const tacticChance    = tacticDropChance(hero?.intelligence ?? 0) * dpTactic
-    const baseTacticCh    = tacticDropChance(0) * dpTactic
-    const intellBonus     = tacticChance > baseTacticCh ? Math.round((tacticChance - baseTacticCh) * 100) : 0
+    const equipChance  = itemDropChance(d.difficulty) * (profile.itemMult ?? 1)
+    const tacticChance = tacticDropChance(hero?.intelligence ?? 0) * (profile.tacticMult ?? 1)
+    const baseTacticCh = tacticDropChance(0) * (profile.tacticMult ?? 1)
+    const intellBonus  = tacticChance > baseTacticCh ? Math.round((tacticChance - baseTacticCh) * 100) : 0
 
-    const durLoss     = calcDurabilityLoss(d.difficulty, hero?.defense ?? 0)
-    const durLossBase = calcDurabilityLoss(d.difficulty, 0)
+    const durLoss      = calcDurabilityLoss(d.difficulty, hero?.defense ?? 0)
+    const durLossBase  = calcDurabilityLoss(d.difficulty, 0)
     const defReduction = durLossBase > durLoss ? durLossBase - durLoss : 0
 
     const materialData = MATERIAL_DROP_DATA[d.name] ?? null
-
-    const heroHpNow   = interpolateHp(hero, Date.now())
-    const isLocked    = heroLevel < d.min_hero_level
-    const busy        = (expedition ? 'exploring' : hero?.status ?? 'idle') !== 'idle'
-    const lowHp       = !isLocked && !busy && (heroHpNow ?? 0) <= hpCost
+    const heroHpNow    = interpolateHp(hero, Date.now())
+    const isLocked     = heroLevel < d.min_hero_level
+    const busy         = (expedition ? 'exploring' : hero?.status ?? 'idle') !== 'idle'
+    const lowHp        = !isLocked && !busy && (heroHpNow ?? 0) <= hpCost
 
     let disabledReason = null
-    if (isLocked)    disabledReason = `Nv. ${d.min_hero_level} requerido`
-    else if (busy)   disabledReason = 'Héroe ocupado'
-    else if (lowHp)  disabledReason = 'HP insuficiente'
+    if (isLocked)   disabledReason = `Nv. ${d.min_hero_level} requerido`
+    else if (busy)  disabledReason = 'Héroe ocupado'
+    else if (lowHp) disabledReason = 'HP insuficiente'
 
     return {
       effectiveMins, agilityPct,
@@ -720,28 +709,38 @@ function Dungeons() {
       equipChance, tacticChance, intellBonus,
       durLoss, defReduction,
       materialData,
-      focusLabel: profile.focus ?? null,
       locked: isLocked, busy, lowHp, disabled: !!disabledReason, disabledReason,
     }
   }
 
-  async function handleStart(dungeon) {
+  async function handleStart(dungeon, sel = {}) {
     const now = Date.now()
-    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor) * 60_000
+    const vialActive  = sel.vial && (craftedItems?.vial_aceleracion ?? 0) > 0
+    const effectiveMs = Math.round(dungeon.duration_minutes * agilityFactor * (vialActive ? 0.65 : 1)) * 60_000
+    const consumablesUsed = [
+      sel.provisions && (craftedItems?.expedition_provisions ?? 0) > 0 ? 'expedition_provisions' : null,
+      sel.vial       && (craftedItems?.vial_aceleracion      ?? 0) > 0 ? 'vial_aceleracion'      : null,
+      sel.amuleto    && (craftedItems?.amuleto_fortuna       ?? 0) > 0 ? 'amuleto_fortuna'       : null,
+    ].filter(Boolean)
     setExpedition({
       id: '__optimistic__',
       dungeon_id: dungeon.id,
       started_at: new Date(now).toISOString(),
       ends_at: new Date(now + effectiveMs).toISOString(),
+      consumablesUsed,
     })
-    setDetailDungeon(null)
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
     try {
-      const data = await apiPost('/api/expedition-start', { dungeonId: dungeon.id, heroId: hero?.id, useProvisions: useProvisions && provisions > 0 })
+      const data = await apiPost('/api/expedition-start', {
+        dungeonId:     dungeon.id,
+        heroId:        hero?.id,
+        useProvisions: sel.provisions && (craftedItems?.expedition_provisions ?? 0) > 0,
+        useVial:       sel.vial       && (craftedItems?.vial_aceleracion      ?? 0) > 0,
+        useAmuleto:    sel.amuleto    && (craftedItems?.amuleto_fortuna       ?? 0) > 0,
+      })
       setExpedition(exp => exp ? { ...exp, ends_at: data.endsAt } : exp)
-      setUseProvisions(false)
-      if (data.provisionsUsed) {
+      if (data.provisionsUsed || data.vialUsed || data.amuletoUsed) {
         queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.activeExpedition(hero?.id) })
@@ -754,7 +753,6 @@ function Dungeons() {
   }
 
   function handleCollect(data) {
-    // Build reward object con todos los drops — sin notificaciones, todo va a la modal
     setReward({
       ...(data.rewards ?? {}),
       levelUp:      data.levelUp ?? false,
@@ -762,13 +760,15 @@ function Dungeons() {
       itemDrop:     data.drop ?? null,
       tacticDrop:   data.tacticDrop ?? null,
     })
-    triggerResourceFlash()
     setExpedition(null)
-    queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-    queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
+    setTimeout(() => {
+      triggerResourceFlash()
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
+    }, 100)
   }
 
   if (heroLoading || dungeonsLoading || expLoading) {
@@ -777,50 +777,34 @@ function Dungeons() {
 
   return (
     <div className="dungeons-section" ref={topRef}>
-      {/* Reward modal */}
-      {reward && createPortal(
-        <RewardModal reward={reward} onClose={() => setReward(null)} />,
+      {createPortal(
+        <AnimatePresence>
+          {reward && <RewardModal reward={reward} onClose={() => setReward(null)} />}
+        </AnimatePresence>,
         document.body
       )}
 
-      {/* Detail modal */}
+      {/* Modal de preparación */}
       <AnimatePresence>
-        {detailDungeon && (() => {
-          const p = computePreview(detailDungeon)
+        {prepDungeon && (() => {
+          const p = computePreview(prepDungeon)
           return createPortal(
-            <DungeonDetailModal
-              dungeon={detailDungeon}
-              onClose={() => setDetailDungeon(null)}
+            <PrepareExpeditionModal
+              dungeon={prepDungeon}
+              onClose={() => setPrepDungeon(null)}
               onStart={handleStart}
+              preview={p}
+              craftedItems={craftedItems}
               equipHealth={equipHealth}
-              {...p}
+              disabled={p.disabled}
+              disabledReason={p.disabledReason}
             />,
             document.body
           )
         })()}
       </AnimatePresence>
 
-      {/* Provisiones */}
-      {!expedition && provisions > 0 && (
-        <button
-          onClick={() => setUseProvisions(p => !p)}
-          className="w-full mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors"
-          style={{
-            borderColor: useProvisions ? '#0891b2' : 'color-mix(in srgb,#0891b2 30%,var(--border))',
-            background: useProvisions ? 'color-mix(in srgb,#0891b2 10%,var(--surface))' : 'color-mix(in srgb,#0891b2 4%,var(--surface))',
-          }}
-        >
-          <span className="text-[14px]">🎒</span>
-          <span className="text-[13px] font-semibold flex-1" style={{ color: '#0891b2' }}>
-            {provisions}× Provisiones {useProvisions ? '· Se usará 1 al iniciar (+15% oro, +10% XP)' : '· Toca para usar al iniciar'}
-          </span>
-          <span className="text-[12px] font-bold" style={{ color: useProvisions ? '#0891b2' : 'var(--text-3)' }}>
-            {useProvisions ? '✓' : '○'}
-          </span>
-        </button>
-      )}
-
-      {/* ── Expedición activa — siempre arriba ── */}
+      {/* Expedición activa */}
       {expedition && (
         <ActiveExpeditionBanner
           expedition={expedition}
@@ -829,34 +813,20 @@ function Dungeons() {
         />
       )}
 
-      {/* ── Grid de mazmorras ── */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-3"
-        variants={listVariants}
-        initial="initial"
-        animate="animate"
-      >
+      {/* Grid */}
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-3" variants={listVariants} initial="initial" animate="animate">
         {available.map(dungeon => {
           const p = computePreview(dungeon)
           return (
             <motion.div key={dungeon.id} variants={cardVariants}>
               <DungeonCard
-                dungeon={dungeon}
-                effectiveMins={p.effectiveMins}
-                hpCost={p.hpCost}
-                goldMin={p.goldMin}
-                goldMax={p.goldMax}
-                xpReward={p.xpReward}
-                equipChance={p.equipChance}
-                tacticChance={p.tacticChance}
+                dungeon={dungeon} effectiveMins={p.effectiveMins}
+                hpCost={p.hpCost} goldMin={p.goldMin} goldMax={p.goldMax} xpReward={p.xpReward}
+                equipChance={p.equipChance} tacticChance={p.tacticChance}
                 materialData={p.materialData}
-                focusLabel={p.focusLabel}
-                locked={false}
-                busy={p.busy}
-                lowHp={p.lowHp}
+                locked={false} busy={p.busy} lowHp={p.lowHp}
                 isExploring={expedition?.dungeon_id === dungeon.id}
-                onStart={handleStart}
-                onDetail={setDetailDungeon}
+                onOpen={setPrepDungeon}
               />
             </motion.div>
           )
@@ -866,21 +836,12 @@ function Dungeons() {
           return (
             <motion.div key={dungeon.id} variants={cardVariants}>
               <DungeonCard
-                dungeon={dungeon}
-                effectiveMins={p.effectiveMins}
-                hpCost={p.hpCost}
-                goldMin={p.goldMin}
-                goldMax={p.goldMax}
-                xpReward={p.xpReward}
-                equipChance={p.equipChance}
-                tacticChance={p.tacticChance}
+                dungeon={dungeon} effectiveMins={p.effectiveMins}
+                hpCost={p.hpCost} goldMin={p.goldMin} goldMax={p.goldMax} xpReward={p.xpReward}
+                equipChance={p.equipChance} tacticChance={p.tacticChance}
                 materialData={p.materialData}
-                focusLabel={p.focusLabel}
-                locked={true}
-                busy={false}
-                lowHp={false}
-                onStart={handleStart}
-                onDetail={setDetailDungeon}
+                locked={true} busy={false} lowHp={false}
+                onOpen={() => {}}
               />
             </motion.div>
           )
