@@ -164,11 +164,11 @@ export function floorRewards(floor) {
  * Determinista: mismo piso → mismo nombre.
  */
 const ENEMY_POOLS = [
-  { max:  5, names: ['Bandido Renegado', 'Saqueador Orco', 'Goblin Feroz', 'Troll Bruto', 'Merodeador Oscuro'] },
-  { max: 10, names: ['Centinela de Hierro', 'Vigía Implacable', 'Patrullero Maldito', 'Mercenario Cruel', 'Guardaespaldas Corrupto'] },
-  { max: 20, names: ['Campeón Maldito', 'Berserker de Sangre', 'Cazador de Élite', 'Coloso de Piedra', 'Invocador de Sombras'] },
-  { max: 50, names: ['Señor de la Guerra', 'Archimago Oscuro', 'Inquisidor de Hierro', 'Ejecutor Implacable', 'Tirano Eterno', 'Forjador de Almas'] },
-  { max: Infinity, names: ['Ángel Caído', 'Archidemon', 'El Eterno', 'Señor de las Sombras', 'El Destructor', 'Dios de la Ruina', 'El Sin Nombre'] },
+  { max:  5, names: ['Lancero Renegado', 'Corsario de Sangre', 'Guerrero Errante', 'Duelista Maldito', 'Cazador de Almas'] },
+  { max: 10, names: ['Centinela de Hierro', 'Legionario Corrupto', 'Verdugo Sombrío', 'Gladiador Caído', 'Inquisidor de Acero'] },
+  { max: 20, names: ['Campeón de las Ruinas', 'Berserker de Sangre', 'Ejecutor Implacable', 'Colosal Vigía', 'Portador de la Ruina'] },
+  { max: 50, names: ['Señor de la Guerra', 'Archimago Oscuro', 'Tirano Eterno', 'Forjador de Almas', 'Caudillo del Abismo', 'Paladín Maldito'] },
+  { max: Infinity, names: ['El Eterno', 'Dios de la Ruina', 'El Sin Nombre', 'Señor del Vacío', 'El Destructor', 'Heraldo del Fin', 'Avatar de la Muerte'] },
 ]
 
 export function floorEnemyName(floor) {
@@ -329,11 +329,11 @@ export function tierAnchoredEnemyStats(virtualLevel) {
 }
 
 const TRAINING_ENEMY_POOLS = [
-  { max:  3, names: ['Muñeco de Paja', 'Autómata de Madera', 'Espantapájaros Encantado', 'Golem de Barro', 'Aprendiz Rebelde'] },
-  { max:  6, names: ['Espadachín Errante', 'Cazador Furtivo', 'Duelista Callejero', 'Mercenario Novato', 'Guerrero de Arena'] },
-  { max: 10, names: ['Gladiador Veterano', 'Samurái Ronin', 'Valquiria de Bronce', 'Luchador de Foso', 'Maestro de Armas'] },
-  { max: 20, names: ['Campeón de la Legión', 'Berserker del Norte', 'Mago de Guerra', 'Paladín Oscuro', 'Asesino de Élite', 'Druida Salvaje'] },
-  { max: Infinity, names: ['Avatar de Combate', 'Espectro del Coliseo', 'El Invicto', 'Phantom del Torneo', 'Titán de Práctica', 'Sombra del Maestro'] },
+  { max:  3, names: ['Espadachín Novato', 'Lancero Recluta', 'Guerrero Aprendiz', 'Arquero Bisoño', 'Duelista Primerizo'] },
+  { max:  6, names: ['Mercenario Curtido', 'Cazador Furtivo', 'Duelista de Arena', 'Corsario Errante', 'Soldado Veterano'] },
+  { max: 10, names: ['Gladiador Veterano', 'Ronin sin Señor', 'Valquiria de Bronce', 'Legionario de Élite', 'Maestro de Armas'] },
+  { max: 20, names: ['Campeón de la Legión', 'Berserker del Norte', 'Archimago de Guerra', 'Paladín Oscuro', 'Asesino de Élite', 'Druida de Batalla'] },
+  { max: Infinity, names: ['El Invicto', 'Espectro del Coliseo', 'Titán del Torneo', 'Sombra del Maestro', 'Heraldo del Combate', 'Campeón Eterno'] },
 ]
 
 /**
