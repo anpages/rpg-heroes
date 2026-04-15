@@ -1,14 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import {
-  tierAnchoredEnemyStats,
-  trainingEnemyName,
-  trainingRewards,
-  randomArchetype,
-  applyArchetype,
-  decoratedEnemyName,
-} from '../src/lib/gameFormulas.js'
+import { trainingRewards, tierAnchoredEnemyStats, applyArchetype, decoratedEnemyName } from '../src/lib/gameFormulas.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
@@ -16,15 +9,26 @@ import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, quickCombatDifficulty, quickCombatVirtualLevel } from './_rating.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
 import { rollTacticDrop } from './_loot.js'
+import { verifyCombatToken } from './_combatSign.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId } = req.body
+  const { heroId, previewToken } = req.body
   if (!heroId)         return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
+  if (!previewToken)   return res.status(400).json({ error: 'previewToken requerido' })
+
+  let preview
+  try {
+    preview = verifyCombatToken(previewToken)
+  } catch (e) {
+    return res.status(400).json({ error: e.message, code: 'INVALID_PREVIEW' })
+  }
+  if (preview.type !== 'quick_preview') return res.status(400).json({ error: 'Token de tipo incorrecto' })
+  if (preview.userId !== user.id)       return res.status(400).json({ error: 'Token no corresponde al jugador' })
 
   const { data: hero } = await supabase
     .from('heroes')
@@ -62,16 +66,11 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Enemigo anclado al TIER del héroe con mezcla por progreso (estilo LoL):
-  //   - Tramo bajo: a veces te cruzas con un rival del tier inferior
-  //   - Tramo alto: a veces te cruzas con uno del tier superior (preview)
-  // Si tu equipo es pobre para el tier, pierdes: ese es el incentivo para
-  // expediciones/crafteo/reparar. Gear → tier progression.
-  const { vl, shift }  = quickCombatVirtualLevel(hero)
-  const baseEnemyStats = tierAnchoredEnemyStats(vl)
-  const archetypeKey   = randomArchetype()
-  const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
-  const enemyName      = decoratedEnemyName(trainingEnemyName(hero.level), archetypeKey)
+  // Clase y arquetipo del rival vienen del token; stats se calculan ahora
+  // ancladas al héroe que el jugador eligió para combatir
+  const { archetypeKey, enemyClass, enemyName } = preview
+  const { vl, shift } = quickCombatVirtualLevel(hero)
+  const enemyStats    = applyArchetype(tierAnchoredEnemyStats(vl), archetypeKey)
 
   // Tácticas del héroe y del enemigo
   const { data: heroTacticRows } = await supabase

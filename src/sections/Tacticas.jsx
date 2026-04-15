@@ -38,6 +38,13 @@ const STAT_LABELS = {
   attack: 'ATQ', defense: 'DEF', max_hp: 'HP',
   strength: 'FUE', agility: 'AGI', intelligence: 'INT',
 }
+const CLASS_META = {
+  caudillo:  { label: 'Caudillo',  color: '#dc2626' },
+  sombra:    { label: 'Sombra',    color: '#475569' },
+  arcanista: { label: 'Arcanista', color: '#7c3aed' },
+  domador:   { label: 'Domador',   color: '#16a34a' },
+  universal: { label: 'Universal', color: '#d97706' },
+}
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -322,6 +329,12 @@ function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevel
           <span className="text-[14px] font-bold text-text truncate">{cat.name}</span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-bold" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity]}</span>
+            {cat.required_class && CLASS_META[cat.required_class] && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white"
+                style={{ background: CLASS_META[cat.required_class].color }}>
+                {CLASS_META[cat.required_class].label}
+              </span>
+            )}
           </div>
           {bonuses && <span className="text-[12px] text-text-2">{bonuses}</span>}
           {effectDesc && <span className="text-[12px] text-text-3 leading-snug">{effectDesc}</span>}
@@ -365,10 +378,18 @@ function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevel
           </div>
           <div className="w-full flex flex-col items-center gap-1 text-center">
             <span className="text-[14px] font-bold text-text leading-tight">{cat.name}</span>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-              style={{ background: `color-mix(in srgb,${rarColor} 10%,var(--surface-2))`, color: rarColor }}>
-              {RARITY_LABELS[cat.rarity]}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: `color-mix(in srgb,${rarColor} 10%,var(--surface-2))`, color: rarColor }}>
+                {RARITY_LABELS[cat.rarity]}
+              </span>
+              {cat.required_class && CLASS_META[cat.required_class] && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white"
+                  style={{ background: CLASS_META[cat.required_class].color }}>
+                  {CLASS_META[cat.required_class].label}
+                </span>
+              )}
+            </div>
             {bonuses && <span className="text-[12px] text-text-2 mt-0.5">{bonuses}</span>}
             {effectDesc && <span className="text-[12px] text-text-3 leading-snug">{effectDesc}</span>}
           </div>
@@ -426,6 +447,12 @@ function CollectionCard({ tactic, onTap, slotsAvailable }) {
           <span className="text-[11px] font-bold" style={{ color: rarColor }}>{RARITY_LABELS[cat.rarity]}</span>
           <span className="text-[11px] text-text-3">·</span>
           <span className="text-[11px] font-semibold" style={{ color: catColor }}>{CATEGORY_LABELS[cat.category]}</span>
+          {cat.required_class && CLASS_META[cat.required_class] && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white"
+              style={{ background: CLASS_META[cat.required_class].color }}>
+              {CLASS_META[cat.required_class].label}
+            </span>
+          )}
         </div>
         {bonuses && <span className="text-[12px] text-text-2">{bonuses}</span>}
         {effectDesc && <span className="text-[12px] text-text-3 leading-snug">{effectDesc}</span>}

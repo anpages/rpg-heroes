@@ -2,6 +2,7 @@ import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { getWeekStart, generateRivals, isRegistrationOpen } from './_tournament.js'
 import { isUUID } from './_validate.js'
+import { CLASS_ARCHETYPE_POOL } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -40,7 +41,11 @@ export default async function handler(req, res) {
   const heroStats = await getEffectiveStats(supabase, heroId, user.id)
   if (!heroStats) return res.status(500).json({ error: 'No se pudieron obtener stats del héroe' })
 
-  const rivals = generateRivals(heroId, weekStart, heroStats)
+  const { data: allHeroes } = await supabase.from('heroes').select('class').eq('player_id', user.id)
+  const unlockedClasses = [...new Set((allHeroes ?? []).map(h => h.class).filter(Boolean))]
+  const archetypePool = [...new Set(unlockedClasses.flatMap(c => CLASS_ARCHETYPE_POOL[c] ?? []))]
+
+  const rivals = generateRivals(heroId, weekStart, heroStats, archetypePool.length > 0 ? archetypePool : undefined)
 
   const { data: bracket, error } = await supabase
     .from('tournament_brackets')

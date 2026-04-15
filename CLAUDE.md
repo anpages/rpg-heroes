@@ -26,8 +26,8 @@ api/                          # Serverless functions (Vercel)
   _auth.js                    # Middleware de autenticación
   _combat.js                  # Motor de combate
   _combatMath.js, _combatSign.js
-  _constants.js               # Re-exporta gameConstants
-  _enemyTactics.js            # IA enemiga
+  _constants.js               # Re-exporta gameConstants (incl. HERO_SLOT_CLASS)
+  _enemyTactics.js            # IA enemiga (pools por arquetipo)
   _hp.js                      # Interpolación HP idle
   _loot.js                    # Tablas de loot
   _missions.js                # Generación de misiones
@@ -38,10 +38,9 @@ api/                          # Serverless functions (Vercel)
   _tournament.js, _tournamentFinalize.js
   _towerFinalize.js           # Finalización de torre
   _validate.js                # Validación de inputs
-  _weeklyModifier.js          # Modificadores semanales (legacy, sin usar)
   building-*.js               # Edificios: collect, upgrade
   expedition-*.js             # Expediciones a mazmorras
-  hero-*.js                   # Reclutar, renombrar, descansar
+  hero-*.js                   # Reclutar (unlock slot), renombrar, descansar
   item-*.js                   # Equipar, reparar, desmantelar, transmutar, upgrade, usar
   item-enchant.js             # Aplicar runas de encantamiento a ítems
   refining-*.js               # Slots de laboratorio: start, collect, collect-all
@@ -55,7 +54,6 @@ api/                          # Serverless functions (Vercel)
   tournament-*.js             # Torneos: registro, pelea, status
   tower-attempt.js            # Intento de piso de torre
   training-*.js               # Entrenamiento: asignar, recoger, salas
-  weekly-modifier.js          # Modificador semanal (legacy, sin usar)
   bounty-*.js                 # Caza de Botín (APARCADO, desconectado del menú)
   bag-upgrade.js, onboarding.js
 
@@ -63,19 +61,19 @@ src/
   pages/
     Dashboard.jsx             # Hub principal: tabs, sidebar, modales
     LoginPage.jsx             # Login (siempre dark)
-    Onboarding.jsx            # Setup de nuevo jugador
+    Onboarding.jsx            # Setup: solo nombre, clase fija (Caudillo slot 1)
 
   sections/
     Base.jsx                  # Gestión de base
-    Hero.jsx                  # Ficha del héroe
+    Hero.jsx                  # Ficha del héroe — PENDIENTE: pill selector 5 héroes
     Equipo.jsx                # Inventario y equipamiento
-    Tacticas.jsx              # Sistema de tácticas (5 slots)
-    Dungeons.jsx              # Expediciones a mazmorras
-    QuickCombat.jsx           # Combate de práctica
-    Torre.jsx                 # Torre progresiva
+    Tacticas.jsx              # Sistema de tácticas (5 slots) — PENDIENTE: filtrar por clase
+    Dungeons.jsx              # Expediciones a mazmorras — PENDIENTE: zonas por clase
+    QuickCombat.jsx           # Combate de práctica — PENDIENTE: selector de héroe
+    Torre.jsx                 # Torre progresiva (1v1)
     Torneos.jsx               # Sistema de torneos
     Combates.jsx              # Hub de combate (sub-tabs)
-    TeamCombat.jsx            # Combate de equipo
+    TeamCombat.jsx            # Combate de equipo — PENDIENTE: rediseño 3v3/5v5
     Shop.jsx                  # Tienda
     Misiones.jsx              # Misiones diarias
     Ranking.jsx               # Clasificación PvP
@@ -84,42 +82,74 @@ src/
     TeamCombatHistorial.jsx   # Historial equipos
     Inicio.jsx                # Sección inicial
     CazaBotin.jsx             # Caza de Botín (APARCADO)
-    Escuadron.jsx             # Escuadrón (comentado)
     base/                     # Sub-secciones de Base (zonas, cards, modales)
       RecursosZone.jsx        # Edificios de producción
       TallerZone.jsx          # Laboratorio (crafteo)
-      EntrenamientoZone.jsx   # Salas de entrenamiento
+      EntrenamientoZone.jsx   # Salas de entrenamiento — PENDIENTE: mover lógica a zona héroe
       BibliotecaZone.jsx      # Árbol de investigación
 
   hooks/                      # TanStack Query hooks para cada entidad
   lib/
-    gameConstants.js           # FUENTE ÚNICA de constantes de balance
+    gameConstants.js           # FUENTE ÚNICA de constantes de balance + HERO_SLOT_CLASS
     gameFormulas.js            # Fórmulas compartidas frontend/backend
     notifications.js           # Wrapper notify.* sobre sonner
     supabase.js                # Cliente Supabase
     queryClient.js             # Config TanStack Query
     queryKeys.js               # Factory de query keys
     api.js                     # Utilidades de fetch
-    combatAbilities.js         # Definiciones de habilidades
+    combatAbilities.js         # Habilidades por clase (incl. universal)
     combatDecisions.js         # IA de decisiones de combate
     combatRating.js            # Sistema de rating
     hpInterpolation.js         # Interpolación HP idle
     missionPool.js             # Pool de misiones
     teamSynergy.js             # Sinergias de equipo
-    weeklyModifiers.js         # Modificadores semanales (legacy, sin usar)
 
   components/                  # Componentes reutilizables (modales, combat replay, etc.)
   store/appStore.js            # Zustand: tabs, modales, hero seleccionado
 
-supabase/migrations/           # ~125 migraciones SQL
+supabase/migrations/           # ~126 migraciones SQL
 ```
 
 ## Navegación
 
 - **Base** — Zonas: Producción, Laboratorio, Entrenamiento, Biblioteca
-- **Héroes** — Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
-- **Combate** — Sub-tabs: Práctica, Torre, Torneos, Historial, Clasificación
-- **Arena** — PvP de equipo (placeholder "próximamente" para 1v1 asíncrono)
+- **Héroes** — Pill selector de héroe activo → Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
+- **Combate** — Sub-tabs: Práctica, Torre (1v1), 3v3 (desbloq. base Nv.3), 5v5 (desbloq. base Nv.5), Torneos, Historial, Clasificación
+- **Arena** — PvP de equipo (placeholder "próximamente")
+
+## Rediseño V2 — Estado actual
+
+**Diseño acordado**: el juego pasa de 1 héroe genérico a 5 héroes especializados por clase con sistema de combate estratégico por selección.
+
+### Decisiones de diseño cerradas
+- **5 héroes fijos**, uno por clase, desbloqueo progresivo por nivel de base
+- **Clases y orden de desbloqueo** (FIJO, no elegible):
+  - Slot 1 — Caudillo (inicio, onboarding)
+  - Slot 2 — Sombra (base Nv.3)
+  - Slot 3 — Arcanista (base Nv.5)
+  - Slot 4 — Domador (base Nv.7)
+  - Slot 5 — Universal (base Nv.10)
+- **Recursos compartidos** entre todos los héroes (la base produce para todos)
+- **Entrenamiento** → se moverá a zona individual del héroe, solo stats de la clase
+- **Expediciones** → por héroe, zonas temáticas y drops específicos por clase
+- **Tácticas** → exclusivas por clase, efectos condicionales/sinérgicos (no solo flat bonuses)
+- **3 formatos de combate** que se desbloquean, no se sustituyen:
+  - 1v1 — siempre disponible (Torre, Práctica, Torneos)
+  - 3v3 — desbloquea con base Nv.3 (3 héroes disponibles)
+  - 5v5 — desbloquea con base Nv.5 (todos los héroes)
+- **Mecánica de equipo**: ver equipo enemigo → asignar matchups (quién lucha contra quién) → 1v1s en paralelo → gana quien gana más duelos
+- **Pool de enemigos** crece con héroes desbloqueados
+- **Motor de combate** (`_combat.js`) NO cambia
+
+### Fases de implementación
+- [x] **Fase 1** — Estructura de datos: `HERO_SLOT_CLASS`, `HERO_SLOT_REQUIREMENTS` actualizado, clase Universal en DB, `hero-recruit.js` y `onboarding.js` sin elección de clase
+- [ ] **Fase 2** — Navegación: pill selector de 5 héroes en sección Hero
+- [ ] **Fase 3** — Entrenamiento por héroe: mover a zona individual, filtrar stats por clase
+- [ ] **Fase 4** — Expediciones por clase: zonas temáticas, drops dirigidos
+- [ ] **Fase 5** — Tácticas por clase: catálogo completo con efectos condicionales
+- [ ] **Fase 6** — Combate 3v3: UI de asignación de matchups, combates paralelos
+- [ ] **Fase 7** — Combate 5v5: mismo patrón que 3v3, contenido endgame
+- [ ] **Fase 8** — Pool de enemigos dinámico: enemigos disponibles según héroes desbloqueados
 
 ## Sistemas del juego
 
@@ -136,18 +166,19 @@ supabase/migrations/           # ~125 migraciones SQL
 - Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
 - `lumber_mill`: cap=60 madera → L1: 3h20m, L5: 49m ← **recurso principal, más rápido que mina**
 - `gold_mine`: cap=48 hierro → L1: 4h, L5: 1h
-- `herb_garden`: cap=56 hierbas → L1: 5h5m, L5: 1h15m (~25% más lento que mina)
+- `herb_garden`: cap=56 hierbas → L1: 5h5m, L5: 1h25m (~25% más lento que mina)
 - `mana_well`: cap=102 maná → L1: 6h, L5: 1h27m (recurso escaso, ritmo lento)
 - Spread entre aserradero y maná: ~1.8× constante en todos los niveles
 - RPC: `collect_building_production` y `collect_all_buildings_production` (solo si lleno)
 - Mejora del jardín (L2+) requiere también hierbas: L2→L3: 24, L3→L4: 36, L4→L5: 48
 
 ### Héroes
-- Clases: Universal, Caudillo, Arcanista, Sombra, Domador
+- **5 clases**: Caudillo, Sombra, Arcanista, Domador, Universal
+- **Clase fija por slot** — `HERO_SLOT_CLASS` en `gameConstants.js` es la fuente de verdad
+- **Desbloqueo progresivo** por nivel de base — ver tabla en sección "Rediseño V2"
+- **No hay elección de clase** en onboarding ni en recruit — la clase viene del slot
 - Stats base: strength, agility, intelligence → derivadas: HP, attack, defense
-- Slots de héroe: 2º requiere base Nv.4, 3º base Nv.5
-- Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence)
-- **Recogida simultánea**: cada sala tiene su propio estado pending (Set de stats en curso)
+- Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence) — PENDIENTE mover a zona héroe con filtro por clase
 
 ### Equipamiento
 - 7 slots: helmet, chest, arms, legs, main_hand, off_hand, accessory
@@ -166,28 +197,31 @@ supabase/migrations/           # ~125 migraciones SQL
 - UI en Equipo.jsx: badge de encantamientos + picker inline en cada slot
 
 ### Tácticas
-- 5 slots por héroe (sin sistema de nivel, el level-up fue eliminado)
-- Categorías: Offensive, Defensive, Tactical, Utility
-- Bonus de stats + efectos de combate
+- 5 slots por héroe
+- **PENDIENTE (Fase 5)**: las tácticas pasarán a ser exclusivas por clase con efectos condicionales
+- Por ahora: pool genérico compartido, efectos flat bonus
 - Tap en card de colección → equipa al instante (sin modal)
 - Tap en chip equipado → desequipa al instante (sin modal)
 - Solo modal cuando todos los slots están llenos: picker de slot a reemplazar
 
 ### Expediciones y mazmorras
 - Idle con timer, coste de HP basado en fórmulas de gameFormulas.js
+- **PENDIENTE (Fase 4)**: cada héroe tendrá zonas exclusivas con drops por clase
 - **Provisiones de expedición**: opt-in toggle antes de iniciar (+15% oro, +10% XP). Se consume 1 si activado.
 - **Poción de Vida**: se usa desde la ficha del héroe (restaura 40% HP al momento), NO desde expediciones
 - Mazmorras bloqueadas por nivel: muestran botón deshabilitado con "Requiere Nv. X"
-- Modificadores semanales eliminados del sistema activo
 
 ### Torre
-- Progresión infinita con escalado de enemigos
+- Progresión infinita con escalado de enemigos (formato 1v1, siempre disponible)
 - Pisos 1-25: crecimiento lineal, 26+: velocidad media
 - Hitos cada 5 pisos con recompensas bonus
 - Arquetipos enemigos: Berserker, Tank, Assassin, Mage
 
 ### Combate
-- Por turnos con habilidades, tácticas, sinergias de equipo
+- Motor por turnos con habilidades, tácticas, sinergias de equipo — NO CAMBIA
+- **3 formatos** (ver "Rediseño V2"): 1v1 siempre, 3v3 y 5v5 se desbloquean
+- **Mecánica de equipo**: asignación de matchups previa → 1v1s en paralelo
+- **PENDIENTE (Fase 6-7)**: UI de selección de héroe y asignación de matchups
 - Sistema de rating para matchmaking
 - Firma HMAC para verificar resultados
 

@@ -60,12 +60,12 @@ function fmtShort(secs) {
 /* ── TallerZone ──────────────────────────────────────────────────────────── */
 
 export default function TallerZone({
-  byType, trainingRooms, effectiveResources, catalog, inventory, refiningSlots,
+  byType, effectiveResources, catalog, inventory, refiningSlots,
   onRefine, onCollectSlot,
   anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
 }) {
   const lab = byType['laboratory']
-  const baseLevel = baseLevelFromMap(byType, trainingRooms)
+  const baseLevel = baseLevelFromMap(byType)
   const [, tick] = useReducer(x => x + 1, 0)
 
   // Tick para actualizar barras

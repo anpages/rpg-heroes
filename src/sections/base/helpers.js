@@ -38,8 +38,8 @@ export function fmtCountdown(endsAt) {
   return `${s}s`
 }
 
-export function baseLevelFromMap(byType, trainingRooms = []) {
-  return computeBaseLevel(Object.values(byType), trainingRooms)
+export function baseLevelFromMap(byType) {
+  return computeBaseLevel(Object.values(byType))
 }
 
 export function getBaseTier(level) {

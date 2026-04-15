@@ -5,35 +5,36 @@ import { motion } from 'framer-motion'
 import { apiPost } from '../../lib/api.js'
 import { queryKeys } from '../../lib/queryKeys.js'
 import { hasReadyPoint } from '../../hooks/useTraining.js'
-import { TRAINING_ROOM_BUILD_TIME_MS, trainingRoomUpgradeDurationMs } from '../../lib/gameConstants.js'
-import { cardVariants, TRAINING_ROOMS, STAT_LABEL_MAP } from './constants.js'
-import { baseLevelFromMap } from './helpers.js'
+import { trainingRoomUpgradeDurationMs } from '../../lib/gameConstants.js'
+import { cardVariants, TRAINING_ROOMS } from './constants.js'
 import RoomCard from './RoomCard.jsx'
 
-export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, byType, anyUpgrading }) {
+export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, heroLevel, anyUpgrading, allowedStats }) {
   const queryClient = useQueryClient()
-  const baseLevel      = baseLevelFromMap(byType, trainingRooms)
   const roomByStat     = Object.fromEntries(trainingRooms.map(r => [r.stat, r]))
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
   const builtRooms     = trainingRooms.filter(r => r.built_at !== null)
   const anyReady       = builtRooms.some(r => hasReadyPoint(progressByStat[r.stat], r.level))
+  const visibleRooms   = allowedStats ? TRAINING_ROOMS.filter(r => allowedStats.includes(r.stat)) : TRAINING_ROOMS
 
   const isQueueBusy = anyUpgrading
   const [collectingStats, setCollectingStats] = useState(() => new Set())
 
   const trKey = queryKeys.trainingRooms(userId)
   const tpKey = queryKeys.training(heroId)
-  const ttKey = queryKeys.trainingTokens(userId)
+  const hKey  = queryKeys.hero(heroId)
+  const hsKey = queryKeys.heroes(userId)
   const rsKey = queryKeys.resources(userId)
 
+  // Activar sala — instantáneo, sin coste
   const buildMutation = useMutation({
     mutationKey: ['training-build'],
-    mutationFn: (stat) => apiPost('/api/training-room-build', { stat }),
+    mutationFn: (stat) => apiPost('/api/training-room-build', { stat, heroId }),
     onMutate: (stat) => {
       const prev = queryClient.getQueryData(trKey)
       queryClient.setQueryData(trKey, old => [
         ...(old ?? []),
-        { stat, level: 1, built_at: null, building_ends_at: new Date(Date.now() + TRAINING_ROOM_BUILD_TIME_MS).toISOString() },
+        { stat, level: 1, built_at: new Date().toISOString(), building_ends_at: null },
       ])
       return { prev }
     },
@@ -41,26 +42,18 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       if (ctx?.prev) queryClient.setQueryData(trKey, ctx.prev)
       notify.error(err.message)
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: trKey })
-      queryClient.invalidateQueries({ queryKey: rsKey })
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: trKey }),
   })
 
-  const buildCollectMutation = useMutation({
+  // Recoger upgrade completado
+  const upgradeCollectMutation = useMutation({
     mutationKey: ['training-build-collect'],
     mutationFn: ({ stat }) => apiPost('/api/training-room-build-collect', { stat, heroId }),
     onMutate: ({ stat }) => {
       const prev = queryClient.getQueryData(trKey)
       queryClient.setQueryData(trKey, old => {
         if (!old) return old
-        return old.map(r => {
-          if (r.stat !== stat) return r
-          const isInitial = r.built_at === null
-          return isInitial
-            ? { ...r, built_at: new Date().toISOString(), building_ends_at: null }
-            : { ...r, level: r.level + 1, building_ends_at: null }
-        })
+        return old.map(r => r.stat !== stat ? r : { ...r, level: r.level + 1, building_ends_at: null })
       })
       return { prev }
     },
@@ -112,7 +105,6 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       })
       return { prev }
     },
-    onSuccess: () => {},
     onError: (err, stat, ctx) => {
       setCollectingStats(prev => { const n = new Set(prev); n.delete(stat); return n })
       if (ctx?.prev) queryClient.setQueryData(tpKey, ctx.prev)
@@ -122,39 +114,34 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
       setCollectingStats(prev => { const n = new Set(prev); n.delete(stat); return n })
       if (queryClient.isMutating({ mutationKey: ['training-collect'] }) === 0) {
         queryClient.invalidateQueries({ queryKey: tpKey })
-        queryClient.invalidateQueries({ queryKey: ttKey })
+        queryClient.invalidateQueries({ queryKey: hKey })
+        queryClient.invalidateQueries({ queryKey: hsKey })
       }
     },
   })
 
-  const mutPending = buildMutation.isPending || upgradeMutation.isPending || buildCollectMutation.isPending || collectMutation.isPending
+  const mutPending = buildMutation.isPending || upgradeMutation.isPending || upgradeCollectMutation.isPending || collectMutation.isPending
 
   return (
     <motion.div className="flex flex-col gap-4" variants={cardVariants} initial="initial" animate="animate">
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
-        {builtRooms.length > 0 && (
-          <span className="text-[10px] font-semibold text-text-3">Produce tokens asignables a cualquier héroe</span>
-        )}
-      </div>
-
+      <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-text-3">Salas de entrenamiento</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {TRAINING_ROOMS.map(room => (
+        {visibleRooms.map(room => (
           <RoomCard
             key={room.stat}
             room={room}
             roomData={roomByStat[room.stat]}
             progressRow={progressByStat[room.stat]}
             resources={resources}
-            baseLevel={baseLevel}
+            heroLevel={heroLevel}
             mutPending={mutPending}
             isQueueBusy={isQueueBusy}
             anyReady={anyReady}
             collectPending={collectingStats.has(room.stat)}
             onBuild={() => buildMutation.mutate(room.stat)}
             onUpgrade={() => upgradeMutation.mutate(room.stat)}
-            onBuildCollect={() => buildCollectMutation.mutate({ stat: room.stat })}
+            onUpgradeCollect={() => upgradeCollectMutation.mutate({ stat: room.stat })}
             onCollect={() => collectMutation.mutate(room.stat)}
           />
         ))}

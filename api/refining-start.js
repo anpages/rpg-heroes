@@ -32,11 +32,9 @@ export default async function handler(req, res) {
   // Verificar nivel de base mínimo requerido por la receta
   const minBaseLevel = RECIPE_MIN_BASE_LEVEL[recipeId] ?? 0
   if (minBaseLevel > 0) {
-    const [{ data: allBuildings }, { data: allRooms }] = await Promise.all([
-      supabase.from('buildings').select('type, level, unlocked').eq('player_id', user.id),
-      supabase.from('training_rooms').select('stat, built_at').eq('player_id', user.id),
-    ])
-    const baseLevel = computeBaseLevel(allBuildings ?? [], allRooms ?? [])
+    const { data: allBuildings } = await supabase
+      .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
+    const baseLevel = computeBaseLevel(allBuildings ?? [])
     if (baseLevel < minBaseLevel) {
       return res.status(403).json({ error: `Requiere base nivel ${minBaseLevel}` })
     }

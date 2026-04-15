@@ -1,27 +1,28 @@
 import { requireAuth } from './_auth.js'
-import { STARTING_RESOURCES, ALL_BUILDING_TYPES, INITIALLY_UNLOCKED_BUILDINGS, STARTS_AT_LEVEL_ZERO } from '../src/lib/gameConstants.js'
-
+import { STARTING_RESOURCES, ALL_BUILDING_TYPES, INITIALLY_UNLOCKED_BUILDINGS, STARTS_AT_LEVEL_ZERO, HERO_SLOT_CLASS } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroName, heroClass } = req.body
+  const { heroName } = req.body
 
   const name = heroName?.trim()
   if (!name || name.length < 2 || name.length > 20) {
     return res.status(400).json({ error: 'El nombre debe tener entre 2 y 20 caracteres' })
   }
 
-  // Obtener datos de la clase desde la BD
+  // El primer héroe siempre es Caudillo (slot 1)
+  const heroClass = HERO_SLOT_CLASS[1]
+
   const { data: classData } = await supabase
     .from('classes')
     .select('*')
     .eq('id', heroClass)
     .single()
 
-  if (!classData) return res.status(400).json({ error: 'Clase inválida' })
+  if (!classData) return res.status(500).json({ error: 'Clase inicial no encontrada' })
 
   // Check player doesn't already exist
   const { data: existing } = await supabase
@@ -42,23 +43,20 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: playerError.message })
   }
 
-  // Create resources — valores definidos en gameConstants.js (fuente de verdad)
+  // Create resources
   const { error: resourcesError } = await supabase
     .from('resources')
     .insert({ player_id: user.id, ...STARTING_RESOURCES })
 
   if (resourcesError) return res.status(500).json({ error: resourcesError.message })
 
-  // Create buildings — el lab empieza en nivel 0 (sin construir).
-  // Los edificios bloqueados se derivan automáticamente de UNLOCK_TRIGGERS en gameConstants.
+  // Create buildings
   const { error: buildingsError } = await supabase
     .from('buildings')
     .insert(
       ALL_BUILDING_TYPES.map(type => ({
         player_id: user.id,
         type,
-        // Edificios desbloqueados desde el inicio (nexo y aserradero) arrancan en Nv1.
-        // Laboratorio, mina y pozo de maná se construyen manualmente desde Nv0.
         level:    (INITIALLY_UNLOCKED_BUILDINGS.includes(type) && !STARTS_AT_LEVEL_ZERO.has(type)) ? 1 : 0,
         unlocked: INITIALLY_UNLOCKED_BUILDINGS.includes(type),
       }))
@@ -66,13 +64,14 @@ export default async function handler(req, res) {
 
   if (buildingsError) return res.status(500).json({ error: buildingsError.message })
 
-  // Create hero
+  // Create hero (slot 1, clase fija: Caudillo)
   const { data: hero, error: heroError } = await supabase
     .from('heroes')
     .insert({
-      player_id: user.id,
+      player_id:    user.id,
       name,
-      class: heroClass,
+      class:        heroClass,
+      slot:         1,
       strength:     classData.strength,
       agility:      classData.agility,
       intelligence: classData.intelligence,
@@ -86,7 +85,6 @@ export default async function handler(req, res) {
 
   if (heroError) return res.status(500).json({ error: heroError.message })
 
-  // Create initial ability
   await supabase.from('hero_abilities').insert({
     hero_id: hero.id,
     type: classData.starting_ability,

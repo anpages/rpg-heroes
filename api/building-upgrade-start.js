@@ -65,11 +65,9 @@ export default async function handler(req, res) {
   }
   const baseLevelCheck = BASE_LEVEL_CHECKS[building.type]
   if (baseLevelCheck) {
-    const [{ data: allBuildings }, { data: trainingRooms }] = await Promise.all([
-      supabase.from('buildings').select('type, level, unlocked').eq('player_id', user.id),
-      supabase.from('training_rooms').select('stat, built_at').eq('player_id', user.id),
-    ])
-    const baseLevel = computeBaseLevel(allBuildings ?? [], trainingRooms ?? [])
+    const { data: allBuildings } = await supabase
+      .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
+    const baseLevel = computeBaseLevel(allBuildings ?? [])
     if (baseLevel < baseLevelCheck.min) {
       return res.status(403).json({ error: `Necesitas base nivel ${baseLevelCheck.min} para construir ${baseLevelCheck.label}` })
     }

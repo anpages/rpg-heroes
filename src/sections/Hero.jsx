@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useRef } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
@@ -8,7 +8,6 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
 import { useCraftedItems } from '../hooks/useCraftedItems'
-import { useTrainingTokens } from '../hooks/useTrainingTokens'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
@@ -18,7 +17,7 @@ import { useHeroTactics } from '../hooks/useHeroTactics'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  Wrench, Info, Pencil, Check, Telescope, Award, Plus,
+  Wrench, Info, Pencil, Check, Telescope,
 } from 'lucide-react'
 import { tierForRating } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
@@ -248,46 +247,6 @@ function StatBars({ effective, base }) {
           </div>
         )
       })}
-    </div>
-  )
-}
-
-const TOKEN_STATS = [
-  { key: 'strength',     label: 'FUE',   Icon: Dumbbell, color: '#dc2626' },
-  { key: 'agility',      label: 'AGI',   Icon: Wind,     color: '#2563eb' },
-  { key: 'attack',       label: 'ATQ',   Icon: Sword,    color: '#d97706' },
-  { key: 'defense',      label: 'DEF',   Icon: Shield,   color: '#475569' },
-  { key: 'max_hp',       label: 'HP',    Icon: Heart,    color: '#e11d48' },
-  { key: 'intelligence', label: 'INT',   Icon: Brain,    color: '#7c3aed' },
-]
-
-function TokenAssignPanel({ tokens, onAssign }) {
-  const available = TOKEN_STATS.filter(s => (tokens[s.key] ?? 0) > 0)
-  if (available.length === 0) return null
-
-  return (
-    <div className="flex flex-col gap-2 pt-3 border-t border-border">
-      <div className="flex items-center gap-1.5 px-0.5">
-        <Award size={12} strokeWidth={2.5} className="text-[#d97706]" />
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
-          Asignar tokens
-        </span>
-      </div>
-      <div className="flex gap-1.5 flex-wrap">
-        {available.map(({ key, label, Icon, color }) => (
-          <motion.button
-            key={key}
-            className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-bold"
-            style={{ borderColor: color, color, background: `color-mix(in srgb, ${color} 6%, var(--surface))` }}
-            onClick={() => onAssign(key)}
-            whileTap={{ scale: 0.92 }}
-          >
-            <Icon size={11} strokeWidth={2} />
-            +1 {label}
-            <span className="text-text-3 font-medium ml-0.5">({tokens[key]})</span>
-          </motion.button>
-        ))}
-      </div>
     </div>
   )
 }
@@ -720,7 +679,6 @@ function Hero() {
   const { resources } = useResources(userId)
   const { research }  = useResearch(userId)
   const { inventory: craftedItems } = useCraftedItems(userId)
-  const { tokens: trainingTokens, totalTokens } = useTrainingTokens(userId)
   const researchBonuses = computeResearchBonuses(research.completed)
   const [bagOpen,        setBagOpen]        = useState(false)
   const [slotPicker,     setSlotPicker]     = useState(null)
@@ -731,7 +689,6 @@ function Hero() {
   const [renameOpen,  setRenameOpen]  = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
-  const assignPending = useRef(0)
 
   const renameMutation = useMutation({
     mutationFn: (name) => apiPost('/api/hero-rename', { heroId: hero?.id, name }),
@@ -741,25 +698,6 @@ function Hero() {
       setRenameOpen(false)
     },
     onError: (err) => notify.error(err.message),
-  })
-
-  const assignTokenMutation = useMutation({
-    mutationKey: ['training-assign'],
-    mutationFn: ({ stat, amount }) => apiPost('/api/training-assign', { heroId: hero?.id, stat, amount }),
-    onMutate: ({ stat }) => {
-      assignPending.current++
-      queryClient.setQueryData(queryKeys.hero(heroId), (old) => old ? { ...old, [stat]: (old[stat] ?? 0) + 1 } : old)
-      queryClient.setQueryData(queryKeys.trainingTokens(userId), (old) => old ? { ...old, [stat]: Math.max(0, (old[stat] ?? 0) - 1) } : old)
-    },
-    onError: (err) => notify.error(err.message),
-    onSettled: () => {
-      assignPending.current--
-      if (assignPending.current === 0) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
-      }
-    },
   })
 
   const itemMutation = useMutation({
@@ -876,6 +814,7 @@ function Hero() {
 
   return (
     <motion.div key="hero-content" className="overflow-x-hidden flex flex-col gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 items-start">
 
         {/* Left column: hero card only */}
@@ -1000,14 +939,6 @@ function Hero() {
               effective={{ attack: effective.attack, defense: effective.defense, strength: effective.strength, agility: effective.agility, intelligence: effective.intelligence }}
               base={{ attack: hero.attack, defense: hero.defense, strength: hero.strength, agility: hero.agility, intelligence: hero.intelligence }}
             />
-
-            {/* Token assignment */}
-            {totalTokens > 0 && (
-              <TokenAssignPanel
-                tokens={trainingTokens}
-                onAssign={(stat) => assignTokenMutation.mutate({ stat, amount: 1 })}
-              />
-            )}
 
             <button
               className="flex items-center justify-center gap-1.5 text-[12px] font-medium text-text-3 hover:text-text-2 w-full py-1.5 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border transition-colors"

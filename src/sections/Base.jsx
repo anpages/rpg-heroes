@@ -3,13 +3,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/appStore'
-import { useHeroId } from '../hooks/useHeroId'
 import { useBuildings } from '../hooks/useBuildings'
 import { useResources } from '../hooks/useResources'
 import { useBuildingProduction } from '../hooks/useBuildingProduction'
 import { useCraftedItems } from '../hooks/useCraftedItems'
-import { useTraining, hasReadyPoint } from '../hooks/useTraining'
-import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { useResearch } from '../hooks/useResearch'
 import { REFINING_BUILDING_TYPES, buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
 import { queryKeys } from '../lib/queryKeys'
@@ -19,21 +16,17 @@ import ZonePills from './base/ZonePills.jsx'
 import RecursosZone from './base/RecursosZone.jsx'
 import RefinadoZone from './base/RefinadoZone.jsx'
 import TallerZone from './base/TallerZone.jsx'
-import EntrenamientoZone from './base/EntrenamientoZone.jsx'
 import BibliotecaZone from './base/BibliotecaZone.jsx'
 
 export default function Base({ mainRef }) {
   const userId      = useAppStore(s => s.userId)
   const activeTab   = useAppStore(s => s.activeTab)
-  const heroId      = useHeroId()
   const queryClient = useQueryClient()
   const { buildings, loading } = useBuildings(userId)
   const { resources }          = useResources(userId)
   const { production, anyReady } = useBuildingProduction(userId)
   const { catalog, inventory, refiningSlots } = useCraftedItems(userId)
-  const { rooms: trainingRooms } = useTrainingRooms(userId)
-  const { rows: trainingProgress } = useTraining(heroId)
-  const { research }                       = useResearch(userId)
+  const { research } = useResearch(userId)
   const [activeZone,    setActiveZone]    = useState('produccion')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
@@ -334,11 +327,10 @@ export default function Base({ mainRef }) {
   const now = new Date()
   const isUpgrading = (type) => (buildings ?? []).some(b => b.type === type && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
 
-  const recursosUpgrading      = upgradePending || RESOURCE_BUILDINGS.some(isUpgrading)
-  const refinadoUpgrading      = upgradePending || REFINING_BUILDINGS.some(isUpgrading)
-  const entrenamientoUpgrading = upgradePending || (trainingRooms ?? []).some(r => r.building_ends_at && new Date(r.building_ends_at) > now)
-  const tallerUpgrading        = upgradePending || isUpgrading('laboratory')
-  const bibliotecaUpgrading    = upgradePending || isUpgrading('library')
+  const recursosUpgrading   = upgradePending || RESOURCE_BUILDINGS.some(isUpgrading)
+  const refinadoUpgrading   = upgradePending || REFINING_BUILDINGS.some(isUpgrading)
+  const tallerUpgrading     = upgradePending || isUpgrading('laboratory')
+  const bibliotecaUpgrading = upgradePending || isUpgrading('library')
 
   // ── Badges para zone pills ──────────────────────────────────────────────────
   const produccionBadge = anyReady
@@ -354,11 +346,6 @@ export default function Base({ mainRef }) {
   }).length
   const tallerBadge = tallerSlotsReady
 
-  const progressByStat = Object.fromEntries((trainingProgress ?? []).map(r => [r.stat, r]))
-  const entrenamientoBadge = (trainingRooms ?? []).filter(r =>
-    r.built_at !== null && hasReadyPoint(progressByStat[r.stat], r.level)
-  ).length
-
   const refinadoSlotsReady = (refiningSlots ?? []).filter(s => {
     if (!REFINING_BUILDING_TYPES.includes(s.building_type)) return false
     const elapsed = now - new Date(s.craft_started_at).getTime()
@@ -372,9 +359,8 @@ export default function Base({ mainRef }) {
 
   const zoneBadges = {
     produccion: produccionBadge,
-    refinado: refinadoBadge,
-    taller: tallerBadge,
-    entrenamiento: entrenamientoBadge,
+    refinado:   refinadoBadge,
+    taller:     tallerBadge,
     biblioteca: bibliotecaBadge,
   }
 
@@ -388,7 +374,7 @@ export default function Base({ mainRef }) {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <BaseHeader byType={byType} resources={effectiveResources} trainingRooms={trainingRooms} />
+      <BaseHeader byType={byType} resources={effectiveResources} />
 
       <ZonePills active={activeZone} onChange={setActiveZone} badges={zoneBadges} />
 
@@ -427,7 +413,6 @@ export default function Base({ mainRef }) {
           {activeZone === 'taller' && (
             <TallerZone
               byType={byType}
-              trainingRooms={trainingRooms}
               effectiveResources={effectiveResources}
               catalog={catalog}
               inventory={inventory}
@@ -439,22 +424,9 @@ export default function Base({ mainRef }) {
             />
           )}
 
-          {activeZone === 'entrenamiento' && (
-            <EntrenamientoZone
-              trainingRooms={trainingRooms}
-              trainingProgress={trainingProgress}
-              resources={effectiveResources}
-              userId={userId}
-              heroId={heroId}
-              byType={byType}
-              anyUpgrading={entrenamientoUpgrading}
-            />
-          )}
-
           {activeZone === 'biblioteca' && (
             <BibliotecaZone
               byType={byType}
-              trainingRooms={trainingRooms}
               research={research}
               resources={effectiveResources}
               onResearchStart={(nodeId) => researchStartMutation.mutate(nodeId)}

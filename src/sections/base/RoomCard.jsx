@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
-import { Axe, Pickaxe, Clock, Lock, ChevronRight, Hammer, PackageOpen, X, TrendingUp } from 'lucide-react'
+import { Axe, Pickaxe, Clock, Lock, ChevronRight, X, TrendingUp, PackageOpen, Play } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   xpRateForLevel,
   trainingRoomUpgradeCost, trainingRoomUpgradeDurationMs,
-  TRAINING_ROOM_BUILD_COST_BY_STAT, TRAINING_ROOM_BUILD_TIME_MS, TRAINING_ROOM_MAX_LEVEL,
+  TRAINING_ROOM_MAX_LEVEL,
 } from '../../lib/gameConstants.js'
 import { xpThreshold } from '../../hooks/useTraining.js'
 import { fmt, fmtTime } from './helpers.js'
@@ -34,7 +34,7 @@ function fmtDuration(secs) {
   return `${s}s`
 }
 
-export default function RoomCard({ room, roomData, progressRow, resources, baseLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onBuildCollect, onCollect }) {
+export default function RoomCard({ room, roomData, progressRow, resources, heroLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onUpgradeCollect, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const collectingRef = useRef(false)
@@ -46,36 +46,34 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
   }, [])
 
   const Icon             = room.icon
-  const exists           = !!roomData
-  const isBuilt          = exists && roomData.built_at !== null
+  const isBuilt          = !!roomData?.built_at
   const building_ends_at = roomData?.building_ends_at ?? null
-  const isConstructing   = exists && !!building_ends_at
-  const roomLevel        = roomData?.level ?? 0
-  const lockedByBase     = !exists && baseLevel < room.baseLevelMin
+  const isUpgrading      = isBuilt && !!building_ends_at
+  const roomLevel        = roomData?.level ?? 1
+  const lockedByLevel    = !roomData && heroLevel < room.heroLevelMin
 
+  // Timer de mejora
   useEffect(() => {
-    if (!isConstructing) { setSecondsLeft(null); collectingRef.current = false; return }
+    if (!isUpgrading) { setSecondsLeft(null); collectingRef.current = false; return }
     const endTime = new Date(building_ends_at)
-    function tick() {
+    function update() {
       const rem = Math.max(0, Math.floor((endTime - Date.now()) / 1000))
       setSecondsLeft(rem)
       if (rem === 0 && !collectingRef.current) {
         collectingRef.current = true
-        onBuildCollect()
+        onUpgradeCollect()
       }
     }
-    tick()
-    const id = setInterval(tick, 1000)
+    update()
+    const id = setInterval(update, 1000)
     return () => clearInterval(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building_ends_at])
 
   const rate    = xpRateForLevel(isBuilt ? roomLevel : 1)
   const thr     = xpThreshold(progressRow?.total_gained ?? 0)
-  const upgrading = isBuilt && isConstructing
 
-  // XP actual interpolada en tiempo real
-  const xp = isBuilt && progressRow && !upgrading
+  const xp = isBuilt && progressRow && !isUpgrading
     ? (() => {
         const hoursToThr   = Math.max(0, (thr - progressRow.xp_bank) / rate)
         const refTime      = Math.max(
@@ -87,40 +85,28 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
       })()
     : (progressRow?.xp_bank ?? 0)
 
-  const xpPct  = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
-  const ready  = isBuilt && progressRow && !upgrading ? xp >= thr : false
-
-  // Segundos restantes para el próximo punto
-  const secsToNext = isBuilt && progressRow && !ready && !upgrading
+  const xpPct       = isBuilt && progressRow ? Math.min(100, Math.round((xp / thr) * 100)) : 0
+  const ready       = isBuilt && progressRow && !isUpgrading ? xp >= thr : false
+  const secsToNext  = isBuilt && progressRow && !ready && !isUpgrading
     ? Math.max(0, Math.round((thr - xp) / rate * 3600))
     : 0
-
-  // Horas por punto (para mostrar cadencia)
   const hoursPerPoint = thr / rate
 
-  const upgCost   = isBuilt ? trainingRoomUpgradeCost(roomLevel) : (TRAINING_ROOM_BUILD_COST_BY_STAT[room.stat] ?? TRAINING_ROOM_BUILD_COST_BY_STAT.strength)
-  const canAfford = resources
-    ? resources.wood >= upgCost.wood && resources.iron >= upgCost.iron
-    : false
+  const upgCost   = trainingRoomUpgradeCost(roomLevel)
+  const canAfford = resources ? resources.wood >= upgCost.wood && resources.iron >= upgCost.iron : false
 
-  const buildDurationSec = isConstructing
-    ? (isBuilt ? trainingRoomUpgradeDurationMs(roomLevel) / 1000 : TRAINING_ROOM_BUILD_TIME_MS / 1000)
-    : 0
-  const buildElapsed = buildDurationSec - (secondsLeft ?? buildDurationSec)
-  const buildPct = buildDurationSec > 0 ? Math.min(100, Math.round((buildElapsed / buildDurationSec) * 100)) : 0
+  const upgradeDurSec = isUpgrading ? trainingRoomUpgradeDurationMs(roomLevel - 1) / 1000 : 0
+  const upgradeElapsed = upgradeDurSec - (secondsLeft ?? upgradeDurSec)
+  const upgradePct = upgradeDurSec > 0 ? Math.min(100, Math.round((upgradeElapsed / upgradeDurSec) * 100)) : 0
 
   return (
     <div
       className={`flex flex-col rounded-xl border overflow-hidden transition-[border-color] duration-200 ${
-        lockedByBase
+        lockedByLevel
           ? 'border-dashed border-border bg-surface opacity-50 pointer-events-none'
           : ready
             ? 'border-border bg-surface shadow-[var(--shadow-sm)]'
-            : isBuilt
-              ? 'border-border bg-surface'
-              : isConstructing
-                ? 'border-border bg-surface'
-                : 'border-dashed border-border bg-surface'
+            : 'border-border bg-surface'
       }`}
       style={ready ? { borderColor: `color-mix(in srgb,${room.color} 40%,var(--border))` } : {}}
     >
@@ -134,46 +120,42 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className={`text-[14px] font-bold leading-none ${isBuilt || isConstructing ? 'text-text' : 'text-text-3'}`}>
+            <p className={`text-[14px] font-bold leading-none ${isBuilt ? 'text-text' : 'text-text-3'}`}>
               {room.label}
             </p>
-            {isBuilt && !isConstructing && (
+            {isBuilt && !isUpgrading && (
               <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none flex-shrink-0"
                 style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
                 Nv.{roomLevel}
               </span>
             )}
-            {isConstructing && (
-              <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">
-                {isBuilt ? 'Mejorando…' : 'Construyendo…'}
-              </span>
+            {isUpgrading && (
+              <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">Mejorando…</span>
             )}
-            {!isBuilt && !isConstructing && lockedByBase && (
+            {!isBuilt && lockedByLevel && (
               <span className="text-[11px] text-text-3 flex-shrink-0 flex items-center gap-1">
-                <Lock size={10} strokeWidth={2.5} />Base {room.baseLevelMin}
+                <Lock size={10} strokeWidth={2.5} />Héroe Nv.{room.heroLevelMin}
               </span>
             )}
-            {!isBuilt && !isConstructing && !lockedByBase && (
-              <span className="text-[11px] text-text-3 flex-shrink-0">Sin construir</span>
+            {!isBuilt && !lockedByLevel && (
+              <span className="text-[11px] text-text-3 flex-shrink-0">Disponible</span>
             )}
           </div>
 
-          {/* Cadencia */}
           <p className="text-[11px] text-text-3 mt-0.5">
-            {isBuilt && !upgrading
+            {isBuilt && !isUpgrading
               ? `+1 cada ~${fmtDuration(Math.round(hoursPerPoint * 3600))}`
-              : isBuilt && upgrading
+              : isUpgrading
                 ? 'Pausado durante la mejora'
-                : `+1 cada ~${fmtDuration(Math.round(xpThreshold(0) / xpRateForLevel(1) * 3600))} al construir`
+                : `+1 cada ~${fmtDuration(Math.round(xpThreshold(0) / xpRateForLevel(1) * 3600))} al activar`
             }
           </p>
         </div>
       </div>
 
-      {/* Progreso */}
-      {isBuilt && !upgrading && (
+      {/* Progreso XP */}
+      {isBuilt && !isUpgrading && (
         <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
-          {/* Barra */}
           <div className="h-2 rounded-full overflow-hidden bg-border">
             <div
               className="h-full rounded-full transition-[width] duration-[600ms] ease-out"
@@ -194,12 +176,12 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
         </div>
       )}
 
-      {/* Pausado durante mejora */}
-      {isBuilt && upgrading && (
+      {/* Mejora en curso */}
+      {isUpgrading && (
         <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
           <div className="h-2 rounded-full overflow-hidden bg-border">
             <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
-              style={{ width: `${buildPct}%` }} />
+              style={{ width: `${upgradePct}%` }} />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-text-3">Mejora en curso</span>
@@ -211,37 +193,17 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
         </div>
       )}
 
-      {/* Construcción */}
-      {!isBuilt && isConstructing && (
-        <div className="px-4 pb-3 border-t border-border pt-3 flex flex-col gap-2">
-          <div className="h-2 bg-border rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-[#0891b2] transition-[width] duration-[1000ms] linear"
-              style={{ width: `${buildPct}%` }} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-text-3">Construcción en curso</span>
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-[#0891b2]">
-              <Clock size={10} strokeWidth={2} />
-              {secondsLeft !== null ? fmtTime(secondsLeft) : '…'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Sin construir */}
-      {!isBuilt && !isConstructing && (
+      {/* No activada */}
+      {!isBuilt && !lockedByLevel && (
         <div className="px-4 pb-3 border-t border-border pt-3">
           <p className="text-[12px] text-text-3 leading-relaxed">
-            {lockedByBase
-              ? `Requiere base nivel ${room.baseLevelMin} para construir.`
-              : `Genera +1 a ${room.label.toLowerCase()} de forma pasiva.`
-            }
+            Genera +1 a {room.label.toLowerCase()} de forma pasiva.
           </p>
         </div>
       )}
 
       {/* Acción */}
-      {!isConstructing && !lockedByBase && (
+      {!isUpgrading && (
         <div className="px-4 pb-4 mt-auto">
           {ready ? (
             <div className="flex items-center justify-end pt-3 border-t border-border">
@@ -252,14 +214,14 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                 whileTap={collectPending ? {} : { scale: 0.96 }}
               >
                 <PackageOpen size={12} strokeWidth={2} />
-                {collectPending ? 'Recogiendo…' : 'Recoger +1'}
+                {collectPending ? 'Recogiendo…' : '+1 punto'}
               </motion.button>
             </div>
           ) : isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (
             <div className="flex items-center justify-center pt-3 border-t border-border">
               <span className="text-[12px] font-bold text-text-3 uppercase tracking-[0.08em]">Nivel máximo</span>
             </div>
-          ) : (
+          ) : isBuilt ? (
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-border">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`flex items-center gap-1 text-[12px] font-semibold ${resources?.wood >= upgCost.wood ? 'text-success-text' : 'text-error-text'}`}>
@@ -271,20 +233,28 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
               </div>
               <motion.button
                 className="btn btn--primary btn--sm flex-shrink-0"
-                onClick={() => isBuilt ? setShowUpgradeModal(true) : onBuild()}
+                onClick={() => setShowUpgradeModal(true)}
                 disabled={!canAfford || mutPending || isQueueBusy || anyReady}
                 whileTap={(!canAfford || mutPending || isQueueBusy || anyReady) ? {} : { scale: 0.96 }}
               >
-                {isBuilt ? (
-                  <><ChevronRight size={12} strokeWidth={2.5} />Mejorar</>
-                ) : (
-                  <><Hammer size={12} strokeWidth={2.5} />Construir</>
-                )}
+                <ChevronRight size={12} strokeWidth={2.5} />Mejorar
+              </motion.button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end pt-3 border-t border-border">
+              <motion.button
+                className="btn btn--primary btn--sm"
+                onClick={onBuild}
+                disabled={mutPending}
+                whileTap={mutPending ? {} : { scale: 0.96 }}
+              >
+                <Play size={11} strokeWidth={2} />Iniciar
               </motion.button>
             </div>
           )}
         </div>
       )}
+
       {/* Modal de confirmación de mejora */}
       <AnimatePresence>
         {showUpgradeModal && (
@@ -300,7 +270,6 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
               variants={sheetVariants} initial="initial" animate="animate" exit="exit"
               onClick={e => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -317,9 +286,7 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                 </button>
               </div>
 
-              {/* Info */}
               <div className="px-5 py-4 flex flex-col gap-3">
-                {/* Mejora de cadencia */}
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-surface-2 border border-border">
                   <TrendingUp size={14} strokeWidth={2} className="text-text-3 flex-shrink-0 mt-0.5" />
                   <div className="flex flex-col gap-1 min-w-0">
@@ -331,7 +298,6 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                   </div>
                 </div>
 
-                {/* Tiempo */}
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-text-2 flex items-center gap-1.5">
                     <Clock size={13} strokeWidth={2} className="text-text-3" />
@@ -342,7 +308,6 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                   </span>
                 </div>
 
-                {/* Coste */}
                 <div className="flex items-center justify-between border-t border-border pt-3">
                   <span className="text-[13px] text-text-2">Coste</span>
                   <div className="flex items-center gap-3">
@@ -356,7 +321,6 @@ export default function RoomCard({ room, roomData, progressRow, resources, baseL
                 </div>
               </div>
 
-              {/* Acciones */}
               <div className="px-5 pb-5 flex gap-2">
                 <button className="btn btn--secondary flex-1" onClick={() => setShowUpgradeModal(false)}>
                   Cancelar

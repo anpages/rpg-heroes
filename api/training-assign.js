@@ -1,6 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { isUUID } from './_validate.js'
-import { TRAINING_ROOM_STATS } from './_constants.js'
+import { TRAINING_ROOM_STATS, CLASS_TRAINING_STATS } from './_constants.js'
 
 /**
  * POST /api/training-assign
@@ -21,15 +21,21 @@ export default async function handler(req, res) {
   const qty = parseInt(amount, 10)
   if (!qty || qty <= 0) return res.status(400).json({ error: 'amount debe ser > 0' })
 
-  // Verificar propiedad del héroe
+  // Verificar propiedad del héroe y obtener clase
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id')
+    .select('id, class')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .maybeSingle()
 
   if (!hero) return res.status(403).json({ error: 'No autorizado' })
+
+  // Validar que la stat es entrenable por la clase del héroe
+  const allowedStats = CLASS_TRAINING_STATS[hero.class]
+  if (allowedStats && !allowedStats.includes(stat)) {
+    return res.status(400).json({ error: `La clase ${hero.class} no puede entrenar ${stat}` })
+  }
 
   const { data: result, error: rpcErr } = await supabase.rpc('assign_training_atomic', {
     p_player_id: user.id,

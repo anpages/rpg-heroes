@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   // Obtener héroe y verificar que pertenece al jugador
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, active_effects')
+    .select('id, level, status, player_id, current_hp, max_hp, hp_last_updated_at, status_ends_at, active_effects, class')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -59,6 +59,9 @@ export default async function handler(req, res) {
     .single()
 
   if (!dungeon) return res.status(404).json({ error: 'Mazmorra no encontrada' })
+  if (dungeon.required_class && dungeon.required_class !== hero.class) {
+    return res.status(403).json({ error: 'Este héroe no puede explorar esta mazmorra' })
+  }
   if (hero.level < dungeon.min_hero_level) {
     return res.status(403).json({ error: `Necesitas nivel ${dungeon.min_hero_level} para entrar aquí` })
   }

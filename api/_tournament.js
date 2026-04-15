@@ -1,21 +1,15 @@
 /**
  * Helpers compartidos del sistema de torneos.
  */
+import { ENEMY_ARCHETYPES, ARCHETYPE_KEYS, applyArchetype } from '../src/lib/gameFormulas.js'
 
-const RIVAL_ARCHETYPES = [
-  { class: 'Guerrero',  spec: 'tanque',    statBias: { defense: 1.4, max_hp: 1.3, attack: 0.8 } },
-  { class: 'Asesino',  spec: 'DPS',       statBias: { attack: 1.5, agility: 1.4, defense: 0.6 } },
-  { class: 'Mago',     spec: 'mágico',    statBias: { intelligence: 1.8, max_hp: 0.85, defense: 0.9 } },
-  { class: 'Paladín',  spec: 'híbrido',   statBias: { defense: 1.2, strength: 1.2, max_hp: 1.1 } },
-  { class: 'Berserker',spec: 'agresivo',  statBias: { attack: 1.5, strength: 1.3, defense: 0.6 } },
-  { class: 'Druida',   spec: 'ágil',      statBias: { agility: 1.5, intelligence: 1.2 } },
-  { class: 'Guardián', spec: 'defensor',  statBias: { defense: 1.6, max_hp: 1.5, attack: 0.7 } },
-]
-
-const RIVAL_NAMES = [
-  'Aldric', 'Seraphel', 'Gorn', 'Lyria', 'Vex', 'Malak', 'Thyra',
-  'Roran', 'Drakhar', 'Zelah', 'Brom', 'Asha', 'Toryn', 'Mirael',
-]
+// Nombres de rivales de torneo por arquetipo
+const RIVAL_NAMES_BY_ARCHETYPE = {
+  berserker: ['Gorn', 'Aldric', 'Roran', 'Drakhar', 'Brom', 'Thyra', 'Malak'],
+  tank:      ['Seraphel', 'Toryn', 'Guardón', 'Vex', 'Asha', 'Mirael', 'Zelah'],
+  assassin:  ['Lyria', 'Vex', 'Malak', 'Zelah', 'Asha', 'Roran', 'Thyra'],
+  mage:      ['Mirael', 'Seraphel', 'Lyria', 'Zelah', 'Toryn', 'Asha', 'Aldric'],
+}
 
 // Multiplicador de dificultad por ronda
 const ROUND_SCALE = { 1: 0.85, 2: 1.0, 3: 1.2 }
@@ -110,48 +104,47 @@ function makeSeed(heroId, weekStart) {
 
 /**
  * Genera los 3 rivales de un torneo de forma determinista.
- * @param {string} heroId
- * @param {string} weekStart  — 'YYYY-MM-DD'
- * @param {object} heroStats  — stats efectivas del héroe al inscribirse
+ * @param {string}   heroId
+ * @param {string}   weekStart      — 'YYYY-MM-DD'
+ * @param {object}   heroStats      — stats efectivas del héroe al inscribirse
+ * @param {string[]} archetypePool  — arquetipos disponibles según clases desbloqueadas
  */
-export function generateRivals(heroId, weekStart, heroStats) {
+export function generateRivals(heroId, weekStart, heroStats, archetypePool = ARCHETYPE_KEYS) {
   const rand = seededRand(makeSeed(heroId, weekStart))
 
-  // Elegir 3 arquetipos sin repetir
-  const pool = [...RIVAL_ARCHETYPES]
+  // Elegir 3 arquetipos del pool disponible (con repetición si el pool < 3)
+  const pool = [...archetypePool]
   const chosen = []
   for (let i = 0; i < 3; i++) {
-    const idx = Math.floor(rand() * pool.length)
-    chosen.push(pool.splice(idx, 1)[0])
+    const src = pool.length >= 3 - i ? pool : [...archetypePool]
+    const idx = Math.floor(rand() * src.length)
+    chosen.push(src.splice(idx, 1)[0])
+    if (pool.length >= 3 - i) pool.splice(pool.indexOf(chosen[chosen.length - 1]), 1)
   }
 
-  return chosen.map((archetype, i) => {
+  return chosen.map((archetypeKey, i) => {
     const round = i + 1
     const scale = ROUND_SCALE[round]
-    const bias  = archetype.statBias
 
     const base = {
-      max_hp:       heroStats.max_hp,
-      attack:       heroStats.attack,
-      defense:      heroStats.defense,
-      strength:     heroStats.strength,
-      agility:      heroStats.agility,
-      intelligence: heroStats.intelligence,
+      max_hp:       Math.round(heroStats.max_hp       * scale),
+      attack:       Math.round(heroStats.attack       * scale),
+      defense:      Math.round(heroStats.defense      * scale),
+      strength:     Math.round(heroStats.strength     * scale),
+      agility:      Math.round(heroStats.agility      * scale),
+      intelligence: Math.round(heroStats.intelligence * scale),
     }
+    const stats = applyArchetype(base, archetypeKey)
 
-    const stats = {}
-    for (const key of Object.keys(base)) {
-      stats[key] = Math.max(1, Math.round(base[key] * scale * (bias[key] ?? 1.0)))
-    }
-
-    const nameIdx = Math.floor(rand() * RIVAL_NAMES.length)
+    const names = RIVAL_NAMES_BY_ARCHETYPE[archetypeKey] ?? ['Rival']
+    const nameIdx = Math.floor(rand() * names.length)
 
     return {
       round,
-      roundLabel: ROUND_LABELS[round],
-      name:       RIVAL_NAMES[nameIdx],
-      class:      archetype.class,
-      spec:       archetype.spec,
+      roundLabel:  ROUND_LABELS[round],
+      name:        names[nameIdx],
+      archetype:   archetypeKey,
+      archetypeLabel: ENEMY_ARCHETYPES[archetypeKey]?.label ?? archetypeKey,
       stats,
     }
   })

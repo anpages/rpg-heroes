@@ -7,7 +7,7 @@ import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { Lock, Plus, ChevronDown, Dices } from 'lucide-react'
-import { computeBaseLevel, HERO_SLOT_REQUIREMENTS } from '../lib/gameConstants'
+import { computeBaseLevel, HERO_SLOT_REQUIREMENTS, HERO_SLOT_CLASS, CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
 import { motion } from 'framer-motion'
 
 const EASE_OUT = [0.22, 1, 0.36, 1]
@@ -129,9 +129,9 @@ export function HeroSelector() {
 
   const baseLevel     = computeBaseLevel(buildings ?? [])
   const usedSlots     = heroes.map(h => h.slot ?? 1)
-  const nextSlot      = [1, 2, 3].find(s => !usedSlots.includes(s))
+  const nextSlot      = [1, 2, 3, 4, 5].find(s => !usedSlots.includes(s))
   const canRecruit    = !!(nextSlot && (!SLOT_UNLOCK[nextSlot] || baseLevel >= SLOT_UNLOCK[nextSlot]))
-  const lockedSlots   = [2, 3].filter(slot => {
+  const lockedSlots   = [2, 3, 4, 5].filter(slot => {
     const filled   = heroes.some(h => h.slot === slot)
     const unlocked = !SLOT_UNLOCK[slot] || baseLevel >= SLOT_UNLOCK[slot]
     return !filled && !unlocked
@@ -194,29 +194,36 @@ export function HeroSelector() {
         </button>
       )}
 
-      {lockedSlots.map(slot => (
-        <div
-          key={`locked-${slot}`}
-          className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px]"
-          title={`Desbloquea con Base Nv.${SLOT_UNLOCK[slot]}`}
-        >
-          <Lock size={11} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
-          <span className="text-[12px] font-semibold text-text-3">Héroe {slot}</span>
-          <span className="hidden sm:inline text-[11px] text-text-3">· Base Nv.{SLOT_UNLOCK[slot]}</span>
-        </div>
-      ))}
+      {lockedSlots.map(slot => {
+        const cls = HERO_SLOT_CLASS[slot]
+        return (
+          <div
+            key={`locked-${slot}`}
+            className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px]"
+            title={`Desbloquea con Base Nv.${SLOT_UNLOCK[slot]}`}
+          >
+            <Lock size={11} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
+            <span className="text-[11px] leading-none">{CLASS_ICONS[cls]}</span>
+            <span className="text-[12px] font-semibold text-text-3">{CLASS_LABELS[cls]}</span>
+            <span className="hidden sm:inline text-[11px] text-text-3">· Nv.{SLOT_UNLOCK[slot]}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-export function RecruitModal({ classes, onRecruit, onClose }) {
+export function RecruitModal({ nextSlot, onRecruit, onClose }) {
   const userId      = useAppStore(s => s.userId)
   const queryClient = useQueryClient()
-  const [name, setName]       = useState('')
-  const [classId, setClassId] = useState(classes?.[0]?.id ?? '')
+  const [name, setName] = useState('')
+
+  const cls      = HERO_SLOT_CLASS[nextSlot]
+  const clsLabel = CLASS_LABELS[cls]
+  const clsIcon  = CLASS_ICONS[cls]
 
   const recruitMutation = useMutation({
-    mutationFn: () => apiPost('/api/hero-recruit', { heroName: name, heroClass: classId }),
+    mutationFn: () => apiPost('/api/hero-recruit', { heroName: name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
       onRecruit()
@@ -239,22 +246,28 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
     >
       <motion.div
         className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] w-full flex flex-col overflow-hidden"
-        style={{ maxWidth: 'min(420px, 100vw)', maxHeight: 'min(85dvh, 600px)' }}
+        style={{ maxWidth: 'min(420px, 100vw)' }}
         variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header — fijo, no hace scroll */}
         <div className="px-5 pt-5 pb-3 shrink-0">
-          <h3 className="text-[1.1rem] font-bold text-text">Reclutar héroe</h3>
+          <h3 className="text-[1.1rem] font-bold text-text">Nuevo héroe desbloqueado</h3>
         </div>
 
-        {/* form ocupa el resto, flex-col para separar body y footer */}
-        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden flex-1">
-          {/* Cuerpo scrollable */}
-          <div className="px-5 overflow-y-auto flex flex-col gap-4 flex-1">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+          <div className="px-5 pb-2 flex flex-col gap-4">
+            {/* Clase fija — informativa */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-2 border border-border">
+              <span className="text-[22px] leading-none">{clsIcon}</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[14px] font-bold text-text">{clsLabel}</span>
+                <span className="text-[12px] text-text-3">Clase asignada al slot {nextSlot}</span>
+              </div>
+            </div>
+
             {/* Nombre */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[0.75rem] font-semibold text-text-2">Nombre</label>
+              <label className="text-[0.75rem] font-semibold text-text-2">Ponle nombre</label>
               <div className="flex gap-2">
                 <input
                   className="flex-1 px-3 py-2 border border-border rounded-lg bg-surface-2 text-text text-[0.88rem] font-[inherit] outline-none transition-[border-color] duration-150 focus:border-[var(--blue-500)]"
@@ -263,63 +276,95 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
                   placeholder="Nombre del héroe"
                   maxLength={20}
                   required
+                  autoFocus
                 />
                 <button
                   type="button"
                   className="flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-surface-2 text-text-3 hover:text-text hover:border-border-2 transition-colors flex-shrink-0"
                   onClick={() => setName(randomName())}
-                  title="Nombre aleatorio"
                 >
                   <Dices size={16} strokeWidth={2} />
                 </button>
               </div>
             </div>
-
-            {/* Clase */}
-            <div className="flex flex-col gap-1.5 pb-2">
-              <label className="text-[0.75rem] font-semibold text-text-2">Clase</label>
-              <div className="grid grid-cols-2 gap-2">
-                {classes?.map(cls => {
-                  const selected = classId === cls.id
-                  return (
-                    <button
-                      key={cls.id}
-                      type="button"
-                      className={`relative flex flex-col items-start px-3 py-2.5 border-[1.5px] rounded-[10px] text-left cursor-pointer transition-[border-color,background,box-shadow] duration-200
-                        ${selected
-                          ? 'border-[var(--blue-500)] bg-[var(--blue-50)] shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
-                          : 'bg-surface-2 border-border hover:border-[var(--blue-400)] hover:bg-[var(--blue-50)]'
-                        }`}
-                      onClick={() => setClassId(cls.id)}
-                    >
-                      {selected && (
-                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--blue-500)]" />
-                      )}
-                      <span className={`text-[13px] font-bold mb-1.5 block ${selected ? 'text-[var(--blue-700)]' : 'text-text'}`}>
-                        {cls.name}
-                      </span>
-                      <div className="w-full flex flex-col gap-[4px]">
-                        <StatBar label="FUE" value={cls.strength}     selected={selected} />
-                        <StatBar label="AGI" value={cls.agility}      selected={selected} />
-                        <StatBar label="INT" value={cls.intelligence} selected={selected} />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
           </div>
 
-          {/* Footer — shrink-0, SIEMPRE visible */}
-          <div className="px-5 py-4 shrink-0 flex gap-2.5 justify-end border-t border-border"
+          <div className="px-5 py-4 shrink-0 flex gap-2.5 justify-end border-t border-border mt-2"
                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             <button type="button" className="btn btn--ghost" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn--primary" disabled={recruitMutation.isPending}>
-              {recruitMutation.isPending ? 'Reclutando...' : 'Reclutar'}
+            <button type="submit" className="btn btn--primary" disabled={recruitMutation.isPending || !name.trim()}>
+              {recruitMutation.isPending ? 'Desbloqueando...' : 'Confirmar'}
             </button>
           </div>
         </form>
       </motion.div>
     </motion.div>
+  )
+}
+
+/**
+ * Selector de héroe para secciones de combate (inline, compacto).
+ * Se oculta si el jugador solo tiene 1 héroe.
+ * locked=true bloquea la selección (p.ej. torneo en curso).
+ * activeId + onSelect: modo controlado (QuickCombat). Sin props → usa el store global.
+ */
+export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSelect }) {
+  const userId         = useAppStore(s => s.userId)
+  const selectedHeroId = useAppStore(s => s.selectedHeroId)
+  const setSelected    = useAppStore(s => s.setSelectedHeroId)
+  const { heroes }     = useHeroes(userId)
+
+  if (!heroes?.length) return null
+
+  const isControlled = activeIdProp !== undefined && onSelect !== undefined
+  const activeId     = isControlled ? activeIdProp : selectedHeroId
+  const handleSelect = isControlled ? onSelect : setSelected
+  const unlockedSlots = new Set(heroes.map(h => h.slot_index ?? 1))
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {heroes.map(hero => {
+        const status   = getDerivedStatus(hero)
+        const canFight = !locked && (status === 'idle' || status === 'ready')
+        const isActive = hero.id === activeId
+
+        return (
+          <button
+            key={hero.id}
+            disabled={!canFight}
+            onClick={() => canFight && handleSelect(hero.id)}
+            className={`flex items-center gap-2 px-3 py-[7px] rounded-lg border text-[13px] font-semibold transition-[border-color,color] duration-150 whitespace-nowrap font-[inherit] bg-surface-2
+              ${isActive && canFight
+                ? 'border-border text-text'
+                : !canFight
+                  ? 'border-border text-text-3 opacity-50 cursor-default'
+                  : 'border-border text-text-2 hover:text-text cursor-pointer'
+              }`}
+            style={{}}
+          >
+            <span className="text-[15px] leading-none">{CLASS_ICONS[hero.class] ?? '⚔'}</span>
+            <span>{hero.name}</span>
+            <span className="text-[11px] opacity-70">Nv.{hero.level}</span>
+            {!canFight && (
+              <span className="text-[11px] opacity-70">
+                {status === 'exploring' ? '· Explorando' : status === 'ready' ? '· ¡Recoger!' : '· Ocupado'}
+              </span>
+            )}
+          </button>
+        )
+      })}
+
+      {/* Slots bloqueados — orientación al jugador */}
+      {[2, 3, 4, 5].filter(slot => !unlockedSlots.has(slot)).map(slot => (
+        <div
+          key={`locked-${slot}`}
+          className="flex items-center gap-2 px-3 py-[7px] rounded-lg border border-dashed border-border text-[13px] font-semibold text-text-3 opacity-40 cursor-default whitespace-nowrap"
+        >
+          <span className="text-[15px] leading-none">{CLASS_ICONS[HERO_SLOT_CLASS[slot]] ?? '⚔'}</span>
+          <span>{CLASS_LABELS[HERO_SLOT_CLASS[slot]]}</span>
+          <Lock size={11} strokeWidth={2.5} />
+        </div>
+      ))}
+    </div>
   )
 }

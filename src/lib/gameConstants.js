@@ -15,13 +15,13 @@ export const BASE_BUILDING_TYPES = [
 
 /**
  * Calcula el nivel de base.
- * score = producción (L0-5 ×4, max 20)
+ * score = producción (L0-5, max 20)
  *       + laboratorio construido (+2)
  *       + biblioteca nivel (0-5)
- *       + salas de entrenamiento construidas (1 por sala, max 6)
- * nivel = ceil(score / 3)
+ * nivel = ceil(score / 4)
+ * Las salas de entrenamiento ya no forman parte de la base.
  */
-export function computeBaseLevel(buildings, trainingRooms = []) {
+export function computeBaseLevel(buildings) {
   const byType = Object.fromEntries(buildings.map(b => [b.type, b]))
 
   const productionSum = BASE_BUILDING_TYPES.reduce((sum, t) => {
@@ -35,9 +35,7 @@ export function computeBaseLevel(buildings, trainingRooms = []) {
   const library = byType['library']
   const libraryContrib = (library && library.unlocked !== false) ? (library.level ?? 0) : 0
 
-  const trainingContrib = (trainingRooms ?? []).filter(r => r.built_at !== null).length
-
-  const score = productionSum + labContrib + libraryContrib + trainingContrib
+  const score = productionSum + labContrib + libraryContrib
   if (score === 0) return 1
   return Math.max(1, Math.ceil(score / 4))
 }
@@ -293,16 +291,16 @@ export function trainingRoomUpgradeCost(currentLevel) {
 }
 
 /**
- * Nivel de base mínimo requerido para CONSTRUIR cada sala de entrenamiento.
- * Las salas ya construidas no se ven afectadas al cambiar el nivel de base.
+ * Nivel mínimo del HÉROE requerido para CONSTRUIR cada sala de entrenamiento.
+ * Las salas ya construidas no se ven afectadas si el héroe baja de nivel.
  */
-export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
-  strength:     2,
-  agility:      2,
-  attack:       3,
-  defense:      3,
-  max_hp:       4,
-  intelligence: 4,
+export const TRAINING_ROOM_HERO_LEVEL_REQUIRED = {
+  strength:     1,
+  agility:      1,
+  attack:       5,
+  defense:      5,
+  max_hp:       10,
+  intelligence: 10,
 }
 
 /**
@@ -493,8 +491,26 @@ export function computeResearchBonuses(completedIds = []) {
 
 // ── Héroes ────────────────────────────────────────────────────────────────────
 
-/** Nivel mínimo de Base requerido para cada slot de héroe adicional. */
-export const HERO_SLOT_REQUIREMENTS = { 2: 5, 3: 10 }
+/** Nivel mínimo de Base requerido para desbloquear cada slot de héroe. */
+export const HERO_SLOT_REQUIREMENTS = { 2: 3, 3: 5, 4: 7, 5: 10 }
+
+/** Stats entrenables por clase. El resto de stats se ganan solo por equipo/tácticas. */
+export const CLASS_TRAINING_STATS = {
+  caudillo:  ['strength', 'defense', 'max_hp'],
+  sombra:    ['agility', 'attack', 'defense'],
+  arcanista: ['intelligence', 'attack', 'max_hp'],
+  domador:   ['strength', 'agility', 'intelligence'],
+  universal: ['strength', 'agility', 'attack', 'defense', 'max_hp', 'intelligence'],
+}
+
+/** Clase fija asignada a cada slot al desbloquearse. No se puede elegir. */
+export const HERO_SLOT_CLASS = {
+  1: 'caudillo',
+  2: 'sombra',
+  3: 'arcanista',
+  4: 'domador',
+  5: 'universal',
+}
 
 // ── Coste de HP en combate ────────────────────────────────────────────────────
 
@@ -570,11 +586,24 @@ export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 
 
 // ── Clases ───────────────────────────────────────────────────────────────────
 
+/**
+ * Arquetipos de enemigo disponibles según las clases desbloqueadas del jugador.
+ * El pool de quick-combat se construye uniendo los arquetipos de todas las clases desbloqueadas.
+ */
+export const CLASS_ARCHETYPE_POOL = {
+  caudillo:  ['berserker', 'tank'],
+  sombra:    ['assassin'],
+  arcanista: ['mage'],
+  domador:   ['berserker', 'assassin'],
+  universal: ['berserker', 'tank', 'assassin', 'mage'],
+}
+
 export const CLASS_COLORS = {
   caudillo:  '#dc2626',
   arcanista: '#7c3aed',
   sombra:    '#0369a1',
   domador:   '#16a34a',
+  universal: '#d97706',
 }
 
 export const CLASS_LABELS = {
@@ -582,6 +611,15 @@ export const CLASS_LABELS = {
   arcanista: 'Arcanista',
   sombra:    'Sombra',
   domador:   'Domador',
+  universal: 'Universal',
+}
+
+export const CLASS_ICONS = {
+  caudillo:  '⚔️',
+  arcanista: '✨',
+  sombra:    '🌑',
+  domador:   '🐾',
+  universal: '⚖️',
 }
 
 // ── Caza de Botín ────────────────────────────────────────────────────────────

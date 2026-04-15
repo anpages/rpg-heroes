@@ -47,8 +47,8 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Perfil de drops de la mazmorra (multiplicadores por mazmorra)
-  const dropProfile = dungeon ? (DUNGEON_DROP_PROFILE[dungeon.name] ?? {}) : {}
+  // Perfil de drops de la mazmorra (multiplicadores por tipo)
+  const dropProfile = dungeon ? (DUNGEON_DROP_PROFILE[dungeon.type] ?? {}) : {}
   const dpGold   = dropProfile.goldMult   ?? 1
   const dpXp     = dropProfile.xpMult     ?? 1
   const dpItem   = dropProfile.itemMult   ?? 1
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
   const intelligenceBonus = stats ? Math.min(0.20, stats.intelligence * 0.003) : 0
 
   // Roll de material antes del UPDATE para incluirlo en la misma operación.
-  const materialDrop = dungeon ? rollMaterialDrop(dungeon.name) : null
+  const materialDrop = dungeon ? rollMaterialDrop(dungeon.type) : null
 
   // Consumir boosts de un solo uso
   const newEffects = { ...(hero.active_effects ?? {}) }

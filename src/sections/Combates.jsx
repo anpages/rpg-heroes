@@ -1,6 +1,5 @@
 import { TowerControl, Scroll, Swords, Trophy, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useAppStore } from '../store/appStore'
 import Torre from './Torre'
@@ -23,9 +22,6 @@ export default function Combates() {
 
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Selector de héroe */}
-      <HeroSelector />
 
       {/* Mode selector */}
       <div className="border-b border-border">

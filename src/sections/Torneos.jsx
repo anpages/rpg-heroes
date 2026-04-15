@@ -9,6 +9,7 @@ import { useTournament } from '../hooks/useTournament'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useAppStore } from '../store/appStore'
+import { HeroCombatPicker } from '../components/HeroPicker'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
@@ -480,6 +481,8 @@ export default function Torneos() {
               ))}
             </div>
 
+            <HeroCombatPicker locked={isRegistered} />
+
             {isRegistrationOpen() ? (
               <motion.button
                 className="btn btn--primary btn--lg min-w-[200px] mt-1"
@@ -517,6 +520,8 @@ export default function Torneos() {
     { icon: Sparkles, color: '#7c3aed', text: '200 oro + 20 maná',        label: 'Semifinal', round: 2 },
     { icon: Trophy,   color: '#d97706', text: '500 oro + táctica garantizada', label: 'Final',  round: 3 },
   ]
+
+  const isRegistered = !!(data?.registered)
 
   return (
     <div className="flex flex-col gap-4">

@@ -100,8 +100,7 @@ export default async function handler(req, res) {
     name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
     level: r.level, combat_effect: r.tactic_catalog.combat_effect,
   }))
-  // Rival VL ≈ hero level para escalar tácticas
-  const rivalArchetype = rival.class ?? rival.archetype
+  const rivalArchetype = rival.archetype ?? rival.class
   const enemyTactics = generateEnemyTactics(hero.level, rivalArchetype)
 
   // Final del torneo (ronda 3) → activa Momento clave

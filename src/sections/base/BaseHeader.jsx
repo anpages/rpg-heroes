@@ -8,8 +8,8 @@ const BASIC_RESOURCES = [
   { key: 'mana',  Icon: Sparkles, color: '#7c3aed', label: 'Maná',    short: 'Maná' },
 ]
 
-export default function BaseHeader({ byType, resources, trainingRooms }) {
-  const baseLevel = baseLevelFromMap(byType, trainingRooms)
+export default function BaseHeader({ byType, resources }) {
+  const baseLevel = baseLevelFromMap(byType)
   const tier      = getBaseTier(baseLevel)
 
   return (

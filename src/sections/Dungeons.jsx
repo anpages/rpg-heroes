@@ -666,18 +666,20 @@ function Dungeons() {
   const agilityFactor = hero ? agilityDurationFactor(hero.agility) : 1
   const atkMultiplier = hero ? calcAttackMultiplier(hero.attack)   : 1
   const heroLevel     = hero?.level ?? 1
+  const heroClass     = hero?.class ?? null
 
   const { available, locked: lockedDungeons } = useMemo(() => {
     if (!dungeons) return { available: [], locked: [] }
     const avail = [], lock = []
     for (const d of dungeons) {
+      if (d.required_class && d.required_class !== heroClass) continue
       if (heroLevel >= d.min_hero_level) avail.push(d)
       else lock.push(d)
     }
     avail.sort((a, b) => a.difficulty - b.difficulty)
     lock.sort((a, b) => a.min_hero_level - b.min_hero_level)
     return { available: avail, locked: lock }
-  }, [dungeons, heroLevel])
+  }, [dungeons, heroLevel, heroClass])
 
   const activeDungeon = useMemo(
     () => expedition ? dungeons?.find(d => d.id === expedition.dungeon_id) : null,
@@ -687,7 +689,7 @@ function Dungeons() {
   function computePreview(d) {
     const effectiveMins = Math.round(d.duration_minutes * agilityFactor)
     const agilityPct    = agilityFactor < 1 ? Math.round((1 - agilityFactor) * 100) : 0
-    const profile       = DUNGEON_DROP_PROFILE[d.name] ?? {}
+    const profile       = DUNGEON_DROP_PROFILE[d.type] ?? {}
 
     const hpCost      = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, hero?.strength ?? 0)
     const baseHpCost  = expeditionHpCost(hero?.max_hp ?? 100, d.duration_minutes, d.difficulty, 0)
@@ -707,7 +709,7 @@ function Dungeons() {
     const durLossBase  = calcDurabilityLoss(d.difficulty, 0)
     const defReduction = durLossBase > durLoss ? durLossBase - durLoss : 0
 
-    const materialData = MATERIAL_DROP_DATA[d.name] ?? null
+    const materialData = MATERIAL_DROP_DATA[d.type] ?? null
     const heroHpNow    = interpolateHp(hero, Date.now())
     const isLocked     = heroLevel < d.min_hero_level
     const busy         = (expedition ? 'exploring' : hero?.status ?? 'idle') !== 'idle'

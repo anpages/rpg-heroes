@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import {
   UNLOCK_TRIGGERS,
-  TRAINING_ROOM_BASE_LEVEL_REQUIRED,
+  TRAINING_ROOM_HERO_LEVEL_REQUIRED,
   buildingRate,
 } from '../../lib/gameConstants.js'
 
@@ -150,7 +150,7 @@ export const TRAINING_ROOMS = [
   { stat: 'defense',      label: 'Defensa',         icon: ShieldCheck, color: '#16a34a' },
   { stat: 'max_hp',       label: 'Resistencia',     icon: Heart,       color: '#e11d48' },
   { stat: 'intelligence', label: 'Inteligencia',    icon: Brain,       color: '#7c3aed' },
-].map(r => ({ ...r, baseLevelMin: TRAINING_ROOM_BASE_LEVEL_REQUIRED[r.stat] }))
+].map(r => ({ ...r, heroLevelMin: TRAINING_ROOM_HERO_LEVEL_REQUIRED[r.stat] }))
 
 export const STAT_LABEL_MAP = {
   strength: 'FUE', agility: 'AGI', attack: 'ATQ', defense: 'DEF', max_hp: 'HP', intelligence: 'INT',
@@ -204,10 +204,9 @@ export const BRANCH_ORDER = ['combat', 'expedition', 'crafting', 'magic']
 /* ─── Navegación ─────────────────────────────────────────────────────────────── */
 
 export const ZONES = [
-  { id: 'produccion',    label: 'Producción',    icon: Coins       },
-  { id: 'taller',        label: 'Laboratorio',   icon: FlaskConical },
-  { id: 'entrenamiento', label: 'Entrenamiento', icon: Dumbbell    },
-  { id: 'biblioteca',    label: 'Biblioteca',    icon: BookOpen    },
+  { id: 'produccion', label: 'Producción',  icon: Coins       },
+  { id: 'taller',     label: 'Laboratorio', icon: FlaskConical },
+  { id: 'biblioteca', label: 'Biblioteca',  icon: BookOpen    },
 ]
 
 /* ─── Recursos ───────────────────────────────────────────────────────────────── */

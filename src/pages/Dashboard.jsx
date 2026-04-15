@@ -2,11 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
-import { useTraining, hasReadyPoint } from '../hooks/useTraining'
-import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
-import { useClasses } from '../hooks/useClasses'
 import { useMissions } from '../hooks/useMissions'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
@@ -20,12 +17,13 @@ import Combates from '../sections/Combates'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import Tacticas from '../sections/Tacticas'
+import Entrenamiento from '../sections/Entrenamiento'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Users } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Users, Dumbbell } from 'lucide-react'
 import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
@@ -306,11 +304,12 @@ const NAV_ITEMS = [
 ]
 
 const HERO_SUB_TABS = [
-  { id: 'ficha',        label: 'Ficha',        icon: Sword       },
-  { id: 'equipo',       label: 'Equipo',       icon: Shield      },
-  { id: 'tacticas',     label: 'Tácticas',     icon: Layers      },
-  { id: 'expediciones', label: 'Expediciones', icon: Map         },
-  { id: 'tienda',       label: 'Tienda',       icon: ShoppingBag },
+  { id: 'ficha',          label: 'Ficha',          icon: Sword       },
+  { id: 'equipo',         label: 'Equipo',         icon: Shield      },
+  { id: 'entrenamiento',  label: 'Entrenamiento',  icon: Dumbbell    },
+  { id: 'tacticas',       label: 'Tácticas',       icon: Layers      },
+  { id: 'expediciones',   label: 'Expediciones',   icon: Map         },
+  { id: 'tienda',         label: 'Tienda',         icon: ShoppingBag },
 ]
 
 
@@ -329,10 +328,9 @@ function Dashboard({ session }) {
   const { heroes }                   = useHeroes(session.user.id)
   const { buildings: _buildings }    = useBuildings(session.user.id)
   const heroId                       = useHeroId()
-  const { rooms: _trainingRooms }    = useTrainingRooms(session.user.id)
-  const { rows: _trainingProgress }  = useTraining(heroId)
   const { research: _research }      = useResearch(session.user.id)
-  const { classes: recruitClasses } = useClasses()
+  const usedSlots   = heroes.map(h => h.slot ?? 1)
+  const nextHeroSlot = [1, 2, 3, 4, 5].find(s => !usedSlots.includes(s)) ?? null
   const { missions }                = useMissions()
   const { refiningSlots: _refiningSlots } = useCraftedItems(session.user.id)
   useRealtimeSync(session.user.id, heroId)
@@ -377,13 +375,8 @@ function Dashboard({ session }) {
       const completed = Math.min(slot.quantity, Math.floor(elapsed / slot.unit_duration_ms))
       return completed >= slot.quantity
     })
-    const trainingReady = (_trainingRooms ?? []).some(room => {
-      if (!room.built_at || room.building_ends_at) return false
-      const progressRow = (_trainingProgress ?? []).find(r => r.stat === room.stat)
-      return hasReadyPoint(progressRow, room.level)
-    })
-    return productionReady || labReady || trainingReady
-  }, [_buildings, _refiningSlots, _trainingRooms, _trainingProgress, now])
+    return productionReady || labReady
+  }, [_buildings, _refiningSlots, now])
 
   const navAlerts = { base: baseHasAlert, heroes: selExpReady }
 
@@ -575,11 +568,12 @@ function Dashboard({ session }) {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.18 }}
                   >
-                    {activeHeroTab === 'ficha'        && <ErrorBoundary><Hero /></ErrorBoundary>}
-                    {activeHeroTab === 'equipo'       && <ErrorBoundary><Equipo /></ErrorBoundary>}
-                    {activeHeroTab === 'tacticas'     && <ErrorBoundary><Tacticas /></ErrorBoundary>}
-                    {activeHeroTab === 'expediciones' && <ErrorBoundary><Dungeons /></ErrorBoundary>}
-                    {activeHeroTab === 'tienda'       && <ErrorBoundary><Shop /></ErrorBoundary>}
+                    {activeHeroTab === 'ficha'         && <ErrorBoundary><Hero /></ErrorBoundary>}
+                    {activeHeroTab === 'equipo'        && <ErrorBoundary><Equipo /></ErrorBoundary>}
+                    {activeHeroTab === 'entrenamiento' && <ErrorBoundary><Entrenamiento /></ErrorBoundary>}
+                    {activeHeroTab === 'tacticas'      && <ErrorBoundary><Tacticas /></ErrorBoundary>}
+                    {activeHeroTab === 'expediciones'  && <ErrorBoundary><Dungeons /></ErrorBoundary>}
+                    {activeHeroTab === 'tienda'        && <ErrorBoundary><Shop /></ErrorBoundary>}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -699,9 +693,9 @@ function Dashboard({ session }) {
         )}
       </AnimatePresence>
 
-      {recruitOpen && recruitClasses && (
+      {recruitOpen && nextHeroSlot && (
         <RecruitModal
-          classes={recruitClasses}
+          nextSlot={nextHeroSlot}
           onRecruit={() => setRecruitOpen(false)}
           onClose={() => setRecruitOpen(false)}
         />

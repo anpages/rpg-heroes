@@ -105,6 +105,24 @@ export const CLASS_ABILITIES = {
       effect:   () => ({ atkMult: 1.8, dmgTakenMult: 1.3, duration: 1 }),
     },
   },
+
+  universal: {
+    passive: {
+      key:         'versatilidad',
+      label:       'Versatilidad',
+      icon:        '⚖️',
+      description: 'Reduce un 8% el daño recibido.',
+      effect:      () => ({ dmgTakenMult: 0.92 }),
+    },
+    ability: {
+      key:      'golpe_maestro',
+      label:    'Golpe Maestro',
+      icon:     '✦',
+      description: 'ATK ×1.4 esta ronda.',
+      cooldown: 4,
+      effect:   () => ({ atkMult: 1.4, duration: 1 }),
+    },
+  },
 }
 
 // ── Stances (posturas reactivas al HP) ──────────────────────────────────────
