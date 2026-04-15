@@ -164,11 +164,11 @@ export function floorRewards(floor) {
  * Determinista: mismo piso → mismo nombre.
  */
 const ENEMY_POOLS = [
-  { max:  5, names: ['Lancero Renegado', 'Corsario de Sangre', 'Guerrero Errante', 'Duelista Maldito', 'Cazador de Almas'] },
-  { max: 10, names: ['Centinela de Hierro', 'Legionario Corrupto', 'Verdugo Sombrío', 'Gladiador Caído', 'Inquisidor de Acero'] },
-  { max: 20, names: ['Campeón de las Ruinas', 'Berserker de Sangre', 'Ejecutor Implacable', 'Colosal Vigía', 'Portador de la Ruina'] },
-  { max: 50, names: ['Señor de la Guerra', 'Archimago Oscuro', 'Tirano Eterno', 'Forjador de Almas', 'Caudillo del Abismo', 'Paladín Maldito'] },
-  { max: Infinity, names: ['El Eterno', 'Dios de la Ruina', 'El Sin Nombre', 'Señor del Vacío', 'El Destructor', 'Heraldo del Fin', 'Avatar de la Muerte'] },
+  { max:  5, names: ['Keres', 'Stryx', 'Lamia', 'Harpia', 'Empusa', 'Mormo', 'Aello'] },
+  { max: 10, names: ['Argos', 'Ladon', 'Equidna', 'Caribdis', 'Escila', 'Gerión', 'Esfinge'] },
+  { max: 20, names: ['Medusa', 'Minotauro', 'Cerbero', 'Hidra', 'Polifemo', 'Cíclope', 'Fenrir'] },
+  { max: 50, names: ['Cronos', 'Surtr', 'Tifón', 'Moloch', 'Baal', 'Jörmungandr', 'Ares', 'Hades'] },
+  { max: Infinity, names: ['Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Ahriman', 'Ragnarök'] },
 ]
 
 export function floorEnemyName(floor) {
@@ -329,11 +329,11 @@ export function tierAnchoredEnemyStats(virtualLevel) {
 }
 
 const TRAINING_ENEMY_POOLS = [
-  { max:  3, names: ['Espadachín Novato', 'Lancero Recluta', 'Guerrero Aprendiz', 'Arquero Bisoño', 'Duelista Primerizo'] },
-  { max:  6, names: ['Mercenario Curtido', 'Cazador Furtivo', 'Duelista de Arena', 'Corsario Errante', 'Soldado Veterano'] },
-  { max: 10, names: ['Gladiador Veterano', 'Ronin sin Señor', 'Valquiria de Bronce', 'Legionario de Élite', 'Maestro de Armas'] },
-  { max: 20, names: ['Campeón de la Legión', 'Berserker del Norte', 'Archimago de Guerra', 'Paladín Oscuro', 'Asesino de Élite', 'Druida de Batalla'] },
-  { max: Infinity, names: ['El Invicto', 'Espectro del Coliseo', 'Titán del Torneo', 'Sombra del Maestro', 'Heraldo del Combate', 'Campeón Eterno'] },
+  { max:  3, names: ['Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia'] },
+  { max:  6, names: ['Ladon', 'Argos', 'Equidna', 'Esfinge', 'Caribdis'] },
+  { max: 10, names: ['Medusa', 'Cerbero', 'Minotauro', 'Polifemo', 'Hidra'] },
+  { max: 20, names: ['Cronos', 'Fenrir', 'Surtr', 'Moloch', 'Tifón', 'Ares'] },
+  { max: Infinity, names: ['Abadón', 'Leviatán', 'Samael', 'Azazel', 'Ahriman', 'Behemot'] },
 ]
 
 /**
