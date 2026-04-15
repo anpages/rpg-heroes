@@ -164,11 +164,32 @@ export function floorRewards(floor) {
  * Determinista: mismo piso → mismo nombre.
  */
 const ENEMY_POOLS = [
-  { max:  5, names: ['Keres', 'Stryx', 'Lamia', 'Harpia', 'Empusa', 'Mormo', 'Aello'] },
-  { max: 10, names: ['Argos', 'Ladon', 'Equidna', 'Caribdis', 'Escila', 'Gerión', 'Esfinge'] },
-  { max: 20, names: ['Medusa', 'Minotauro', 'Cerbero', 'Hidra', 'Polifemo', 'Cíclope', 'Fenrir'] },
-  { max: 50, names: ['Cronos', 'Surtr', 'Tifón', 'Moloch', 'Baal', 'Jörmungandr', 'Ares', 'Hades'] },
-  { max: Infinity, names: ['Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Ahriman', 'Ragnarök'] },
+  { max:  5, names: [
+    'Keres', 'Stryx', 'Lamia', 'Harpia', 'Empusa', 'Mormo', 'Aello',
+    'Celaeno', 'Ocípete', 'Scylla', 'Stheno', 'Euryale', 'Echidna', 'Draco',
+  ]},
+  { max: 10, names: [
+    'Argos', 'Ladon', 'Equidna', 'Caribdis', 'Escila', 'Gerión', 'Esfinge',
+    'Ortro', 'Colquide', 'Ceto', 'Forcis', 'Tifón', 'Kampe', 'Ctónico',
+    'Briareo', 'Cottus', 'Giges', 'Lestrigón',
+  ]},
+  { max: 20, names: [
+    'Medusa', 'Minotauro', 'Cerbero', 'Hidra', 'Polifemo', 'Cíclope', 'Fenrir',
+    'Jörmungandr', 'Garm', 'Nidhogg', 'Fafnir', 'Surtr', 'Utgard', 'Thrym',
+    'Hati', 'Sköll', 'Níðhöggr', 'Ratatoskr', 'Veðrfölnir',
+  ]},
+  { max: 50, names: [
+    'Cronos', 'Tifón', 'Moloch', 'Baal', 'Ares', 'Hades', 'Hécate',
+    'Nergal', 'Enlil', 'Apep', 'Set', 'Anubis', 'Sekhmet', 'Sobek',
+    'Morrigan', 'Balor', 'Crom', 'Dagda', 'Cernunnos', 'Arawn',
+    'Angra', 'Ahriman', 'Druj', 'Aeshma',
+  ]},
+  { max: Infinity, names: [
+    'Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Ragnarök',
+    'Malphas', 'Belial', 'Asmodeo', 'Belphegor', 'Mammon', 'Beelzebub',
+    'Astaroth', 'Andromalius', 'Furfur', 'Marchosias', 'Bifrons', 'Vual',
+    'Haagenti', 'Caim', 'Murmur', 'Naberius', 'Glasya', 'Leraje',
+  ]},
 ]
 
 export function floorEnemyName(floor) {
@@ -329,11 +350,26 @@ export function tierAnchoredEnemyStats(virtualLevel) {
 }
 
 const TRAINING_ENEMY_POOLS = [
-  { max:  3, names: ['Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia'] },
-  { max:  6, names: ['Ladon', 'Argos', 'Equidna', 'Esfinge', 'Caribdis'] },
-  { max: 10, names: ['Medusa', 'Cerbero', 'Minotauro', 'Polifemo', 'Hidra'] },
-  { max: 20, names: ['Cronos', 'Fenrir', 'Surtr', 'Moloch', 'Tifón', 'Ares'] },
-  { max: Infinity, names: ['Abadón', 'Leviatán', 'Samael', 'Azazel', 'Ahriman', 'Behemot'] },
+  { max:  3, names: [
+    'Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia',
+    'Aello', 'Celaeno', 'Draco', 'Stheno', 'Ocípete',
+  ]},
+  { max:  6, names: [
+    'Ladon', 'Argos', 'Equidna', 'Esfinge', 'Caribdis',
+    'Ortro', 'Escila', 'Gerión', 'Forcis', 'Lestrigón', 'Kampe',
+  ]},
+  { max: 10, names: [
+    'Medusa', 'Cerbero', 'Minotauro', 'Polifemo', 'Hidra',
+    'Cíclope', 'Garm', 'Nidhogg', 'Fafnir', 'Thrym', 'Fenrir',
+  ]},
+  { max: 20, names: [
+    'Cronos', 'Surtr', 'Moloch', 'Tifón', 'Ares',
+    'Hades', 'Set', 'Apep', 'Balor', 'Morrigan', 'Nergal', 'Aeshma',
+  ]},
+  { max: Infinity, names: [
+    'Abadón', 'Leviatán', 'Samael', 'Azazel', 'Ahriman', 'Behemot',
+    'Belial', 'Asmodeo', 'Beelzebub', 'Astaroth', 'Malphas', 'Belphegor',
+  ]},
 ]
 
 /**
