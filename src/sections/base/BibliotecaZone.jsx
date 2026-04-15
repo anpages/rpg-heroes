@@ -2,13 +2,11 @@ import { useEffect, useReducer } from 'react'
 import { Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cardVariants, BUILDING_META } from './constants.js'
-import { baseLevelFromMap } from './helpers.js'
 import { BuildingCard } from './BuildingCard.jsx'
 import { ResearchTree } from './Research.jsx'
 
-export default function BibliotecaZone({ byType, trainingRooms, research, resources, onResearchStart, onResearchCollect, startPending, collectPending, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending }) {
-  const library   = byType['library']
-  const baseLevel = baseLevelFromMap(byType, trainingRooms)
+export default function BibliotecaZone({ byType, research, resources, onResearchStart, onResearchCollect, startPending, collectPending, anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending }) {
+  const library = byType['library']
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
   useEffect(() => {
