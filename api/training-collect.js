@@ -88,7 +88,12 @@ export default async function handler(req, res) {
     const room          = roomByStat[stat]
     const rate          = xpRateForLevel(room.level)
     const thr           = xpThreshold(row.total_gained)
-    const lastCollected = new Date(row.last_collected_at)
+    // XP solo puede acumularse desde que la sala fue construida,
+    // no desde una sesión anterior (evita XP gratis en resets de datos).
+    const lastCollected = new Date(Math.max(
+      new Date(row.last_collected_at).getTime(),
+      new Date(room.built_at).getTime(),
+    ))
 
     // XP acumulada desde última recogida — se para al llegar al umbral
     const hoursToThreshold = Math.max(0, (thr - row.xp_bank) / rate)

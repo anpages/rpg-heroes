@@ -472,7 +472,7 @@ function InventoryModal({ collection, slots, onEquip, onClose }) {
             <X size={14} strokeWidth={2} />
           </button>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-4 pt-3 pb-2 flex-shrink-0">
+        <div className="flex gap-1.5 overflow-x-auto px-4 pt-3 pb-2 flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTER_TABS.map(tab => {
             const active = filter === tab.key
             return (

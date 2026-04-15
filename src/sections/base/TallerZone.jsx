@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useRef } from 'react'
-import { Clock, Lock, Check, Warehouse } from 'lucide-react'
+import { Clock, Lock, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { notify } from '../../lib/notifications.js'
 import {
@@ -15,10 +15,10 @@ import BuildingInfoModal from './BuildingInfoModal.jsx'
 const CATEGORY_ORDER = ['consumable', 'tactic', 'forge', 'rune']
 
 const CATEGORY_META = {
-  consumable: { label: 'Consumibles',    color: '#0891b2' },
-  rune:       { label: 'Runas',          color: '#7c3aed' },
-  forge:      { label: 'Mejora de tier', color: '#b45309' },
-  tactic:     { label: 'Tácticas',       color: '#16a34a' },
+  consumable: { label: 'Consumibles',    color: '#0891b2', minBaseLevel: 0 },
+  tactic:     { label: 'Tácticas',       color: '#16a34a', minBaseLevel: 4 },
+  forge:      { label: 'Mejora de tier', color: '#b45309', minBaseLevel: 5 },
+  rune:       { label: 'Runas',          color: '#7c3aed', minBaseLevel: 6 },
 }
 
 const INPUT_LABELS = {
@@ -60,12 +60,12 @@ function fmtShort(secs) {
 /* ── TallerZone ──────────────────────────────────────────────────────────── */
 
 export default function TallerZone({
-  byType, effectiveResources, catalog, inventory, refiningSlots,
+  byType, trainingRooms, effectiveResources, catalog, inventory, refiningSlots,
   onRefine, onCollectSlot,
   anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
 }) {
   const lab = byType['laboratory']
-  const baseLevel = baseLevelFromMap(byType)
+  const baseLevel = baseLevelFromMap(byType, trainingRooms)
   const [, tick] = useReducer(x => x + 1, 0)
 
   // Tick para actualizar barras
@@ -136,6 +136,7 @@ export default function TallerZone({
       <motion.div className="flex flex-col gap-3" variants={cardVariants} initial="initial" animate="animate">
         <BuildCard
           building={lab}
+          resources={effectiveResources}
           anyUpgrading={anyUpgrading}
           onUpgradeStart={onUpgradeStart}
           onUpgradeCollect={onUpgradeCollect}
@@ -152,6 +153,34 @@ export default function TallerZone({
         const catRecipes = byCategory[cat]
         if (!catRecipes?.length) return null
         const catMeta = CATEGORY_META[cat]
+
+        const categoryMinLevel = catMeta.minBaseLevel
+
+        // Toda la categoría bloqueada
+        if (categoryMinLevel > 0 && baseLevel < categoryMinLevel) {
+          return (
+            <div
+              key={cat}
+              className="rounded-xl overflow-hidden border border-border bg-surface shadow-[var(--shadow-sm)] opacity-60"
+            >
+              <div
+                className="px-4 py-2.5 flex items-center justify-between"
+                style={{ background: `color-mix(in srgb, ${catMeta.color} 6%, var(--surface))` }}
+              >
+                <span className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: catMeta.color }}>
+                  {catMeta.label}
+                </span>
+                <Lock size={12} strokeWidth={2.5} style={{ color: catMeta.color }} />
+              </div>
+              <div className="px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[12px] font-semibold text-text-3">
+                  <Lock size={11} strokeWidth={2.5} />
+                  Se desbloquea en base nivel {categoryMinLevel}
+                </p>
+              </div>
+            </div>
+          )
+        }
 
         return (
           <div
@@ -196,7 +225,7 @@ export default function TallerZone({
 /* ── BuildCard (level 0 / upgrading) ──────────────────────────────────────── */
 
 function BuildCard({
-  building,
+  building, resources,
   anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
 }) {
   const [showModal, setShowModal] = useState(false)
@@ -301,7 +330,7 @@ function BuildCard({
         {showModal && (
           <BuildingInfoModal
             building={building}
-            resources={{}}
+            resources={resources}
             anyUpgrading={anyUpgrading}
             onUpgradeStart={handleUpgradeStart}
             onClose={() => setShowModal(false)}

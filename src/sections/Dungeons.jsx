@@ -189,7 +189,6 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[14px] font-bold text-text truncate">{dungeonName}</span>
-            {canCollect && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#16a34a]/15 text-[#16a34a] flex-shrink-0">LISTA</span>}
           </div>
           {usedConsumables.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
@@ -236,15 +235,15 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
 function DungeonCard({
   dungeon, effectiveMins, hpCost, goldMin, goldMax, xpReward,
   equipChance, tacticChance, materialData,
-  locked, busy, isExploring,
+  locked, busy, lowHp, isExploring,
   onOpen,
 }) {
   const meta      = DUNGEON_TYPE_META[dungeon.type]
   const matMeta   = materialData ? MATERIAL_META[materialData.resource] : null
   const slotChips = DUNGEON_TYPE_SLOTS[dungeon.type] ?? []
-  const canOpen   = !locked && !busy && !isExploring
+  const canOpen   = !locked && !busy && !lowHp && !isExploring
 
-  const dimmed = locked || busy || isExploring
+  const dimmed = locked || busy || lowHp || isExploring
 
   return (
     <div
@@ -306,6 +305,7 @@ function DungeonCard({
             ? <><Lock size={13} strokeWidth={2} /><span>Nv. {dungeon.min_hero_level}</span></>
             : isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></>
             : busy ? <><Compass size={13} strokeWidth={2} /><span>En expedición</span></>
+            : lowHp ? <><Heart size={13} strokeWidth={2} /><span>HP insuficiente</span></>
             : <><span>Preparar</span><ChevronRight size={15} strokeWidth={2} /></>}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { requireAuth } from './_auth.js'
 import { refiningCraftMinutes } from './_constants.js'
+import { computeBaseLevel, RECIPE_MIN_BASE_LEVEL } from '../src/lib/gameConstants.js'
 
 /**
  * POST /api/refining-start
@@ -27,6 +28,19 @@ export default async function handler(req, res) {
 
   if (!recipe) return res.status(404).json({ error: 'Receta no encontrada' })
   if (!recipe.refinery_type) return res.status(400).json({ error: 'Esta receta no es de refinado' })
+
+  // Verificar nivel de base mínimo requerido por la receta
+  const minBaseLevel = RECIPE_MIN_BASE_LEVEL[recipeId] ?? 0
+  if (minBaseLevel > 0) {
+    const [{ data: allBuildings }, { data: allRooms }] = await Promise.all([
+      supabase.from('buildings').select('type, level, unlocked').eq('player_id', user.id),
+      supabase.from('training_rooms').select('stat, built_at').eq('player_id', user.id),
+    ])
+    const baseLevel = computeBaseLevel(allBuildings ?? [], allRooms ?? [])
+    if (baseLevel < minBaseLevel) {
+      return res.status(403).json({ error: `Requiere base nivel ${minBaseLevel}` })
+    }
+  }
 
   // Validar edificio
   const { data: refinery } = await supabase

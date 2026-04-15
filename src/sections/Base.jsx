@@ -110,11 +110,7 @@ export default function Base({ mainRef }) {
             })
             queryClient.setQueryData(bKey, blds.map(x => {
               if (x.id !== b.id) return x
-              const advanceMs = (produced / rate) * 3_600_000
-              const updates = {
-                production_collected_at: new Date(new Date(b.production_collected_at).getTime() + advanceMs).toISOString(),
-              }
-              return { ...x, ...updates }
+              return { ...x, production_collected_at: new Date().toISOString() }
             }))
           }
         }
@@ -148,11 +144,7 @@ export default function Base({ mainRef }) {
           const produced = Math.min(cap, Math.floor(rate * elapsed))
           if (produced <= 0) return b
           newRes[resource] = (newRes[resource] ?? 0) + produced
-          const advanceMs = (produced / rate) * 3_600_000
-          return {
-            ...b,
-            production_collected_at: new Date(new Date(b.production_collected_at).getTime() + advanceMs).toISOString(),
-          }
+          return { ...b, production_collected_at: new Date().toISOString() }
         })
         queryClient.setQueryData(rKey, newRes)
         queryClient.setQueryData(bKey, newBlds)
@@ -396,7 +388,7 @@ export default function Base({ mainRef }) {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <BaseHeader byType={byType} resources={effectiveResources} />
+      <BaseHeader byType={byType} resources={effectiveResources} trainingRooms={trainingRooms} />
 
       <ZonePills active={activeZone} onChange={setActiveZone} badges={zoneBadges} />
 
@@ -435,6 +427,7 @@ export default function Base({ mainRef }) {
           {activeZone === 'taller' && (
             <TallerZone
               byType={byType}
+              trainingRooms={trainingRooms}
               effectiveResources={effectiveResources}
               catalog={catalog}
               inventory={inventory}
@@ -461,6 +454,7 @@ export default function Base({ mainRef }) {
           {activeZone === 'biblioteca' && (
             <BibliotecaZone
               byType={byType}
+              trainingRooms={trainingRooms}
               research={research}
               resources={effectiveResources}
               onResearchStart={(nodeId) => researchStartMutation.mutate(nodeId)}

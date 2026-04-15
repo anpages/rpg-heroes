@@ -33,13 +33,13 @@ export function fmtCountdown(endsAt) {
   const h = Math.floor(totalSecs / 3600)
   const m = Math.floor((totalSecs % 3600) / 60)
   const s = totalSecs % 60
-  if (h > 0) return `${h}h ${m}m`
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
   if (m > 0) return `${m}m ${s}s`
   return `${s}s`
 }
 
-export function baseLevelFromMap(byType) {
-  return computeBaseLevel(Object.values(byType))
+export function baseLevelFromMap(byType, trainingRooms = []) {
+  return computeBaseLevel(Object.values(byType), trainingRooms)
 }
 
 export function getBaseTier(level) {

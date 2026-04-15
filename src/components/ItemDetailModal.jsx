@@ -33,24 +33,13 @@ const RARITY_META = {
 
 import { CLASS_COLORS, CLASS_LABELS } from '../lib/gameConstants'
 
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
+const EASE_OUT = [0.22, 1, 0.36, 1]
+const EASE_IN  = [0.55, 0, 0.75, 0.06]
 
-const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
-const EASE_IN  = [0.55, 0,    0.75, 0.06]
-
-function sheetVariants() {
-  if (isMobile()) {
-    return {
-      initial: { y: '100vh' },
-      animate: { y: 0,       transition: { type: 'tween', ease: EASE_OUT, duration: 0.38 } },
-      exit:    { y: '100vh', transition: { type: 'tween', ease: EASE_IN,  duration: 0.26 } },
-    }
-  }
-  return {
-    initial: { opacity: 0, scale: 0.97, y: 10 },
-    animate: { opacity: 1, scale: 1,    y: 0,  transition: { type: 'spring', stiffness: 260, damping: 26 } },
-    exit:    { opacity: 0, scale: 0.98, y: 4,  transition: { type: 'tween', ease: EASE_IN, duration: 0.18 } },
-  }
+const sheetVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0,      transition: { type: 'tween', ease: EASE_OUT, duration: 0.26 } },
+  exit:    { y: '100%', transition: { type: 'tween', ease: EASE_IN,  duration: 0.18 } },
 }
 
 const overlayVariants = {
@@ -59,7 +48,7 @@ const overlayVariants = {
   exit:    { opacity: 0 },
 }
 
-const overlayTransition = { duration: 0.25, ease: 'easeOut' }
+const overlayTransition = { duration: 0.15 }
 
 export function ItemDetailModal({ item, onClose, heroClass }) {
   const catalog  = item.item_catalog
@@ -84,15 +73,15 @@ export function ItemDetailModal({ item, onClose, heroClass }) {
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center sm:p-5"
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
       transition={overlayTransition}
       onClick={handleClose}
     >
       <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden"
-        style={{ width: 'min(400px, 92vw)', maxHeight: '90dvh' }}
-        variants={sheetVariants()} initial="initial" animate="animate" exit="exit"
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden w-full"
+        style={{ maxWidth: 'min(400px, 100vw)', maxHeight: '90dvh' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

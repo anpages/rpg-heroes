@@ -8,6 +8,22 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { Lock, Plus, ChevronDown, Dices } from 'lucide-react'
 import { computeBaseLevel, HERO_SLOT_REQUIREMENTS } from '../lib/gameConstants'
+import { motion } from 'framer-motion'
+
+const EASE_OUT = [0.22, 1, 0.36, 1]
+const EASE_IN  = [0.55, 0, 0.75, 0.06]
+
+const sheetVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0,      transition: { type: 'tween', ease: EASE_OUT, duration: 0.26 } },
+  exit:    { y: '100%', transition: { type: 'tween', ease: EASE_IN,  duration: 0.18 } },
+}
+
+const overlayVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+}
 
 const MAX_STAT = 18
 
@@ -191,13 +207,16 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-[1000]"
+    <motion.div
+      className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[1000] sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={{ duration: 0.15 }}
       onClick={onClose}
     >
-      <div
-        className="bg-surface border border-border rounded-t-[14px] sm:rounded-[14px] w-full sm:w-[min(100%-2rem,400px)] shadow-[var(--shadow-lg)] flex flex-col overflow-hidden"
-        style={{ maxHeight: 'min(85dvh, 600px)' }}
+      <motion.div
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] w-full flex flex-col overflow-hidden"
+        style={{ maxWidth: 'min(420px, 100vw)', maxHeight: 'min(85dvh, 600px)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header — fijo, no hace scroll */}
@@ -276,7 +295,7 @@ export function RecruitModal({ classes, onRecruit, onClose }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

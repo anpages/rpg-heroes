@@ -359,7 +359,7 @@ export default function QuickCombat() {
               <div className="flex flex-col gap-0.5">
                 <span className="text-[15px] font-bold text-text leading-tight">Rival de tu tier</span>
                 <span className="text-[13px] text-text-3">
-                  Oponente anclado a <span className="font-semibold" style={{ color: tier.color }}>{tier.label}</span> — rivales escalados a tu rating
+                  Oponente anclado a <span className="font-semibold" style={{ color: tier.color }}>{tier.label}</span>
                 </span>
               </div>
             </div>
@@ -416,17 +416,7 @@ export default function QuickCombat() {
                   <>
                     <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
                       <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
-                        <button
-                          type="button"
-                          onClick={() => navigateToHeroTab('equipo')}
-                          className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
-                        >
-                          <Wrench size={10} strokeWidth={2.5} />
-                          Gestionar
-                        </button>
-                      </div>
+                      <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
                     </div>
                     <div className="h-2 bg-border rounded-full overflow-hidden">
                       <div

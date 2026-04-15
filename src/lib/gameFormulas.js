@@ -142,7 +142,7 @@ export function floorEnemyStats(floor) {
  * Fuente de verdad única — usada en frontend y en todos los endpoints de API.
  */
 export function xpRequiredForLevel(level) {
-  return level * 150
+  return level * level * 100
 }
 
 /**

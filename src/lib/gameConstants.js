@@ -8,24 +8,38 @@
 
 // ── Edificios: nivel de base ──────────────────────────────────────────────────
 
-/** Tipos de edificios que cuentan para el cálculo del nivel de base */
+/** Tipos de edificios de producción (contribuyen al nivel de base) */
 export const BASE_BUILDING_TYPES = [
-  'gold_mine', 'lumber_mill', 'mana_well', 'laboratory',
+  'gold_mine', 'lumber_mill', 'herb_garden', 'mana_well',
 ]
 
 /**
- * Calcula el nivel de base a partir del array de edificios.
- * Cada edificio desbloqueado y con nivel > 0 contribuye al promedio.
+ * Calcula el nivel de base.
+ * score = producción (L0-5 ×4, max 20)
+ *       + laboratorio construido (+2)
+ *       + biblioteca nivel (0-5)
+ *       + salas de entrenamiento construidas (1 por sala, max 6)
+ * nivel = ceil(score / 3)
  */
-export function computeBaseLevel(buildings) {
+export function computeBaseLevel(buildings, trainingRooms = []) {
   const byType = Object.fromEntries(buildings.map(b => [b.type, b]))
-  const levels = BASE_BUILDING_TYPES.map(t =>
-    (byType[t] && byType[t].unlocked !== false) ? (byType[t].level ?? 0) : 0
-  )
-  const total = levels.reduce((a, b) => a + b, 0)
-  if (total === 0) return 1
-  // Divisor fijo 4: mantiene consistencia con el diseño original.
-  return Math.max(1, Math.ceil(total / 4))
+
+  const productionSum = BASE_BUILDING_TYPES.reduce((sum, t) => {
+    const b = byType[t]
+    return sum + ((b && b.unlocked !== false) ? (b.level ?? 0) : 0)
+  }, 0)
+
+  const lab = byType['laboratory']
+  const labContrib = (lab && lab.level >= 1) ? 2 : 0
+
+  const library = byType['library']
+  const libraryContrib = (library && library.unlocked !== false) ? (library.level ?? 0) : 0
+
+  const trainingContrib = (trainingRooms ?? []).filter(r => r.built_at !== null).length
+
+  const score = productionSum + labContrib + libraryContrib + trainingContrib
+  if (score === 0) return 1
+  return Math.max(1, Math.ceil(score / 4))
 }
 
 // ── Árbol de desbloqueo ───────────────────────────────────────────────────────
@@ -35,7 +49,7 @@ export function computeBaseLevel(buildings) {
  * La API usa esto para activar desbloqueos; el frontend lo usa para mostrar requisitos.
  */
 export const UNLOCK_TRIGGERS = [
-  { type: 'laboratory',   level: 2, unlocks: ['library'] },
+  { type: 'laboratory', level: 1, unlocks: ['library'] },
 ]
 
 // ── Recursos iniciales ────────────────────────────────────────────────────────
@@ -150,16 +164,16 @@ export function refiningCraftMinutes(recipeCraftMinutes, recipeMinLevel, buildin
  * Los edificios de alto nivel (lab, biblioteca) tienen base mayor para reflejar su importancia.
  */
 const BUILDING_BASE_TIME_MINUTES = {
-  lumber_mill:       8,   // recurso básico, se mejora frecuentemente
-  gold_mine:        10,   // recurso fundamental
-  mana_well:        12,   // recurso especial
-  herb_garden:      10,   // jardín de hierbas (requiere Base Nv2)
-  carpinteria:       8,   // refinado de madera
-  fundicion:        10,   // refinado de mineral
-  destileria_arcana:12,   // refinado de maná
-  herbolario:       10,   // refinado de hierbas
-  laboratory:       20,   // edificio de alto nivel (requiere Base Nv3)
-  library:          30,   // edificio final (requiere Lab Nv2 + Base Nv3)
+  lumber_mill:       15,  // recurso básico
+  gold_mine:         20,  // recurso fundamental
+  mana_well:         25,  // recurso especial
+  herb_garden:       20,  // jardín de hierbas
+  carpinteria:       15,  // refinado de madera
+  fundicion:         20,  // refinado de mineral
+  destileria_arcana: 25,  // refinado de maná
+  herbolario:        20,  // refinado de hierbas
+  laboratory:        60,  // edificio de alto nivel — 1h construcción
+  library:           45,  // edificio final
 }
 
 /**
@@ -211,7 +225,7 @@ export function buildingUpgradeCost(type, currentLevel) {
       if (currentLevel === 0) return { wood: 45, iron: 20 }
       return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(18 * Math.pow(currentLevel, 1.4)) }
     case 'laboratory':
-      if (currentLevel === 0) return { wood: 80, iron: 35 }
+      if (currentLevel === 0) return { wood: 200, iron: 80 }
       return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(30 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
     case 'library':
       if (currentLevel === 0) return { wood: 100, iron: 45,  mana: 30  }
@@ -234,10 +248,10 @@ export const DESTILERIA_BASE_LEVEL_REQUIRED = 2
 export const HERBOLARIO_BASE_LEVEL_REQUIRED = 2
 
 /** Nivel de base mínimo requerido para construir el Laboratorio */
-export const LAB_BASE_LEVEL_REQUIRED = 3
+export const LAB_BASE_LEVEL_REQUIRED = 2
 
-/** Nivel de base mínimo requerido para construir la Biblioteca (además de Lab Nv2) */
-export const LIBRARY_BASE_LEVEL_REQUIRED = 3
+/** La Biblioteca se desbloquea al construir el Laboratorio (UNLOCK_TRIGGERS), sin requisito de base level adicional */
+export const LIBRARY_BASE_LEVEL_REQUIRED = 0
 
 /** Nivel máximo de cualquier edificio de base */
 export const BUILDING_MAX_LEVEL = 5
@@ -251,15 +265,23 @@ export const TRAINING_ROOM_MAX_LEVEL = 5
 
 // ── Salas de entrenamiento ────────────────────────────────────────────────────
 
-/** Coste de construir cualquier sala de entrenamiento */
-export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 30 }
+/** Coste de construir cada sala de entrenamiento (varía por tier) */
+export const TRAINING_ROOM_BUILD_COST = { wood: 60, iron: 30 } // legacy, usar TRAINING_ROOM_BUILD_COST_BY_STAT
+export const TRAINING_ROOM_BUILD_COST_BY_STAT = {
+  strength:     { wood: 60,  iron: 30 },
+  agility:      { wood: 60,  iron: 30 },
+  attack:       { wood: 80,  iron: 40 },
+  defense:      { wood: 80,  iron: 40 },
+  max_hp:       { wood: 120, iron: 60 },
+  intelligence: { wood: 120, iron: 60 },
+}
 
 /** Tiempo de construcción de una sala de entrenamiento nueva */
-export const TRAINING_ROOM_BUILD_TIME_MS = 10 * 60 * 1000
+export const TRAINING_ROOM_BUILD_TIME_MS = 45 * 60 * 1000
 
 /** Tiempo de mejora de una sala de entrenamiento desde `currentLevel` */
 export function trainingRoomUpgradeDurationMs(currentLevel) {
-  return currentLevel * 5 * 60 * 1000
+  return currentLevel * 20 * 60 * 1000
 }
 
 /** Coste de mejorar una sala de entrenamiento desde `currentLevel` */
@@ -277,10 +299,26 @@ export function trainingRoomUpgradeCost(currentLevel) {
 export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
   strength:     2,
   agility:      2,
-  attack:       2,
-  defense:      2,
-  max_hp:       2,
-  intelligence: 3,
+  attack:       3,
+  defense:      3,
+  max_hp:       4,
+  intelligence: 4,
+}
+
+/**
+ * Nivel de base mínimo para craftear cada receta del laboratorio.
+ * Recetas sin entrada aquí están disponibles en cuanto el lab esté construido.
+ */
+export const RECIPE_MIN_BASE_LEVEL = {
+  tactic_scroll:      4,
+  forge_stone_t2:     5,
+  forge_stone_t3:     5,
+  rune_attack:        6,
+  rune_defense:       6,
+  rune_hp:            6,
+  rune_strength:      6,
+  rune_agility:       6,
+  rune_intelligence:  6,
 }
 
 // ── Onboarding: estado inicial de edificios ───────────────────────────────────
@@ -289,7 +327,7 @@ export const TRAINING_ROOM_BASE_LEVEL_REQUIRED = {
  * Lista completa de tipos de edificio que se crean al registrar un jugador.
  * Incluye los edificios de base más library, que arranca bloqueada.
  */
-export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'library', 'herb_garden', ...REFINING_BUILDING_TYPES]
+export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'laboratory', 'library', ...REFINING_BUILDING_TYPES]
 
 /**
  * Edificios desbloqueados desde el inicio.
@@ -456,7 +494,7 @@ export function computeResearchBonuses(completedIds = []) {
 // ── Héroes ────────────────────────────────────────────────────────────────────
 
 /** Nivel mínimo de Base requerido para cada slot de héroe adicional. */
-export const HERO_SLOT_REQUIREMENTS = { 2: 4, 3: 5 }
+export const HERO_SLOT_REQUIREMENTS = { 2: 5, 3: 10 }
 
 // ── Coste de HP en combate ────────────────────────────────────────────────────
 

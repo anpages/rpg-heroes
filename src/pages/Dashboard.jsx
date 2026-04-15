@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
-import { useTraining } from '../hooks/useTraining'
+import { useTraining, hasReadyPoint } from '../hooks/useTraining'
 import { useTrainingRooms } from '../hooks/useTrainingRooms'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
@@ -26,6 +26,7 @@ import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
 import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Users } from 'lucide-react'
+import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
   return (
@@ -364,6 +365,28 @@ function Dashboard({ session }) {
 
   const missionsClaimable = (missions ?? []).filter(m => m.completed && !m.claimed).length
 
+  const baseHasAlert = useMemo(() => {
+    const productionReady = (_buildings ?? []).some(b => {
+      if (!PRODUCTION_BUILDING_TYPES.includes(b.type) || !b.unlocked || b.level <= 0) return false
+      const { rate, cap } = buildingRate(b.type, b.level)
+      const elapsed = Math.max(0, (now.getTime() - new Date(b.production_collected_at).getTime()) / 3_600_000)
+      return Math.floor(rate * elapsed) >= cap
+    })
+    const labReady = (_refiningSlots ?? []).some(slot => {
+      const elapsed = Date.now() - new Date(slot.craft_started_at).getTime()
+      const completed = Math.min(slot.quantity, Math.floor(elapsed / slot.unit_duration_ms))
+      return completed >= slot.quantity
+    })
+    const trainingReady = (_trainingRooms ?? []).some(room => {
+      if (!room.built_at || room.building_ends_at) return false
+      const progressRow = (_trainingProgress ?? []).find(r => r.stat === room.stat)
+      return hasReadyPoint(progressRow, room.level)
+    })
+    return productionReady || labReady || trainingReady
+  }, [_buildings, _refiningSlots, _trainingRooms, _trainingProgress, now])
+
+  const navAlerts = { base: baseHasAlert, heroes: selExpReady }
+
   const heroCount = heroes?.length ?? 0
   const visibleNavItems = NAV_ITEMS.filter(n => !n.minHeroes || heroCount >= n.minHeroes)
 
@@ -439,6 +462,7 @@ function Dashboard({ session }) {
             {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
               const isActive = activeTab === id
               const iconColor = isActive ? 'var(--blue-700)' : (accent ?? undefined)
+              const hasAlert = !isActive && (navAlerts[id] ?? false)
               return (
                 <button
                   key={id}
@@ -460,6 +484,9 @@ function Dashboard({ session }) {
                     <Icon size={18} strokeWidth={1.8} />
                   </span>
                   <span className="relative z-[1] leading-none">{label}</span>
+                  {hasAlert && (
+                    <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse flex-shrink-0 ml-auto relative z-[1]" />
+                  )}
                 </button>
               )
             })}
@@ -604,6 +631,7 @@ function Dashboard({ session }) {
         {visibleNavItems.map(({ id, label, icon: Icon, accent }) => {
           const isActive = activeTab === id
           const iconColor = isActive ? 'var(--blue-600)' : (accent ?? undefined)
+          const hasAlert = !isActive && (navAlerts[id] ?? false)
           return (
             <button
               key={id}
@@ -613,6 +641,9 @@ function Dashboard({ session }) {
             >
               <span className="relative w-[22px] h-[22px] flex items-center justify-center" style={iconColor ? { color: iconColor } : undefined}>
                 <Icon size={20} strokeWidth={1.8} />
+                {hasAlert && (
+                  <span className="absolute -top-[2px] -right-[2px] w-2 h-2 rounded-full bg-[#16a34a] animate-nav-badge-pulse" />
+                )}
               </span>
               <span className="leading-none">{label}</span>
             </button>

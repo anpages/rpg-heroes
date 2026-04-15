@@ -27,6 +27,23 @@ import {
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 
+const EASE_OUT = [0.22, 1, 0.36, 1]
+const EASE_IN  = [0.55, 0, 0.75, 0.06]
+
+const sheetVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0,      transition: { type: 'tween', ease: EASE_OUT, duration: 0.26 } },
+  exit:    { y: '100%', transition: { type: 'tween', ease: EASE_IN,  duration: 0.18 } },
+}
+
+const overlayVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+}
+
+const overlayTransition = { duration: 0.15 }
+
 const SLOT_META = {
   helmet:      { label: 'Casco',           Icon: Crown  },
   chest:       { label: 'Torso',           Icon: Shirt  },
@@ -205,17 +222,16 @@ function TierUpgradeModal({ item, resources: _resources, craftedItems, onConfirm
   const canAfford = hasStone
 
   return createPortal(
-    <div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-5"
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
       onClick={onCancel}
     >
       <motion.div
-        className="bg-surface border border-border rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden"
-        style={{ width: 'min(360px, 92vw)' }}
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1,    y: 0  }}
-        exit={   { opacity: 0, scale: 0.97, y: 6  }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden w-full"
+        style={{ maxWidth: 'min(360px, 100vw)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -296,7 +312,7 @@ function TierUpgradeModal({ item, resources: _resources, craftedItems, onConfirm
           </button>
         </div>
       </motion.div>
-    </div>,
+    </motion.div>,
     document.body
   )
 }
@@ -304,21 +320,16 @@ function TierUpgradeModal({ item, resources: _resources, craftedItems, onConfirm
 function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel, canConfirm = true, disabledReason }) {
   return createPortal(
     <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
       onClick={onCancel}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
     >
       <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(340px, 92vw)' }}
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5 w-full"
+        style={{ maxWidth: 'min(360px, 100vw)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.92, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 8 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div className="flex items-center justify-between">
           <span className="text-[15px] font-bold text-text">{title}</span>
@@ -356,15 +367,15 @@ function EnchantModal({ item, availableRunes, onEnchant, onClose, isPending }) {
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 bg-black/60 z-[250] flex items-end sm:items-center justify-center"
+      className="fixed inset-0 bg-black/60 z-[250] flex items-end sm:items-center justify-center sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={overlayTransition}
       onClick={onClose}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
     >
       <motion.div
-        className="bg-surface border border-border rounded-t-2xl sm:rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.3)] w-full sm:w-[380px] overflow-hidden"
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] w-full overflow-hidden"
+        style={{ maxWidth: 'min(400px, 100vw)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -794,9 +805,26 @@ export default function Equipo() {
     const hasGold = gold >= goldCost
     setConfirm({
       title: `Reparar ${item.item_catalog.name}`,
-      body: hasGold
-        ? `Coste: ${goldCost} oro (tienes ${gold})`
-        : `Necesitas ${goldCost} oro (tienes ${gold}).`,
+      body: (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-text-2">Durabilidad</span>
+            <span className="text-[13px] font-semibold text-text">
+              {item.current_durability} / {item.item_catalog.max_durability}
+            </span>
+          </div>
+          <div className="flex items-center justify-between border-t border-border pt-2">
+            <span className="text-[13px] text-text-2">Coste</span>
+            <span className={`text-[13px] font-bold ${hasGold ? 'text-success-text' : 'text-error-text'}`}>
+              {goldCost} oro
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-text-2">Tu oro</span>
+            <span className="text-[13px] font-semibold text-text">{gold}</span>
+          </div>
+        </div>
+      ),
       confirmLabel: 'Reparar',
       canConfirm: hasGold,
       disabledReason: hasGold ? null : 'Oro insuficiente',
@@ -812,32 +840,35 @@ export default function Equipo() {
     const gold = resources?.gold ?? 0
     const hasGold = gold >= totalGold
 
-    const body = (
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-1 text-[12px] text-text-3">
-          {damagedEquipped.map(i => (
-            <div key={i.id} className="flex justify-between gap-3">
-              <span className="truncate">{i.item_catalog.name}</span>
-              <span className="font-medium text-text-2 flex-shrink-0">
-                {repairGoldCost(i)} oro
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="text-[13px] font-semibold text-text-2 pt-2 border-t border-border">
-          {hasGold
-            ? `Total: ${totalGold} oro (tienes ${gold})`
-            : `Necesitas ${totalGold} oro (tienes ${gold}).`}
-        </p>
-      </div>
-    )
-
     setConfirm({
       title: 'Reparar todo el equipo',
-      body,
+      body: (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
+            {damagedEquipped.map(i => (
+              <div key={i.id} className="flex items-center justify-between gap-3">
+                <span className="text-[12px] text-text-2 truncate">{i.item_catalog.name}</span>
+                <span className="text-[12px] font-medium text-text flex-shrink-0">{repairGoldCost(i)} oro</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border pt-2 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-text">Total</span>
+              <span className={`text-[13px] font-bold ${hasGold ? 'text-success-text' : 'text-error-text'}`}>
+                {totalGold} oro
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-text-2">Tu oro</span>
+              <span className="text-[13px] font-semibold text-text">{gold}</span>
+            </div>
+          </div>
+        </div>
+      ),
       confirmLabel: 'Reparar todo',
       canConfirm: hasGold,
-      disabledReason: hasGold ? null : `Necesitas ${totalGold} oro`,
+      disabledReason: hasGold ? null : 'Oro insuficiente',
       onConfirm: () => {
         setConfirm(null)
         repairMutation.mutate({ endpoint: '/api/item-repair-all', body: { heroId } })

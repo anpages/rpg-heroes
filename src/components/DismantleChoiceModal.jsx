@@ -3,24 +3,13 @@ import { motion } from 'framer-motion'
 import { Coins, Layers, Sparkles, X } from 'lucide-react'
 import { DISMANTLE_TABLE, DISMANTLE_RUNE_BONUS } from '../lib/gameConstants'
 
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 768
+const EASE_OUT = [0.22, 1, 0.36, 1]
+const EASE_IN  = [0.55, 0, 0.75, 0.06]
 
-const EASE_OUT = [0.25, 0.46, 0.45, 0.94]
-const EASE_IN  = [0.55, 0,    0.75, 0.06]
-
-function sheetVariants() {
-  if (isMobile()) {
-    return {
-      initial: { y: '100vh' },
-      animate: { y: 0,       transition: { type: 'tween', ease: EASE_OUT, duration: 0.38 } },
-      exit:    { y: '100vh', transition: { type: 'tween', ease: EASE_IN,  duration: 0.26 } },
-    }
-  }
-  return {
-    initial: { opacity: 0, scale: 0.97, y: 10 },
-    animate: { opacity: 1, scale: 1,    y: 0,  transition: { type: 'spring', stiffness: 260, damping: 26 } },
-    exit:    { opacity: 0, scale: 0.98, y: 4,  transition: { type: 'tween', ease: EASE_IN, duration: 0.18 } },
-  }
+const sheetVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0,      transition: { type: 'tween', ease: EASE_OUT, duration: 0.26 } },
+  exit:    { y: '100%', transition: { type: 'tween', ease: EASE_IN,  duration: 0.18 } },
 }
 
 const overlayVariants = {
@@ -53,8 +42,6 @@ function computeRewards(item) {
 export default function DismantleChoiceModal({ item, onConfirm, onCancel }) {
   if (!item) return null
   const rewards = computeRewards(item)
-  const sv = sheetVariants()
-
   const rewardRows = [
     { label: 'Oro',         value: rewards.gold,      icon: Coins,     color: '#d97706' },
     { label: 'Maná',        value: rewards.mana,      icon: Sparkles,  color: '#7c3aed' },
@@ -64,15 +51,15 @@ export default function DismantleChoiceModal({ item, onConfirm, onCancel }) {
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6"
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center sm:p-5"
       variants={overlayVariants} initial="initial" animate="animate" exit="exit"
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.15 }}
       onClick={onCancel}
     >
       <motion.div
-        className="bg-bg border border-border-2 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5"
-        style={{ width: 'min(360px, 92vw)' }}
-        variants={sv} initial="initial" animate="animate" exit="exit"
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5 w-full"
+        style={{ maxWidth: 'min(360px, 100vw)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

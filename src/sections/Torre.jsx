@@ -345,14 +345,6 @@ export default function Torre() {
                     <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
                     <div className="flex items-center gap-2">
                       <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
-                      <button
-                        type="button"
-                        onClick={() => navigateToHeroTab('equipo')}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-text-3 hover:text-text border border-border hover:border-[var(--border-2)] rounded-full px-2 py-0.5 transition-colors"
-                      >
-                        <Wrench size={10} strokeWidth={2.5} />
-                        Gestionar
-                      </button>
                     </div>
                   </div>
                   <div className="h-2 bg-border rounded-full overflow-hidden">

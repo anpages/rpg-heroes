@@ -91,11 +91,11 @@ function FloatingDamage({ damage, crit, side }) {
   const isLeft = side === 'left'
   return (
     <motion.span
-      className={`absolute text-[16px] font-black pointer-events-none select-none z-10 ${crit ? 'text-[#d97706]' : isLeft ? 'text-[var(--blue-700)]' : 'text-[#dc2626]'}`}
-      style={{ [isLeft ? 'left' : 'right']: '8px', top: '0px' }}
-      initial={{ opacity: 1, y: 0, scale: crit ? 1.4 : 1 }}
-      animate={{ opacity: 0, y: -28, scale: 1 }}
-      transition={{ duration: 0.7 }}
+      className={`absolute text-[20px] font-black pointer-events-none select-none z-10 drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] ${crit ? 'text-[#d97706]' : isLeft ? 'text-[var(--blue-700)]' : 'text-[#dc2626]'}`}
+      style={{ [isLeft ? 'left' : 'right']: '12px', top: '18px' }}
+      initial={{ opacity: 1, y: 0, scale: crit ? 1.5 : 1.15 }}
+      animate={{ opacity: 0, y: -22, scale: 1 }}
+      transition={{ duration: 0.75 }}
     >
       {crit && '✦ '}-{damage}
     </motion.span>

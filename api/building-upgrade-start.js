@@ -8,7 +8,6 @@ import {
   DESTILERIA_BASE_LEVEL_REQUIRED,
   HERBOLARIO_BASE_LEVEL_REQUIRED,
   LAB_BASE_LEVEL_REQUIRED,
-  LIBRARY_BASE_LEVEL_REQUIRED,
   BUILDING_MAX_LEVEL,
   REFINING_MAX_LEVEL,
   LAB_MAX_LEVEL,
@@ -57,18 +56,20 @@ export default async function handler(req, res) {
   }
 
   // Edificios con requisito de nivel de base
+  // Biblioteca: no tiene requisito de base level, solo necesita el trigger de lab Nv1
   const BASE_LEVEL_CHECKS = {
     herb_garden:       { min: HERB_GARDEN_BASE_LEVEL_REQUIRED, label: 'el Jardín de Hierbas' },
     destileria_arcana: { min: DESTILERIA_BASE_LEVEL_REQUIRED,  label: 'la Destilería Arcana' },
     herbolario:        { min: HERBOLARIO_BASE_LEVEL_REQUIRED,  label: 'el Herbolario' },
     laboratory:        { min: LAB_BASE_LEVEL_REQUIRED,         label: 'el Laboratorio' },
-    library:           { min: LIBRARY_BASE_LEVEL_REQUIRED,     label: 'la Biblioteca' },
   }
   const baseLevelCheck = BASE_LEVEL_CHECKS[building.type]
   if (baseLevelCheck) {
-    const { data: allBuildings } = await supabase
-      .from('buildings').select('type, level, unlocked').eq('player_id', user.id)
-    const baseLevel = computeBaseLevel(allBuildings ?? [])
+    const [{ data: allBuildings }, { data: trainingRooms }] = await Promise.all([
+      supabase.from('buildings').select('type, level, unlocked').eq('player_id', user.id),
+      supabase.from('training_rooms').select('stat, built_at').eq('player_id', user.id),
+    ])
+    const baseLevel = computeBaseLevel(allBuildings ?? [], trainingRooms ?? [])
     if (baseLevel < baseLevelCheck.min) {
       return res.status(403).json({ error: `Necesitas base nivel ${baseLevelCheck.min} para construir ${baseLevelCheck.label}` })
     }
