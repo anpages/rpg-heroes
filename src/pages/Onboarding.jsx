@@ -5,10 +5,34 @@ import { supabase } from '../lib/supabase'
 import { LogOut, Dices } from 'lucide-react'
 
 const HERO_NAMES = [
+  // Fantásticos originales
   'Aldric', 'Seraphina', 'Kael', 'Lyra', 'Theron', 'Elara', 'Darius', 'Freya',
   'Orion', 'Isolde', 'Ragnar', 'Selene', 'Fenris', 'Astrid', 'Cedric', 'Morrigan',
   'Lucian', 'Brynn', 'Zephyr', 'Rowena', 'Draven', 'Nyx', 'Gareth', 'Sylvana',
   'Varen', 'Eira', 'Torin', 'Liora', 'Balthazar', 'Vesper', 'Alaric', 'Ignis',
+  // Mitología griega
+  'Aquiles', 'Héctor', 'Odiseo', 'Perseo', 'Teseo', 'Heracles', 'Jasón', 'Leónidas',
+  'Ariadna', 'Calíope', 'Medea', 'Andrómeda', 'Atalanta', 'Penélope', 'Circe', 'Electra',
+  'Patroclo', 'Diomedes', 'Áyax', 'Neoptólemo', 'Menelao', 'Agamenón', 'Belerofontes',
+  // Mitología nórdica
+  'Sigurd', 'Brynhildr', 'Gunnar', 'Völsung', 'Njord', 'Vidar', 'Tyr', 'Baldur',
+  'Skadi', 'Hlin', 'Gudrun', 'Sigrid', 'Ulfberht', 'Ivar', 'Bjorn', 'Halfdan',
+  'Rollo', 'Leif', 'Gunhild', 'Ragnhild', 'Torbjörn', 'Solveig',
+  // Mitología romana
+  'Romulus', 'Remus', 'Brutus', 'Cassius', 'Maximus', 'Corvus', 'Galba', 'Scipio',
+  'Camilla', 'Lavinia', 'Volumnia', 'Aemilia', 'Cornelia', 'Claudia', 'Valeria',
+  'Quintus', 'Lucius', 'Marcus', 'Titus', 'Caius', 'Flavius', 'Gaius', 'Severus',
+  // Guerreros históricos y leyendas
+  'Attila', 'Genghis', 'Khalid', 'Saladin', 'Hannibal', 'Spartacus', 'Vercingetorix',
+  'Boudicca', 'Zenobia', 'Tomyris', 'Artemisia', 'Khutulun', 'Lagertha',
+  'Rodrigo', 'Pelayo', 'Almanzor', 'Bernardo', 'Ximena', 'Ermengarda',
+  // Mitología celta y artúrica
+  'Arturus', 'Lancelot', 'Gawain', 'Percival', 'Tristan', 'Galahad', 'Geraint',
+  'Guinevere', 'Morgause', 'Nimueh', 'Lunette', 'Elaine', 'Isolde',
+  'Cú Chulainn', 'Fionn', 'Diarmuid', 'Grainne', 'Scathach', 'Medb',
+  // Mitología oriental y árabe
+  'Rustam', 'Sohrab', 'Gilgamesh', 'Enkidu', 'Sinuhé', 'Ramesses', 'Imhotep',
+  'Aladin', 'Scheherazade', 'Badr', 'Antarah', 'Qays', 'Layla', 'Shahryar',
 ]
 
 function randomName() {
