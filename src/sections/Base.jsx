@@ -8,6 +8,8 @@ import { useResources } from '../hooks/useResources'
 import { useBuildingProduction } from '../hooks/useBuildingProduction'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useResearch } from '../hooks/useResearch'
+import { useHeroId } from '../hooks/useHeroId'
+import { useHero } from '../hooks/useHero'
 import { REFINING_BUILDING_TYPES, buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
@@ -27,6 +29,8 @@ export default function Base({ mainRef }) {
   const { production, anyReady } = useBuildingProduction(userId)
   const { catalog, inventory, refiningSlots } = useCraftedItems(userId)
   const { research } = useResearch(userId)
+  const heroId = useHeroId()
+  const { hero } = useHero(heroId)
   const [activeZone,    setActiveZone]    = useState('produccion')
   const [resourceDelta, setResourceDelta] = useState({ iron: 0, wood: 0, mana: 0 })
   const [upgradePending, setUpgradePending] = useState(false)
@@ -420,6 +424,7 @@ export default function Base({ mainRef }) {
               onRefine={({ recipeId, quantity }) => refiningStartMutation.mutate({ recipeId, quantity })}
               onCollectSlot={(slotId) => refiningCollectMutation.mutate(slotId)}
               anyUpgrading={tallerUpgrading}
+              heroClass={hero?.class}
               {...sharedBuildingProps}
             />
           )}

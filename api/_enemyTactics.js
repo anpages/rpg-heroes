@@ -49,36 +49,119 @@ const MIXED_POOL = [
 ]
 
 /**
- * @param {number} vl - Virtual Level / dificultad del enemigo (1-21+)
- * @param {string} [archetypeKey] - Clave del arquetipo ('berserker','tank','assassin','mage')
- * @param {Function} [rng] - Función random (para tests)
- * @returns {Array<{name, icon, level, combat_effect}>}
+ * Devuelve { count, minLevel, maxLevel } según VL.
+ * @param {number} vl
+ * @param {Function} rng
  */
-export function generateEnemyTactics(vl, archetypeKey, rng = Math.random) {
-  let count, minLevel, maxLevel
+function tacticScaling(vl, rng) {
+  if (vl <= 5)  return { count: rng() < 0.5 ? 1 : 2, minLevel: 1, maxLevel: 1 }
+  if (vl <= 12) return { count: rng() < 0.4 ? 2 : 3, minLevel: 1, maxLevel: 2 }
+  if (vl <= 18) return { count: rng() < 0.4 ? 3 : 4, minLevel: 2, maxLevel: 3 }
+  return        { count: rng() < 0.3 ? 4 : 5,        minLevel: 3, maxLevel: 4 }
+}
 
-  if (vl <= 5) {
-    count = rng() < 0.5 ? 1 : 2
-    minLevel = 1; maxLevel = 1
-  } else if (vl <= 12) {
-    count = rng() < 0.4 ? 2 : 3
-    minLevel = 1; maxLevel = 2
-  } else if (vl <= 18) {
-    count = rng() < 0.4 ? 3 : 4
-    minLevel = 2; maxLevel = 3
-  } else {
-    count = rng() < 0.3 ? 4 : 5
-    minLevel = 3; maxLevel = 4
-  }
-
-  const pool = ARCHETYPE_POOLS[archetypeKey] ?? MIXED_POOL
+function buildTactics(pool, count, minLevel, maxLevel, rng) {
   const shuffled = [...pool].sort(() => rng() - 0.5)
   const picked = shuffled.slice(0, Math.min(count, shuffled.length))
-
   return picked.map(t => ({
     name: t.name,
     icon: t.icon,
     level: minLevel + Math.floor(rng() * (maxLevel - minLevel + 1)),
     combat_effect: t.combat_effect,
   }))
+}
+
+/**
+ * @param {number} vl - Virtual Level / dificultad del enemigo (1-21+)
+ * @param {string} [archetypeKey] - Clave del arquetipo ('berserker','tank','assassin','mage')
+ * @param {Function} [rng] - Función random (para tests)
+ * @returns {Array<{name, icon, level, combat_effect}>}
+ */
+export function generateEnemyTactics(vl, archetypeKey, rng = Math.random) {
+  const { count, minLevel, maxLevel } = tacticScaling(vl, rng)
+  const pool = ARCHETYPE_POOLS[archetypeKey] ?? MIXED_POOL
+  return buildTactics(pool, count, minLevel, maxLevel, rng)
+}
+
+/**
+ * Genera tácticas que contrarrestan las stats reales del héroe.
+ * La IA examina los puntos fuertes del héroe y selecciona tácticas
+ * que los anulan directamente.
+ *
+ * Lógica de contramedidas:
+ *  - Alta defensa  → preferir armor_pen (penetración de armadura)
+ *  - Alta agilidad → preferir accuracy/dodge_boost enemigo (dificultar esquiva)
+ *  - Alto ataque   → preferir damage_reduction / absorb_shield
+ *  - Poco HP       → preferir burst/execute (guaranteed_crit, damage_mult)
+ *  - Alto HP       → preferir debuffs que alargan el combate (enemy_debuff, armor_pen)
+ *
+ * @param {number} vl
+ * @param {string} archetypeKey
+ * @param {{ attack, defense, agility, max_hp }} heroStats
+ * @param {Function} [rng]
+ */
+export function generateCounterTactics(vl, archetypeKey, heroStats = {}, rng = Math.random) {
+  const { count, minLevel, maxLevel } = tacticScaling(vl, rng)
+  const basePool = ARCHETYPE_POOLS[archetypeKey] ?? MIXED_POOL
+
+  // Pesos de contramedida basados en las stats del héroe
+  const { attack = 50, defense = 50, agility = 50, max_hp = 300 } = heroStats
+
+  // Tácticas de penetración (counters defensa alta)
+  const armorPen = [ARCHETYPE_POOLS.berserker[3]] // Impacto Demoledor — armor_pen_boost
+
+  // Tácticas de burst/execute (counters HP bajo o para cerrar combates)
+  const burst = [
+    ARCHETYPE_POOLS.berserker[0], // Emboscada — guaranteed_crit
+    ARCHETYPE_POOLS.berserker[1], // Furia Interior — damage_mult
+    ARCHETYPE_POOLS.berserker[4], // Tormenta de Acero — double_attack
+  ]
+
+  // Tácticas de reducción de daño (counters ataque alto)
+  const mitigation = [
+    ARCHETYPE_POOLS.tank[0], // Muro de Hierro — absorb_shield
+    ARCHETYPE_POOLS.tank[3], // Voluntad Inquebrantable — damage_reduction
+    ARCHETYPE_POOLS.tank[4], // Coraza Vital — absorb_shield
+  ]
+
+  // Tácticas de debuff (counters stats equilibradas / HP alto)
+  const debuff = [
+    ARCHETYPE_POOLS.mage[1], // Trampa Táctica — enemy_debuff attack
+    ARCHETYPE_POOLS.mage[2], // Preparación Táctica — stat_buff agility
+  ]
+
+  // Construir pool ponderado: mezcla pool base del arquetipo con tácticas counter
+  // Las counter tienen peso ~40%; el resto viene del pool normal del arquetipo
+  const counterCandidates = []
+
+  // Defensa alta → penetración
+  if (defense >= 60) counterCandidates.push(...armorPen, ...armorPen) // peso ×2
+
+  // Ataque alto → mitigación
+  if (attack >= 65) counterCandidates.push(...mitigation)
+
+  // HP bajo → burst
+  if (max_hp < 250) counterCandidates.push(...burst)
+
+  // HP alto / stats equilibradas → debuffs
+  if (max_hp >= 350 || (defense >= 50 && attack >= 50)) counterCandidates.push(...debuff)
+
+  // Pool final: 60% arquetipo base, 40% counter (si hay candidatos)
+  let finalPool
+  if (counterCandidates.length > 0) {
+    // Deduplicar por nombre
+    const allById = new Map()
+    for (const t of basePool) allById.set(t.name, t)
+    for (const t of counterCandidates) allById.set(t.name, t)
+    // Mantener counter al inicio del array para que el slice las priorice
+    const dedupedCounters = counterCandidates.filter(
+      (t, i, arr) => arr.findIndex(x => x.name === t.name) === i
+    )
+    const remainingBase = basePool.filter(t => !dedupedCounters.some(c => c.name === t.name))
+    finalPool = [...dedupedCounters, ...remainingBase]
+  } else {
+    finalPool = basePool
+  }
+
+  return buildTactics(finalPool, count, minLevel, maxLevel, rng)
 }

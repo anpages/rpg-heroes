@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useRef } from 'react'
-import { Clock, Lock, Check } from 'lucide-react'
+import { Clock, Lock, Check, Filter } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { notify } from '../../lib/notifications.js'
 import {
@@ -29,10 +29,27 @@ const INPUT_LABELS = {
 const RECIPE_ORDER = [
   'potion_vida',
   'expedition_provisions', 'vial_aceleracion', 'amuleto_fortuna',
-  'rune_attack', 'rune_defense', 'rune_hp', 'rune_strength', 'rune_agility', 'rune_intelligence',
+  // Runas T1
+  'rune_strength', 'rune_defense', 'rune_hp', 'rune_attack', 'rune_agility', 'rune_intelligence',
+  // Runas T2
+  'rune_strength_ii', 'rune_defense_ii', 'rune_hp_ii', 'rune_attack_ii', 'rune_agility_ii', 'rune_intelligence_ii',
+  // Runas combinadas por clase
+  'rune_iron_will', 'rune_bulwark',
+  'rune_swift_strike', 'rune_shadow_veil',
+  'rune_arcane_surge', 'rune_mana_barrier',
+  'rune_predator', 'rune_primal_mind',
   'forge_stone_t2', 'forge_stone_t3',
   'tactic_scroll',
 ]
+
+const CLASS_FILTER_META = {
+  caudillo:  { label: 'Caudillo',  color: '#dc2626' },
+  sombra:    { label: 'Sombra',    color: '#0369a1' },
+  arcanista: { label: 'Arcanista', color: '#7c3aed' },
+  domador:   { label: 'Domador',   color: '#16a34a' },
+  universal: { label: 'Universal', color: '#d97706' },
+}
+const CLASS_FILTER_ORDER = ['caudillo', 'sombra', 'arcanista', 'domador', 'universal']
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -63,10 +80,12 @@ export default function TallerZone({
   byType, effectiveResources, catalog, inventory, refiningSlots,
   onRefine, onCollectSlot,
   anyUpgrading, onUpgradeStart, onUpgradeCollect, onOptimisticDeduct, onUpgradePending,
+  heroClass,
 }) {
   const lab = byType['laboratory']
   const baseLevel = baseLevelFromMap(byType)
   const [, tick] = useReducer(x => x + 1, 0)
+  const [runeFilter, setRuneFilter] = useState(heroClass ?? 'todas')
 
   // Tick para actualizar barras
   const labSlots = (refiningSlots ?? []).filter(s => s.building_type === 'laboratory')
@@ -182,6 +201,16 @@ export default function TallerZone({
           )
         }
 
+        // Para la categoría de runas, aplicar filtro por clase
+        const visibleRecipes = cat === 'rune'
+          ? catRecipes.filter(r => {
+              if (runeFilter === 'todas') return true
+              const cr = r.class_restrictions
+              if (!cr || cr.length === 0) return true
+              return cr.includes(runeFilter)
+            })
+          : catRecipes
+
         return (
           <div
             key={cat}
@@ -193,16 +222,56 @@ export default function TallerZone({
               style={{ background: `color-mix(in srgb, ${catMeta.color} 6%, var(--surface))` }}
             >
               <span
-                className="text-[12px] font-bold uppercase tracking-[0.08em]"
+                className="text-[12px] font-bold uppercase tracking-[0.08em] flex-1"
                 style={{ color: catMeta.color }}
               >
                 {catMeta.label}
               </span>
+              {cat === 'rune' && (
+                <Filter size={11} strokeWidth={2} style={{ color: catMeta.color, opacity: 0.7 }} />
+              )}
             </div>
+
+            {/* Filtro de clase para runas */}
+            {cat === 'rune' && (
+              <div className="flex gap-1.5 flex-wrap px-3 pt-2.5 pb-0">
+                <button
+                  type="button"
+                  onClick={() => setRuneFilter('todas')}
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md border transition-[background,color,border-color] duration-100"
+                  style={{
+                    color:        runeFilter === 'todas' ? '#fff' : 'var(--text-3)',
+                    background:   runeFilter === 'todas' ? catMeta.color : 'var(--surface-2)',
+                    borderColor:  runeFilter === 'todas' ? catMeta.color : 'var(--border)',
+                  }}
+                >
+                  Todas
+                </button>
+                {CLASS_FILTER_ORDER.map(cls => {
+                  const m = CLASS_FILTER_META[cls]
+                  const active = runeFilter === cls
+                  return (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => setRuneFilter(cls)}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md border transition-[background,color,border-color] duration-100"
+                      style={{
+                        color:       active ? '#fff' : m.color,
+                        background:  active ? m.color : `color-mix(in srgb, ${m.color} 8%, var(--surface-2))`,
+                        borderColor: active ? m.color : `color-mix(in srgb, ${m.color} 25%, var(--border))`,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Recipes */}
             <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {catRecipes.map((recipe) => (
+              {visibleRecipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
@@ -214,6 +283,11 @@ export default function TallerZone({
                   color={catMeta.color}
                 />
               ))}
+              {cat === 'rune' && visibleRecipes.length === 0 && (
+                <p className="col-span-2 text-[12px] text-text-3 text-center py-4">
+                  Sin runas para {CLASS_FILTER_META[runeFilter]?.label ?? runeFilter}
+                </p>
+              )}
             </div>
           </div>
         )
@@ -395,6 +469,9 @@ function useUpgradeTimer(building, onUpgradeCollect) {
 function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlot, color }) {
   const inputs   = recipe.inputs ?? []
   const stock    = inventory?.[recipe.id] ?? 0
+  const classTags = recipe.category === 'rune' && Array.isArray(recipe.class_restrictions)
+    ? recipe.class_restrictions.filter(c => c !== 'universal')
+    : []
   const progress = slot ? slotProgress(slot) : null
   const isDone   = !!slot && progress.remaining === 0
   const inProgress = !!slot && !isDone
@@ -427,6 +504,27 @@ function RecipeCard({ recipe, slot, inventory, resources, onRefine, onCollectSlo
           </div>
           {recipe.description && (
             <p className="text-[13px] text-text-3 leading-snug mt-0.5">{recipe.description}</p>
+          )}
+          {classTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {classTags.map(cls => {
+                const m = CLASS_FILTER_META[cls]
+                if (!m) return null
+                return (
+                  <span
+                    key={cls}
+                    className="text-[9px] font-bold uppercase tracking-[0.05em] px-1.5 py-px rounded border"
+                    style={{
+                      color: m.color,
+                      background: `color-mix(in srgb, ${m.color} 8%, var(--surface-2))`,
+                      borderColor: `color-mix(in srgb, ${m.color} 25%, var(--border))`,
+                    }}
+                  >
+                    {m.label}
+                  </span>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>

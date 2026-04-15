@@ -394,6 +394,29 @@ export function tierAnchoredEnemyStats(virtualLevel) {
   }
 }
 
+/**
+ * Stats del enemigo calibradas a las stats efectivas reales del héroe.
+ * El enemigo siempre es competitivo independientemente del rating o tier.
+ * Varianza ±10% por stat para que no sea idéntico — la diferencia la hacen
+ * la clase, las habilidades y las tácticas.
+ *
+ * @param {{ attack, defense, strength, agility, intelligence, max_hp }} heroStats
+ */
+export function heroAnchoredEnemyStats(heroStats) {
+  function vary(v) {
+    const variance = 0.90 + Math.random() * 0.20    // 0.90 – 1.10
+    return Math.max(1, Math.round((v ?? 1) * variance))
+  }
+  return {
+    max_hp:       vary(heroStats.max_hp),
+    attack:       vary(heroStats.attack),
+    defense:      vary(heroStats.defense),
+    strength:     vary(heroStats.strength),
+    agility:      vary(heroStats.agility),
+    intelligence: vary(heroStats.intelligence),
+  }
+}
+
 const TRAINING_ENEMY_POOLS = [
   { max:  3, names: [
     'Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia', 'Aello', 'Celaeno',

@@ -1,57 +1,55 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { simulateTeamCombat } from './_teamCombat.js'
+import { simulateCombat } from './_combat.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, teamCombatDifficulty } from './_rating.js'
 import { computeSynergy, applySynergyToStats } from '../src/lib/teamSynergy.js'
-import {
-  trainingEnemyStats,
-  trainingEnemyName,
-  trainingRewards,
-} from '../src/lib/gameFormulas.js'
-
-const ALL_CLASSES = ['caudillo', 'arcanista', 'sombra', 'domador']
-
-/** Genera 3 enemigos con clases distintas, aplicando su propia sinergia de rival. */
-function generateEnemyTeam(avgLevel) {
-  // Barajar las 4 clases y tomar 3 → equipo rival siempre 3 clases distintas
-  const shuffled = ALL_CLASSES.slice().sort(() => Math.random() - 0.5).slice(0, 3)
-  const rivalSynergy = computeSynergy(shuffled)
-
-  return shuffled.map((cls) => {
-    const base = trainingEnemyStats(avgLevel)
-    // +15% máximo HP para rivales (compensar que son 3 contra 3 con sinergia)
-    base.max_hp = Math.round(base.max_hp * 1.15)
-    const withSynergy = applySynergyToStats(base, rivalSynergy)
-    withSynergy.max_hp = base.max_hp
-    return {
-      name:  `${trainingEnemyName(avgLevel)}`,
-      class: cls,
-      stats: withSynergy,
-    }
-  })
-}
+import { trainingRewards } from '../src/lib/gameFormulas.js'
+import { verifyCombatToken } from './_combatSign.js'
+import { generateEnemyTactics } from './_enemyTactics.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroIds } = req.body ?? {}
-  if (!Array.isArray(heroIds) || heroIds.length !== 3) {
-    return res.status(400).json({ error: 'Debes enviar 3 heroIds' })
-  }
-  if (new Set(heroIds).size !== 3) {
-    return res.status(400).json({ error: 'Los 3 héroes deben ser distintos' })
-  }
+  const { previewToken, heroIds, matchups } = req.body ?? {}
+
+  if (!previewToken)                              return res.status(400).json({ error: 'previewToken requerido' })
+  if (!Array.isArray(heroIds) || heroIds.length !== 3) return res.status(400).json({ error: 'Debes enviar 3 heroIds' })
+  if (!Array.isArray(matchups) || matchups.length !== 3) return res.status(400).json({ error: 'Debes enviar 3 matchups' })
+  if (new Set(heroIds).size !== 3)                return res.status(400).json({ error: 'Los 3 héroes deben ser distintos' })
+
   for (const id of heroIds) {
     if (!isUUID(id)) return res.status(400).json({ error: 'heroId inválido' })
   }
 
-  // Cargar los 3 héroes en un solo query
+  // Validar matchups: cada enemigo (0,1,2) asignado exactamente una vez, cada héroe exactamente una vez
+  const enemyIndices = matchups.map(m => m.enemyIndex)
+  const matchupHeroIds = matchups.map(m => m.heroId)
+  if (new Set(enemyIndices).size !== 3 || !enemyIndices.every(i => [0, 1, 2].includes(i))) {
+    return res.status(400).json({ error: 'Los matchups deben cubrir los 3 enemigos exactamente una vez' })
+  }
+  if (new Set(matchupHeroIds).size !== 3 || !matchupHeroIds.every(id => heroIds.includes(id))) {
+    return res.status(400).json({ error: 'Los matchups deben cubrir los 3 héroes exactamente una vez' })
+  }
+
+  // Verificar token
+  let preview
+  try {
+    preview = verifyCombatToken(previewToken)
+  } catch (e) {
+    return res.status(400).json({ error: e.message, code: 'INVALID_PREVIEW' })
+  }
+  if (preview.type !== 'team_preview')  return res.status(400).json({ error: 'Token de tipo incorrecto' })
+  if (preview.userId !== user.id)       return res.status(400).json({ error: 'Token no corresponde al jugador' })
+
+  const { enemies: enemyTeam, avgLevel } = preview
+
+  // Cargar héroes
   const { data: heroesRows, error: heroesErr } = await supabase
     .from('heroes')
     .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining')
@@ -59,177 +57,161 @@ export default async function handler(req, res) {
     .eq('player_id', user.id)
 
   if (heroesErr) return res.status(500).json({ error: heroesErr.message })
-  if (!heroesRows || heroesRows.length !== 3) {
-    return res.status(404).json({ error: 'Uno o más héroes no encontrados' })
-  }
+  if (!heroesRows || heroesRows.length !== 3) return res.status(404).json({ error: 'Uno o más héroes no encontrados' })
 
-  // Mantener el orden que envió el cliente
-  const heroesOrdered = heroIds.map(id => heroesRows.find(h => h.id === id)).filter(Boolean)
-  if (heroesOrdered.length !== 3) {
-    return res.status(404).json({ error: 'Héroes inválidos' })
-  }
-
+  const heroesById = Object.fromEntries(heroesRows.map(h => [h.id, h]))
   const nowMs = Date.now()
 
-  // Stats efectivas por héroe (antes de interpolar HP para usar max_hp con equipo)
-  const effectiveByHero = {}
-  for (const hero of heroesOrdered) {
-    const baseStats = await getEffectiveStats(supabase, hero.id, user.id)
-    if (!baseStats) return res.status(500).json({ error: `Sin stats para ${hero.name}` })
-    effectiveByHero[hero.id] = baseStats
+  // Stats efectivas + validación por héroe
+  const effectiveStats = {}
+  for (const heroId of heroIds) {
+    const hero = heroesById[heroId]
+    if (!hero) return res.status(404).json({ error: `Héroe no encontrado` })
+    if (hero.status !== 'idle') return res.status(409).json({ error: `${hero.name} está ocupado` })
+
+    const stats = await getEffectiveStats(supabase, heroId, user.id)
+    if (!stats) return res.status(500).json({ error: `Sin stats para ${hero.name}` })
+
+    const curHp = interpolateHP(hero, nowMs, stats.max_hp)
+    if (!canPlay(curHp, stats.max_hp)) {
+      return res.status(409).json({ error: `${hero.name} tiene HP insuficiente (20% mín.)`, code: 'LOW_HP' })
+    }
+    effectiveStats[heroId] = stats
   }
 
-  // Validar estado y HP mínimo de los 3
-  for (const hero of heroesOrdered) {
-    if (hero.status !== 'idle') {
-      return res.status(409).json({ error: `${hero.name} está ocupado` })
-    }
-    const effMax = effectiveByHero[hero.id].max_hp
-    const curHp = interpolateHP(hero, nowMs, effMax)
-    if (!canPlay(curHp, effMax)) {
-      return res.status(409).json({
-        error: `${hero.name} tiene HP insuficiente (20% mín.)`,
-        code: 'LOW_HP',
-      })
-    }
-  }
+  // Sinergia del equipo jugador
+  const heroObjects = heroIds.map(id => heroesById[id])
+  const playerSynergy = computeSynergy(heroObjects.map(h => h.class))
 
-  // Sinergia del squad del jugador
-  const playerSynergy = computeSynergy(heroesOrdered.map(h => h.class))
+  // Simular 3 duelos según los matchups asignados
+  const duels = []
+  let playerWins = 0
 
-  // Builds de combate con sinergia
-  const teamA = []
-  for (const hero of heroesOrdered) {
-    const baseStats = effectiveByHero[hero.id]
-    const withSynergy = applySynergyToStats(baseStats, playerSynergy)
-    withSynergy.max_hp = baseStats.max_hp
-    teamA.push({
-      id:    hero.id,
-      name:  hero.name,
-      class: hero.class,
-      stats: withSynergy,
+  for (const { heroId, enemyIndex } of matchups) {
+    const hero   = heroesById[heroId]
+    const enemy  = enemyTeam[enemyIndex]
+    const base   = effectiveStats[heroId]
+    const heroStats = applySynergyToStats({ ...base }, playerSynergy)
+    heroStats.max_hp = base.max_hp
+
+    const enemyTactics = generateEnemyTactics(avgLevel, enemy.archetypeKey)
+
+    const duelResult = simulateCombat(heroStats, enemy.stats, {
+      classA:   hero.class,
+      classB:   enemy.archetypeKey,
+      tacticsB: enemyTactics,
+    })
+
+    const duelWon = duelResult.winner === 'a'
+    if (duelWon) playerWins++
+
+    duels.push({
+      heroId,
+      heroName:    hero.name,
+      heroClass:   hero.class,
+      heroMaxHp:   heroStats.max_hp,
+      heroHpLeft:  duelResult.hpLeftA,
+      enemyIndex,
+      enemyName:   enemy.name,
+      enemyClass:  enemy.class,
+      enemyMaxHp:  enemy.stats.max_hp,
+      enemyHpLeft: duelResult.hpLeftB,
+      won:         duelWon,
+      rounds:      duelResult.rounds,
     })
   }
 
-  // Nivel medio del squad → rewards y generación rival
-  const avgLevel = Math.max(1, Math.round(heroesOrdered.reduce((a, h) => a + h.level, 0) / 3))
-  const teamB = generateEnemyTeam(avgLevel)
+  const won   = playerWins >= 2
+  const score = `${playerWins}-${3 - playerWins}`
 
-  // Simular
-  const result = simulateTeamCombat(teamA, teamB)
-  const won = result.winner === 'a'
-
-  // Recompensas: oro pool del jugador × 3; XP por héroe × 1.5 (consistente con riesgo 3×)
-  const base = trainingRewards(avgLevel)
+  // Recompensas
+  const base       = trainingRewards(avgLevel)
   const goldReward = Math.round(base.gold * 3.0)
   const xpPerHero  = Math.round(base.experience * 1.5)
 
-  // Persistir el combate (historial del squad)
+  // Persistir
   await supabase.from('team_combats').insert({
     player_id:     user.id,
-    hero_ids:      teamA.map(h => h.id),
-    hero_names:    teamA.map(h => h.name),
-    hero_classes:  teamA.map(h => h.class),
-    hero_max_hps:  teamA.map(h => h.stats.max_hp),
-    enemy_names:   teamB.map(h => h.name),
-    enemy_classes: teamB.map(h => h.class),
-    enemy_max_hps: teamB.map(h => h.stats.max_hp),
+    hero_ids:      heroIds,
+    hero_names:    heroObjects.map(h => h.name),
+    hero_classes:  heroObjects.map(h => h.class),
+    hero_max_hps:  heroIds.map(id => effectiveStats[id].max_hp),
+    enemy_names:   enemyTeam.map(e => e.name),
+    enemy_classes: enemyTeam.map(e => e.class),
+    enemy_max_hps: enemyTeam.map(e => e.stats.max_hp),
     won,
-    rounds:        result.rounds,
-    log:           result.log,
+    rounds:        Math.max(...duels.map(d => d.rounds)),
+    log:           duels.map(d => ({ heroId: d.heroId, heroName: d.heroName, enemyName: d.enemyName, won: d.won })),
     gold_reward:   won ? goldReward : 0,
     xp_reward:     won ? xpPerHero  : 0,
     synergy_bonus: playerSynergy.attackPct,
   })
 
-  // Coste de HP por héroe — plano como el resto de modos, calculado sobre max_hp
-  const costPct = won ? COMBAT_HP_COST.squad.win : COMBAT_HP_COST.squad.loss
-  const nowIso = new Date(nowMs).toISOString()
-  const heroUpdates = []
-  const ratingResults = []
+  // HP + rating por héroe
+  const costPct    = won ? COMBAT_HP_COST.squad.win : COMBAT_HP_COST.squad.loss
+  const nowIso     = new Date(nowMs).toISOString()
+  const ratingMap  = {}
 
-  for (const hero of heroesOrdered) {
-    const effMax = effectiveByHero[hero.id].max_hp
-    const curHp = interpolateHP(hero, nowMs, effMax)
+  for (const heroId of heroIds) {
+    const hero    = heroesById[heroId]
+    const effMax  = effectiveStats[heroId].max_hp
+    const curHp   = interpolateHP(hero, nowMs, effMax)
     const hpAfter = applyCombatHpCost(curHp, hero.max_hp, costPct)
 
-    const ratingResult = computeRatingUpdate(hero, {
-      won,
-      difficulty: teamCombatDifficulty(),
-      nowMs,
-    })
-    ratingResults.push(ratingResult)
+    const ratingResult = computeRatingUpdate(hero, { won, difficulty: teamCombatDifficulty(), nowMs })
+    ratingMap[heroId] = ratingResult
 
-    heroUpdates.push({
-      id: hero.id,
-      current_hp:         hpAfter,
-      hp_last_updated_at: nowIso,
-      ...ratingResult.updates,
-    })
-  }
-
-  // Aplicar updates al HP + rating en una sola query por héroe (no hay batch nativo)
-  for (const upd of heroUpdates) {
-    const { id, ...fields } = upd
     const { error } = await supabase
       .from('heroes')
-      .update(fields)
-      .eq('id', id)
+      .update({ current_hp: hpAfter, hp_last_updated_at: nowIso, ...ratingResult.updates })
+      .eq('id', heroId)
       .eq('status', 'idle')
+
     if (error) return res.status(500).json({ error: error.message })
   }
 
-  // Desgaste del equipo — 3v3 es duro, cada héroe sufre WEAR_PROFILE.squad.
-  // La función SQL escalada aplica rareza × slot encima del amount nominal.
-  for (const hero of heroesOrdered) {
-    const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: WEAR_PROFILE.squad })
-    if (durError) console.error('durability rpc error:', durError.message)
+  // Desgaste
+  for (const heroId of heroIds) {
+    supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: heroId, amount: WEAR_PROFILE.squad })
+      .then(({ error }) => { if (error) console.error('durability error:', error.message) })
   }
 
-  // Recompensas solo si gana
+  // Recompensas si gana
   if (won) {
-    // Oro + XP atómico por héroe (primer héroe recibe el oro, todos reciben XP)
-    for (let i = 0; i < heroesOrdered.length; i++) {
+    for (let i = 0; i < heroIds.length; i++) {
       await supabase.rpc('reward_gold_and_xp', {
         p_player_id: user.id,
-        p_hero_id:   heroesOrdered[i].id,
+        p_hero_id:   heroIds[i],
         p_gold:      i === 0 ? goldReward : 0,
         p_xp:        xpPerHero,
       })
     }
   }
 
-  // Misiones
   progressMissions(supabase, user.id, 'training_combat', 1).catch(() => {})
 
-  // Respuesta
   return res.status(200).json({
     ok: true,
     won,
-    rounds:  result.rounds,
-    log:     result.log,
-    teamA: teamA.map((u, i) => ({
-      id: u.id, name: u.name, class: u.class, max_hp: u.stats.max_hp, hp_left: result.hpLeftA[i],
-    })),
-    teamB: teamB.map((u, i) => ({
-      name: u.name, class: u.class, max_hp: u.stats.max_hp, hp_left: result.hpLeftB[i],
-    })),
-    synergy: {
-      player: playerSynergy,
-    },
+    score,
+    playerWins,
+    duels,
+    synergy: { player: playerSynergy },
     rewards: won ? { gold: goldReward, xpPerHero } : null,
-    ratings: ratingResults.map((r, i) => ({
-      heroId:    heroesOrdered[i].id,
-      heroName:  heroesOrdered[i].name,
-      prev:      r.tierBefore.rating,
-      current:   r.updates.combat_rating,
-      delta:     r.delta,
-      decay:     r.decayApplied,
-      graceUsed: r.graceUsed,
-      promoted:  r.promoted,
-      tier:      r.tierAfter.tier,
-      division:  r.tierAfter.division,
-      label:     r.tierAfter.label,
-    })),
+    ratings: heroIds.map(id => {
+      const r    = ratingMap[id]
+      const hero = heroesById[id]
+      return {
+        heroId:   id,
+        heroName: hero.name,
+        prev:     r.tierBefore.rating,
+        current:  r.updates.combat_rating,
+        delta:    r.delta,
+        promoted: r.promoted,
+        tier:     r.tierAfter.tier,
+        division: r.tierAfter.division,
+        label:    r.tierAfter.label,
+      }
+    }),
   })
 }

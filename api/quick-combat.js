@@ -1,7 +1,7 @@
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import { trainingRewards, tierAnchoredEnemyStats, applyArchetype, decoratedEnemyName } from '../src/lib/gameFormulas.js'
+import { trainingRewards, heroAnchoredEnemyStats, applyArchetype, decoratedEnemyName } from '../src/lib/gameFormulas.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
   // ancladas al héroe que el jugador eligió para combatir
   const { archetypeKey, enemyClass, enemyName } = preview
   const { vl, shift } = quickCombatVirtualLevel(hero)
-  const enemyStats    = applyArchetype(tierAnchoredEnemyStats(vl), archetypeKey)
+  const enemyStats    = applyArchetype(heroAnchoredEnemyStats(heroStats), archetypeKey)
 
   // Tácticas del héroe y del enemigo
   const { data: heroTacticRows } = await supabase
