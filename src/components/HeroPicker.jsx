@@ -6,7 +6,7 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { Lock, Plus, ChevronDown, ChevronRight, Dices } from 'lucide-react'
+import { Lock, Plus, ChevronDown, ChevronRight, Dices, Shield, Layers } from 'lucide-react'
 import { computeBaseLevel, HERO_SLOT_REQUIREMENTS, HERO_SLOT_CLASS, CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { motion } from 'framer-motion'
@@ -354,7 +354,7 @@ export function RecruitModal({ nextSlot, onRecruit, onClose }) {
  * locked=true bloquea la selección (p.ej. torneo en curso).
  * activeId + onSelect: modo controlado (QuickCombat). Sin props → usa el store global.
  */
-export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSelect }) {
+export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSelect, activeExtras = null }) {
   const userId         = useAppStore(s => s.userId)
   const selectedHeroId = useAppStore(s => s.selectedHeroId)
   const setSelected    = useAppStore(s => s.setSelectedHeroId)
@@ -451,6 +451,38 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
                   {statusLabel}
                 </span>
               </div>
+
+              {/* Extras — solo en la card activa cuando hay datos */}
+              {isActive && activeExtras && (
+                <div className="flex items-center gap-2.5 flex-wrap pt-1.5 mt-0.5 border-t border-border">
+                  {/* Tier / Rating */}
+                  <span
+                    className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                    style={{
+                      color: activeExtras.tier.color,
+                      background: `color-mix(in srgb, ${activeExtras.tier.color} 12%, var(--surface))`,
+                      border: `1px solid color-mix(in srgb, ${activeExtras.tier.color} 25%, var(--border))`,
+                    }}
+                  >
+                    {activeExtras.tier.label}
+                  </span>
+                  {/* Equipo */}
+                  {activeExtras.durPct != null && (() => {
+                    const c = activeExtras.durPct > 60 ? '#16a34a' : activeExtras.durPct > 30 ? '#d97706' : '#dc2626'
+                    return (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: c }}>
+                        <Shield size={10} strokeWidth={2.5} />
+                        {activeExtras.durPct}%
+                      </span>
+                    )
+                  })()}
+                  {/* Tácticas */}
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
+                    <Layers size={10} strokeWidth={2.5} />
+                    {activeExtras.tacticCount}/5 tácticas
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Check activo */}

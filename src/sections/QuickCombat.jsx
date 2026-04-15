@@ -7,18 +7,17 @@ import { useHero } from '../hooks/useHero'
 import { useHeroes } from '../hooks/useHeroes'
 import { useInventory } from '../hooks/useInventory'
 import { useCraftedItems } from '../hooks/useCraftedItems'
+import { useHeroTactics } from '../hooks/useHeroTactics'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { trainingRewards } from '../lib/gameFormulas'
-import { Swords, Heart, Coins, Star, Shield, Flame, Layers } from 'lucide-react'
+import { Swords, Coins, Star, Shield, Flame } from 'lucide-react'
 import { CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
-import RatingBanner from '../components/RatingBanner'
 import { tierForRating } from '../lib/combatRating'
 import { PotionPanel } from '../components/PotionPanel'
-import { TacticsStrip } from '../components/TacticsStrip'
 import { HeroCombatPicker } from '../components/HeroPicker'
 
 /* ─── Countdown overlay (3…2…1 justo antes de combatir) ─────────────────────── */
@@ -81,13 +80,13 @@ function CountdownOverlay({ onReady }) {
 export default function QuickCombat() {
   const userId               = useAppStore(s => s.userId)
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
-  const navigateToHeroTab    = useAppStore(s => s.navigateToHeroTab)
   const [heroId, setHeroId]  = useState(null)
   const queryClient          = useQueryClient()
   const { heroes }           = useHeroes(userId)
   const { hero }             = useHero(heroId)
   const { items }            = useInventory(heroId)
-  const { catalog, inventory } = useCraftedItems(userId)
+  const { tactics }          = useHeroTactics(heroId)
+  useCraftedItems(userId) // mantiene la caché caliente para PotionPanel
   const [preview, setPreview]             = useState(null)
   const [matchmaking, setMatchmaking]     = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
@@ -100,39 +99,14 @@ export default function QuickCombat() {
     return () => clearInterval(id)
   }, [])
 
-  const nowMs        = Date.now()
-  const equipBonuses = (items ?? [])
+  const nowMs          = Date.now()
+  const effectiveMaxHp = hero ? hero.max_hp + (items ?? [])
     .filter(i => i.equipped_slot && i.current_durability > 0)
-    .reduce((acc, i) => {
-      const c = i.item_catalog
-      acc.max_hp   += c.hp_bonus       ?? 0
-      acc.attack   += c.attack_bonus   ?? 0
-      acc.defense  += c.defense_bonus  ?? 0
-      acc.strength += c.strength_bonus ?? 0
-      acc.agility  += c.agility_bonus  ?? 0
-      return acc
-    }, { attack: 0, defense: 0, max_hp: 0, strength: 0, agility: 0 })
-
-  const effectiveMaxHp = hero ? hero.max_hp + equipBonuses.max_hp : 100
-  const hpNow          = interpolateHp(hero, nowMs, effectiveMaxHp)
-  const hasEnoughHp    = hpNow >= Math.floor(effectiveMaxHp * 0.2)
-  const isBusy         = hero?.status !== 'idle'
-  const rewards        = trainingRewards(hero?.level ?? 1)
-
-  const hpPotions = (catalog ?? [])
-    .filter(c => c.effects?.some(e => e.type === 'hp_restore') && (inventory[c.id] ?? 0) > 0)
-    .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
-
-  const itemUseMutation = useMutation({
-    mutationFn: async (recipeId) => {
-      await apiPost('/api/item-use', { heroId: hero?.id, recipeId })
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.craftedItems(userId) }),
-        queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
-      ])
-    },
-    onError: err => notify.error(err.message),
-  })
+    .reduce((s, i) => s + (i.item_catalog.hp_bonus ?? 0), 0) : 100
+  const hpNow       = interpolateHp(hero, nowMs, effectiveMaxHp)
+  const hasEnoughHp = hpNow >= Math.floor(effectiveMaxHp * 0.2)
+  const isBusy      = hero?.status !== 'idle'
+  const rewards     = trainingRewards(hero?.level ?? 1)
 
   const previewMutation = useMutation({
     mutationFn: () => apiPost('/api/quick-combat-preview', {}),
@@ -191,6 +165,15 @@ export default function QuickCombat() {
   const enemyClass = preview?.enemyClass ?? null
   const tier       = tierForRating(hero?.combat_rating ?? 0)
   const classColor = enemyClass ? (CLASS_COLORS[enemyClass] ?? 'var(--text-3)') : tier.color
+
+  const activeExtras = heroId && hero ? (() => {
+    const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
+    const durPct   = equipped.length
+      ? Math.round(equipped.reduce((s, i) => s + i.current_durability / i.item_catalog.max_durability, 0) / equipped.length * 100)
+      : null
+    const tacticCount = (tactics ?? []).filter(t => t.slot_index != null).length
+    return { durPct, tacticCount, tier }
+  })() : null
 
   // Al menos un héroe debe estar disponible para buscar rival
   const anyHeroAvailable = (heroes ?? []).some(h => {
@@ -323,100 +306,31 @@ export default function QuickCombat() {
             {heroId ? 'Tu héroe' : 'Elige tu héroe'}
           </span>
 
-          <HeroCombatPicker activeId={heroId} onSelect={setHeroId} />
+          <HeroCombatPicker activeId={heroId} onSelect={setHeroId} activeExtras={activeExtras} />
 
-          {/* Detalles del héroe seleccionado */}
-          {heroId && hero && (() => {
-            const pct        = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
-            const hpColor    = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-            const recovering = hero.status === 'idle'
-            const full       = hpNow >= effectiveMaxHp
-            const equipped   = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
-            const durPct     = equipped.length
-              ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
-              : null
-            const durColor   = durPct == null ? '#6b7280' : durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-            return (
-              <>
-                <div className="-mt-2">
-                  <RatingBanner hero={hero} />
-                </div>
+          {heroId && hero && (
+            <>
+              <PotionPanel heroId={heroId} userId={userId} activeEffects={hero.active_effects ?? {}} title="Pociones de combate" />
 
-                <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
-                    <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={hpColor} /> HP</span>
-                    <span className="font-medium" style={{ color: hpColor }}>{hpNow} / {effectiveMaxHp}</span>
-                  </div>
-                  <div className="h-2 bg-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-[width,background] duration-[400ms]${recovering ? ' animate-hp-regen-pulse' : ''}`}
-                      style={{ width: `${pct}%`, background: hpColor }}
-                    />
-                  </div>
-                  {durPct != null && (
-                    <>
-                      <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
-                        <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                        <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
-                      </div>
-                      <div className="h-2 bg-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-[width,background] duration-[400ms]"
-                          style={{ width: `${durPct}%`, background: durColor }}
-                        />
-                      </div>
-                    </>
-                  )}
-                  {hpPotions.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      {hpPotions.map(p => {
-                        const disabled = full || isBusy || itemUseMutation.isPending
-                        return (
-                          <motion.button
-                            key={p.id}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
-                            style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
-                            onClick={() => !disabled && itemUseMutation.mutate(p.id)}
-                            disabled={disabled}
-                            whileTap={disabled ? {} : { scale: 0.95 }}
-                          >
-                            <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
-                            {p.name}
-                            <span className="opacity-60">×{p.quantity}</span>
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <PotionPanel heroId={heroId} userId={userId} activeEffects={hero.active_effects ?? {}} title="Pociones de combate" />
-
-                <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Tácticas</span>
-                  <TacticsStrip heroId={heroId} onNavigate={() => navigateToHeroTab('tacticas')} />
-                </div>
-
-                <motion.button
-                  className="btn btn--primary btn--lg btn--full"
-                  onClick={startCombat}
-                  disabled={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp}
-                  whileTap={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
-                  whileHover={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                >
-                  <Swords size={16} strokeWidth={2} />
-                  {combatMutation.isPending || matchmaking
-                    ? 'Combatiendo...'
-                    : isBusy
-                      ? 'Héroe ocupado'
-                      : !hasEnoughHp
-                        ? 'HP insuficiente (20% mín.)'
-                        : '¡Combatir!'}
-                </motion.button>
-              </>
-            )
-          })()}
+              <motion.button
+                className="btn btn--primary btn--lg btn--full"
+                onClick={startCombat}
+                disabled={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp}
+                whileTap={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
+                whileHover={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              >
+                <Swords size={16} strokeWidth={2} />
+                {combatMutation.isPending || matchmaking
+                  ? 'Combatiendo...'
+                  : isBusy
+                    ? 'Héroe ocupado'
+                    : !hasEnoughHp
+                      ? 'HP insuficiente (20% mín.)'
+                      : '¡Combatir!'}
+              </motion.button>
+            </>
+          )}
         </div>
       )}
     </div>
