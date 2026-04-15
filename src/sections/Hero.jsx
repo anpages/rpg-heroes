@@ -883,23 +883,6 @@ function Hero() {
                   >
                     {cls?.name}
                   </span>
-                  {(() => {
-                    const t = tierForRating(hero.combat_rating ?? 0)
-                    return (
-                      <span
-                        className="flex items-center gap-1 text-[10px] font-bold tracking-[0.06em] uppercase px-2 py-0.5 rounded-[6px] border"
-                        style={{
-                          color: t.color,
-                          background:  `color-mix(in srgb, ${t.color} 10%, var(--surface))`,
-                          borderColor: `color-mix(in srgb, ${t.color} 30%, var(--border))`,
-                        }}
-                        title={`Rating: ${hero.combat_rating ?? 0} pts · ${hero.combats_played ?? 0} combates`}
-                      >
-                        <Shield size={10} strokeWidth={2.5} />
-                        {t.label}
-                      </span>
-                    )
-                  })()}
                   <span className="flex items-center gap-1 text-[13px] font-medium text-text-3" style={{ color: status.color }}>
                     <CircleDot size={10} strokeWidth={2.5} />
                     {status.label}
