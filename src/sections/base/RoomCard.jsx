@@ -34,7 +34,7 @@ function fmtDuration(secs) {
   return `${s}s`
 }
 
-export default function RoomCard({ room, roomData, progressRow, resources, heroLevel, mutPending, isQueueBusy, anyReady, collectPending, onBuild, onUpgrade, onUpgradeCollect, onCollect }) {
+export default function RoomCard({ room, roomData, progressRow, resources, heroLevel, mutPending, isQueueBusy, anyReady, collectPending, heroStatValue, statLabel, onBuild, onUpgrade, onUpgradeCollect, onCollect }) {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const collectingRef = useRef(false)
@@ -123,23 +123,30 @@ export default function RoomCard({ room, roomData, progressRow, resources, heroL
             <p className={`text-[14px] font-bold leading-none ${isBuilt ? 'text-text' : 'text-text-3'}`}>
               {room.label}
             </p>
-            {isBuilt && !isUpgrading && (
-              <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none flex-shrink-0"
-                style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
-                Nv.{roomLevel}
-              </span>
-            )}
-            {isUpgrading && (
-              <span className="text-[11px] font-semibold text-[#0891b2] flex-shrink-0">Mejorando…</span>
-            )}
-            {!isBuilt && lockedByLevel && (
-              <span className="text-[11px] text-text-3 flex-shrink-0 flex items-center gap-1">
-                <Lock size={10} strokeWidth={2.5} />Héroe Nv.{room.heroLevelMin}
-              </span>
-            )}
-            {!isBuilt && !lockedByLevel && (
-              <span className="text-[11px] text-text-3 flex-shrink-0">Disponible</span>
-            )}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {heroStatValue != null && (
+                <span className="text-[13px] font-black tabular-nums" style={{ color: room.color }}>
+                  {statLabel} {heroStatValue}
+                </span>
+              )}
+              {isBuilt && !isUpgrading && (
+                <span className="text-[11px] font-bold px-1.5 py-[3px] rounded-md leading-none"
+                  style={{ color: room.color, background: `color-mix(in srgb,${room.color} 12%,var(--surface))` }}>
+                  Nv.{roomLevel}
+                </span>
+              )}
+              {isUpgrading && (
+                <span className="text-[11px] font-semibold text-[#0891b2]">Mejorando…</span>
+              )}
+              {!isBuilt && lockedByLevel && (
+                <span className="text-[11px] text-text-3 flex items-center gap-1">
+                  <Lock size={10} strokeWidth={2.5} />Héroe Nv.{room.heroLevelMin}
+                </span>
+              )}
+              {!isBuilt && !lockedByLevel && (
+                <span className="text-[11px] text-text-3">Disponible</span>
+              )}
+            </div>
           </div>
 
           <p className="text-[11px] text-text-3 mt-0.5">
@@ -206,15 +213,25 @@ export default function RoomCard({ room, roomData, progressRow, resources, heroL
       {!isUpgrading && (
         <div className="px-4 pb-4 mt-auto">
           {ready ? (
-            <div className="flex items-center justify-end pt-3 border-t border-border">
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              {progressRow?.total_gained > 0 && (
+                <span className="text-[11px] text-text-3">
+                  {progressRow.total_gained} pts entrenados
+                </span>
+              )}
               <motion.button
-                className="btn btn--primary btn--sm"
+                className="btn btn--primary btn--sm ml-auto"
                 onClick={onCollect}
                 disabled={collectPending}
                 whileTap={collectPending ? {} : { scale: 0.96 }}
               >
                 <PackageOpen size={12} strokeWidth={2} />
-                {collectPending ? 'Recogiendo…' : '+1 punto'}
+                {collectPending
+                  ? 'Recogiendo…'
+                  : heroStatValue != null
+                    ? `${statLabel} ${heroStatValue} → ${heroStatValue + 1}`
+                    : '+1 punto'
+                }
               </motion.button>
             </div>
           ) : isBuilt && roomLevel >= TRAINING_ROOM_MAX_LEVEL ? (

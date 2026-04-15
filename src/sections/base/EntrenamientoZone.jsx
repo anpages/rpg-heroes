@@ -6,10 +6,10 @@ import { apiPost } from '../../lib/api.js'
 import { queryKeys } from '../../lib/queryKeys.js'
 import { hasReadyPoint } from '../../hooks/useTraining.js'
 import { trainingRoomUpgradeDurationMs } from '../../lib/gameConstants.js'
-import { cardVariants, TRAINING_ROOMS } from './constants.js'
+import { cardVariants, TRAINING_ROOMS, STAT_LABEL_MAP } from './constants.js'
 import RoomCard from './RoomCard.jsx'
 
-export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, heroLevel, anyUpgrading, allowedStats }) {
+export default function EntrenamientoZone({ trainingRooms, trainingProgress, resources, userId, heroId, heroLevel, anyUpgrading, allowedStats, hero }) {
   const queryClient = useQueryClient()
   const roomByStat     = Object.fromEntries(trainingRooms.map(r => [r.stat, r]))
   const progressByStat = Object.fromEntries(trainingProgress.map(r => [r.stat, r]))
@@ -139,6 +139,8 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
             isQueueBusy={isQueueBusy}
             anyReady={anyReady}
             collectPending={collectingStats.has(room.stat)}
+            heroStatValue={hero ? hero[room.stat] ?? 0 : null}
+            statLabel={STAT_LABEL_MAP[room.stat] ?? room.stat}
             onBuild={() => buildMutation.mutate(room.stat)}
             onUpgrade={() => upgradeMutation.mutate(room.stat)}
             onUpgradeCollect={() => upgradeCollectMutation.mutate({ stat: room.stat })}

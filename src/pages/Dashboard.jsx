@@ -308,7 +308,6 @@ const HERO_SUB_TABS = [
   { id: 'equipo',         label: 'Equipo',         icon: Shield      },
   { id: 'tacticas',       label: 'Tácticas',       icon: Layers      },
   { id: 'expediciones',   label: 'Expediciones',   icon: Map         },
-  { id: 'entrenamiento',  label: 'Entrenamiento',  icon: Dumbbell    },
   { id: 'tienda',         label: 'Tienda',         icon: ShoppingBag },
 ]
 

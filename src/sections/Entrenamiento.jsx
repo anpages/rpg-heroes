@@ -36,6 +36,7 @@ export default function Entrenamiento() {
       heroLevel={hero.level ?? 1}
       anyUpgrading={anyTrainingUpgrading}
       allowedStats={allowedStats}
+      hero={hero}
     />
   )
 }
