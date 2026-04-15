@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useReducer, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
@@ -6,8 +6,9 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { Lock, Plus, ChevronDown, Dices } from 'lucide-react'
+import { Lock, Plus, ChevronDown, ChevronRight, Dices } from 'lucide-react'
 import { computeBaseLevel, HERO_SLOT_REQUIREMENTS, HERO_SLOT_CLASS, CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
+import { interpolateHp } from '../lib/hpInterpolation'
 import { motion } from 'framer-motion'
 
 const EASE_OUT = [0.22, 1, 0.36, 1]
@@ -90,6 +91,64 @@ const STATUS_LABEL = {
   ready:       '¡Recoger!',
 }
 
+/* ─── Scroll-hint inline (igual que ScrollHint.jsx pero sin dependencia extra) ── */
+function HeroScrollRow({ activeId, children }) {
+  const ref = useRef(null)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+  const [canScrollLeft,  setCanScrollLeft]  = useState(false)
+
+  const check = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const tol = 2
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - tol)
+    setCanScrollLeft(el.scrollLeft > tol)
+  }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', check); ro.disconnect() }
+  }, [check])
+
+  // Scroll al elemento activo cuando cambia
+  useEffect(() => {
+    const el = ref.current
+    if (!el || activeId == null) return
+    const target = el.querySelector(`[data-hero-id="${activeId}"]`)
+    if (!target) return
+    const elRect     = el.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    const offset     = targetRect.left - elRect.left + el.scrollLeft - 8
+    el.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' })
+  }, [activeId])
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-6"
+      >
+        {children}
+      </div>
+      {canScrollLeft && (
+        <div className="absolute left-0 top-0 bottom-0 w-6 pointer-events-none"
+          style={{ background: 'linear-gradient(to right, var(--color-surface), transparent)' }} />
+      )}
+      {canScrollRight && (
+        <div className="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-end pointer-events-none pr-0.5"
+          style={{ background: 'linear-gradient(to left, var(--color-surface) 30%, transparent)' }}>
+          <ChevronRight size={14} strokeWidth={2.5} className="text-text-3 animate-pulse" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * Estado de cabecera del héroe.
  */
@@ -143,53 +202,42 @@ export function HeroSelector() {
   const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <HeroScrollRow activeId={heroId}>
       {heroes.map(hero => {
         const status   = getDerivedStatus(hero)
         const isActive = hero.id === heroId
         const isReady  = status === 'ready'
         return (
-          <div key={hero.id} className="relative">
-            <button
-              className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer
-                ${isReady
-                  ? 'bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border-[#16a34a] text-[#15803d]'
-                  : isActive
-                    ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
-                    : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
-                }`}
-              onClick={() => handleSelectHero(hero.id)}
-            >
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}
-                style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
-              />
-              {hero.name}
-              <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
-              <span className={`hidden sm:inline text-[11px] border-l border-current/20 pl-1.5 ml-0.5 ${isReady ? 'font-bold opacity-90' : 'font-normal opacity-60'}`}>
-                {STATUS_LABEL[status] ?? 'Reposo'}
-              </span>
-              {isActive && (
-                <ChevronDown size={12} strokeWidth={2.5} className="flex-shrink-0 opacity-60 ml-0.5" />
-              )}
-            </button>
+          <button
+            key={hero.id}
+            data-hero-id={hero.id}
+            className={`flex items-center gap-1.5 px-3 py-[6px] rounded-lg border text-[13px] font-semibold transition-[background,border-color,color] duration-150 whitespace-nowrap font-[inherit] cursor-pointer flex-shrink-0
+              ${isReady
+                ? 'bg-[color-mix(in_srgb,#16a34a_12%,var(--surface-2))] border-[#16a34a] text-[#15803d]'
+                : isActive
+                  ? 'bg-info-bg border-[var(--blue-200)] text-[var(--blue-700)]'
+                  : 'border-border bg-surface-2 text-text-2 hover:border-border-2 hover:text-text'
+              }`}
+            onClick={() => handleSelectHero(hero.id)}
+          >
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${isReady ? 'animate-pulse-dot' : ''}`}
+              style={{ background: STATUS_COLOR[status] ?? STATUS_COLOR.idle }}
+            />
+            {hero.name}
+            <span className="text-[11px] font-medium opacity-70">Nv.{hero.level}</span>
+            <span className={`hidden sm:inline text-[11px] border-l border-current/20 pl-1.5 ml-0.5 ${isReady ? 'font-bold opacity-90' : 'font-normal opacity-60'}`}>
+              {STATUS_LABEL[status] ?? 'Reposo'}
+            </span>
             {isActive && (
-              <span
-                className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-0 h-0 pointer-events-none"
-                style={{
-                  borderLeft: '5px solid transparent',
-                  borderRight: '5px solid transparent',
-                  borderTop: `5px solid ${isReady ? '#16a34a' : 'var(--blue-400)'}`,
-                  opacity: 0.7,
-                }}
-              />
+              <ChevronDown size={12} strokeWidth={2.5} className="flex-shrink-0 opacity-60 ml-0.5" />
             )}
-          </div>
+          </button>
         )
       })}
 
       {canRecruit && (
-        <button className="btn btn--ghost btn--sm border-dashed" onClick={() => setRecruitOpen(true)}>
+        <button className="btn btn--ghost btn--sm border-dashed flex-shrink-0" onClick={() => setRecruitOpen(true)}>
           <Plus size={12} strokeWidth={2.5} /> Reclutar
         </button>
       )}
@@ -199,8 +247,7 @@ export function HeroSelector() {
         return (
           <div
             key={`locked-${slot}`}
-            className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px]"
-            title={`Desbloquea con Base Nv.${SLOT_UNLOCK[slot]}`}
+            className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg border border-dashed border-border opacity-45 whitespace-nowrap select-none text-[13px] flex-shrink-0"
           >
             <Lock size={11} strokeWidth={2.5} className="text-text-3 flex-shrink-0" />
             <span className="text-[11px] leading-none">{CLASS_ICONS[cls]}</span>
@@ -209,7 +256,7 @@ export function HeroSelector() {
           </div>
         )
       })}
-    </div>
+    </HeroScrollRow>
   )
 }
 
@@ -303,8 +350,7 @@ export function RecruitModal({ nextSlot, onRecruit, onClose }) {
 }
 
 /**
- * Selector de héroe para secciones de combate (inline, compacto).
- * Se oculta si el jugador solo tiene 1 héroe.
+ * Selector de héroe para secciones de combate — tarjetas grandes con info de combate.
  * locked=true bloquea la selección (p.ej. torneo en curso).
  * activeId + onSelect: modo controlado (QuickCombat). Sin props → usa el store global.
  */
@@ -313,58 +359,139 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
   const selectedHeroId = useAppStore(s => s.selectedHeroId)
   const setSelected    = useAppStore(s => s.setSelectedHeroId)
   const { heroes }     = useHeroes(userId)
+  const [, forceUpdate] = useReducer(x => x + 1, 0)
+
+  useEffect(() => {
+    const id = setInterval(forceUpdate, 10_000)
+    return () => clearInterval(id)
+  }, [])
 
   if (!heroes?.length) return null
 
-  const isControlled = activeIdProp !== undefined && onSelect !== undefined
-  const activeId     = isControlled ? activeIdProp : selectedHeroId
-  const handleSelect = isControlled ? onSelect : setSelected
-  const unlockedSlots = new Set(heroes.map(h => h.slot_index ?? 1))
+  const isControlled  = activeIdProp !== undefined && onSelect !== undefined
+  const activeId      = isControlled ? activeIdProp : selectedHeroId
+  const handleSelect  = isControlled ? onSelect : setSelected
+  const unlockedSlots = new Set(heroes.map(h => h.slot_index ?? h.slot ?? 1))
+  const nowMs         = Date.now()
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex flex-col gap-2">
       {heroes.map(hero => {
-        const status   = getDerivedStatus(hero)
-        const canFight = !locked && (status === 'idle' || status === 'ready')
-        const isActive = hero.id === activeId
+        const status    = getDerivedStatus(hero)
+        const canFight  = !locked && (status === 'idle' || status === 'ready')
+        const isActive  = hero.id === activeId
+        const cls       = hero.class
+        const clsColor  = CLASS_COLORS[cls] ?? 'var(--text-3)'
+        const hpNow     = interpolateHp(hero, nowMs)
+        const maxHp     = hero.max_hp ?? 100
+        const hpPct     = Math.min(100, Math.round((hpNow / maxHp) * 100))
+        const hpColor   = hpPct > 60 ? '#16a34a' : hpPct > 30 ? '#d97706' : '#dc2626'
+        const statusLabel = status === 'ready'     ? '¡Recoger pendiente!'
+                          : status === 'exploring' ? 'En expedición'
+                          : hero.status !== 'idle' ? 'Ocupado'
+                          : 'Listo'
 
         return (
           <button
             key={hero.id}
             disabled={!canFight}
             onClick={() => canFight && handleSelect(hero.id)}
-            className={`flex items-center gap-2 px-3 py-[7px] rounded-lg border text-[13px] font-semibold transition-[border-color,color] duration-150 whitespace-nowrap font-[inherit] bg-surface-2
-              ${isActive && canFight
-                ? 'border-border text-text'
-                : !canFight
-                  ? 'border-border text-text-3 opacity-50 cursor-default'
-                  : 'border-border text-text-2 hover:text-text cursor-pointer'
+            className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition-[border-color,background] duration-150 font-[inherit]
+              ${isActive
+                ? 'border-[var(--blue-500)] bg-info-bg'
+                : canFight
+                  ? 'border-border bg-surface-2 cursor-pointer active:bg-surface'
+                  : 'border-border bg-surface-2 opacity-45 cursor-default'
               }`}
-            style={{}}
           >
-            <span className="text-[15px] leading-none">{CLASS_ICONS[hero.class] ?? '⚔'}</span>
-            <span>{hero.name}</span>
-            <span className="text-[11px] opacity-70">Nv.{hero.level}</span>
-            {!canFight && (
-              <span className="text-[11px] opacity-70">
-                {status === 'exploring' ? '· Explorando' : status === 'ready' ? '· ¡Recoger!' : '· Ocupado'}
-              </span>
+            {/* Icono de clase */}
+            <div
+              className="w-13 h-13 rounded-xl flex items-center justify-center flex-shrink-0 text-[28px] leading-none"
+              style={{
+                width: '52px',
+                height: '52px',
+                background: `color-mix(in srgb, ${clsColor} 14%, var(--surface))`,
+                border: `1.5px solid color-mix(in srgb, ${clsColor} 30%, var(--border))`,
+              }}
+            >
+              {CLASS_ICONS[cls] ?? '⚔'}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              {/* Nombre + nivel */}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[15px] font-bold text-text truncate">{hero.name}</span>
+                <span className="text-[12px] font-semibold text-text-3 flex-shrink-0">Nv.{hero.level}</span>
+              </div>
+
+              {/* HP */}
+              <div className="mb-1.5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[11px] font-semibold text-text-3">HP</span>
+                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: hpColor }}>
+                    {hpNow} / {maxHp}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-300"
+                    style={{ width: `${hpPct}%`, background: hpColor }}
+                  />
+                </div>
+              </div>
+
+              {/* Estado */}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ background: canFight ? '#16a34a' : '#d97706' }}
+                />
+                <span className="text-[11px] font-semibold" style={{ color: canFight ? '#16a34a' : 'var(--text-3)' }}>
+                  {statusLabel}
+                </span>
+              </div>
+            </div>
+
+            {/* Check activo */}
+            {isActive && (
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--blue-500)' }}
+              >
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4L3.5 6.5L9 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
             )}
           </button>
         )
       })}
 
-      {/* Slots bloqueados — orientación al jugador */}
-      {[2, 3, 4, 5].filter(slot => !unlockedSlots.has(slot)).map(slot => (
-        <div
-          key={`locked-${slot}`}
-          className="flex items-center gap-2 px-3 py-[7px] rounded-lg border border-dashed border-border text-[13px] font-semibold text-text-3 opacity-40 cursor-default whitespace-nowrap"
-        >
-          <span className="text-[15px] leading-none">{CLASS_ICONS[HERO_SLOT_CLASS[slot]] ?? '⚔'}</span>
-          <span>{CLASS_LABELS[HERO_SLOT_CLASS[slot]]}</span>
-          <Lock size={11} strokeWidth={2.5} />
-        </div>
-      ))}
+      {/* Slots bloqueados */}
+      {[2, 3, 4, 5].filter(slot => !unlockedSlots.has(slot)).map(slot => {
+        const cls = HERO_SLOT_CLASS[slot]
+        return (
+          <div
+            key={`locked-${slot}`}
+            className="flex items-center gap-4 px-4 py-4 rounded-xl border border-dashed border-border opacity-35"
+          >
+            <div
+              className="rounded-xl bg-surface-2 flex items-center justify-center text-[24px] leading-none flex-shrink-0"
+              style={{ width: '52px', height: '52px' }}
+            >
+              {CLASS_ICONS[cls] ?? '⚔'}
+            </div>
+            <div className="flex-1">
+              <span className="text-[14px] font-semibold text-text-3 block mb-0.5">{CLASS_LABELS[cls]}</span>
+              <div className="flex items-center gap-1 text-text-3">
+                <Lock size={10} strokeWidth={2.5} />
+                <span className="text-[11px]">Base Nv.{SLOT_UNLOCK[slot]}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
