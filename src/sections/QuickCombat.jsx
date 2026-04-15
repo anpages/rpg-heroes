@@ -171,8 +171,8 @@ export default function QuickCombat() {
     const durPct   = equipped.length
       ? Math.round(equipped.reduce((s, i) => s + i.current_durability / i.item_catalog.max_durability, 0) / equipped.length * 100)
       : null
-    const tacticCount = (tactics ?? []).filter(t => t.slot_index != null).length
-    return { durPct, tacticCount, tier }
+    const equippedTactics = (tactics ?? []).filter(t => t.slot_index != null && t.tactic_catalog)
+    return { durPct, equippedTactics, tier }
   })() : null
 
   // Al menos un héroe debe estar disponible para buscar rival

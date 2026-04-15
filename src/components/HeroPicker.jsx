@@ -371,8 +371,7 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
   const isControlled  = activeIdProp !== undefined && onSelect !== undefined
   const activeId      = isControlled ? activeIdProp : selectedHeroId
   const handleSelect  = isControlled ? onSelect : setSelected
-  const unlockedSlots = new Set(heroes.map(h => h.slot_index ?? h.slot ?? 1))
-  const nowMs         = Date.now()
+  const nowMs = Date.now()
 
   return (
     <div className="flex flex-col gap-2">
@@ -454,33 +453,57 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
 
               {/* Extras — solo en la card activa cuando hay datos */}
               {isActive && activeExtras && (
-                <div className="flex items-center gap-2.5 flex-wrap pt-1.5 mt-0.5 border-t border-border">
-                  {/* Tier / Rating */}
-                  <span
-                    className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
-                    style={{
-                      color: activeExtras.tier.color,
-                      background: `color-mix(in srgb, ${activeExtras.tier.color} 12%, var(--surface))`,
-                      border: `1px solid color-mix(in srgb, ${activeExtras.tier.color} 25%, var(--border))`,
-                    }}
-                  >
-                    {activeExtras.tier.label}
-                  </span>
+                <div className="flex flex-col gap-2 pt-2 mt-0.5 border-t border-border">
+                  {/* Tier */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-text-3">Rating</span>
+                    <span
+                      className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                      style={{
+                        color: activeExtras.tier.color,
+                        background: `color-mix(in srgb, ${activeExtras.tier.color} 12%, var(--surface))`,
+                        border: `1px solid color-mix(in srgb, ${activeExtras.tier.color} 25%, var(--border))`,
+                      }}
+                    >
+                      {activeExtras.tier.label}
+                    </span>
+                  </div>
                   {/* Equipo */}
                   {activeExtras.durPct != null && (() => {
                     const c = activeExtras.durPct > 60 ? '#16a34a' : activeExtras.durPct > 30 ? '#d97706' : '#dc2626'
                     return (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: c }}>
-                        <Shield size={10} strokeWidth={2.5} />
-                        {activeExtras.durPct}%
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
+                            <Shield size={10} strokeWidth={2.5} />Equipo
+                          </span>
+                          <span className="text-[11px] font-semibold" style={{ color: c }}>{activeExtras.durPct}%</span>
+                        </div>
+                        <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${activeExtras.durPct}%`, background: c }} />
+                        </div>
+                      </div>
                     )
                   })()}
-                  {/* Tácticas */}
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
-                    <Layers size={10} strokeWidth={2.5} />
-                    {activeExtras.tacticCount}/5 tácticas
-                  </span>
+                  {/* Tácticas equipadas */}
+                  {activeExtras.equippedTactics.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
+                        <Layers size={10} strokeWidth={2.5} />Tácticas
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {activeExtras.equippedTactics.map(t => (
+                          <span
+                            key={t.id}
+                            className="flex items-center gap-1 px-1.5 py-0.5 bg-surface border border-border rounded text-[11px] font-semibold text-text-2"
+                          >
+                            <span>{t.tactic_catalog.icon}</span>
+                            <span>{t.tactic_catalog.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -500,30 +523,6 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
         )
       })}
 
-      {/* Slots bloqueados */}
-      {[2, 3, 4, 5].filter(slot => !unlockedSlots.has(slot)).map(slot => {
-        const cls = HERO_SLOT_CLASS[slot]
-        return (
-          <div
-            key={`locked-${slot}`}
-            className="flex items-center gap-4 px-4 py-4 rounded-xl border border-dashed border-border opacity-35"
-          >
-            <div
-              className="rounded-xl bg-surface-2 flex items-center justify-center text-[24px] leading-none flex-shrink-0"
-              style={{ width: '52px', height: '52px' }}
-            >
-              {CLASS_ICONS[cls] ?? '⚔'}
-            </div>
-            <div className="flex-1">
-              <span className="text-[14px] font-semibold text-text-3 block mb-0.5">{CLASS_LABELS[cls]}</span>
-              <div className="flex items-center gap-1 text-text-3">
-                <Lock size={10} strokeWidth={2.5} />
-                <span className="text-[11px]">Base Nv.{SLOT_UNLOCK[slot]}</span>
-              </div>
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }
