@@ -14,12 +14,14 @@ import { useInventory } from '../hooks/useInventory'
 import { useResources } from '../hooks/useResources'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroTactics } from '../hooks/useHeroTactics'
+import { useActiveExpedition } from '../hooks/useActiveExpedition'
+import { useCombatHistory } from '../hooks/useCombatHistory'
 import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
-  Wrench, Info, Pencil, Check, Telescope,
+  Wrench, Info, Pencil, Check, Telescope, Map, Swords, Trophy,
 } from 'lucide-react'
-import { tierForRating } from '../lib/combatRating'
+import { tierForRating, pointsToNextTier, TIERS } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel, computeEffectiveStats } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -678,6 +680,8 @@ function Hero() {
   const { tactics }                    = useHeroTactics(hero?.id)
   const { resources } = useResources(userId)
   const { research }  = useResearch(userId)
+  const { expedition } = useActiveExpedition(hero?.id)
+  const { data: combatHistory } = useCombatHistory(hero?.id)
   const { inventory: craftedItems } = useCraftedItems(userId)
   const researchBonuses = computeResearchBonuses(research.completed)
   const [bagOpen,        setBagOpen]        = useState(false)
@@ -963,11 +967,151 @@ function Hero() {
 
         </div>
 
-        {/* Right column: equipment */}
+        {/* Right column: rating + expedition + history */}
         <div className="flex flex-col gap-4">
+          {(() => {
+            const rating   = hero.combat_rating ?? 0
+            const t        = tierForRating(rating)
+            const tierIdx  = TIERS.findIndex(e => rating >= e.min)
+            const nextMin  = tierIdx > 0 ? TIERS[tierIdx - 1].min : null
+            const tierPct  = nextMin
+              ? Math.min(100, Math.round(((rating - t.min) / (nextMin - t.min)) * 100))
+              : 100
+            const ptsLeft  = pointsToNextTier(rating)
+            const played   = hero.combats_played ?? 0
+            const won      = hero.combats_won ?? 0
+            const winRate  = played > 0 ? Math.round((won / played) * 100) : null
 
+            return (
+              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-4">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rating de combate</span>
 
+                {/* Tier badge grande */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: `color-mix(in srgb, ${t.color} 14%, var(--surface-2))`,
+                      border: `1.5px solid color-mix(in srgb, ${t.color} 35%, var(--border))`,
+                    }}
+                  >
+                    <Shield size={22} strokeWidth={1.8} style={{ color: t.color }} />
+                  </div>
+                  <div>
+                    <p className="text-[18px] font-black leading-tight" style={{ color: t.color }}>{t.label}</p>
+                    <p className="text-[13px] font-semibold text-text-3 tabular-nums">{rating} pts</p>
+                  </div>
+                </div>
 
+                {/* Barra de progreso al siguiente tier */}
+                <div>
+                  <div className="h-2 bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-500"
+                      style={{ width: `${tierPct}%`, background: t.color }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-text-3 mt-1.5">
+                    {ptsLeft != null
+                      ? <><span className="font-semibold text-text tabular-nums">{ptsLeft} pts</span> para {TIERS[tierIdx - 1].label}</>
+                      : 'Rango máximo alcanzado'
+                    }
+                  </p>
+                </div>
+
+                {/* Récord */}
+                {played > 0 && (
+                  <div className="flex items-center gap-4 pt-1 border-t border-border">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-text-3">Victorias</span>
+                      <span className="text-[14px] font-bold text-[#16a34a] tabular-nums">{won}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-text-3">Derrotas</span>
+                      <span className="text-[14px] font-bold text-[#dc2626] tabular-nums">{played - won}</span>
+                    </div>
+                    {winRate != null && (
+                      <div className="flex flex-col ml-auto text-right">
+                        <span className="text-[11px] text-text-3">Winrate</span>
+                        <span className="text-[14px] font-bold text-text tabular-nums">{winRate}%</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Expedición activa */}
+          {expedition && (() => {
+            const endsAt  = new Date(expedition.ends_at)
+            const nowMs   = Date.now()
+            const msLeft  = endsAt - nowMs
+            const ready   = msLeft <= 0
+            const minutes = Math.max(0, Math.floor(msLeft / 60000))
+            const seconds = Math.max(0, Math.floor((msLeft % 60000) / 1000))
+            const timeStr = ready ? 'Lista para recoger' : `${minutes}m ${String(seconds).padStart(2, '0')}s`
+            return (
+              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Expedición activa</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: ready ? 'color-mix(in srgb, #16a34a 12%, var(--surface-2))' : 'color-mix(in srgb, #d97706 10%, var(--surface-2))',
+                             border: ready ? '1.5px solid color-mix(in srgb, #16a34a 30%, var(--border))' : '1.5px solid color-mix(in srgb, #d97706 28%, var(--border))' }}>
+                    <Map size={18} strokeWidth={1.8} style={{ color: ready ? '#16a34a' : '#d97706' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold text-text truncate">{expedition.dungeons?.name ?? 'Mazmorra'}</p>
+                    <p className="text-[12px] font-semibold tabular-nums" style={{ color: ready ? '#16a34a' : '#d97706' }}>{timeStr}</p>
+                  </div>
+                  {ready && (
+                    <span className="text-[11px] font-bold px-2 py-1 rounded-lg animate-pulse"
+                      style={{ color: '#16a34a', background: 'color-mix(in srgb, #16a34a 10%, var(--surface-2))', border: '1px solid color-mix(in srgb, #16a34a 25%, var(--border))' }}>
+                      ¡Lista!
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Historial de combates recientes */}
+          {combatHistory?.length > 0 && (() => {
+            const SOURCE_LABEL = { practica: 'Práctica', torre: 'Torre', torneo: 'Torneo' }
+            const SOURCE_COLOR = { practica: '#2563eb', torre: '#7c3aed', torneo: '#d97706' }
+            const recent = combatHistory.slice(0, 5)
+            return (
+              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Últimos combates</span>
+                <div className="flex flex-col divide-y divide-border">
+                  {recent.map(c => {
+                    const color = SOURCE_COLOR[c.source] ?? '#6b7280'
+                    const date  = new Date(c.created_at)
+                    const diff  = Date.now() - date
+                    const mins  = Math.floor(diff / 60000)
+                    const hrs   = Math.floor(diff / 3600000)
+                    const days  = Math.floor(diff / 86400000)
+                    const ago   = days > 0 ? `${days}d` : hrs > 0 ? `${hrs}h` : `${mins}m`
+                    return (
+                      <div key={c.id} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
+                        <span className={`text-[13px] font-black flex-shrink-0 ${c.won ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                          {c.won ? <Trophy size={14} strokeWidth={2} /> : <Swords size={14} strokeWidth={2} />}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-text truncate leading-tight">{c.enemy_name}</p>
+                          <span className="text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-px rounded"
+                            style={{ color, background: `color-mix(in srgb, ${color} 10%, var(--surface-2))`, border: `1px solid color-mix(in srgb, ${color} 22%, var(--border))` }}>
+                            {SOURCE_LABEL[c.source] ?? c.source}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-text-3 flex-shrink-0 tabular-nums">{ago}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
       </div>

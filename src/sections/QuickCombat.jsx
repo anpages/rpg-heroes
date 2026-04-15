@@ -16,7 +16,7 @@ import { Swords, Coins, Star, Shield, Flame, Layers, ChevronRight } from 'lucide
 import { CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
-import { tierForRating } from '../lib/combatRating'
+import { tierForRating, pointsToNextTier, TIERS } from '../lib/combatRating'
 import { PotionPanel } from '../components/PotionPanel'
 import { HeroCombatPicker } from '../components/HeroPicker'
 
@@ -85,7 +85,7 @@ function CountdownOverlay({ onReady }) {
 
 /* ─── Fase: buscando rival ───────────────────────────────────────────────────── */
 
-function SearchingCard({ onlineCount }) {
+function SearchingCard() {
   const [msgIdx, setMsgIdx]     = useState(0)
   const [dots, setDots]         = useState('')
   const [progress, setProgress] = useState(0)
@@ -132,10 +132,6 @@ function SearchingCard({ onlineCount }) {
             {SEARCH_MESSAGES[msgIdx]}{dots}
           </motion.p>
         </AnimatePresence>
-        <p className="text-[12px] text-text-3 mt-1.5 flex items-center justify-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse inline-block" />
-          {onlineCount.toLocaleString()} jugadores en línea
-        </p>
       </div>
 
       {/* Barra de progreso */}
@@ -250,6 +246,135 @@ function RivalRevealCard({ preview, enemyClass, classColor, tier, onAccept, onCh
   )
 }
 
+/* ─── Pantalla de resultados ─────────────────────────────────────────────────── */
+
+function CombatResultScreen({ result, heroName, onContinue }) {
+  const { won, rating, rewards, enemyName } = result
+  const prevTier  = tierForRating(rating.prev)
+  const afterTier = tierForRating(rating.current)
+  const promoted  = rating.promoted
+  const delta     = rating.delta
+
+  const tierIdx  = TIERS.findIndex(t => rating.current >= t.min)
+  const nextMin  = tierIdx > 0 ? TIERS[tierIdx - 1].min : null
+  const tierPct  = nextMin
+    ? Math.min(100, Math.round(((rating.current - afterTier.min) / (nextMin - afterTier.min)) * 100))
+    : 100
+  const ptsLeft = pointsToNextTier(rating.current)
+
+  return (
+    <motion.div
+      className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22 }}
+    >
+      {/* Cabecera victoria / derrota */}
+      <div
+        className="px-5 py-5 flex flex-col items-center gap-1 text-center"
+        style={won
+          ? { background: 'color-mix(in srgb, #16a34a 10%, var(--surface-2))' }
+          : { background: 'color-mix(in srgb, #dc2626 10%, var(--surface-2))' }
+        }
+      >
+        <span className="text-[36px] leading-none">{won ? '🏆' : '💀'}</span>
+        <p className="text-[20px] font-black text-text mt-1">{won ? '¡Victoria!' : 'Derrota'}</p>
+        <p className="text-[12px] text-text-3">{heroName} <span className="opacity-50">vs</span> {enemyName}</p>
+      </div>
+
+      <div className="flex flex-col divide-y divide-border">
+        {/* Recompensas */}
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Recompensas</span>
+          {won && rewards ? (
+            <div className="flex flex-wrap gap-3">
+              <span className="flex items-center gap-1.5 text-[14px] font-bold text-text">
+                <Coins size={15} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
+              </span>
+              <span className="flex items-center gap-1.5 text-[14px] font-bold text-text">
+                <Star size={15} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
+              </span>
+              {rewards.tacticDrop && (
+                <span className="flex items-center gap-1.5 text-[13px] font-bold px-2.5 py-1 rounded-lg"
+                  style={{ color: '#7c3aed', background: 'color-mix(in srgb, #7c3aed 10%, var(--surface-2))', border: '1px solid color-mix(in srgb, #7c3aed 25%, var(--border))' }}>
+                  <span>{rewards.tacticDrop.icon}</span>
+                  {rewards.tacticDrop.name}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-[13px] text-text-3">Sin recompensas esta vez.</p>
+          )}
+        </div>
+
+        {/* Rating */}
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rating</span>
+            <span className="text-[13px] font-black tabular-nums" style={{ color: delta >= 0 ? '#16a34a' : '#dc2626' }}>
+              {delta >= 0 ? `+${delta}` : delta}
+            </span>
+          </div>
+
+          {/* Promoción de tier */}
+          {promoted ? (
+            <motion.div
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl"
+              style={{ background: `color-mix(in srgb, ${afterTier.color} 10%, var(--surface-2))`, border: `1px solid color-mix(in srgb, ${afterTier.color} 28%, var(--border))` }}
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.12, type: 'spring', stiffness: 280, damping: 18 }}
+            >
+              <span className="text-[13px] font-bold" style={{ color: prevTier.color }}>{prevTier.label}</span>
+              <ChevronRight size={14} strokeWidth={2.5} style={{ color: afterTier.color }} />
+              <span className="text-[15px] font-black" style={{ color: afterTier.color }}>{afterTier.label}</span>
+              <span className="text-[18px] leading-none ml-1">🎉</span>
+            </motion.div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-text tabular-nums">{rating.prev} → {rating.current}</span>
+              <span className="text-[12px] font-bold px-2 py-0.5 rounded"
+                style={{ color: afterTier.color, background: `color-mix(in srgb, ${afterTier.color} 10%, var(--surface-2))`, border: `1px solid color-mix(in srgb, ${afterTier.color} 22%, var(--border))` }}>
+                {afterTier.label}
+              </span>
+            </div>
+          )}
+
+          {/* Barra de progreso en el tier */}
+          {nextMin && (
+            <div>
+              <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: afterTier.color }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${tierPct}%` }}
+                  transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+                />
+              </div>
+              {ptsLeft != null && (
+                <p className="text-[11px] text-text-3 mt-1 text-right tabular-nums">{ptsLeft} pts para {TIERS[tierIdx - 1].label}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Botón */}
+      <div className="px-5 pb-5 pt-1">
+        <motion.button
+          className="btn btn--primary btn--lg btn--full"
+          onClick={onContinue}
+          whileTap={{ scale: 0.97 }}
+        >
+          <Swords size={15} strokeWidth={2} /> Siguiente rival
+        </motion.button>
+      </div>
+    </motion.div>
+  )
+}
+
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
 export default function QuickCombat() {
@@ -269,16 +394,10 @@ export default function QuickCombat() {
   const [matchmaking, setMatchmaking]     = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
   const [result, setResult]               = useState(null)
+  const [postResult, setPostResult]       = useState(null)
   const [waitingForApi, setWaitingForApi] = useState(false)
   const [preview, setPreview]             = useState(null)
   const [, forceUpdate] = useReducer(x => x + 1, 0)
-
-  // Contador de jugadores online (fake, animado)
-  const [onlineCount, setOnlineCount] = useState(() => 900 + Math.floor(Math.random() * 600))
-  useEffect(() => {
-    const id = setInterval(() => setOnlineCount(c => Math.max(800, c + Math.floor((Math.random() - 0.42) * 25))), 2500)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     const id = setInterval(forceUpdate, 10_000)
@@ -392,28 +511,25 @@ export default function QuickCombat() {
           heroClass={result.heroClass}
           archetype={result.archetype}
           enemyTactics={result.enemyTactics}
-          onClose={() => { applyPostCombat(result); setResult(null); resetSearch() }}
+          onClose={() => { applyPostCombat(result); setPostResult(result); setResult(null) }}
         />
       )}
 
-      {/* Recompensas */}
-      <div className="bg-surface border border-border rounded-xl px-5 py-4 flex flex-col gap-2 shadow-[var(--shadow-sm)]">
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Recompensas al ganar</span>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Coins size={13} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#7c3aed]">
-            <Layers size={13} color="#7c3aed" strokeWidth={2} />Táctica (8%)
-          </span>
-        </div>
-      </div>
+      {/* ── Pantalla de resultados ────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {!result && postResult && (
+          <motion.div key="post-result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <CombatResultScreen
+              result={postResult}
+              heroName={hero?.name ?? 'Héroe'}
+              onContinue={() => { setPostResult(null); resetSearch() }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Área principal: fases con transición ──────────────────────────── */}
-      <AnimatePresence mode="wait">
+      {!postResult && <AnimatePresence mode="wait">
 
         {/* IDLE */}
         {!isSearching && phase === 'idle' && (
@@ -430,11 +546,12 @@ export default function QuickCombat() {
                 style={{ background: 'color-mix(in srgb, #2563eb 10%, var(--surface-2))', border: '1.5px solid color-mix(in srgb, #2563eb 25%, var(--border))' }}>
                 <Swords size={28} className="text-[#2563eb]" strokeWidth={1.6} />
               </div>
-              <div className="text-center">
+              <div className="text-center flex flex-col gap-1.5">
                 <p className="text-[16px] font-bold text-text">¿Preparado para combatir?</p>
-                <p className="text-[12px] text-text-3 mt-1 flex items-center justify-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse inline-block" />
-                  {onlineCount.toLocaleString()} jugadores en línea
+                <p className="text-[12px] text-text-3 flex items-center justify-center gap-3">
+                  <span className="flex items-center gap-1"><Coins size={12} color="#d97706" strokeWidth={2} />+{rewards.gold} oro</span>
+                  <span className="flex items-center gap-1"><Star size={12} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP</span>
+                  <span className="flex items-center gap-1"><Layers size={12} color="#7c3aed" strokeWidth={2} />8% táctica</span>
                 </p>
               </div>
               <motion.button
@@ -460,7 +577,7 @@ export default function QuickCombat() {
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.18 }}
           >
-            <SearchingCard onlineCount={onlineCount} />
+            <SearchingCard />
           </motion.div>
         )}
 
@@ -482,79 +599,102 @@ export default function QuickCombat() {
         {!isSearching && phase === 'selecting' && preview && (
           <motion.div
             key="selecting"
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-3"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            {/* Rival — versión compacta */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)]">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-[20px]"
-                style={{
-                  background: `color-mix(in srgb, ${classColor} 14%, var(--surface-2))`,
-                  border: `1.5px solid color-mix(in srgb, ${classColor} 35%, var(--border))`,
-                }}
-              >
-                {enemyClass ? CLASS_ICONS[enemyClass] : <Flame size={18} strokeWidth={1.8} style={{ color: classColor }} />}
+            {/* Rival */}
+            <div
+              className="rounded-xl border overflow-hidden shadow-[var(--shadow-sm)]"
+              style={{ borderColor: `color-mix(in srgb, ${classColor} 30%, var(--border))` }}
+            >
+              <div className="px-3 py-1.5 flex items-center gap-1.5"
+                style={{ background: `color-mix(in srgb, ${classColor} 8%, var(--surface-2))` }}>
+                <Flame size={11} strokeWidth={2.5} style={{ color: classColor }} />
+                <span className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: classColor }}>Rival</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold text-text truncate leading-tight">{preview.enemyName}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {enemyClass && (
-                    <span className="text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-px rounded"
-                      style={{ color: classColor, background: `color-mix(in srgb, ${classColor} 12%, var(--surface))`, border: `1px solid color-mix(in srgb, ${classColor} 25%, var(--border))` }}>
-                      {CLASS_LABELS[enemyClass]}
-                    </span>
-                  )}
-                  <span className="text-[11px] font-semibold" style={{ color: enemyTier.color }}>{enemyTier.label}</span>
+              <div className="flex items-center gap-3 px-3 py-3 bg-surface">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-[20px]"
+                  style={{
+                    background: `color-mix(in srgb, ${classColor} 14%, var(--surface-2))`,
+                    border: `1.5px solid color-mix(in srgb, ${classColor} 35%, var(--border))`,
+                  }}
+                >
+                  {enemyClass ? CLASS_ICONS[enemyClass] : <Flame size={18} strokeWidth={1.8} style={{ color: classColor }} />}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-bold text-text truncate leading-tight">{preview.enemyName}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {enemyClass && (
+                      <span className="text-[10px] font-bold uppercase tracking-[0.05em] px-1.5 py-px rounded"
+                        style={{ color: classColor, background: `color-mix(in srgb, ${classColor} 12%, var(--surface))`, border: `1px solid color-mix(in srgb, ${classColor} 25%, var(--border))` }}>
+                        {CLASS_LABELS[enemyClass]}
+                      </span>
+                    )}
+                    <span className="text-[11px] font-semibold" style={{ color: enemyTier.color }}>{enemyTier.label}</span>
+                  </div>
+                </div>
+                <button
+                  className="text-[12px] font-semibold text-text-3 px-3 py-1.5 rounded-lg border border-border bg-surface-2 font-[inherit] cursor-pointer flex-shrink-0"
+                  onClick={resetSearch}
+                >
+                  Cambiar
+                </button>
               </div>
-              <button
-                className="text-[12px] font-semibold text-text-3 px-3 py-1.5 rounded-lg border border-border bg-surface-2 font-[inherit] cursor-pointer flex-shrink-0"
-                onClick={resetSearch}
-              >
-                Cambiar
-              </button>
             </div>
 
-            {/* Héroe */}
-            <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
-                {heroId ? 'Tu héroe' : 'Elige tu héroe'}
-              </span>
+            {/* Separador VS */}
+            <div className="flex items-center gap-3 px-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[11px] font-black text-text-3 tracking-widest">VS</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
 
-              <HeroCombatPicker activeId={heroId} onSelect={setHeroId} activeExtras={activeExtras} />
+            {/* Tu elección */}
+            <div className="rounded-xl border border-[var(--blue-200)] overflow-hidden shadow-[var(--shadow-sm)]"
+              style={{ borderColor: 'color-mix(in srgb, var(--blue-500) 35%, var(--border))' }}>
+              <div className="px-3 py-1.5 flex items-center gap-1.5"
+                style={{ background: 'color-mix(in srgb, var(--blue-500) 8%, var(--surface-2))' }}>
+                <Shield size={11} strokeWidth={2.5} className="text-[var(--blue-500)]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[var(--blue-600)]">
+                  {heroId ? 'Tu héroe' : 'Elige tu héroe'}
+                </span>
+              </div>
+              <div className="p-3 bg-surface flex flex-col gap-3">
+                <HeroCombatPicker activeId={heroId} onSelect={setHeroId} activeExtras={activeExtras} />
 
-              {heroId && hero && (
-                <>
-                  <PotionPanel heroId={heroId} userId={userId} activeEffects={hero.active_effects ?? {}} title="Pociones de combate" />
+                {heroId && hero && (
+                  <>
+                    <PotionPanel heroId={heroId} userId={userId} activeEffects={hero.active_effects ?? {}} title="Pociones de combate" />
 
-                  <motion.button
-                    className="btn btn--primary btn--lg btn--full"
-                    onClick={startCombat}
-                    disabled={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp}
-                    whileTap={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
-                    whileHover={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                  >
-                    <Swords size={16} strokeWidth={2} />
-                    {combatMutation.isPending || matchmaking
-                      ? 'Combatiendo...'
-                      : isBusy
-                        ? 'Héroe ocupado'
-                        : !hasEnoughHp
-                          ? 'HP insuficiente (20% mín.)'
-                          : '¡Combatir!'}
-                  </motion.button>
-                </>
-              )}
+                    <motion.button
+                      className="btn btn--primary btn--lg btn--full"
+                      onClick={startCombat}
+                      disabled={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp}
+                      whileTap={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    >
+                      <Swords size={16} strokeWidth={2} />
+                      {combatMutation.isPending || matchmaking
+                        ? 'Combatiendo...'
+                        : isBusy
+                          ? 'Héroe ocupado'
+                          : !hasEnoughHp
+                            ? 'HP insuficiente (20% mín.)'
+                            : '¡Combatir!'}
+                    </motion.button>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
 
-      </AnimatePresence>
+      </AnimatePresence>}
+
     </div>
   )
 }

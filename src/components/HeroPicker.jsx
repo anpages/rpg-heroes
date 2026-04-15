@@ -6,7 +6,7 @@ import { useHeroes } from '../hooks/useHeroes'
 import { useBuildings } from '../hooks/useBuildings'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { Lock, Plus, ChevronDown, ChevronRight, Dices, Shield, Layers } from 'lucide-react'
+import { Lock, Plus, ChevronDown, ChevronRight, Dices } from 'lucide-react'
 import { computeBaseLevel, HERO_SLOT_REQUIREMENTS, HERO_SLOT_CLASS, CLASS_LABELS, CLASS_ICONS, CLASS_COLORS } from '../lib/gameConstants'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { motion } from 'framer-motion'
@@ -390,12 +390,16 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
                           : hero.status !== 'idle' ? 'Ocupado'
                           : 'Listo'
 
+        const durColor = activeExtras
+          ? activeExtras.durPct > 60 ? '#16a34a' : activeExtras.durPct > 30 ? '#d97706' : '#dc2626'
+          : null
+
         return (
           <button
             key={hero.id}
             disabled={!canFight}
             onClick={() => canFight && handleSelect(hero.id)}
-            className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition-[border-color,background] duration-150 font-[inherit]
+            className={`w-full flex flex-col rounded-xl border text-left transition-[border-color,background] duration-150 font-[inherit] overflow-hidden
               ${isActive
                 ? 'border-[var(--blue-500)] bg-info-bg'
                 : canFight
@@ -403,120 +407,109 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
                   : 'border-border bg-surface-2 opacity-45 cursor-default'
               }`}
           >
-            {/* Icono de clase */}
-            <div
-              className="w-13 h-13 rounded-xl flex items-center justify-center flex-shrink-0 text-[28px] leading-none"
-              style={{
-                width: '52px',
-                height: '52px',
-                background: `color-mix(in srgb, ${clsColor} 14%, var(--surface))`,
-                border: `1.5px solid color-mix(in srgb, ${clsColor} 30%, var(--border))`,
-              }}
-            >
-              {CLASS_ICONS[cls] ?? '⚔'}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              {/* Nombre + nivel */}
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[15px] font-bold text-text truncate">{hero.name}</span>
-                <span className="text-[12px] font-semibold text-text-3 flex-shrink-0">Nv.{hero.level}</span>
+            {/* Fila principal */}
+            <div className="flex items-center gap-3 px-3 py-3">
+              {/* Icono de clase */}
+              <div
+                className="rounded-xl flex items-center justify-center flex-shrink-0 text-[22px] leading-none"
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  background: `color-mix(in srgb, ${clsColor} 14%, var(--surface))`,
+                  border: `1.5px solid color-mix(in srgb, ${clsColor} 28%, var(--border))`,
+                }}
+              >
+                {CLASS_ICONS[cls] ?? '⚔'}
               </div>
 
-              {/* HP */}
-              <div className="mb-1.5">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[11px] font-semibold text-text-3">HP</span>
-                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: hpColor }}>
-                    {hpNow} / {maxHp}
+              {/* Nombre + nivel + estado */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[14px] font-bold text-text truncate leading-tight">{hero.name}</span>
+                  <span className="text-[11px] font-semibold text-text-3 flex-shrink-0">Nv.{hero.level}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ background: canFight ? '#16a34a' : '#d97706' }}
+                  />
+                  <span className="text-[12px] font-semibold" style={{ color: canFight ? '#16a34a' : 'var(--text-3)' }}>
+                    {statusLabel}
+                  </span>
+                  {/* HP inline — siempre visible */}
+                  <span className="ml-auto text-[11px] font-semibold tabular-nums flex-shrink-0" style={{ color: hpColor }}>
+                    {hpPct}% HP
                   </span>
                 </div>
-                <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-300"
-                    style={{ width: `${hpPct}%`, background: hpColor }}
-                  />
-                </div>
               </div>
 
-              {/* Estado */}
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ background: canFight ? '#16a34a' : '#d97706' }}
-                />
-                <span className="text-[11px] font-semibold" style={{ color: canFight ? '#16a34a' : 'var(--text-3)' }}>
-                  {statusLabel}
-                </span>
-              </div>
-
-              {/* Extras — solo en la card activa cuando hay datos */}
-              {isActive && activeExtras && (
-                <div className="flex flex-col gap-2 pt-2 mt-0.5 border-t border-border">
-                  {/* Tier */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-text-3">Rating</span>
-                    <span
-                      className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        color: activeExtras.tier.color,
-                        background: `color-mix(in srgb, ${activeExtras.tier.color} 12%, var(--surface))`,
-                        border: `1px solid color-mix(in srgb, ${activeExtras.tier.color} 25%, var(--border))`,
-                      }}
-                    >
-                      {activeExtras.tier.label}
-                    </span>
-                  </div>
-                  {/* Equipo */}
-                  {activeExtras.durPct != null && (() => {
-                    const c = activeExtras.durPct > 60 ? '#16a34a' : activeExtras.durPct > 30 ? '#d97706' : '#dc2626'
-                    return (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
-                            <Shield size={10} strokeWidth={2.5} />Equipo
-                          </span>
-                          <span className="text-[11px] font-semibold" style={{ color: c }}>{activeExtras.durPct}%</span>
-                        </div>
-                        <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${activeExtras.durPct}%`, background: c }} />
-                        </div>
-                      </div>
-                    )
-                  })()}
-                  {/* Tácticas equipadas */}
-                  {activeExtras.equippedTactics.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1 text-[11px] font-semibold text-text-3">
-                        <Layers size={10} strokeWidth={2.5} />Tácticas
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {activeExtras.equippedTactics.map(t => (
-                          <span
-                            key={t.id}
-                            className="flex items-center gap-1 px-1.5 py-0.5 bg-surface border border-border rounded text-[11px] font-semibold text-text-2"
-                          >
-                            <span>{t.tactic_catalog.icon}</span>
-                            <span>{t.tactic_catalog.name}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {/* Check activo */}
+              {isActive && (
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'var(--blue-500)' }}
+                >
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
               )}
             </div>
 
-            {/* Check activo */}
-            {isActive && (
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: 'var(--blue-500)' }}
-              >
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4L3.5 6.5L9 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+            {/* Extras — solo card activa con datos */}
+            {isActive && activeExtras && (
+              <div className="px-3 pb-3 flex flex-col gap-2 border-t border-border/60 pt-2.5">
+                {/* Stats en grid 2 columnas */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  {/* HP */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-text-3">HP</span>
+                      <span className="text-[11px] font-semibold tabular-nums" style={{ color: hpColor }}>{hpPct}%</span>
+                    </div>
+                    <div className="h-1 bg-border rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${hpPct}%`, background: hpColor }} />
+                    </div>
+                  </div>
+                  {/* Equipo */}
+                  {activeExtras.durPct != null ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-semibold text-text-3">Equipo</span>
+                        <span className="text-[11px] font-semibold" style={{ color: durColor }}>{activeExtras.durPct}%</span>
+                      </div>
+                      <div className="h-1 bg-border rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${activeExtras.durPct}%`, background: durColor }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <span className="text-[11px] text-text-3">Sin equipo</span>
+                    </div>
+                  )}
+                </div>
+                {/* Rating + Tácticas en la misma fila */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-[11px] font-bold px-1.5 py-0.5 rounded"
+                    style={{
+                      color: activeExtras.tier.color,
+                      background: `color-mix(in srgb, ${activeExtras.tier.color} 12%, var(--surface))`,
+                      border: `1px solid color-mix(in srgb, ${activeExtras.tier.color} 22%, var(--border))`,
+                    }}
+                  >
+                    {activeExtras.tier.label}
+                  </span>
+                  {activeExtras.equippedTactics.map(t => (
+                    <span
+                      key={t.id}
+                      className="flex items-center gap-1 px-1.5 py-0.5 bg-surface border border-border rounded text-[11px] font-semibold text-text-2"
+                    >
+                      <span className="text-[10px]">{t.tactic_catalog.icon}</span>
+                      <span>{t.tactic_catalog.name}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </button>
