@@ -165,30 +165,75 @@ export function floorRewards(floor) {
  */
 const ENEMY_POOLS = [
   { max:  5, names: [
+    // Espíritus y criaturas menores griegas
     'Keres', 'Stryx', 'Lamia', 'Harpia', 'Empusa', 'Mormo', 'Aello',
-    'Celaeno', 'Ocípete', 'Scylla', 'Stheno', 'Euryale', 'Echidna', 'Draco',
+    'Celaeno', 'Ocípete', 'Stheno', 'Euryale', 'Draco', 'Erinys',
+    // Criaturas menores nórdicas
+    'Draugr', 'Huldra', 'Nökken', 'Rusalka', 'Strigoi', 'Vetala',
+    // Demonios menores mesopotámicos
+    'Gallu', 'Utukku', 'Rabisu', 'Namtar', 'Asag', 'Lilu',
+    // Espíritus eslavo/asiáticos
+    'Domovoi', 'Leshy', 'Kikimora', 'Tengu', 'Oni', 'Gashadokuro',
   ]},
   { max: 10, names: [
+    // Monstruos griegos
     'Argos', 'Ladon', 'Equidna', 'Caribdis', 'Escila', 'Gerión', 'Esfinge',
-    'Ortro', 'Colquide', 'Ceto', 'Forcis', 'Tifón', 'Kampe', 'Ctónico',
-    'Briareo', 'Cottus', 'Giges', 'Lestrigón',
+    'Ortro', 'Ceto', 'Forcis', 'Kampe', 'Briareo', 'Cottus', 'Giges', 'Lestrigón',
+    // Criaturas nórdicas
+    'Utgard', 'Hrungnir', 'Thiazi', 'Thrym', 'Hymir', 'Skrýmir',
+    // Criaturas egipcias
+    'Ammit', 'Sobek', 'Anubis', 'Sekhmet', 'Apep',
+    // Criaturas mesopotámicas
+    'Humbaba', 'Pazuzu', 'Lamashtu', 'Anzu', 'Kingu',
+    // Criaturas asiáticas
+    'Raijin', 'Fujin', 'Yamata', 'Orochi', 'Rahovart', 'Taotie',
   ]},
   { max: 20, names: [
-    'Medusa', 'Minotauro', 'Cerbero', 'Hidra', 'Polifemo', 'Cíclope', 'Fenrir',
-    'Jörmungandr', 'Garm', 'Nidhogg', 'Fafnir', 'Surtr', 'Utgard', 'Thrym',
-    'Hati', 'Sköll', 'Níðhöggr', 'Ratatoskr', 'Veðrfölnir',
+    // Monstruos épicos griegos
+    'Medusa', 'Minotauro', 'Cerbero', 'Hidra', 'Polifemo', 'Quimera', 'Pitón',
+    // Titanes griegos
+    'Hiperión', 'Coeo', 'Crio', 'Epimeteo', 'Atlas', 'Prometeo',
+    // Nórdicos
+    'Fenrir', 'Jörmungandr', 'Garm', 'Nidhogg', 'Fafnir', 'Surtr', 'Hati', 'Sköll',
+    // Celtas
+    'Balor', 'Tethra', 'Indech', 'Elatha', 'Sreng', 'Cailleach',
+    // Hindúes
+    'Vritra', 'Ravana', 'Kali', 'Mahisha', 'Hiranyakashipu', 'Namuci',
+    // Aztecas/mayas
+    'Cipactli', 'Xolotl', 'Camazotz', 'Vucub', 'Zipacna',
   ]},
   { max: 50, names: [
-    'Cronos', 'Tifón', 'Moloch', 'Baal', 'Ares', 'Hades', 'Hécate',
-    'Nergal', 'Enlil', 'Apep', 'Set', 'Anubis', 'Sekhmet', 'Sobek',
-    'Morrigan', 'Balor', 'Crom', 'Dagda', 'Cernunnos', 'Arawn',
-    'Angra', 'Ahriman', 'Druj', 'Aeshma',
+    // Dioses oscuros griegos/romanos
+    'Cronos', 'Tifón', 'Ares', 'Hades', 'Hécate', 'Érebo', 'Nix',
+    // Dioses oscuros egipcios
+    'Set', 'Osiris', 'Sobek', 'Sekhmet', 'Nehebkau', 'Apophis',
+    // Dioses nórdicos oscuros
+    'Loki', 'Hel', 'Ymir', 'Aegir', 'Rán',
+    // Dioses cananeos/semitas
+    'Moloch', 'Baal', 'Dagon', 'Mot', 'Yam', 'Lotan',
+    // Dioses mesopotámicos oscuros
+    'Nergal', 'Enlil', 'Ereshkigal', 'Tiamat', 'Nammu',
+    // Persas
+    'Angra', 'Ahriman', 'Aeshma', 'Druj', 'Saurva',
+    // Celtas
+    'Morrigan', 'Crom', 'Cernunnos', 'Arawn', 'Cromm',
+    // Hindúes/budistas
+    'Mara', 'Yama', 'Varuna', 'Nirrti', 'Kaliya',
   ]},
   { max: Infinity, names: [
-    'Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Ragnarök',
-    'Malphas', 'Belial', 'Asmodeo', 'Belphegor', 'Mammon', 'Beelzebub',
-    'Astaroth', 'Andromalius', 'Furfur', 'Marchosias', 'Bifrons', 'Vual',
-    'Haagenti', 'Caim', 'Murmur', 'Naberius', 'Glasya', 'Leraje',
+    // Ars Goetia — los 72 demonios
+    'Bael', 'Agares', 'Vassago', 'Marbas', 'Valefor', 'Amon', 'Barbatos',
+    'Paimon', 'Buer', 'Gusion', 'Sitri', 'Beleth', 'Leraje', 'Eligos',
+    'Zepar', 'Botis', 'Bathin', 'Sallos', 'Purson', 'Morax', 'Ipos',
+    'Naberius', 'Glasya', 'Berith', 'Astaroth', 'Foras', 'Asmodeo',
+    'Gaap', 'Furfur', 'Marchosias', 'Stolas', 'Phenex', 'Malphas',
+    'Focalor', 'Vepar', 'Sabnock', 'Shax', 'Bifrons', 'Haagenti',
+    'Furcas', 'Balam', 'Alloces', 'Caim', 'Murmur', 'Orobas',
+    'Ose', 'Andromalius', 'Vapula', 'Zagan', 'Andras', 'Flauros',
+    'Amdusias', 'Decarabia', 'Dantalion',
+    // Entidades del fin
+    'Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Belial',
+    'Asmodeo', 'Beelzebub', 'Mammon', 'Belphegor', 'Ahriman', 'Ragnarök',
   ]},
 ]
 
@@ -351,24 +396,48 @@ export function tierAnchoredEnemyStats(virtualLevel) {
 
 const TRAINING_ENEMY_POOLS = [
   { max:  3, names: [
-    'Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia',
-    'Aello', 'Celaeno', 'Draco', 'Stheno', 'Ocípete',
+    'Keres', 'Stryx', 'Empusa', 'Mormo', 'Harpia', 'Aello', 'Celaeno',
+    'Draco', 'Stheno', 'Ocípete', 'Erinys', 'Lamia',
+    'Draugr', 'Huldra', 'Nökken', 'Strigoi', 'Vetala',
+    'Gallu', 'Utukku', 'Rabisu', 'Namtar', 'Lilu',
+    'Domovoi', 'Leshy', 'Oni', 'Tengu', 'Gashadokuro',
   ]},
   { max:  6, names: [
-    'Ladon', 'Argos', 'Equidna', 'Esfinge', 'Caribdis',
-    'Ortro', 'Escila', 'Gerión', 'Forcis', 'Lestrigón', 'Kampe',
+    'Ladon', 'Argos', 'Equidna', 'Esfinge', 'Caribdis', 'Ortro', 'Escila',
+    'Gerión', 'Forcis', 'Lestrigón', 'Kampe', 'Ceto', 'Briareo',
+    'Hrungnir', 'Thiazi', 'Thrym', 'Hymir', 'Skrýmir', 'Utgard',
+    'Ammit', 'Sekhmet', 'Anubis', 'Apep',
+    'Humbaba', 'Pazuzu', 'Lamashtu', 'Anzu',
+    'Raijin', 'Orochi', 'Taotie', 'Rahovart',
   ]},
   { max: 10, names: [
-    'Medusa', 'Cerbero', 'Minotauro', 'Polifemo', 'Hidra',
-    'Cíclope', 'Garm', 'Nidhogg', 'Fafnir', 'Thrym', 'Fenrir',
+    'Medusa', 'Cerbero', 'Minotauro', 'Polifemo', 'Hidra', 'Quimera', 'Pitón',
+    'Fenrir', 'Jörmungandr', 'Garm', 'Nidhogg', 'Fafnir', 'Hati', 'Sköll',
+    'Hiperión', 'Atlas', 'Coeo', 'Epimeteo',
+    'Balor', 'Tethra', 'Cailleach', 'Indech',
+    'Vritra', 'Ravana', 'Mahisha', 'Namuci',
+    'Cipactli', 'Camazotz', 'Xolotl', 'Zipacna',
   ]},
   { max: 20, names: [
-    'Cronos', 'Surtr', 'Moloch', 'Tifón', 'Ares',
-    'Hades', 'Set', 'Apep', 'Balor', 'Morrigan', 'Nergal', 'Aeshma',
+    'Cronos', 'Tifón', 'Ares', 'Hades', 'Hécate', 'Érebo',
+    'Loki', 'Hel', 'Ymir', 'Surtr', 'Aegir',
+    'Set', 'Sekhmet', 'Apophis', 'Nehebkau',
+    'Moloch', 'Baal', 'Dagon', 'Mot', 'Yam', 'Lotan',
+    'Nergal', 'Ereshkigal', 'Tiamat', 'Enlil',
+    'Angra', 'Ahriman', 'Aeshma', 'Druj',
+    'Morrigan', 'Crom', 'Arawn', 'Cernunnos',
+    'Mara', 'Yama', 'Varuna', 'Nirrti',
   ]},
   { max: Infinity, names: [
-    'Abadón', 'Leviatán', 'Samael', 'Azazel', 'Ahriman', 'Behemot',
-    'Belial', 'Asmodeo', 'Beelzebub', 'Astaroth', 'Malphas', 'Belphegor',
+    'Bael', 'Agares', 'Vassago', 'Marbas', 'Valefor', 'Amon', 'Barbatos',
+    'Paimon', 'Buer', 'Gusion', 'Sitri', 'Beleth', 'Leraje', 'Eligos',
+    'Zepar', 'Botis', 'Bathin', 'Sallos', 'Purson', 'Morax', 'Ipos',
+    'Naberius', 'Glasya', 'Berith', 'Astaroth', 'Foras', 'Gaap',
+    'Furfur', 'Marchosias', 'Stolas', 'Phenex', 'Malphas', 'Focalor',
+    'Vepar', 'Sabnock', 'Bifrons', 'Haagenti', 'Caim', 'Murmur',
+    'Orobas', 'Andromalius', 'Vapula', 'Zagan', 'Andras', 'Flauros',
+    'Abadón', 'Azazel', 'Samael', 'Leviatán', 'Behemot', 'Belial',
+    'Beelzebub', 'Mammon', 'Belphegor', 'Amdusias', 'Dantalion',
   ]},
 ]
 
