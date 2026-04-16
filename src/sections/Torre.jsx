@@ -17,7 +17,6 @@ import { useCraftedItems } from '../hooks/useCraftedItems'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
-import RatingBanner from '../components/RatingBanner'
 import { PotionPanel } from '../components/PotionPanel'
 import { TacticsStrip } from '../components/TacticsStrip'
 
@@ -206,10 +205,6 @@ export default function Torre() {
         <p className="section-subtitle">Escala la torre para medir el poder de tu héroe. Cada piso es más difícil que el anterior.</p>
       </div>
 
-      <div className="-mt-5">
-        <RatingBanner hero={hero} />
-      </div>
-
       <ProgressStrip maxFloor={maxFloor} />
 
       <AnimatePresence>
@@ -227,7 +222,6 @@ export default function Torre() {
           log={result.log ?? []}
           won={result.won}
           rewards={result.rewards}
-          rating={result.rating}
           heroClass={result.heroClass}
           archetype={result.archetype}
           enemyTactics={result.enemyTactics}
