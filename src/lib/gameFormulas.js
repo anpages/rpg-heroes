@@ -381,7 +381,7 @@ export function trainingEnemyStats(heroLevel) {
  * expediciones y crafteo/reparar. Gear progression = tier progression.
  *
  * El caller (quick-combat.js) obtiene el virtual level vía `virtualLevelForRating`
- * en _rating.js (Hierro III=1 ... Leyenda=21) y lo pasa aquí.
+ *
  *
  * Usa `floorEnemyStats(vl)` como baseline + varianza ±15% por stat.
  */
@@ -461,7 +461,7 @@ export function enemyStatsForLevel(heroClass, vl, rng = Math.random) {
 
 /**
  * @deprecated Usa enemyStatsForLevel() para combate rápido.
- * Mantenido para la Torre y los Torneos hasta que se migren.
+ * Mantenido para la Torre hasta migración completa.
  * @param {{ attack, defense, strength, agility, intelligence, max_hp }} heroStats
  */
 export function heroAnchoredEnemyStats(heroStats) {

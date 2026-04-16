@@ -22,7 +22,6 @@ import {
   Wrench, Info, Pencil, Check, Telescope, Map, Swords, Trophy,
   GraduationCap, Play, Square,
 } from 'lucide-react'
-import { TIERS } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { xpRequiredForLevel, computeEffectiveStats, computeCP } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'

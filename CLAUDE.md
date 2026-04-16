@@ -99,7 +99,6 @@ src/
     api.js                     # Utilidades de fetch
     combatAbilities.js         # Habilidades por clase (incl. universal)
     combatDecisions.js         # IA de decisiones de combate
-    combatRating.js            # Sistema de rating
     hpInterpolation.js         # Interpolación HP idle
     missionPool.js             # Pool de misiones
     teamSynergy.js             # Sinergias de equipo
@@ -113,44 +112,9 @@ supabase/migrations/           # ~126 migraciones SQL
 ## Navegación
 
 - **Base** — Zonas: Producción, Laboratorio, Entrenamiento, Biblioteca
-- **Héroes** — Pill selector de héroe activo → Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
-- **Combate** — Sub-tabs: Práctica, Torre (1v1), 3v3 (desbloq. base Nv.3), 5v5 (desbloq. base Nv.5), Torneos, Historial, Clasificación
-- **Arena** — PvP de equipo (placeholder "próximamente")
-
-## Rediseño V2 — Estado actual
-
-**Diseño acordado**: el juego pasa de 1 héroe genérico a 5 héroes especializados por clase con sistema de combate estratégico por selección.
-
-### Decisiones de diseño cerradas
-- **5 héroes fijos**, uno por clase, desbloqueo progresivo por nivel de base
-- **Clases y orden de desbloqueo** (FIJO, no elegible):
-  - Slot 1 — Caudillo (inicio, onboarding)
-  - Slot 2 — Sombra (base Nv.3)
-  - Slot 3 — Arcanista (base Nv.5)
-  - Slot 4 — Domador (base Nv.7)
-  - Slot 5 — Universal (base Nv.10)
-- **Recursos compartidos** entre todos los héroes (la base produce para todos)
-- **Entrenamiento** → se moverá a zona individual del héroe, solo stats de la clase
-- **Expediciones** → por héroe, zonas temáticas y drops específicos por clase
-- **Tácticas** → exclusivas por clase, efectos condicionales/sinérgicos (no solo flat bonuses)
-- **3 formatos de combate** que se desbloquean, no se sustituyen:
-  - 1v1 — siempre disponible (Torre, Práctica, Torneos)
-  - 3v3 — desbloquea con base Nv.3 (3 héroes disponibles)
-  - 5v5 — desbloquea con base Nv.5 (todos los héroes)
-- **Mecánica de equipo**: ver equipo enemigo → asignar matchups (quién lucha contra quién) → 1v1s en paralelo → gana quien gana más duelos
-- **Pool de enemigos** crece con héroes desbloqueados
-- **Motor de combate** (`_combat.js`) NO cambia
-
-### Fases de implementación
-- [x] **Fase 1** — Estructura de datos: `HERO_SLOT_CLASS`, `HERO_SLOT_REQUIREMENTS` actualizado, clase Universal en DB, `hero-recruit.js` y `onboarding.js` sin elección de clase
-- [ ] **Fase 2** — Navegación: pill selector de 5 héroes en sección Hero
-- [ ] **Fase 3** — Entrenamiento por héroe: mover a zona individual, filtrar stats por clase
+- **Héroes** — Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
+- **Combates** — Sub-tabs: Torre (PvE infinita), Historial
 - [ ] **Fase 4** — Expediciones por clase: zonas temáticas, drops dirigidos
-- [ ] **Fase 5** — Tácticas por clase: catálogo completo con efectos condicionales
-- [ ] **Fase 6** — Combate 3v3: UI de asignación de matchups, combates paralelos
-- [ ] **Fase 7** — Combate 5v5: mismo patrón que 3v3, contenido endgame
-- [ ] **Fase 8** — Pool de enemigos dinámico: enemigos disponibles según héroes desbloqueados
-
 ## Sistemas del juego
 
 ### Economía de recursos
@@ -159,8 +123,8 @@ supabase/migrations/           # ~126 migraciones SQL
 - **El aserradero es el edificio principal** — siempre llena más rápido que la mina en cada nivel
 - **wood/iron/mana/herbs NUNCA salen de drops de actividad** — solo de edificios productores
 - **gold/fragments/essence** sí pueden ser loot de actividad
-- **essence** exclusiva de Templo de los Antiguos y Guarida del Dragón
-- **fragments** gateados por dificultad (≥5 mazmorras, ≥2 cámaras)
+- **essence** exclusiva de mazmorras tipo `ancient` (dificultad 6+ de cada clase)
+- **fragments** de mazmorras tipo `mine` y `crypt`
 
 ### Producción idle — caps fijos por edificio
 - Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
@@ -175,7 +139,7 @@ supabase/migrations/           # ~126 migraciones SQL
 ### Héroes
 - **5 clases**: Caudillo, Sombra, Arcanista, Domador, Universal
 - **Clase fija por slot** — `HERO_SLOT_CLASS` en `gameConstants.js` es la fuente de verdad
-- **Desbloqueo progresivo** por nivel de base — ver tabla en sección "Rediseño V2"
+- **Desbloqueo progresivo** por nivel de base: Caudillo(Nv1), Sombra(Nv3), Arcanista(Nv5), Domador(Nv7), Universal(Nv10)
 - **No hay elección de clase** en onboarding ni en recruit — la clase viene del slot
 - Stats base: strength, agility, intelligence → derivadas: HP, attack, defense
 - Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence) — PENDIENTE mover a zona héroe con filtro por clase

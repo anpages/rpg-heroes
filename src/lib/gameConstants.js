@@ -525,25 +525,7 @@ export const HERO_SLOT_CLASS = {
  * el héroe está idle, así que sesiones consecutivas no se penalizan.
  */
 export const COMBAT_HP_COST = {
-  quick:      { win: 0.10, loss: 0.18 },
-  tournament: { win: 0.08, loss: 0.14 },
-  tower:      { win: 0.10, loss: 0.17 },
-  squad:      { win: 0.12, loss: 0.20 },
-}
-
-/**
- * Desgaste base de equipo por actividad. Los valores son "cantidad nominal"
- * — la función SQL `reduce_equipment_durability_scaled` los multiplica luego
- * por rareza × slot del ítem para escalar por calidad del equipo.
- *
- * Expedición NO está aquí: usa su propia fórmula dinámica (peligro + defensa
- * + cartas + research) en expedition-collect.js, ya suficientemente granular.
- */
-export const WEAR_PROFILE = {
-  quick:      { crush: 0, fair: 1, clutch: 2, loss: 2 },
-  tournament: { 1: 2, 2: 3, 3: 4 },              // por ronda (1, 2, 3=final)
-  squad:      2,                                 // aplicado a cada uno de los 3 héroes
-  bounty:     2,                                 // caza de botín — aplicado por intento
+  tower: { win: 0.10, loss: 0.17 },
 }
 
 /**

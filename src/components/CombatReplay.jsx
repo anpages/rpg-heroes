@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Coins, Star, Zap, Loader, Shield, TrendingUp, TrendingDown } from 'lucide-react'
+import { Coins, Star, Zap, Loader } from 'lucide-react'
 import { COMBAT_DECISIONS } from '../lib/combatDecisions'
-import { tierForRating } from '../lib/combatRating'
 import { CLASS_ABILITIES, ARCHETYPE_TO_CLASS, getStance } from '../lib/combatAbilities'
 import { CLASS_COLORS } from '../lib/gameConstants'
 
@@ -379,87 +378,7 @@ function KeyMomentPanel({ decisions, onDecide, loading }) {
   )
 }
 
-const RATING_REASONS = {
-  crush:  { label: '🔥 Paliza',   color: '#16a34a' },
-  fair:   { label: '⚔ Igualado', color: '#f59e0b' },
-  clutch: { label: '😰 Al límite', color: '#7c3aed' },
-}
-
-function RatingPill({ rating }) {
-  if (!rating) return null
-  const tier = tierForRating(rating.current)
-  const positive = rating.delta >= 0
-  const DeltaIcon = positive ? TrendingUp : TrendingDown
-  const deltaColor = positive ? '#16a34a' : '#dc2626'
-  const sign = positive ? '+' : ''
-  const reason = rating.reason ? RATING_REASONS[rating.reason] : null
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
-        style={{
-          color: tier.color,
-          background:  `color-mix(in srgb, ${tier.color} 10%, var(--surface-2))`,
-          borderColor: `color-mix(in srgb, ${tier.color} 35%, var(--border))`,
-        }}
-      >
-        <Shield size={13} strokeWidth={2.5} />
-        <span className="text-[13px] font-extrabold tracking-wide">{tier.label}</span>
-        <span className="text-[11px] font-semibold tabular-nums opacity-80">{rating.current} pts</span>
-      </div>
-      {reason && (
-        <div
-          className="px-2 py-[2px] rounded-full border text-[11px] font-bold tracking-wide"
-          style={{
-            color: reason.color,
-            background:  `color-mix(in srgb, ${reason.color} 10%, var(--surface-2))`,
-            borderColor: `color-mix(in srgb, ${reason.color} 35%, var(--border))`,
-          }}
-        >
-          {reason.label}
-        </div>
-      )}
-      <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: deltaColor }}>
-        <DeltaIcon size={12} strokeWidth={2.5} />
-        {sign}{rating.delta} pts
-        {rating.promoted && (
-          <span className="ml-1 px-1.5 py-[1px] rounded bg-[color-mix(in_srgb,#16a34a_15%,var(--surface))] border border-[color-mix(in_srgb,#16a34a_35%,var(--border))] text-[10px] uppercase tracking-wide text-[#16a34a]">
-            ¡Ascenso!
-          </span>
-        )}
-        {rating.decay > 0 && (
-          <span className="ml-1 text-[10px] font-semibold text-text-3">(−{rating.decay} decay)</span>
-        )}
-        {rating.graceUsed && (
-          <span className="ml-1 text-[10px] font-semibold text-text-3">(gracia)</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CompactRating({ rating }) {
-  const tier = tierForRating(rating.current)
-  const positive = rating.delta >= 0
-  const deltaColor = positive ? '#16a34a' : '#dc2626'
-  const sign = positive ? '+' : ''
-  return (
-    <div
-      className="flex items-center gap-1.5 px-2 py-1 rounded-lg border flex-shrink-0"
-      style={{
-        color: tier.color,
-        borderColor: `color-mix(in srgb, ${tier.color} 30%, var(--border))`,
-        background:  `color-mix(in srgb, ${tier.color} 6%, var(--surface))`,
-      }}
-    >
-      <Shield size={11} strokeWidth={2.5} />
-      <span className="text-[11px] font-bold tabular-nums">{rating.current}</span>
-      <span className="text-[10px] font-bold tabular-nums" style={{ color: deltaColor }}>{sign}{rating.delta}</span>
-    </div>
-  )
-}
-
-function ResultPanel({ won, rewards, rating, onClose }) {
+function ResultPanel({ won, rewards, onClose }) {
   return (
     <div className="flex items-center gap-3">
       {/* Icono + texto resultado */}
@@ -478,8 +397,6 @@ function ResultPanel({ won, rewards, rating, onClose }) {
         )}
         {!won && <p className="text-[11px] text-text-3">El enemigo aguantó este asalto.</p>}
       </div>
-      {/* Rating compacto */}
-      {rating && <CompactRating rating={rating} />}
       {/* Botón */}
       <button className="btn btn--primary btn--sm flex-shrink-0" onClick={onClose}>
         Continuar
@@ -509,7 +426,7 @@ function ResultPanel({ won, rewards, rating, onClose }) {
  */
 export function CombatReplay({
   heroName, enemyName, heroMaxHp, enemyMaxHp, log,
-  won, rewards, rating, onClose,
+  won, rewards, onClose,
   heroClass, archetype,
   keyMomentPause, decisions, onDecide, resolving,
   enemyTactics,
@@ -663,7 +580,7 @@ export function CombatReplay({
                 </div>
               </div>
             )}
-            <ResultPanel won={won} rewards={rewards} rating={rating} onClose={onClose} />
+            <ResultPanel won={won} rewards={rewards} onClose={onClose} />
           </motion.div>
         )}
 

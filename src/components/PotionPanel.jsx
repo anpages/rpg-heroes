@@ -2,7 +2,7 @@
  * Panel genérico de items consumibles antes de una actividad.
  * Lee del inventario unificado (player_crafted_items + crafting_catalog.effects).
  *
- * - Combate (Torre, Torneos, QuickCombat): effectTypes [atk_boost, def_boost]
+ * - Combate (Torre): effectTypes [atk_boost, def_boost]
  * - Expediciones: [hp_restore, xp_boost, time_reduction, loot_boost, gold_boost, hp_cost_reduction]
  * - Torre: [atk_boost, def_boost, tower_shield]
  */

@@ -1,10 +1,9 @@
 /**
- * Reanuda un combate previamente pausado por "Momento clave".
+ * Reanuda un combate de Torre previamente pausado por "Momento clave".
  *
- * Recibe el token firmado (HMAC) que contiene todo el estado del combate
+ * Recibe el token firmado (HMAC) con todo el estado del combate
  * y la decisión elegida por el jugador. Verifica la firma, aplica la decisión
- * a las stats del héroe (lado A) y reanuda la simulación con `resumeCombat`,
- * después finaliza usando los helpers de tower/tournament.
+ * a las stats del héroe y reanuda la simulación con `resumeCombat`.
  */
 import { requireAuth } from './_auth.js'
 import { resumeCombat } from './_combat.js'
@@ -12,7 +11,6 @@ import { verifyCombatToken } from './_combatSign.js'
 import { COMBAT_DECISIONS, KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
 import { interpolateHP } from './_hp.js'
 import { finalizeTowerAttempt } from './_towerFinalize.js'
-import { finalizeTournamentFight } from './_tournamentFinalize.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -23,13 +21,11 @@ export default async function handler(req, res) {
   if (!token)    return res.status(400).json({ error: 'token requerido' })
   if (!decision) return res.status(400).json({ error: 'decision requerida' })
 
-  // Validar que la decisión está en el catálogo de Momento clave
   if (!KEY_MOMENT_OPTIONS.includes(decision)) {
     return res.status(400).json({ error: 'Decisión no válida' })
   }
   const decisionDef = COMBAT_DECISIONS[decision]
 
-  // Verificar token firmado (lanza si firma inválida o expirado)
   let payload
   try {
     payload = verifyCombatToken(token)
@@ -37,26 +33,16 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: e.message })
   }
 
-  // El usuario del JWT debe coincidir con el dueño del token
   if (payload.userId !== user.id) {
     return res.status(403).json({ error: 'No autorizado' })
   }
 
-  if (payload.type === 'tower') {
-    return resumeTower(req, res, supabase, user, payload, decisionDef, decision)
+  if (payload.type !== 'tower') {
+    return res.status(400).json({ error: 'Tipo de combate desconocido' })
   }
-  if (payload.type === 'tournament') {
-    return resumeTournament(req, res, supabase, user, payload, decisionDef, decision)
-  }
-  return res.status(400).json({ error: 'Tipo de combate desconocido' })
-}
 
-/* ─── Tower resume ───────────────────────────────────────────────────────── */
-
-async function resumeTower(req, res, supabase, user, payload, decisionDef) {
   const { heroId, targetFloor, enemyName, archetypeKey, heroStats, enemyStats, state, combatOpts, usedBoosts, prevMaxFloor } = payload
 
-  // Re-leer héroe (puede haber regenerado HP, etc)
   const { data: hero } = await supabase
     .from('heroes')
     .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class')
@@ -70,84 +56,18 @@ async function resumeTower(req, res, supabase, user, payload, decisionDef) {
   const nowMs     = Date.now()
   const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
 
-  // Aplicar la decisión: modifica stats de a/b y/o hp parciales
-  const applied = decisionDef.apply(heroStats, enemyStats, state.hpA, state.hpB)
-
+  const applied  = decisionDef.apply(heroStats, enemyStats, state.hpA, state.hpB)
   const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }
-
-  // Reanudar combate con stats modificadas
-  const result = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
+  const result   = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
 
   const finalize = await finalizeTowerAttempt({
-    supabase,
-    user,
-    hero,
-    currentHp,
+    supabase, user, hero, currentHp,
     heroStats:  applied.a,
     enemyStats: applied.b,
-    targetFloor,
-    enemyName,
-    archetypeKey,
-    result,
-    usedBoosts,
-    nowMs,
-    prevMaxFloor,
+    targetFloor, enemyName, archetypeKey,
+    result, usedBoosts, nowMs, prevMaxFloor,
   })
 
   if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
-  return res.status(200).json(finalize.payload)
-}
-
-/* ─── Tournament resume ──────────────────────────────────────────────────── */
-
-async function resumeTournament(req, res, supabase, user, payload, decisionDef) {
-  const { heroId, bracketId, nextRound, heroStats, rival, state, combatOpts, newEffects } = payload
-
-  const { data: hero } = await supabase
-    .from('heroes')
-    .select('id, name, player_id, experience, level, active_effects, current_hp, max_hp, hp_last_updated_at')
-    .eq('id', heroId)
-    .single()
-
-  if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
-  if (hero.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
-
-  const { data: bracket } = await supabase
-    .from('tournament_brackets')
-    .select('id, rivals, current_round, eliminated, champion')
-    .eq('id', bracketId)
-    .single()
-
-  if (!bracket || bracket.eliminated || bracket.champion) {
-    return res.status(409).json({ error: 'El torneo cambió de estado' })
-  }
-  if (bracket.current_round + 1 !== nextRound) {
-    return res.status(409).json({ error: 'Ronda no válida' })
-  }
-
-  const nowMs     = Date.now()
-  const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
-
-  const applied = decisionDef.apply(heroStats, rival.stats, state.hpA, state.hpB)
-  const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }
-
-  const result = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
-
-  // El rival mantiene sus stats originales para los registros (rival.stats)
-  // pero para el cálculo se usaron las modificadas — por eso pasamos el rival original.
-  const finalize = await finalizeTournamentFight({
-    supabase,
-    user,
-    hero,
-    heroStats: applied.a,
-    rival,
-    bracket,
-    nextRound,
-    result,
-    currentHp,
-    newEffects,
-    nowMs,
-  })
-
   return res.status(200).json(finalize.payload)
 }

@@ -13,7 +13,6 @@ import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Equipo from '../sections/Equipo'
 import Combates from '../sections/Combates'
-import Equipos from '../sections/Equipos'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import Tacticas from '../sections/Tacticas'
@@ -23,7 +22,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Users, Dumbbell } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Dumbbell } from 'lucide-react'
 import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
@@ -297,11 +296,9 @@ function getHeroExpeditionState(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'base',     label: 'Base',      icon: Castle,  minHeroes: 0 },
-  { id: 'heroes',   label: 'Héroes',    icon: Sword,   minHeroes: 0 },
-  { id: 'mundo',    label: 'Combates',  icon: Globe,   minHeroes: 0 },
-  { id: 'equipos',  label: 'Equipos',   icon: Users,   minHeroes: 3 },
-  { id: 'arena',    label: 'Arena',     icon: Swords,  minHeroes: 0 },
+  { id: 'base',   label: 'Base',     icon: Castle, minHeroes: 0 },
+  { id: 'heroes', label: 'Héroes',   icon: Sword,  minHeroes: 0 },
+  { id: 'mundo',  label: 'Combates', icon: Globe,  minHeroes: 0 },
 ]
 
 const HERO_SUB_TABS = [
@@ -596,21 +593,6 @@ function Dashboard({ session }) {
               </div>
             )}
           </div>
-
-          {/* Equipos */}
-          <div className={activeTab === 'equipos' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('equipos') && <ErrorBoundary><Equipos /></ErrorBoundary>}
-          </div>
-
-          {/* Arena */}
-          <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
-            <div className="flex flex-col items-center gap-4 py-20 px-6 text-center">
-              <Swords size={48} strokeWidth={1.2} className="text-text-3 opacity-60" />
-              <h2 className="section-title">Arena PvP</h2>
-              <p className="text-text-2 text-[14px] max-w-xs">Los combates entre jugadores llegarán próximamente. Entrena a tu héroe y prepárate para el desafío.</p>
-            </div>
-          </div>
-
 
           {/* DEV only */}
           {import.meta.env.DEV && (

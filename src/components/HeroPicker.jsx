@@ -377,7 +377,7 @@ export function RecruitModal({ nextSlot, onRecruit, onClose }) {
 /**
  * Selector de héroe para secciones de combate — tarjetas grandes con info de combate.
  * locked=true bloquea la selección (p.ej. torneo en curso).
- * activeId + onSelect: modo controlado (QuickCombat). Sin props → usa el store global.
+ * activeId + onSelect: modo controlado. Sin props → usa el store global.
  */
 export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSelect, activeExtras = null }) {
   const userId         = useAppStore(s => s.userId)
