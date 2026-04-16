@@ -160,7 +160,7 @@ const ARCHETYPE_ICON = {
 
 export default function QuickCombat() {
   const userId               = useAppStore(s => s.userId)
-  const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
+
   const heroId               = useHeroId()
   const queryClient          = useQueryClient()
   const { hero }             = useHero(heroId)
@@ -271,8 +271,6 @@ export default function QuickCombat() {
     if (pendingResult) revealResult(pendingResult)
     else setWaitingForApi(true)
   }, [pendingResult])
-
-  const tier = tierForRating(hero?.combat_rating ?? 0)
 
   return (
     <div className="flex flex-col gap-4 pb-8">

@@ -408,7 +408,7 @@ export default function Torneos() {
 
   const { bracket, matches = [] } = data ?? {}
   const matchByRound = Object.fromEntries(matches.map(m => [m.round, m]))
-  const isRegistered = !!(data?.registered)
+  const isRegistered = !!(data?.registered)  // eslint-disable-line no-unused-vars
 
   /* ── Sin inscripción ────────────────────────────────────────────────────── */
   if (!bracket) {
