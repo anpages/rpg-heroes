@@ -91,7 +91,7 @@ export default async function handler(req, res) {
         player_id:  user.id,
         node_id:    nodeId,
         status:     'active',
-        started_at: snap.nowIso,
+        started_at: new Date().toISOString(),
         ends_at:    endsAt.toISOString(),
       },
       { onConflict: 'player_id,node_id' }
