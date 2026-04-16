@@ -500,7 +500,7 @@ export const CLASS_TRAINING_STATS = {
   sombra:    ['agility', 'attack', 'defense'],
   arcanista: ['intelligence', 'attack', 'max_hp'],
   domador:   ['strength', 'agility', 'intelligence'],
-  universal: ['strength', 'agility', 'attack', 'defense', 'max_hp', 'intelligence'],
+  universal: ['attack', 'defense', 'max_hp'],
 }
 
 /** Clase fija asignada a cada slot al desbloquearse. No se puede elegir. */
@@ -565,7 +565,7 @@ export const CLASS_LEVEL_BONUSES = {
   sombra:    { agility: 1, attack: 1 },
   arcanista: { intelligence: 1, attack: 1 },
   domador:   { agility: 1, strength: 1 },
-  universal: { agility: 1, intelligence: 1 },
+  universal: { attack: 1, defense: 1 },
 }
 
 /**
