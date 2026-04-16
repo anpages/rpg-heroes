@@ -735,7 +735,10 @@ function Hero() {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
       notify.error(err.message)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+    },
   })
 
   const collectTrainingMutation = useMutation({
@@ -773,7 +776,10 @@ function Hero() {
       if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
       notify.error(err.message)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroes(userId) })
+    },
   })
 
   const renameMutation = useMutation({
