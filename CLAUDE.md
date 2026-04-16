@@ -29,32 +29,26 @@ api/                          # Serverless functions (Vercel)
   _constants.js               # Re-exporta gameConstants (incl. HERO_SLOT_CLASS)
   _enemyTactics.js            # IA enemiga (pools por arquetipo)
   _hp.js                      # Interpolación HP idle
-  _loot.js                    # Tablas de loot
-  _missions.js                # Generación de misiones
-  _rating.js                  # Rating de combate
+  _loot.js                    # Tablas de loot (incl. rollTacticDrop con prestige nivel 6)
+  _missions.js                # Generación de misiones + pool con recompensas reales
   _research.js                # Lógica de investigación
   _stats.js                   # Stats efectivas del héroe (durabilidad, peso, equipo, encantamientos)
-  _teamCombat.js              # Combate de equipo
-  _tournament.js, _tournamentFinalize.js
-  _towerFinalize.js           # Finalización de torre
   _validate.js                # Validación de inputs
+  achievements.js             # GET logros con progreso calculado en tiempo real
+  achievements-claim.js       # POST reclamar logro completado
   building-*.js               # Edificios: collect, upgrade
+  comeback-bonus.js           # POST bonus de regreso (8h/24h/72h, 1 vez/día)
   expedition-*.js             # Expediciones a mazmorras
   hero-*.js                   # Reclutar (unlock slot), renombrar, descansar
   item-*.js                   # Equipar, reparar, desmantelar, transmutar, upgrade, usar
   item-enchant.js             # Aplicar runas de encantamiento a ítems
   refining-*.js               # Slots de laboratorio: start, collect, collect-all
   lab-inventory-upgrade.js    # Ampliar inventario lab
-  missions-*.js               # Obtener/reclamar misiones
-  quick-combat.js             # Combate de práctica
+  missions-*.js               # Obtener/reclamar misiones (con fragmentos/esencia/pergamino)
   research-*.js               # Investigación
-  shop-*.js                   # Tienda: comprar, refresh, daily
-  tactic-*.js                 # Tácticas: equipar/desequipar
-  team-combat.js              # PvP de equipo
-  tournament-*.js             # Torneos: registro, pelea, status
+  tactic-*.js                 # Tácticas: equipar/desequipar/levelup
   tower-attempt.js            # Intento de piso de torre
   training-*.js               # Entrenamiento: asignar, recoger, salas
-  bounty-*.js                 # Caza de Botín (APARCADO, desconectado del menú)
   bag-upgrade.js, onboarding.js
 
 src/
@@ -65,30 +59,28 @@ src/
 
   sections/
     Base.jsx                  # Gestión de base
-    Hero.jsx                  # Ficha del héroe — PENDIENTE: pill selector 5 héroes
+    Hero.jsx                  # Ficha del héroe
     Equipo.jsx                # Inventario y equipamiento
-    Tacticas.jsx              # Sistema de tácticas (5 slots) — PENDIENTE: filtrar por clase
-    Dungeons.jsx              # Expediciones a mazmorras — PENDIENTE: zonas por clase
-    QuickCombat.jsx           # Combate de práctica — PENDIENTE: selector de héroe
+    Tacticas.jsx              # Sistema de tácticas (5 slots)
+    Dungeons.jsx              # Expediciones a mazmorras
     Torre.jsx                 # Torre progresiva (1v1)
-    Torneos.jsx               # Sistema de torneos
-    Combates.jsx              # Hub de combate (sub-tabs)
-    TeamCombat.jsx            # Combate de equipo — PENDIENTE: rediseño 3v3/5v5
-    Shop.jsx                  # Tienda
-    Misiones.jsx              # Misiones diarias
-    Ranking.jsx               # Clasificación PvP
-    TeamCombatRanking.jsx     # Clasificación equipos
+    Combates.jsx              # Hub de combate (sub-tabs: Torre, Historial, Clasificación)
     CombatHistorial.jsx       # Historial de combate
-    TeamCombatHistorial.jsx   # Historial equipos
-    Inicio.jsx                # Sección inicial
-    CazaBotin.jsx             # Caza de Botín (APARCADO)
+    Ranking.jsx               # Clasificación: nivel, clase, piso torre, winrate
+    Misiones.jsx              # Misiones diarias con recompensas reales
+    Logros.jsx                # Sistema de logros (24 logros, 5 categorías)
+    Entrenamiento.jsx         # Salas de entrenamiento
     base/                     # Sub-secciones de Base (zonas, cards, modales)
       RecursosZone.jsx        # Edificios de producción
       TallerZone.jsx          # Laboratorio (crafteo)
-      EntrenamientoZone.jsx   # Salas de entrenamiento — PENDIENTE: mover lógica a zona héroe
+      EntrenamientoZone.jsx   # Salas de entrenamiento
       BibliotecaZone.jsx      # Árbol de investigación
 
   hooks/                      # TanStack Query hooks para cada entidad
+    useRealtimeSync.js        # Supabase Realtime centralizado con guards de mutación
+    useComebackBonus.js       # Llamada única al montar Dashboard
+    useAchievements.js        # Logros con progreso
+    useRanking.js             # Clasificación global
   lib/
     gameConstants.js           # FUENTE ÚNICA de constantes de balance + HERO_SLOT_CLASS
     gameFormulas.js            # Fórmulas compartidas frontend/backend
@@ -100,21 +92,23 @@ src/
     combatAbilities.js         # Habilidades por clase (incl. universal)
     combatDecisions.js         # IA de decisiones de combate
     hpInterpolation.js         # Interpolación HP idle
-    missionPool.js             # Pool de misiones
+    missionPool.js             # Pool de misiones (sincronizado con _missions.js)
     teamSynergy.js             # Sinergias de equipo
 
   components/                  # Componentes reutilizables (modales, combat replay, etc.)
   store/appStore.js            # Zustand: tabs, modales, hero seleccionado
 
-supabase/migrations/           # ~126 migraciones SQL
+supabase/migrations/           # ~130 migraciones SQL
 ```
 
 ## Navegación
 
 - **Base** — Zonas: Producción, Laboratorio, Entrenamiento, Biblioteca
-- **Héroes** — Sub-tabs: Ficha, Equipo, Tácticas, Expediciones, Tienda
-- **Combates** — Sub-tabs: Torre (PvE infinita), Historial
-- [ ] **Fase 4** — Expediciones por clase: zonas temáticas, drops dirigidos
+- **Héroes** — Sub-tabs: Ficha, Equipo, Tácticas, Expediciones
+- **Combates** — Sub-tabs: Torre (PvE infinita), Historial, Clasificación
+- **Arena** — Placeholder "Próximamente" (PvP futuro)
+- **Logros** — 24 logros en 5 categorías con recompensas reclamables
+
 ## Sistemas del juego
 
 ### Economía de recursos
@@ -125,6 +119,7 @@ supabase/migrations/           # ~126 migraciones SQL
 - **gold/fragments/essence** sí pueden ser loot de actividad
 - **essence** exclusiva de mazmorras tipo `ancient` (dificultad 6+ de cada clase)
 - **fragments** de mazmorras tipo `mine` y `crypt`
+- **Iconos estándar**: fragmentos = `Sparkles` (#f59e0b), esencia = `Droplets` (#8b5cf6) — usar SIEMPRE estos en toda la UI
 
 ### Producción idle — caps fijos por edificio
 - Recoger solo cuando el almacén está **lleno**. Cap fijo → a mayor nivel, menos tiempo para llenar.
@@ -142,7 +137,7 @@ supabase/migrations/           # ~126 migraciones SQL
 - **Desbloqueo progresivo** por nivel de base: Caudillo(Nv1), Sombra(Nv3), Arcanista(Nv5), Domador(Nv7), Universal(Nv10)
 - **No hay elección de clase** en onboarding ni en recruit — la clase viene del slot
 - Stats base: strength, agility, intelligence → derivadas: HP, attack, defense
-- Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence) — PENDIENTE mover a zona héroe con filtro por clase
+- Entrenamiento en 6 salas (strength, agility, attack, defense, max_hp, intelligence)
 
 ### Equipamiento
 - 7 slots: helmet, chest, arms, legs, main_hand, off_hand, accessory
@@ -153,6 +148,7 @@ supabase/migrations/           # ~126 migraciones SQL
 - Desmantelar da oro: common:10, uncommon:25, rare:60, epic:150, legendary:400
 - **Reparación**: cuesta oro directamente (sin kits). RPC `deduct_resources`.
 - **Encantamientos**: columna `inventory_items.enchantments` (JSONB). Escalan por durabilidad igual que bonos base.
+- **Items solo de drops** — no hay tienda de equipo. La tienda fue eliminada.
 
 ### Runas de encantamiento
 - 6 tipos: rune_attack (+10 ATQ), rune_defense (+10 DEF), rune_hp (+80 HP), rune_strength (+8 FUE), rune_agility (+8 AGI), rune_intelligence (+8 INT)
@@ -161,12 +157,29 @@ supabase/migrations/           # ~126 migraciones SQL
 - UI en Equipo.jsx: badge de encantamientos + picker inline en cada slot
 
 ### Tácticas
-- 5 slots por héroe
-- **PENDIENTE (Fase 5)**: las tácticas pasarán a ser exclusivas por clase con efectos condicionales
-- Por ahora: pool genérico compartido, efectos flat bonus
+- 5 slots por héroe, ~80 tácticas en catálogo (common→legendary, todas las clases)
+- **Niveles**: 1-5 via pergamino táctico (scroll), nivel 6 "Maestría ★" exclusivo de drops
+- `TACTIC_MAX_LEVEL = 5` (cap de pergaminos), `TACTIC_PRESTIGE_LEVEL = 6` (solo drops)
 - Tap en card de colección → equipa al instante (sin modal)
 - Tap en chip equipado → desequipa al instante (sin modal)
 - Solo modal cuando todos los slots están llenos: picker de slot a reemplazar
+- **PENDIENTE (Fase 5)**: tácticas exclusivas por clase con efectos condicionales
+
+### Misiones diarias
+- 3 misiones por día con seed determinista (jugador + fecha)
+- Recompensas variables por tier: gold + xp siempre; fragmentos en tiers medio/difícil; esencia/pergamino en difícil
+- Tipos con recompensas especiales: `dungeon_type_combat/magic` (frags), `item_drop` (frags/esencia), `tower_attempt` (pergamino en difícil)
+
+### Bonus de regreso
+- Se comprueba al montar Dashboard (`useComebackBonus`)
+- 8h+: 300 oro | 24h+: 600 oro + 25 frags | 72h+: 1000 oro + 60 frags + 1 esencia
+- Máximo 1 vez por día UTC. Columnas en `players`: `last_seen_at`, `comeback_claimed_date`
+
+### Logros
+- 24 logros en 5 categorías: Progresión, Torre, Expediciones, Tácticas, Equipo
+- Progreso calculado en tiempo real desde tablas existentes (sin counters adicionales)
+- Recompensas: oro, fragmentos, esencia, pergaminos
+- Endpoint `GET /api/achievements` + `POST /api/achievements-claim`
 
 ### Expediciones y mazmorras
 - Idle con timer, coste de HP basado en fórmulas de gameFormulas.js
@@ -183,11 +196,9 @@ supabase/migrations/           # ~126 migraciones SQL
 
 ### Combate
 - Motor por turnos con habilidades, tácticas, sinergias de equipo — NO CAMBIA
-- **3 formatos** (ver "Rediseño V2"): 1v1 siempre, 3v3 y 5v5 se desbloquean
-- **Mecánica de equipo**: asignación de matchups previa → 1v1s en paralelo
-- **PENDIENTE (Fase 6-7)**: UI de selección de héroe y asignación de matchups
-- Sistema de rating para matchmaking
+- Formato activo: 1v1 (Torre). PvP futuro en Arena (pendiente)
 - Firma HMAC para verificar resultados
+- **No hay estrategia defensiva** — eliminada. El héroe combate con sus stats tal cual.
 
 ### Laboratorio (antes "Taller")
 - Requiere base nivel 3
@@ -196,7 +207,7 @@ supabase/migrations/           # ~126 migraciones SQL
 - Categorías en UI: **Consumibles** (poción de vida + provisiones), **Runas**, **Mejora de tier**
 - Ingredientes: solo recursos brutos (iron, wood, mana, herbs, fragments, essence)
 - Piedras de forja (forge_stone_t2, forge_stone_t3) para upgrade de tier de ítems
-- Pergamino Táctico (tactic_scroll): 20 maná + 5 fragmentos, 20 min — sube 1 nivel una táctica
+- Pergamino Táctico (tactic_scroll): 20 maná + 5 fragmentos, 20 min — sube 1 nivel una táctica (máx nivel 5)
 
 ### Biblioteca
 - Requiere base nivel 3
@@ -230,3 +241,10 @@ supabase/migrations/           # ~126 migraciones SQL
 
 - `/api/cron/process-expeditions` — cada 5 minutos
 - `/api/cron/process-buildings` — cada 1 minuto
+
+## Pendiente
+
+- **Push notifications** — VAPID keys, service worker, backend push, cron triggers
+- **Fase 4** — Expediciones por clase: zonas temáticas, drops dirigidos
+- **Fase 5** — Tácticas exclusivas por clase con efectos condicionales
+- **Arena PvP** — Sistema completo de combates entre jugadores
