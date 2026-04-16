@@ -142,7 +142,6 @@ export default function Logros() {
     return acc
   }, {})
 
-  const totalCompleted = (achievements ?? []).filter(a => a.completed).length
   const totalClaimed   = (achievements ?? []).filter(a => a.claimed).length
   const total          = (achievements ?? []).length
 
