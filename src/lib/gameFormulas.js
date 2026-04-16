@@ -402,11 +402,66 @@ export function tierAnchoredEnemyStats(virtualLevel) {
 }
 
 /**
- * Stats del enemigo calibradas a las stats efectivas reales del héroe.
- * El enemigo siempre es competitivo independientemente del rating o tier.
- * Varianza ±10% por stat para que no sea idéntico — la diferencia la hacen
- * la clase, las habilidades y las tácticas.
+ * Stats base de cada clase a nivel 1 (espejo de la tabla classes en DB).
+ * Fuente de verdad para generar enemigos en combate rápido.
+ */
+const CLASS_BASE_STATS = {
+  caudillo:  { max_hp: 140, attack: 14, defense: 8,  strength: 16, agility: 10, intelligence: 5  },
+  sombra:    { max_hp: 80,  attack: 13, defense: 3,  strength: 8,  agility: 18, intelligence: 8  },
+  arcanista: { max_hp: 70,  attack: 18, defense: 2,  strength: 5,  agility: 8,  intelligence: 18 },
+  domador:   { max_hp: 110, attack: 11, defense: 6,  strength: 10, agility: 10, intelligence: 12 },
+  universal: { max_hp: 105, attack: 12, defense: 5,  strength: 11, agility: 11, intelligence: 11 },
+}
+
+/**
+ * Arquetipo de enemigo que corresponde a cada clase de héroe.
+ * Usado para el pool de tácticas y la estrategia de combate del rival.
+ * Las stats se generan por nivel, no por arquetipo — este mapa es solo
+ * para coherencia temática (tácticas, estrategia, nombre decorado).
+ */
+export const CLASS_TO_ARCHETYPE = {
+  caudillo:  'tank',
+  sombra:    'assassin',
+  arcanista: 'mage',
+  domador:   'berserker',
+  universal: 'tank',
+}
+
+/**
+ * Genera las stats del enemigo en combate rápido basándose en la clase
+ * del héroe y su nivel virtual (VL 1-21).
  *
+ * El enemigo es siempre de la misma clase que el héroe — combate espejo.
+ * Sus stats parten de CLASS_BASE_STATS escaladas por VL con ±10% de varianza,
+ * de modo que el resultado del combate depende del equipamiento, tácticas y
+ * consumibles del héroe, no de una ventaja de clase fija.
+ *
+ * Escala: VL 1 → ×1.1  |  VL 21 → ×4.5 (aprox.)
+ *
+ * @param {string} heroClass  — clase del héroe (caudillo, sombra, …)
+ * @param {number} vl         — nivel virtual del héroe (1-21)
+ * @param {Function} [rng]    — función random (para tests deterministas)
+ */
+export function enemyStatsForLevel(heroClass, vl, rng = Math.random) {
+  const base = CLASS_BASE_STATS[heroClass] ?? CLASS_BASE_STATS.universal
+  const scale = 1.15 + (Math.max(1, Math.min(21, vl)) - 1) * 0.17
+  function scaled(v) {
+    const variance = 0.92 + rng() * 0.16   // ±8% varianza
+    return Math.max(1, Math.round((v ?? 1) * scale * variance))
+  }
+  return {
+    max_hp:       scaled(base.max_hp),
+    attack:       scaled(base.attack),
+    defense:      scaled(base.defense),
+    strength:     scaled(base.strength),
+    agility:      scaled(base.agility),
+    intelligence: scaled(base.intelligence),
+  }
+}
+
+/**
+ * @deprecated Usa enemyStatsForLevel() para combate rápido.
+ * Mantenido para la Torre y los Torneos hasta que se migren.
  * @param {{ attack, defense, strength, agility, intelligence, max_hp }} heroStats
  */
 export function heroAnchoredEnemyStats(heroStats) {

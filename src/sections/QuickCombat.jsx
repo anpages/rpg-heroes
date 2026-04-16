@@ -218,7 +218,7 @@ export default function QuickCombat() {
 
   // Fase 1: buscar rival (obtener preview)
   const previewMutation = useMutation({
-    mutationFn: () => apiPost('/api/quick-combat-preview', {}),
+    mutationFn: () => apiPost('/api/quick-combat-preview', { heroId }),
     onSuccess: (data) => {
       setPreviewData(data)
       setStrategy(hero?.combat_strategy ?? 'balanced')

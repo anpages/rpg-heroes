@@ -1,7 +1,7 @@
 import { requireAuth } from './_auth.js'
-import { getEffectiveStats, getFullStats } from './_stats.js'
+import { getEffectiveStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
-import { trainingRewards, heroAnchoredEnemyStats, applyArchetype, decoratedEnemyName } from '../src/lib/gameFormulas.js'
+import { trainingRewards, enemyStatsForLevel, decoratedEnemyName } from '../src/lib/gameFormulas.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
@@ -78,11 +78,10 @@ export default async function handler(req, res) {
   // VL del enemigo basado en nivel del héroe (1-21, escala lineal sobre nivel 1-50)
   const vl = Math.max(1, Math.min(21, Math.ceil(hero.level * 21 / 50)))
 
-  // Anclar al enemigo con stats al 100% de durabilidad — el desgaste real es desventaja
-  const fullStats  = await getFullStats(supabase, hero.id)
-  const enemyStats = applyArchetype(heroAnchoredEnemyStats(fullStats ?? heroStats), archetypeKey)
+  // Stats del enemigo por nivel — combate espejo (misma clase que el héroe)
+  const enemyStats = enemyStatsForLevel(hero.class, vl)
 
-  // Estrategia de combate del enemigo según su arquetipo
+  // Estrategia del enemigo según arquetipo de su clase
   const ARCHETYPE_STRATEGY = { berserker: 'aggressive', assassin: 'aggressive', tank: 'defensive', mage: 'balanced' }
   const enemyStrategyKey = ARCHETYPE_STRATEGY[archetypeKey] ?? 'balanced'
   const enemyStrategy = COMBAT_STRATEGIES[enemyStrategyKey]
@@ -106,7 +105,7 @@ export default async function handler(req, res) {
     critBonus:        rb.crit_pct,
     dmgMultiplier:    rb.tower_dmg_pct,
     classA:           hero.class,
-    classB:           archetypeKey,
+    classB:           preview.enemyClass,   // misma clase → combate espejo
     tacticsA:         heroTactics,
     tacticsB:         enemyTactics,
     critBoostRoundsA: effects.crit_boost    ?? 0,
