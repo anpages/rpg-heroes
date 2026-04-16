@@ -29,7 +29,6 @@ export async function finalizeTowerAttempt({
   enemyName,
   archetypeKey,
   result,
-  usedBoosts,
   nowMs,
   prevMaxFloor,
 }) {
@@ -54,18 +53,11 @@ export async function finalizeTowerAttempt({
   const costPct       = won ? COMBAT_HP_COST.tower.win : COMBAT_HP_COST.tower.loss
   const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)
 
-  // Limpiar boosts usados de active_effects + tower_shield (se consume en este intento)
-  const effects    = hero.active_effects ?? {}
-  const newEffects = { ...effects }
-  Object.keys(usedBoosts ?? {}).forEach(k => delete newEffects[k])
-  delete newEffects.tower_shield
-
   const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
     .update({
-      current_hp:          hpAfterCombat,
-      hp_last_updated_at:  new Date(nowMs).toISOString(),
-      active_effects:      newEffects,
+      current_hp:         hpAfterCombat,
+      hp_last_updated_at: new Date(nowMs).toISOString(),
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -73,10 +65,8 @@ export async function finalizeTowerAttempt({
   if (hpError)      return { error: hpError.message, status: 500 }
   if (hpCount === 0) return { error: 'El héroe cambió de estado durante el combate', status: 409 }
 
-  // Reducir durabilidad del equipo — escala con el piso (helper centralizado).
-  // tower_shield (ya eliminado de newEffects arriba) reduce la pérdida de durabilidad.
-  const towerShield = effects.tower_shield ?? 0
-  const durLossFloor = Math.max(1, Math.round(towerWearForFloor(targetFloor) * (1 - towerShield)))
+  // Reducir durabilidad del equipo — escala con el piso
+  const durLossFloor = towerWearForFloor(targetFloor)
   const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durLossFloor })
   if (durError) console.error('durability rpc error:', durError.message)
 

@@ -160,39 +160,22 @@ export const STAT_LABEL_MAP = {
 
 export const EFFECT_COLOR = {
   hp_restore:        '#dc2626',
-  atk_boost:         '#0369a1',
-  def_boost:         '#16a34a',
   xp_boost:          '#d97706',
   time_reduction:    '#0891b2',
   loot_boost:        '#7c3aed',
   gold_boost:        '#d97706',
   hp_cost_reduction: '#059669',
-  tower_shield:      '#64748b',
-  crit_boost:        '#f59e0b',
-  armor_pen:         '#dc2626',
-  combat_shield:     '#7c3aed',
-  lifesteal_pct:     '#be185d',
 }
 
-// Descripción corta del beneficio de una poción — se usa en el inventario del
-// laboratorio y en los paneles de pociones antes de cada actividad para que el
-// jugador no tenga que volver al lab para recordar qué hace cada receta.
 export function describePotionEffect(effectType, effectValue) {
   const pct = Math.round((effectValue ?? 0) * 100)
   switch (effectType) {
-    case 'hp_restore':      return `+${pct}% HP`
-    case 'atk_boost':       return `+${pct}% ATQ`
-    case 'def_boost':       return `+${pct}% DEF`
-    case 'xp_boost':        return `+${pct}% XP`
-    case 'time_reduction':  return `−${pct}% tiempo`
-    case 'loot_boost':      return `+${pct}% botín`
+    case 'hp_restore':        return `+${pct}% HP`
+    case 'xp_boost':          return `+${pct}% XP`
+    case 'time_reduction':    return `−${pct}% tiempo`
+    case 'loot_boost':        return `+${pct}% botín`
     case 'gold_boost':        return `+${pct}% oro`
     case 'hp_cost_reduction': return `−${pct}% coste HP`
-    case 'tower_shield':      return `−${pct}% durabilidad`
-    case 'crit_boost':        return `+${effectValue ?? 0} rondas crit`
-    case 'armor_pen':         return `+${pct}% penetración`
-    case 'combat_shield':     return 'Esquiva inicial'
-    case 'lifesteal_pct':     return `+${pct}% robo de vida`
     default:                  return ''
   }
 }

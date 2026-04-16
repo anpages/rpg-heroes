@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Tipo de combate desconocido' })
   }
 
-  const { heroId, targetFloor, enemyName, archetypeKey, heroStats, enemyStats, state, combatOpts, usedBoosts, prevMaxFloor } = payload
+  const { heroId, targetFloor, enemyName, archetypeKey, heroStats, enemyStats, state, combatOpts, prevMaxFloor } = payload
 
   const { data: hero } = await supabase
     .from('heroes')
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     heroStats:  applied.a,
     enemyStats: applied.b,
     targetFloor, enemyName, archetypeKey,
-    result, usedBoosts, nowMs, prevMaxFloor,
+    result, nowMs, prevMaxFloor,
   })
 
   if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })

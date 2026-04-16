@@ -63,14 +63,6 @@ export default async function handler(req, res) {
 
   const targetFloor = progress.max_floor + 1
 
-  // Aplicar boosts de pociones activas
-  const effects = hero.active_effects ?? {}
-  if (effects.atk_boost) heroStats.attack  = Math.round(heroStats.attack  * (1 + effects.atk_boost))
-  if (effects.def_boost) heroStats.defense = Math.round(heroStats.defense * (1 + effects.def_boost))
-  const usedBoosts = Object.fromEntries(
-    ['atk_boost', 'def_boost'].filter(k => effects[k]).map(k => [k, effects[k]])
-  )
-
   // Bonos de investigación
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
@@ -122,7 +114,6 @@ export default async function handler(req, res) {
       enemyStats,
       state:        result.state,
       combatOpts:   { critBonus: rb.crit_pct, dmgMultiplier: rb.tower_dmg_pct, classA: hero.class, classB: archetypeKey, tacticsA: heroTactics, tacticsB: enemyTactics },
-      usedBoosts,
       prevMaxFloor: progress.max_floor,
     })
     return res.status(200).json({
@@ -154,7 +145,6 @@ export default async function handler(req, res) {
     enemyName,
     archetypeKey,
     result,
-    usedBoosts,
     nowMs,
     prevMaxFloor: progress.max_floor,
   })

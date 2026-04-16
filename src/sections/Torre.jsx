@@ -17,7 +17,6 @@ import { useCraftedItems } from '../hooks/useCraftedItems'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
-import { PotionPanel } from '../components/PotionPanel'
 import { TacticsStrip } from '../components/TacticsStrip'
 
 const MILESTONES = [5, 10, 25, 50, 100]
@@ -364,8 +363,6 @@ export default function Torre() {
             </div>
           )
         })()}
-
-        <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} effectTypes={['atk_boost', 'def_boost', 'tower_shield']} title="Consumibles" />
 
         {/* Tácticas */}
         <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">

@@ -58,8 +58,6 @@ function FilterPills({ options, value, onChange }) {
 const POTION_FILTER_LABELS = {
   all:             'Todas',
   hp_restore:      'Vida',
-  atk_boost:       'Ataque',
-  def_boost:       'Defensa',
   xp_boost:        'Experiencia',
   time_reduction:  'Tiempo',
   loot_boost:      'Botín',
@@ -68,8 +66,7 @@ const POTION_FILTER_LABELS = {
   free_repair:     'Reparación',
 }
 
-// Effect types ocultos en la UI de crafteo (no se eliminan del catálogo).
-const HIDDEN_POTION_EFFECT_TYPES = new Set(['atk_boost', 'def_boost'])
+const HIDDEN_POTION_EFFECT_TYPES = new Set([])
 
 /* ─── Inventario del Laboratorio ─────────────────────────────────────────────── */
 
