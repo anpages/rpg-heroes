@@ -14,7 +14,6 @@ import { COMBAT_STRATEGIES } from '../lib/gameConstants'
 import { Swords, Shield, Flame, Heart } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
-import { tierForRating } from '../lib/combatRating'
 import { PotionPanel } from '../components/PotionPanel'
 
 /* ─── Matchmaking overlay (buscar → 3 2 1) ───────────────────────────────────── */
