@@ -10,9 +10,8 @@ import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { trainingRewards } from '../lib/gameFormulas'
 import { COMBAT_STRATEGIES } from '../lib/gameConstants'
-import { Swords, Coins, Star, Shield, Flame, Layers, Heart } from 'lucide-react'
+import { Swords, Shield, Flame, Heart } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { tierForRating } from '../lib/combatRating'
@@ -199,8 +198,6 @@ export default function QuickCombat() {
   const hpNow       = interpolateHp(hero, nowMs, effectiveMaxHp)
   const hasEnoughHp = hpNow >= Math.floor(effectiveMaxHp * 0.2)
   const isBusy      = hero?.status !== 'idle'
-  const rewards     = trainingRewards(hero?.level ?? 1)
-
   const hpPotions = (catalog ?? [])
     .filter(c => c.effects?.some(e => e.type === 'hp_restore') && (inventory[c.id] ?? 0) > 0)
     .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
@@ -262,14 +259,8 @@ export default function QuickCombat() {
     setPhase('idle')
   }
 
-  function applyPostCombat(data) {
-    if (!data) return
-    if (data.won) {
-      triggerResourceFlash()
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-    }
-    queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-    if (data.durabilityLoss > 0) queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+  function applyPostCombat() {
+    // Simulador: sin cambios de estado en el servidor, nada que invalidar
   }
 
   useEffect(() => {
@@ -286,8 +277,8 @@ export default function QuickCombat() {
   return (
     <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
-        <h2 className="section-title">Combate Rápido</h2>
-        <p className="section-subtitle">Pon a prueba a tu héroe contra rivales aleatorios.</p>
+        <h2 className="section-title">Simulador</h2>
+        <p className="section-subtitle">Prueba tácticas y estrategia sin coste ni recompensa.</p>
       </div>
 
       <AnimatePresence>
@@ -311,20 +302,10 @@ export default function QuickCombat() {
         />
       )}
 
-      {/* Recompensas */}
-      <div className="bg-surface border border-border rounded-xl px-5 py-4 flex flex-col gap-2 shadow-[var(--shadow-sm)]">
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Recompensas al ganar</span>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Coins size={13} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
-            <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
-          </span>
-          <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#7c3aed]">
-            <Layers size={13} color="#7c3aed" strokeWidth={2} />Táctica (8%)
-          </span>
-        </div>
+      {/* Aviso — simulador sin consecuencias */}
+      <div className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center gap-2.5 shadow-[var(--shadow-sm)]">
+        <Flame size={13} className="text-text-3 flex-shrink-0" strokeWidth={2} />
+        <span className="text-[12px] text-text-3">Sin coste de HP · Sin desgaste de equipo · Sin recompensas</span>
       </div>
 
       {/* Héroe — cambia según fase */}
@@ -340,7 +321,7 @@ export default function QuickCombat() {
           >
             {/* Rival */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rival encontrado</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rival de simulación</span>
               <div
                 className="flex items-center gap-3 px-4 py-3 rounded-lg border"
                 style={{
@@ -498,7 +479,7 @@ export default function QuickCombat() {
               >
                 <Swords size={16} strokeWidth={2} />
                 {previewMutation.isPending
-                  ? 'Buscando rival...'
+                  ? 'Preparando simulación...'
                   : hero?.status === 'training'
                     ? 'Entrenando'
                     : isBusy
