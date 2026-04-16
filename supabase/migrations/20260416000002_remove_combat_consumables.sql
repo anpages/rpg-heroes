@@ -2,8 +2,8 @@
 -- El loop PvE se basa en expediciones para progreso, no en consumibles de combate.
 -- Se conservan: pocion_vida (hp_restore) y provisiones (expedition_bonus).
 
--- Limpiar inventario de jugadores (crafted_inventory) de estos items
-DELETE FROM crafted_inventory
+-- Limpiar inventario de jugadores de estos items
+DELETE FROM player_crafted_items
 WHERE recipe_id IN (
   SELECT id FROM crafting_catalog
   WHERE effects @> '[{"type":"atk_boost"}]'::jsonb
@@ -16,7 +16,7 @@ WHERE recipe_id IN (
 );
 
 -- Limpiar slots de laboratorio activos con estas recetas
-DELETE FROM refining_slots
+DELETE FROM player_refining_slots
 WHERE recipe_id IN (
   SELECT id FROM crafting_catalog
   WHERE effects @> '[{"type":"atk_boost"}]'::jsonb
