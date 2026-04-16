@@ -1,8 +1,7 @@
-import { Scroll, Trophy, Zap, TowerControl } from 'lucide-react'
+import { Scroll, Trophy, TowerControl } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ScrollHint from '../components/ScrollHint'
 import { useAppStore } from '../store/appStore'
-import QuickCombat from './QuickCombat'
 import Torre from './Torre'
 import CombatHistorial from './CombatHistorial'
 import Torneos from './Torneos'
@@ -10,7 +9,6 @@ import Ranking from './Ranking'
 
 const MODES = [
   { id: 'torre',          label: 'Torre',          sublabel: 'PvE',      Icon: TowerControl, color: '#f59e0b' },
-  { id: 'practica',       label: 'Simulador',      sublabel: 'Pruebas',  Icon: Zap,          color: '#10b981' },
   { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#a855f7' },
   { id: 'clasificacion',  label: 'Clasificación',  sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
 ]
@@ -66,7 +64,6 @@ export default function Combates() {
           transition={{ duration: 0.18 }}
         >
           {tab === 'torre'         && <Torre />}
-          {tab === 'practica'      && <QuickCombat />}
           {tab === 'torneos'       && <Torneos />}
           {tab === 'historial'     && <CombatHistorial />}
           {tab === 'clasificacion' && <Ranking />}
