@@ -12,7 +12,7 @@ import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
 import { floorRewards, floorEnemyName, floorEnemyArchetype, decoratedEnemyName, ENEMY_ARCHETYPES } from '../lib/gameFormulas'
-import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield, Wrench, Layers, Package } from 'lucide-react'
+import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield } from 'lucide-react'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -293,12 +293,6 @@ export default function Torre() {
             </span>
             <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#15803d]">
               <Star size={13} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
-            </span>
-            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#7c3aed]">
-              <Layers size={13} color="#7c3aed" strokeWidth={2} />Táctica (15%)
-            </span>
-            <span className="flex items-center gap-[5px] text-[13px] font-semibold text-[#0891b2]">
-              <Package size={13} color="#0891b2" strokeWidth={2} />Objeto
             </span>
           </div>
         </div>

@@ -16,7 +16,6 @@ import { COMBAT_HP_COST, towerWearForFloor } from '../src/lib/gameConstants.js'
 import { applyCombatHpCost } from './_hp.js'
 import { floorRewards } from './_combat.js'
 
-import { rollItemDrop, rollTacticDrop, floorToDifficulty } from './_loot.js'
 import { progressMissions } from './_missions.js'
 import { computeRatingUpdate, towerDifficulty } from './_rating.js'
 
@@ -120,21 +119,7 @@ export async function finalizeTowerAttempt({
     })
     if (rpcError) return { error: rpcError.message, status: 500 }
     rewards.levelUp = rpcResult?.level_up ?? false
-
-    // Drop de item
-    const difficulty = floorToDifficulty(targetFloor)
-    const poolKey    = targetFloor % 2 === 0 ? 'tower_even' : 'tower_odd'
-    const drop = await rollItemDrop(supabase, hero.id, user.id, {
-      difficulty,
-      poolKey,
-      dropRateBonus: heroStats.itemDropRateBonus ?? 0,
-      heroClass: hero.class,
-    })
-    rewards.drop = drop ?? null
-
-    // Drop de táctica (15% en victoria en torre)
-    const tacticDrop = await rollTacticDrop(supabase, hero.id, hero.class, { chance: 0.15 })
-    if (tacticDrop) rewards.tacticDrop = tacticDrop
+    // Items y tácticas solo se consiguen en expediciones, no en la torre
   }
 
   // Progreso de misiones
