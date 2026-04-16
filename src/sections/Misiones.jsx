@@ -6,7 +6,7 @@ import { useMissions } from '../hooks/useMissions'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { MISSION_POOL } from '../lib/missionPool.js'
-import { Coins, Star, Clock, CheckCircle2, Circle } from 'lucide-react'
+import { Coins, Star, Clock, CheckCircle2, Circle, Gem, Zap, ScrollText } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const listVariants = {
@@ -47,8 +47,11 @@ function MissionCard({ mission }) {
       queryClient.setQueryData(queryKeys.missions(), context.previous)
       notify.error(err.message)
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      if ((data?.rewards?.scroll ?? 0) > 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.missions() })
@@ -109,10 +112,28 @@ function MissionCard({ mission }) {
               {mission.reward_gold}
             </span>
           )}
-{mission.reward_xp > 0 && (
+          {mission.reward_xp > 0 && (
             <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
               <Star size={11} color="#0369a1" strokeWidth={2} />
               {mission.reward_xp} XP
+            </span>
+          )}
+          {(mission.reward_fragments ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
+              <Gem size={11} color="#7c3aed" strokeWidth={2} />
+              {mission.reward_fragments} frags
+            </span>
+          )}
+          {(mission.reward_essence ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
+              <Zap size={11} color="#0891b2" strokeWidth={2} />
+              {mission.reward_essence} esencia
+            </span>
+          )}
+          {(mission.reward_scroll ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
+              <ScrollText size={11} color="#16a34a" strokeWidth={2} />
+              Pergamino
             </span>
           )}
         </div>

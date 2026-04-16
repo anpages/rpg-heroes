@@ -40,7 +40,7 @@ export const MISSION_POOL = [
     rewards: [
       { gold: 200, xp: 100 },
       { gold: 350, xp: 180 },
-      { gold: 500, xp: 300 },
+      { gold: 500, xp: 300, scroll: 1 },
     ],
   },
   {
@@ -50,8 +50,8 @@ export const MISSION_POOL = [
     targets: [1, 2, 3],
     rewards: [
       { gold: 180, xp:  90 },
-      { gold: 350, xp: 180 },
-      { gold: 600, xp: 350 },
+      { gold: 350, xp: 180, fragments: 20 },
+      { gold: 600, xp: 350, fragments: 40 },
     ],
   },
   {
@@ -61,8 +61,8 @@ export const MISSION_POOL = [
     targets: [1, 2, 3],
     rewards: [
       { gold: 150, xp:  80 },
-      { gold: 300, xp: 150 },
-      { gold: 500, xp: 280 },
+      { gold: 300, xp: 150, fragments: 20 },
+      { gold: 500, xp: 280, fragments: 35 },
     ],
   },
   {
@@ -83,8 +83,8 @@ export const MISSION_POOL = [
     targets: [1, 2, 3],
     rewards: [
       { gold: 200, xp: 100 },
-      { gold: 400, xp: 200 },
-      { gold: 700, xp: 400 },
+      { gold: 400, xp: 200, fragments: 30 },
+      { gold: 700, xp: 400, essence: 1 },
     ],
   },
 ]

@@ -63,9 +63,6 @@ export const useAppStore = create((set) => ({
   recruitOpen:   false,
   setRecruitOpen:   (open) => set({ recruitOpen: open }),
 
-  shopOpen: false,
-  setShopOpen: (open) => set({ shopOpen: open }),
-
   // ── Flash de recursos (expedición/torre/torneo) ───────────────
   resourceFlashAt: 0,
   triggerResourceFlash: () => set({ resourceFlashAt: Date.now() }),

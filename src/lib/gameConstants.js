@@ -559,38 +559,6 @@ export function computeTrainingProgress(classLevel, classXp, earnedXp) {
   return { classLevel: level, classXp: xp }
 }
 
-// ── Estrategia de combate ─────────────────────────────────────────────────────
-
-/**
- * Estrategias de combate configurables por héroe.
- * Los multiplicadores se aplican a las stats antes de entrar al motor.
- * atkMult: multiplicador sobre attack
- * defMult: multiplicador sobre defense
- */
-export const COMBAT_STRATEGIES = {
-  aggressive: {
-    label:       'Agresivo',
-    description: '+15% ataque, -10% defensa',
-    icon:        '⚔️',
-    atkMult:     1.15,
-    defMult:     0.90,
-  },
-  balanced: {
-    label:       'Equilibrado',
-    description: 'Sin modificadores',
-    icon:        '⚖️',
-    atkMult:     1.00,
-    defMult:     1.00,
-  },
-  defensive: {
-    label:       'Defensivo',
-    description: '-10% ataque, +15% defensa',
-    icon:        '🛡️',
-    atkMult:     0.90,
-    defMult:     1.15,
-  },
-}
-
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
 /** Máximo de unidades de una misma poción en el inventario del laboratorio. */

@@ -29,23 +29,3 @@ export {
   LAB_INVENTORY_UPGRADE_COSTS,
 } from '../src/lib/gameConstants.js'
 
-export const SHOP_SIZE           = 7    // items regulares de equipo por día (+ 2 specials = 9 cards, 3×3 grid)
-export const SHOP_SPECIAL_COUNT  = 2    // ofertas especiales rotativas por día
-export const SHOP_MAX_STOCK      = 1    // unidades por item por héroe por día
-export const SHOP_REFRESH_COST   = 500  // oro fijo por refresh manual del stock
-
-export const MERCHANT_TYPES = [
-  { key: 'weapons', label: 'Armero',     slots: ['main_hand', 'off_hand'] },
-  { key: 'armor',   label: 'Herrero',    slots: ['helmet', 'chest', 'arms', 'legs'] },
-  { key: 'relics',  label: 'Reliquiero', slots: ['accessory'] },
-]
-
-/** Nivel mínimo de héroe para comprar un item según tier y rareza */
-export function getItemMinLevel(tier, rarity) {
-  const table = {
-    1: { common: 1,  uncommon: 5,  rare: 10 },
-    2: { common: 12, uncommon: 18, rare: 25 },
-    3: { common: 25, uncommon: 35, rare: 50 },
-  }
-  return table[tier]?.[rarity] ?? 1
-}

@@ -1,13 +1,15 @@
-import { Scroll, TowerControl } from 'lucide-react'
+import { Scroll, TowerControl, Trophy } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ScrollHint from '../components/ScrollHint'
 import { useAppStore } from '../store/appStore'
 import Torre from './Torre'
 import CombatHistorial from './CombatHistorial'
+import Ranking from './Ranking'
 
 const MODES = [
-  { id: 'torre',     label: 'Torre',     sublabel: 'PvE',      Icon: TowerControl, color: '#f59e0b' },
-  { id: 'historial', label: 'Historial', sublabel: 'Combates', Icon: Scroll,       color: '#a855f7' },
+  { id: 'torre',        label: 'Torre',          sublabel: 'PvE',           Icon: TowerControl, color: '#f59e0b' },
+  { id: 'historial',    label: 'Historial',       sublabel: 'Combates',      Icon: Scroll,       color: '#a855f7' },
+  { id: 'clasificacion',label: 'Clasificación',   sublabel: 'Ranking',       Icon: Trophy,       color: '#0369a1' },
 ]
 
 export default function Combates() {
@@ -60,8 +62,9 @@ export default function Combates() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'torre'     && <Torre />}
-          {tab === 'historial' && <CombatHistorial />}
+          {tab === 'torre'         && <Torre />}
+          {tab === 'historial'     && <CombatHistorial />}
+          {tab === 'clasificacion' && <Ranking />}
         </motion.div>
       </AnimatePresence>
 

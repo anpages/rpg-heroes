@@ -9,11 +9,11 @@ const MISSION_POOL = [
   { type: 'expeditions_complete', targets: [2, 3, 5],        rewards: [{ gold: 150, xp:  80 }, { gold: 300, xp: 150 }, { gold: 600, xp: 300 }] },
   { type: 'gold_earn',            targets: [300, 600, 1200],  rewards: [{ gold: 100, xp:  60 }, { gold: 200, xp: 120 }, { gold: 400, xp: 250 }] },
   { type: 'xp_earn',              targets: [200, 500, 1000],  rewards: [{ gold: 120, xp:  50 }, { gold: 250, xp: 100 }, { gold: 500, xp: 200 }] },
-  { type: 'tower_attempt',        targets: [1, 2, 3],         rewards: [{ gold: 200, xp: 100 }, { gold: 350, xp: 180 }, { gold: 500, xp: 300 }] },
-  { type: 'dungeon_type_combat',  targets: [1, 2, 3],         rewards: [{ gold: 180, xp:  90 }, { gold: 350, xp: 180 }, { gold: 600, xp: 350 }] },
-  { type: 'dungeon_type_magic',   targets: [1, 2, 3],         rewards: [{ gold: 150, xp:  80 }, { gold: 300, xp: 150 }, { gold: 500, xp: 280 }] },
+  { type: 'tower_attempt',        targets: [1, 2, 3],         rewards: [{ gold: 200, xp: 100 }, { gold: 350, xp: 180 }, { gold: 500, xp: 300, scroll: 1 }] },
+  { type: 'dungeon_type_combat',  targets: [1, 2, 3],         rewards: [{ gold: 180, xp:  90 }, { gold: 350, xp: 180, fragments: 20 }, { gold: 600, xp: 350, fragments: 40 }] },
+  { type: 'dungeon_type_magic',   targets: [1, 2, 3],         rewards: [{ gold: 150, xp:  80 }, { gold: 300, xp: 150, fragments: 20 }, { gold: 500, xp: 280, fragments: 35 }] },
   { type: 'dungeon_type_wilderness', targets: [1, 2, 3],      rewards: [{ gold: 160, xp:  80 }, { gold: 320, xp: 160 }, { gold: 550, xp: 300 }] },
-  { type: 'item_drop',            targets: [1, 2, 3],         rewards: [{ gold: 200, xp: 100 }, { gold: 400, xp: 200 }, { gold: 700, xp: 400 }] },
+  { type: 'item_drop',            targets: [1, 2, 3],         rewards: [{ gold: 200, xp: 100 }, { gold: 400, xp: 200, fragments: 30 }, { gold: 700, xp: 400, essence: 1 }] },
 ]
 
 /** Genera 3 misiones aleatorias para hoy sin repetir tipo. */
@@ -37,14 +37,17 @@ export function generateMissions(playerId, dateStr) {
     const target = def.targets[tier]
     const reward = def.rewards[tier]
     selected.push({
-      player_id:    playerId,
-      date:         dateStr,
-      type:         def.type,
+      player_id:        playerId,
+      date:             dateStr,
+      type:             def.type,
       tier,
-      target_value: target,
-      reward_gold:  reward.gold,
-      reward_mana:  0,
-      reward_xp:    reward.xp,
+      target_value:     target,
+      reward_gold:      reward.gold,
+      reward_mana:      0,
+      reward_xp:        reward.xp,
+      reward_fragments: reward.fragments ?? 0,
+      reward_essence:   reward.essence   ?? 0,
+      reward_scroll:    reward.scroll    ?? 0,
     })
   }
 

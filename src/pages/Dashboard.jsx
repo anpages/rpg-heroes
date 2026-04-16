@@ -7,13 +7,13 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useMissions } from '../hooks/useMissions'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
+import { useComebackBonus } from '../hooks/useComebackBonus'
 import { useAppStore } from '../store/appStore'
 import Base from '../sections/Base'
 import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Equipo from '../sections/Equipo'
 import Combates from '../sections/Combates'
-import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import Tacticas from '../sections/Tacticas'
 import Entrenamiento from '../sections/Entrenamiento'
@@ -22,7 +22,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ShoppingBag, ClipboardList, Shield, Layers, Swords, Dumbbell } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ClipboardList, Shield, Layers, Swords, Dumbbell } from 'lucide-react'
 import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
@@ -157,6 +157,41 @@ const TCAT_STAT_LABELS = {
 const TCAT_CATEGORY_ORDER = ['offensive', 'defensive', 'tactical', 'utility']
 const TCAT_MAX_LEVEL = 5
 
+const TCAT_TRIGGER_LABELS = {
+  passive:          'Pasivo',
+  start_of_combat:  'Inicio combate',
+  round_n:          'Ronda N',
+  hp_below_pct:     'HP bajo %',
+  on_crit:          'Al criticar',
+  on_dodge:         'Al esquivar',
+}
+const TCAT_EFFECT_LABELS = {
+  damage_mult:          'Daño ×mult',
+  damage_mult_next:     'Próx. ataque ×mult',
+  first_hit_mult:       '1er golpe ×mult',
+  damage_reduction:     'Reducción daño',
+  dot_damage:           'Daño por turno',
+  lifesteal:            'Robo de vida',
+  heal_pct:             'Curación % HP',
+  reflect_damage:       'Reflejo daño',
+  absorb_shield:        'Escudo absorbente',
+  guaranteed_crit:      'Crítico garantizado',
+  guaranteed_crit_next: 'Próx. crítico guar.',
+  guaranteed_dodge:     'Esquiva garantizada',
+  double_attack:        'Doble ataque',
+  counter_attack:       'Contraataque',
+  armor_pen_boost:      'Penetración armadura',
+  dodge_boost:          'Bonus esquiva',
+  enemy_debuff:         'Debuff enemigo',
+  stat_buff:            'Buff de stats',
+  all_stats_pct:        'Todas stats %',
+  stealth:              'Sigilo',
+  mirror_stance:        'Postura espejo',
+  pure_magic_burst:     'Explosión mágica',
+  bonus_magic_damage:   'Daño mágico extra',
+  reduce_crit_damage:   'Reducir daño crítico',
+}
+
 function scaledFx(base, level) { return base * (1 + (level - 1) * 0.15) }
 function fmtFxTcat(effect, base, level) {
   const v = scaledFx(base, level)
@@ -213,7 +248,7 @@ function TacticCatalogDebug() {
             <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', fontSize: 11 }}>
-                  {['', 'Nombre', 'Rareza', 'Stat bonuses (Nv1 / 2 / 3)', 'Efecto combate (Nv1 / 2 / 3)'].map(h => (
+                  {['', 'Nombre', 'Rareza', 'Stat bonuses (Nv1→6)', 'Efecto combate (Nv1→6)'].map(h => (
                     <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700, borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -223,7 +258,7 @@ function TacticCatalogDebug() {
                   const rarColor = TCAT_COLORS[t.rarity] ?? '#6b7280'
                   const bonuses = Array.isArray(t.stat_bonuses) ? t.stat_bonuses.filter(b => b.value) : []
                   const fx = t.combat_effect
-                  const levels = [1, 2, 3]
+                  const levels = [1, 2, 3, 4, 5, 6]
                   return (
                     <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '6px 8px', fontSize: 18 }}>{t.icon}</td>
@@ -249,7 +284,7 @@ function TacticCatalogDebug() {
                       <td style={{ padding: '6px 10px' }}>
                         {!fx ? <span style={{ color: '#94a3b8' }}>—</span> : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ color: '#64748b', fontSize: 11 }}>{fx.trigger} · {fx.effect}</span>
+                            <span style={{ color: '#64748b', fontSize: 11 }}>{TCAT_TRIGGER_LABELS[fx.trigger] ?? fx.trigger}{fx.n != null ? ` ${fx.n}` : ''} · {TCAT_EFFECT_LABELS[fx.effect] ?? fx.effect}</span>
                             {fx.value != null && !['guaranteed_crit', 'double_attack', 'guaranteed_dodge'].includes(fx.effect) ? (
                               <span style={{ color: '#334155' }}>
                                 {levels.map((lv, i) => (
@@ -306,7 +341,6 @@ const HERO_SUB_TABS = [
   { id: 'equipo',         label: 'Equipo',         icon: Shield      },
   { id: 'tacticas',       label: 'Tácticas',       icon: Layers      },
   { id: 'expediciones',   label: 'Expediciones',   icon: Map         },
-  { id: 'tienda',         label: 'Tienda',         icon: ShoppingBag },
 ]
 
 
@@ -331,6 +365,7 @@ function Dashboard({ session }) {
   const { missions }                = useMissions()
   const { refiningSlots: _refiningSlots } = useCraftedItems(session.user.id)
   useRealtimeSync(session.user.id, heroId)
+  useComebackBonus(session.user.id)
   const { theme, setTheme }        = useTheme()
 
   const mainRef = useRef(null)
@@ -572,7 +607,6 @@ function Dashboard({ session }) {
                     {activeHeroTab === 'entrenamiento' && <ErrorBoundary><Entrenamiento /></ErrorBoundary>}
                     {activeHeroTab === 'tacticas'      && <ErrorBoundary><Tacticas /></ErrorBoundary>}
                     {activeHeroTab === 'expediciones'  && <ErrorBoundary><Dungeons /></ErrorBoundary>}
-                    {activeHeroTab === 'tienda'        && <ErrorBoundary><Shop /></ErrorBoundary>}
                   </motion.div>
                 </AnimatePresence>
               </div>

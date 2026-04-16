@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS, COMBAT_STRATEGIES, CLASS_LEVEL_BONUSES, CLASS_TRAINING_MAX_LEVEL, classLevelXpRequired, computeTrainingProgress } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS, CLASS_LEVEL_BONUSES, CLASS_TRAINING_MAX_LEVEL, classLevelXpRequired, computeTrainingProgress } from '../lib/gameConstants'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
@@ -703,23 +703,6 @@ function Hero() {
   const [renameDraft, setRenameDraft] = useState('')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
-  const strategyMutation = useMutation({
-    mutationKey: ['strategy'],
-    mutationFn: (strategy) => apiPost('/api/hero-strategy', { heroId: hero?.id, strategy }),
-    onMutate: async (strategy) => {
-      const key = queryKeys.hero(heroId)
-      await queryClient.cancelQueries({ queryKey: key })
-      const previous = queryClient.getQueryData(key)
-      queryClient.setQueryData(key, old => old ? { ...old, combat_strategy: strategy } : old)
-      return { previous }
-    },
-    onError: (err, _, context) => {
-      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
-      notify.error(err.message)
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
-  })
-
   const startTrainingMutation = useMutation({
     mutationKey: ['class-training', heroId],
     mutationFn: () => apiPost('/api/training-start', { heroId: hero?.id }),
@@ -1159,38 +1142,6 @@ function Hero() {
             </>)
           })()}
 
-          {/* Estrategia defensiva */}
-          {(() => {
-            const current = hero.combat_strategy ?? 'balanced'
-            return (
-              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Estrategia defensiva</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(COMBAT_STRATEGIES).map(([key, s]) => {
-                    const active = current === key
-                    return (
-                      <button
-                        key={key}
-                        className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-center transition-[border-color,background] duration-150 disabled:opacity-50"
-                        style={active ? {
-                          borderColor: 'color-mix(in srgb, var(--btn-primary) 55%, var(--border))',
-                          background:  'color-mix(in srgb, var(--btn-primary) 10%, var(--surface-2))',
-                        } : {
-                          borderColor: 'var(--border)',
-                          background:  'var(--surface-2)',
-                        }}
-                        onClick={() => !active && !strategyMutation.isPending && strategyMutation.mutate(key)}
-                      >
-                        <span className="text-[18px] leading-none">{s.icon}</span>
-                        <span className="text-[12px] font-bold text-text leading-tight">{s.label}</span>
-                        <span className="text-[10px] text-text-3 leading-tight">{s.description}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
 
 
           {/* Expedición activa */}

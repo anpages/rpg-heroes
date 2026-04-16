@@ -13,7 +13,6 @@ export const queryKeys = {
   heroTactics:     (heroId) => ['hero-tactics', heroId],
   buildings:       (userId) => ['buildings', userId],
   missions:        ()       => ['missions', 'me'],
-  shop:            (heroId) => ['shop', heroId],
   dungeons:        ()       => ['dungeons'],
   activeExpedition:(heroId) => ['expedition-active', heroId],
   craftedItems:    (userId) => ['crafted-items', userId],
@@ -25,4 +24,5 @@ export const queryKeys = {
   potions:         (userId) => ['potions', userId],
   research:        (userId) => ['research', userId],
   trainingTokens:  (userId) => ['training-tokens', userId],
+  ranking:         ()       => ['ranking'],
 }
