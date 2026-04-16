@@ -10,7 +10,7 @@ import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
-import { buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
+import { buildingRate, PRODUCTION_BUILDING_TYPES, RESEARCH_NODES } from '../lib/gameConstants'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import BaseHeader from './base/BaseHeader.jsx'
@@ -244,16 +244,59 @@ export default function Base({ mainRef }) {
 
   // ── Mutations: Investigación ────────────────────────────────────────────────
 
+  const RESEARCH_START_KEY   = ['research-start']
+  const RESEARCH_COLLECT_KEY = ['research-collect']
+
   const researchStartMutation = useMutation({
+    mutationKey: RESEARCH_START_KEY,
     mutationFn: (nodeId) => apiPost('/api/research-start', { nodeId }),
-    onError: err => notify.error(err.message),
-    onSettled: () => reconcile(xKey, rKey),
+    onMutate: async (nodeId) => {
+      const snap = cancelAndSnapshot(xKey, rKey)
+      const node = RESEARCH_NODES.find(n => n.id === nodeId)
+      const res  = queryClient.getQueryData(rKey)
+      const rx   = queryClient.getQueryData(xKey)
+      if (node && rx) {
+        const endsAt = new Date(Date.now() + node.duration_hours * 3_600_000).toISOString()
+        queryClient.setQueryData(xKey, {
+          ...rx,
+          active: { node_id: nodeId, ends_at: endsAt, started_at: new Date().toISOString() },
+        })
+      }
+      if (node?.cost && res) {
+        queryClient.setQueryData(rKey, {
+          ...res,
+          gold: (res.gold ?? 0) - (node.cost.gold ?? 0),
+          iron: (res.iron ?? 0) - (node.cost.iron ?? 0),
+          mana: (res.mana ?? 0) - (node.cost.mana ?? 0),
+        })
+      }
+      return snap
+    },
+    onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: RESEARCH_START_KEY }) === 0) reconcile(xKey, rKey)
+    },
   })
 
   const researchCollectMutation = useMutation({
+    mutationKey: RESEARCH_COLLECT_KEY,
     mutationFn: (nodeId) => apiPost('/api/research-collect', { nodeId }),
-    onError: err => notify.error(err.message),
-    onSettled: () => reconcile(xKey, rKey),
+    onMutate: async (nodeId) => {
+      const snap = cancelAndSnapshot(xKey)
+      const rx   = queryClient.getQueryData(xKey)
+      if (rx) {
+        queryClient.setQueryData(xKey, {
+          ...rx,
+          active:    null,
+          completed: [...(rx.completed ?? []), nodeId],
+        })
+      }
+      return snap
+    },
+    onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: RESEARCH_COLLECT_KEY }) === 0) reconcile(xKey)
+    },
   })
 
   const ZERO_DELTA = { iron: 0, wood: 0, mana: 0 }

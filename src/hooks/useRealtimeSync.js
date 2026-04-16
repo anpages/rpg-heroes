@@ -9,6 +9,8 @@ import { queryKeys } from '../lib/queryKeys'
  * los queries afectados — el onSettled de la última mutación reconcilia.
  */
 const COLLECT_KEY          = ['building-collect']
+const RESEARCH_START_KEY   = ['research-start']
+const RESEARCH_COLLECT_KEY = ['research-collect']
 const REFINE_KEY           = ['refining-start']
 const TACTIC_KEY           = ['tactic-equip']
 const TACTIC_LEVELUP_KEY   = ['tactic-levelup']
@@ -56,7 +58,7 @@ export function useRealtimeSync(userId, heroId) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings',               filter: `player_id=eq.${userId}` }, safeInvalidateBuildings)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_crafted_items',    filter: `player_id=eq.${userId}` }, safeInvalidateCrafted)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_refining_slots',   filter: `player_id=eq.${userId}` }, safeInvalidateCrafted)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_research',         filter: `player_id=eq.${userId}` }, () => qc.invalidateQueries({ queryKey: queryKeys.research(userId) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_research',         filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: RESEARCH_START_KEY }) === 0 && qc.isMutating({ mutationKey: RESEARCH_COLLECT_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.research(userId) }) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'training_rooms',          filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_BUILD_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) }) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_training_tokens',  filter: `player_id=eq.${userId}` }, () => { if (qc.isMutating({ mutationKey: TRAINING_COLL_KEY }) === 0 && qc.isMutating({ mutationKey: TRAINING_ASSIGN_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) }) })
       .subscribe((status) => {
@@ -65,7 +67,7 @@ export function useRealtimeSync(userId, heroId) {
           safeInvalidateResources()
           safeInvalidateBuildings()
           safeInvalidateCrafted()
-          qc.invalidateQueries({ queryKey: queryKeys.research(userId) })
+          if (qc.isMutating({ mutationKey: RESEARCH_START_KEY }) === 0 && qc.isMutating({ mutationKey: RESEARCH_COLLECT_KEY }) === 0) qc.invalidateQueries({ queryKey: queryKeys.research(userId) })
           qc.invalidateQueries({ queryKey: queryKeys.trainingRooms(userId) })
           qc.invalidateQueries({ queryKey: queryKeys.trainingTokens(userId) })
         }
