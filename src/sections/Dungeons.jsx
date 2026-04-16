@@ -26,7 +26,7 @@ import {
 } from '../lib/gameFormulas'
 import {
   Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword,
-  Layers, Sparkles, FlaskConical, Heart, Brain,
+  Sparkles, Droplets, FlaskConical, Heart, Brain,
   Wrench, AlertTriangle, Lock, Compass, TrendingUp, GraduationCap,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -66,8 +66,8 @@ const DUNGEON_TYPE_META = {
 }
 
 const MATERIAL_META = {
-  fragments: { label: 'Fragmentos', Icon: Layers,   color: '#b45309' },
-  essence:   { label: 'Esencia',    Icon: Sparkles, color: '#7c3aed' },
+  fragments: { label: 'Fragmentos', Icon: Sparkles, color: '#f59e0b' },
+  essence:   { label: 'Esencia',    Icon: Droplets, color: '#8b5cf6' },
 }
 
 

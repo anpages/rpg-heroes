@@ -17,12 +17,13 @@ import Combates from '../sections/Combates'
 import Misiones from '../sections/Misiones'
 import Tacticas from '../sections/Tacticas'
 import Entrenamiento from '../sections/Entrenamiento'
+import Logros from '../sections/Logros'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ClipboardList, Shield, Layers, Swords, Dumbbell } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ClipboardList, Shield, Layers, Swords, Dumbbell, Trophy } from 'lucide-react'
 import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
@@ -334,6 +335,8 @@ const NAV_ITEMS = [
   { id: 'base',   label: 'Base',     icon: Castle, minHeroes: 0 },
   { id: 'heroes', label: 'Héroes',   icon: Sword,  minHeroes: 0 },
   { id: 'mundo',  label: 'Combates', icon: Globe,  minHeroes: 0 },
+  { id: 'arena',  label: 'Arena',    icon: Swords,  minHeroes: 0 },
+  { id: 'logros', label: 'Logros',   icon: Trophy,  minHeroes: 0 },
 ]
 
 const HERO_SUB_TABS = [
@@ -626,6 +629,20 @@ function Dashboard({ session }) {
                 <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>
               </div>
             )}
+          </div>
+
+          <div className={activeTab === 'logros' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('logros') && <ErrorBoundary><Logros /></ErrorBoundary>}
+          </div>
+
+          <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
+            <div className="flex flex-col gap-4 pb-8">
+              <div className="section-header">
+                <h2 className="section-title">Arena PvP</h2>
+                <p className="section-subtitle">Los combates entre jugadores llegarán próximamente. Entrena a tu héroe y prepárate para el desafío.</p>
+              </div>
+              <div className="flex items-center justify-center py-16 text-text-3 text-[15px]">Próximamente</div>
+            </div>
           </div>
 
           {/* DEV only */}

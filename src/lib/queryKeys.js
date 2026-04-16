@@ -25,4 +25,5 @@ export const queryKeys = {
   research:        (userId) => ['research', userId],
   trainingTokens:  (userId) => ['training-tokens', userId],
   ranking:         ()       => ['ranking'],
+  achievements:    (userId) => ['achievements', userId],
 }

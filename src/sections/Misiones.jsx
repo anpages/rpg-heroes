@@ -6,7 +6,7 @@ import { useMissions } from '../hooks/useMissions'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { MISSION_POOL } from '../lib/missionPool.js'
-import { Coins, Star, Clock, CheckCircle2, Circle, Gem, Zap, ScrollText } from 'lucide-react'
+import { Coins, Star, Clock, CheckCircle2, Circle, Sparkles, Droplets, ScrollText } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const listVariants = {
@@ -120,13 +120,13 @@ function MissionCard({ mission }) {
           )}
           {(mission.reward_fragments ?? 0) > 0 && (
             <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
-              <Gem size={11} color="#7c3aed" strokeWidth={2} />
+              <Sparkles size={11} color="#f59e0b" strokeWidth={2} />
               {mission.reward_fragments} frags
             </span>
           )}
           {(mission.reward_essence ?? 0) > 0 && (
             <span className="flex items-center gap-1 text-[0.72rem] font-semibold text-text-2 bg-surface-2 border border-border px-[7px] py-0.5 rounded-full">
-              <Zap size={11} color="#0891b2" strokeWidth={2} />
+              <Droplets size={11} color="#8b5cf6" strokeWidth={2} />
               {mission.reward_essence} esencia
             </span>
           )}
