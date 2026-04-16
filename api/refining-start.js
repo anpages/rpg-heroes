@@ -1,5 +1,4 @@
 import { requireAuth } from './_auth.js'
-import { refiningCraftMinutes } from './_constants.js'
 import { computeBaseLevel, RECIPE_MIN_BASE_LEVEL } from '../src/lib/gameConstants.js'
 
 /**
@@ -53,9 +52,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: `Necesitas ${recipe.refinery_type} nivel ${recipe.min_refinery_level}` })
   }
 
-  // Calcular duración efectiva por unidad
-  const effectiveMinutes = refiningCraftMinutes(recipe.craft_minutes, recipe.min_refinery_level ?? 1, refineryLevel)
-  const unitDurationMs = Math.round(effectiveMinutes * 60 * 1000)
+  const unitDurationMs = Math.round((recipe.craft_minutes ?? 1) * 60 * 1000)
 
   // Validar recursos para qty unidades
   const inputs = recipe.inputs ?? []
