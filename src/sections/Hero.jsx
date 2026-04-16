@@ -1228,8 +1228,8 @@ function Hero() {
 
           {/* Historial de combates recientes */}
           {combatHistory?.length > 0 && (() => {
-            const SOURCE_LABEL = { practica: 'Práctica', torre: 'Torre', torneo: 'Torneo' }
-            const SOURCE_COLOR = { practica: '#2563eb', torre: '#7c3aed', torneo: '#d97706' }
+            const SOURCE_LABEL = { torre: 'Torre' }
+            const SOURCE_COLOR = { torre: '#7c3aed' }
             const recent = combatHistory.slice(0, 5)
             return (
               <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">

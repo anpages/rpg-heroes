@@ -10,13 +10,12 @@ import { useCraftedItems } from '../hooks/useCraftedItems'
 import { useResearch } from '../hooks/useResearch'
 import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
-import { REFINING_BUILDING_TYPES, buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
+import { buildingRate, PRODUCTION_BUILDING_TYPES } from '../lib/gameConstants'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import BaseHeader from './base/BaseHeader.jsx'
 import ZonePills from './base/ZonePills.jsx'
 import RecursosZone from './base/RecursosZone.jsx'
-import RefinadoZone from './base/RefinadoZone.jsx'
 import TallerZone from './base/TallerZone.jsx'
 import BibliotecaZone from './base/BibliotecaZone.jsx'
 
@@ -243,45 +242,6 @@ export default function Base({ mainRef }) {
     onSettled: () => reconcile(cKey),
   })
 
-  const refiningCollectAllMutation = useMutation({
-    mutationFn: (buildingType) => apiPost('/api/refining-collect-all', { buildingType }),
-    onMutate: async (buildingType) => {
-      const snap = cancelAndSnapshot(cKey)
-      const crafted = queryClient.getQueryData(cKey)
-      if (crafted) {
-        const slots = [...(crafted.refiningSlots ?? [])]
-        const newInv = { ...crafted.inventory }
-        const newSlots = []
-        for (const slot of slots) {
-          // Solo procesar slots del edificio indicado
-          if (slot.building_type !== buildingType) { newSlots.push(slot); continue }
-          const now = Date.now()
-          const startedAt = new Date(slot.craft_started_at).getTime()
-          const completed = Math.min(slot.quantity, Math.floor((now - startedAt) / slot.unit_duration_ms))
-          if (completed > 0) {
-            const recipe = crafted.catalog.find(c => c.id === slot.recipe_id)
-            const outputPerUnit = recipe?.output_qty ?? 1
-            newInv[slot.recipe_id] = (newInv[slot.recipe_id] ?? 0) + completed * outputPerUnit
-            const remaining = slot.quantity - completed
-            if (remaining > 0) {
-              newSlots.push({
-                ...slot,
-                quantity: remaining,
-                craft_started_at: new Date(startedAt + completed * slot.unit_duration_ms).toISOString(),
-              })
-            }
-          } else {
-            newSlots.push(slot)
-          }
-        }
-        queryClient.setQueryData(cKey, { ...crafted, inventory: newInv, refiningSlots: newSlots })
-      }
-      return snap
-    },
-    onError: (err, _, snap) => { rollback(snap); notify.error(err.message) },
-    onSettled: () => reconcile(cKey),
-  })
-
   // ── Mutations: Investigación ────────────────────────────────────────────────
 
   const researchStartMutation = useMutation({
@@ -327,12 +287,10 @@ export default function Base({ mainRef }) {
 
   const byType = Object.fromEntries((buildings ?? []).map(b => [b.type, b]))
   const RESOURCE_BUILDINGS = ['gold_mine', 'lumber_mill', 'mana_well', 'herb_garden']
-  const REFINING_BUILDINGS = REFINING_BUILDING_TYPES
   const now = new Date()
   const isUpgrading = (type) => (buildings ?? []).some(b => b.type === type && b.upgrade_ends_at && new Date(b.upgrade_ends_at) > now)
 
   const recursosUpgrading   = upgradePending || RESOURCE_BUILDINGS.some(isUpgrading)
-  const refinadoUpgrading   = upgradePending || REFINING_BUILDINGS.some(isUpgrading)
   const tallerUpgrading     = upgradePending || isUpgrading('laboratory')
   const bibliotecaUpgrading = upgradePending || isUpgrading('library')
 
@@ -350,20 +308,11 @@ export default function Base({ mainRef }) {
   }).length
   const tallerBadge = tallerSlotsReady
 
-  const refinadoSlotsReady = (refiningSlots ?? []).filter(s => {
-    if (!REFINING_BUILDING_TYPES.includes(s.building_type)) return false
-    const elapsed = now - new Date(s.craft_started_at).getTime()
-    const completed = Math.floor(elapsed / s.unit_duration_ms)
-    return completed >= s.quantity
-  }).length
-  const refinadoBadge = refinadoSlotsReady
-
   const researchReady = research?.active && new Date(research.active.ends_at) <= now
   const bibliotecaBadge = researchReady ? 1 : 0
 
   const zoneBadges = {
     produccion: produccionBadge,
-    refinado:   refinadoBadge,
     taller:     tallerBadge,
     biblioteca: bibliotecaBadge,
   }
@@ -396,20 +345,6 @@ export default function Base({ mainRef }) {
               production={production}
               onCollect={(buildingType, collectType) => collectMutation.mutate({ buildingType, collectType })}
               anyUpgrading={recursosUpgrading}
-              {...sharedBuildingProps}
-            />
-          )}
-
-          {activeZone === 'refinado' && (
-            <RefinadoZone
-              byType={byType}
-              effectiveResources={effectiveResources}
-              catalog={catalog}
-              inventory={inventory}
-              refiningSlots={refiningSlots}
-              onRefine={({ recipeId, quantity }) => refiningStartMutation.mutate({ recipeId, quantity })}
-              onCollectAllSlots={(buildingType) => refiningCollectAllMutation.mutate(buildingType)}
-              anyUpgrading={refinadoUpgrading}
               {...sharedBuildingProps}
             />
           )}

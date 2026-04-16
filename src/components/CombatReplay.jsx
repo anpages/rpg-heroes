@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Coins, Star, Zap, Loader } from 'lucide-react'
 import { COMBAT_DECISIONS } from '../lib/combatDecisions'
-import { CLASS_ABILITIES, ARCHETYPE_TO_CLASS, getStance } from '../lib/combatAbilities'
+import { CLASS_ABILITIES, getStance } from '../lib/combatAbilities'
 import { CLASS_COLORS } from '../lib/gameConstants'
 
 const SPEEDS = [
@@ -432,7 +432,7 @@ export function CombatReplay({
   enemyTactics,
 }) {
   const resolvedHeroClass  = heroClass ?? null
-  const resolvedEnemyClass = archetype ? (ARCHETYPE_TO_CLASS[archetype] ?? archetype) : null
+  const resolvedEnemyClass = archetype ?? null
 
   // Aplanar todas las rondas en un array secuencial de eventos
   const allEvents = (log ?? []).flatMap(r =>

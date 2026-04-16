@@ -10,7 +10,7 @@ import { useResources } from '../hooks/useResources'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { TACTIC_SLOT_COUNT, TACTIC_MAX_LEVEL } from '../lib/gameConstants'
+import { TACTIC_SLOT_COUNT, TACTIC_MAX_LEVEL, TACTIC_PRESTIGE_LEVEL } from '../lib/gameConstants'
 import { X, Coins, Sparkles, Plus, ArrowUp, ChevronRight } from 'lucide-react'
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
@@ -307,7 +307,8 @@ function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevel
   const level = tactic.level ?? 1
   const bonuses = formatBonuses(cat, level)
   const effectDesc = describeCombatEffect(cat.combat_effect)
-  const maxed = level >= TACTIC_MAX_LEVEL
+  const maxed    = level >= TACTIC_MAX_LEVEL
+  const prestige = level >= TACTIC_PRESTIGE_LEVEL
   const hasScrolls = (scrolls ?? 0) > 0 && !isLevelingUp
 
   return (
@@ -321,8 +322,8 @@ function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevel
             {cat.icon}
           </div>
           <span className="absolute -bottom-1 -right-1 text-[9px] font-bold px-1 rounded-sm text-white leading-tight"
-            style={{ background: maxed ? '#d97706' : rarColor }}>
-            {maxed ? 'MAX' : `${level}`}
+            style={{ background: prestige ? '#f59e0b' : maxed ? '#d97706' : rarColor }}>
+            {prestige ? '★' : maxed ? 'MAX' : `${level}`}
           </span>
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -372,8 +373,8 @@ function SlotCard({ tactic, onEmpty, onUnequip, onLevelUpClick, scrolls, isLevel
               {cat.icon}
             </div>
             <span className="absolute -bottom-1 -right-1 text-[9px] font-bold px-1 rounded-sm text-white leading-tight"
-              style={{ background: maxed ? '#d97706' : rarColor }}>
-              {maxed ? 'MAX' : `${level}`}
+              style={{ background: prestige ? '#f59e0b' : maxed ? '#d97706' : rarColor }}>
+              {prestige ? '★' : maxed ? 'MAX' : `${level}`}
             </span>
           </div>
           <div className="w-full flex flex-col items-center gap-1 text-center">
@@ -440,7 +441,9 @@ function CollectionCard({ tactic, onTap, slotsAvailable }) {
           <span className="text-[14px] font-bold text-text truncate">{cat.name}</span>
           {(tactic.level ?? 1) > 1 && (
             <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md text-white"
-              style={{ background: rarColor }}>Nv.{tactic.level}</span>
+              style={{ background: (tactic.level ?? 1) >= TACTIC_PRESTIGE_LEVEL ? '#f59e0b' : rarColor }}>
+              {(tactic.level ?? 1) >= TACTIC_PRESTIGE_LEVEL ? '★' : `Nv.${tactic.level}`}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">

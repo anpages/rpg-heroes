@@ -134,12 +134,19 @@ export async function rollTacticDrop(supabase, heroId, heroClass, { chance = 0.0
     .maybeSingle()
 
   if (existing) {
-    if (existing.level >= 5) {
-      // Máximo nivel: compensar con oro
+    if (existing.level >= 6) {
+      // Maestría máxima: compensar con oro
       const goldComp = rarity === 'legendary' ? 500 : rarity === 'epic' ? 300 : rarity === 'rare' ? 150 : 75
       return { tactic: picked, leveledUp: false, compensated: true, goldCompensation: goldComp }
     }
-    // Subir nivel
+    if (existing.level >= 5) {
+      // Nivel máximo de pergamino → ascender a Maestría (nivel 6, solo por drop)
+      await supabase.from('hero_tactics')
+        .update({ level: 6 })
+        .eq('id', existing.id)
+      return { tactic: picked, leveledUp: true, newLevel: 6, prestige: true, compensated: false }
+    }
+    // Subir nivel normal
     await supabase.from('hero_tactics')
       .update({ level: existing.level + 1 })
       .eq('id', existing.id)

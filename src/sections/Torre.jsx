@@ -11,7 +11,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { computeResearchBonuses } from '../lib/gameConstants'
-import { floorRewards, floorEnemyName, floorEnemyArchetype, decoratedEnemyName, ENEMY_ARCHETYPES } from '../lib/gameFormulas'
+import { floorRewards, floorEnemyName, decoratedEnemyName, CLASS_ENEMY_PROFILES } from '../lib/gameFormulas'
 import { Swords, Star, Coins, Trophy, ChevronUp, ScrollText, Heart, Shield } from 'lucide-react'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -215,7 +215,7 @@ export default function Torre() {
       {result && (
         <CombatReplay
           heroName={hero?.name ?? 'Héroe'}
-          enemyName={result.enemyName ?? decoratedEnemyName(floorEnemyName(result.floor), floorEnemyArchetype(result.floor))}
+          enemyName={result.enemyName ?? decoratedEnemyName(floorEnemyName(result.floor), result.heroClass, result.floor)}
           heroMaxHp={result.heroMaxHp}
           enemyMaxHp={result.enemyMaxHp}
           log={result.log ?? []}
@@ -250,24 +250,22 @@ export default function Torre() {
 
         {/* Enemy */}
         {(() => {
-          const archKey = floorEnemyArchetype(targetFloor)
-          const arch    = ENEMY_ARCHETYPES[archKey]
+          const classProf = CLASS_ENEMY_PROFILES[hero?.class]
           return (
             <div className="flex items-center justify-between gap-4 px-1">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Enemigo</span>
-                  {arch && (
+                  {classProf && (
                     <span
                       className="text-[10px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
                       style={{
-                        color: arch.color,
-                        background: `color-mix(in srgb, ${arch.color} 12%, var(--surface))`,
-                        border: `1px solid color-mix(in srgb, ${arch.color} 30%, var(--border))`,
+                        color: classProf.color,
+                        background: `color-mix(in srgb, ${classProf.color} 12%, var(--surface))`,
+                        border: `1px solid color-mix(in srgb, ${classProf.color} 30%, var(--border))`,
                       }}
-                      title={arch.description}
                     >
-                      {arch.label}
+                      {classProf.label}
                     </span>
                   )}
                 </div>

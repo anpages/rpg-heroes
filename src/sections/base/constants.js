@@ -1,8 +1,8 @@
 import {
   Coins, Axe, Sparkles, Zap, BookOpen, FlaskConical,
   Pickaxe, Dumbbell, Sword, Map, Hammer, Sprout,
-  Swords, ShieldCheck, Brain, Flame, Heart,
-  Droplets, Leaf,
+  Swords, ShieldCheck, Brain, Heart,
+  Droplets,
 } from 'lucide-react'
 import {
   UNLOCK_TRIGGERS,
@@ -81,38 +81,6 @@ export const BUILDING_META = {
     color: '#7c3aed',
     effect: (level) => level === 0 ? 'Sin construir' : 'Pociones, kits y piedras de forja',
     nextEffect: (level) => level === 0 ? 'Desbloquea crafteo de productos' : 'Nivel máximo',
-  },
-  carpinteria: {
-    name: 'Carpintería',
-    description: 'Transforma madera en tablones y madera compuesta.',
-    icon: Hammer,
-    color: '#65a30d',
-    effect: (level) => level === 0 ? 'Sin construir' : 'Tablones → Madera Compuesta',
-    nextEffect: (level) => level === 0 ? 'Desbloquea Tablones y Madera Compuesta' : 'Nivel máximo',
-  },
-  fundicion: {
-    name: 'Fundición',
-    description: 'Funde hierro en lingotes y acero templado.',
-    icon: Flame,
-    color: '#b45309',
-    effect: (level) => level === 0 ? 'Sin construir' : 'Lingotes → Acero Templado',
-    nextEffect: (level) => level === 0 ? 'Desbloquea Lingotes y Acero Templado' : 'Nivel máximo',
-  },
-  destileria_arcana: {
-    name: 'Destilería Arcana',
-    description: 'Cristaliza maná en cristales y maná concentrado.',
-    icon: Droplets,
-    color: '#6d28d9',
-    effect: (level) => level === 0 ? 'Sin construir' : 'Cristales → Maná Concentrado',
-    nextEffect: (level) => level === 0 ? 'Desbloquea Cristales y Maná Concentrado' : 'Nivel máximo',
-  },
-  herbolario: {
-    name: 'Herbolario',
-    description: 'Procesa hierbas en extractos y base de poción.',
-    icon: Leaf,
-    color: '#059669',
-    effect: (level) => level === 0 ? 'Sin construir' : 'Extractos → Base de Poción',
-    nextEffect: (level) => level === 0 ? 'Desbloquea Extractos y Base de Poción' : 'Nivel máximo',
   },
 }
 

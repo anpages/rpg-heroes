@@ -126,15 +126,54 @@ export function attackMultiplier(attack) {
 }
 
 /**
- * Stats del enemigo de un piso de la torre.
+ * Perfiles de stats por clase para los enemigos de la torre.
+ * Cada clase redistribuye el presupuesto base según su identidad.
  */
-export function floorEnemyStats(floor) {
+export const CLASS_ENEMY_PROFILES = {
+  caudillo:  { label: 'Caudillo',  color: '#dc2626', max_hp: 1.15, strength: 1.50, defense: 1.30, attack: 0.90, agility: 0.80, intelligence: 0.60 },
+  sombra:    { label: 'Sombra',    color: '#7c3aed', max_hp: 0.85, agility: 1.80,  attack:  1.25, defense: 0.70, strength: 0.80, intelligence: 0.80 },
+  arcanista: { label: 'Arcanista', color: '#a855f7', max_hp: 0.85, intelligence: 2.00, attack: 1.20, defense: 0.75, strength: 0.60, agility: 0.80 },
+  domador:   { label: 'Domador',   color: '#15803d', max_hp: 1.05, strength: 1.30, agility: 1.30, intelligence: 1.20, attack: 0.90, defense: 0.90 },
+  universal: { label: 'Universal', color: '#0369a1', max_hp: 1.10, attack: 1.10,  defense: 1.10, strength: 1.00, agility: 1.00, intelligence: 1.00 },
+}
+
+function applyClassProfile(stats, heroClass) {
+  const prof = CLASS_ENEMY_PROFILES[heroClass]
+  if (!prof) return stats
+  return {
+    max_hp:       Math.max(1, Math.round(stats.max_hp       * (prof.max_hp       ?? 1))),
+    attack:       Math.max(1, Math.round(stats.attack       * (prof.attack       ?? 1))),
+    defense:      Math.max(1, Math.round(stats.defense      * (prof.defense      ?? 1))),
+    strength:     Math.max(1, Math.round(stats.strength     * (prof.strength     ?? 1))),
+    agility:      Math.max(1, Math.round(stats.agility      * (prof.agility      ?? 1))),
+    intelligence: Math.max(1, Math.round(stats.intelligence * (prof.intelligence ?? 1))),
+  }
+}
+
+function floorBossMultiplier(floor) {
+  if (floor % 25 === 0) return 1.15
+  if (floor % 10 === 0) return 1.08
+  return 1.0
+}
+
+function floorBossPrefix(floor) {
+  if (floor % 25 === 0) return 'Élite'
+  if (floor % 10 === 0) return 'Veterano'
+  return null
+}
+
+/**
+ * Stats del enemigo de un piso de la torre.
+ * Con heroClass, aplica el perfil de stats de esa clase (mirror match).
+ * Pisos múltiplo de 10 y 25 reciben un boost de potencia.
+ */
+export function floorEnemyStats(floor, heroClass = null) {
   // Pisos 1-25: crecimiento lineal normal.
   // Pisos 26+: crecimiento a mitad de ritmo para que el late-game sea alcanzable.
   const cap = 25
   const slow = Math.max(0, floor - cap)
   const fast = Math.min(floor, cap)
-  return {
+  const base = {
     max_hp:      100 + fast * 22 + slow * 12,
     attack:       8  + fast * 3  + slow * 2,
     defense:      4  + fast * 2  + slow * 1,
@@ -142,6 +181,12 @@ export function floorEnemyStats(floor) {
     agility:      3  + Math.floor(fast * 0.6) + Math.floor(slow * 0.3),
     intelligence: 2  + Math.floor(fast * 0.5) + Math.floor(slow * 0.25),
   }
+  const withClass = heroClass ? applyClassProfile(base, heroClass) : base
+  const mult = floorBossMultiplier(floor)
+  if (mult === 1.0) return withClass
+  return Object.fromEntries(
+    Object.entries(withClass).map(([k, v]) => [k, Math.max(1, Math.round(v * mult))])
+  )
 }
 
 /**
@@ -320,23 +365,25 @@ export function applyArchetype(stats, archetypeKey) {
   return arch ? arch.apply(stats) : stats
 }
 
-/** Decora el nombre del enemigo con el arquetipo. */
-export function decoratedEnemyName(baseName, archetypeKey) {
-  const arch = ENEMY_ARCHETYPES[archetypeKey]
-  return arch ? `${arch.label} · ${baseName}` : baseName
+/**
+ * Decora el nombre del enemigo con su clase y prefijo de boss si aplica.
+ * heroClass puede ser una clase ('caudillo', 'sombra'…) o un arquetipo legacy.
+ */
+export function decoratedEnemyName(baseName, heroClass, floor = null) {
+  const classProf = CLASS_ENEMY_PROFILES[heroClass]
+  const archProf  = ENEMY_ARCHETYPES[heroClass]
+  const label = classProf?.label ?? archProf?.label ?? heroClass ?? ''
+  const prefix = floor != null ? floorBossPrefix(floor) : null
+  if (prefix && label) return `${prefix} ${label} · ${baseName}`
+  return label ? `${label} · ${baseName}` : baseName
 }
 
 /**
- * Arquetipo determinista del enemigo de un piso de la torre.
- * Mismo piso → mismo arquetipo, para que el progreso sea reproducible.
- * Pisos múltiplos de 10 garantizan Tanque (mini-jefes), múltiplos de 25 son Místicos (jefes).
+ * Mantiene compatibilidad con código que espera archetypeKey.
+ * Ahora devuelve la clase del héroe directamente.
  */
-export function floorEnemyArchetype(floor) {
-  if (floor % 25 === 0) return 'mage'
-  if (floor % 10 === 0) return 'tank'
-  // Distribución pseudo-aleatoria pero determinista por piso
-  const idx = (floor * 7 + 3) % ARCHETYPE_KEYS.length
-  return ARCHETYPE_KEYS[idx]
+export function floorEnemyArchetype(floor, heroClass = null) {
+  return heroClass ?? 'berserker'
 }
 
 /** Arquetipo aleatorio para combate rápido / práctica. */
@@ -346,138 +393,6 @@ export function randomArchetype() {
 
 /* ─── Combate rápido / Práctica ──────────────────────────────────────────────── */
 
-/**
- * Stats del enemigo de práctica según nivel del héroe.
- * Escalado ~70-80% de un enemigo de torre equivalente para que sea accesible.
- * Añade variación aleatoria ±15% para que cada combate se sienta distinto.
- */
-export function trainingEnemyStats(heroLevel) {
-  const base = Math.max(1, heroLevel * 1.2)
-  const cap  = 25
-  const fast = Math.min(base, cap)
-  const slow = Math.max(0, base - cap)
-  const scale = 0.75  // 75% de dificultad vs torre
-
-  function vary(v) {
-    const variance = 0.85 + Math.random() * 0.30  // 0.85 – 1.15
-    return Math.max(1, Math.round(v * scale * variance))
-  }
-
-  return {
-    max_hp:       vary(80  + fast * 15 + slow * 8),
-    attack:       vary(5   + fast * 2  + slow * 1),
-    defense:      vary(2   + fast * 1  + Math.floor(slow * 0.5)),
-    strength:     vary(2   + Math.floor(fast * 0.5) + Math.floor(slow * 0.25)),
-    agility:      vary(2   + Math.floor(fast * 0.3) + Math.floor(slow * 0.15)),
-    intelligence: vary(1   + Math.floor(fast * 0.3) + Math.floor(slow * 0.15)),
-  }
-}
-
-/**
- * Stats del enemigo de quick combat anclados al TIER del héroe (virtual level).
- * El enemigo representa "un héroe bien equipado de ese tramo" — independiente
- * del poder real del jugador. Consecuencia: si tu equipo es pobre para el tier
- * en el que estás, pierdes; ese es precisamente el empujón hacia expediciones,
- * expediciones y crafteo/reparar. Gear progression = tier progression.
- *
- * El caller (quick-combat.js) obtiene el virtual level vía `virtualLevelForRating`
- *
- *
- * Usa `floorEnemyStats(vl)` como baseline + varianza ±15% por stat.
- */
-export function tierAnchoredEnemyStats(virtualLevel) {
-  const base = floorEnemyStats(Math.max(1, virtualLevel))
-  function vary(v) {
-    const variance = 0.85 + Math.random() * 0.30    // 0.85 – 1.15
-    return Math.max(1, Math.round((v ?? 0) * variance))
-  }
-  return {
-    max_hp:       vary(base.max_hp),
-    attack:       vary(base.attack),
-    defense:      vary(base.defense),
-    strength:     vary(base.strength),
-    agility:      vary(base.agility),
-    intelligence: vary(base.intelligence),
-  }
-}
-
-/**
- * Stats base de cada clase a nivel 1 (espejo de la tabla classes en DB).
- * Fuente de verdad para generar enemigos en combate rápido.
- */
-const CLASS_BASE_STATS = {
-  caudillo:  { max_hp: 140, attack: 14, defense: 8,  strength: 16, agility: 10, intelligence: 5  },
-  sombra:    { max_hp: 80,  attack: 13, defense: 3,  strength: 8,  agility: 18, intelligence: 8  },
-  arcanista: { max_hp: 70,  attack: 18, defense: 2,  strength: 5,  agility: 8,  intelligence: 18 },
-  domador:   { max_hp: 110, attack: 11, defense: 6,  strength: 10, agility: 10, intelligence: 12 },
-  universal: { max_hp: 105, attack: 12, defense: 5,  strength: 11, agility: 11, intelligence: 11 },
-}
-
-/**
- * Arquetipo de enemigo que corresponde a cada clase de héroe.
- * Usado para el pool de tácticas y la estrategia de combate del rival.
- * Las stats se generan por nivel, no por arquetipo — este mapa es solo
- * para coherencia temática (tácticas, estrategia, nombre decorado).
- */
-export const CLASS_TO_ARCHETYPE = {
-  caudillo:  'tank',
-  sombra:    'assassin',
-  arcanista: 'mage',
-  domador:   'berserker',
-  universal: 'tank',
-}
-
-/**
- * Genera las stats del enemigo en combate rápido basándose en la clase
- * del héroe y su nivel virtual (VL 1-21).
- *
- * El enemigo es siempre de la misma clase que el héroe — combate espejo.
- * Sus stats parten de CLASS_BASE_STATS escaladas por VL con ±10% de varianza,
- * de modo que el resultado del combate depende del equipamiento, tácticas y
- * consumibles del héroe, no de una ventaja de clase fija.
- *
- * Escala: VL 1 → ×1.1  |  VL 21 → ×4.5 (aprox.)
- *
- * @param {string} heroClass  — clase del héroe (caudillo, sombra, …)
- * @param {number} vl         — nivel virtual del héroe (1-21)
- * @param {Function} [rng]    — función random (para tests deterministas)
- */
-export function enemyStatsForLevel(heroClass, vl, rng = Math.random) {
-  const base = CLASS_BASE_STATS[heroClass] ?? CLASS_BASE_STATS.universal
-  const scale = 1.15 + (Math.max(1, Math.min(21, vl)) - 1) * 0.17
-  function scaled(v) {
-    const variance = 0.92 + rng() * 0.16   // ±8% varianza
-    return Math.max(1, Math.round((v ?? 1) * scale * variance))
-  }
-  return {
-    max_hp:       scaled(base.max_hp),
-    attack:       scaled(base.attack),
-    defense:      scaled(base.defense),
-    strength:     scaled(base.strength),
-    agility:      scaled(base.agility),
-    intelligence: scaled(base.intelligence),
-  }
-}
-
-/**
- * @deprecated Usa enemyStatsForLevel() para combate rápido.
- * Mantenido para la Torre hasta migración completa.
- * @param {{ attack, defense, strength, agility, intelligence, max_hp }} heroStats
- */
-export function heroAnchoredEnemyStats(heroStats) {
-  function vary(v) {
-    const variance = 0.90 + Math.random() * 0.20    // 0.90 – 1.10
-    return Math.max(1, Math.round((v ?? 1) * variance))
-  }
-  return {
-    max_hp:       vary(heroStats.max_hp),
-    attack:       vary(heroStats.attack),
-    defense:      vary(heroStats.defense),
-    strength:     vary(heroStats.strength),
-    agility:      vary(heroStats.agility),
-    intelligence: vary(heroStats.intelligence),
-  }
-}
 
 const TRAINING_ENEMY_POOLS = [
   { max:  3, names: [

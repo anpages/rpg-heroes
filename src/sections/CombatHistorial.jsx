@@ -3,9 +3,8 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useCombatHistory } from '../hooks/useCombatHistory'
 import { CombatReplay } from '../components/CombatReplay'
 
-const ROUND_LABELS = { 1: 'Cuartos', 2: 'Semis', 3: 'Final' }
-const SOURCE_LABEL = { torre: 'Torre', torneo: 'Torneo', practica: 'C. Rápido' }
-const SOURCE_COLOR = { torre: '#2563eb', torneo: '#dc2626', practica: '#06b6d4' }
+const SOURCE_LABEL = { torre: 'Torre' }
+const SOURCE_COLOR = { torre: '#2563eb' }
 
 /** Extrae tácticas únicas usadas por cada bando del log de combate.
  *  El log tiene estructura [{round, events:[...]}, ...] */
@@ -47,7 +46,7 @@ export default function CombatHistorial() {
     <div className="text-center py-12">
       <p className="text-[32px] mb-3">⚔️</p>
       <p className="text-text-2 font-semibold">Sin combates registrados</p>
-      <p className="text-text-3 text-[13px] mt-1">Los combates de Torre y Torneo aparecerán aquí</p>
+      <p className="text-text-3 text-[13px] mt-1">Los combates de Torre aparecerán aquí</p>
     </div>
   )
 
@@ -57,17 +56,8 @@ export default function CombatHistorial() {
         {combats.map(c => {
           const sourceColor = SOURCE_COLOR[c.source] ?? '#6b7280'
           const resultColor = c.won ? '#15803d' : '#dc2626'
-          const enemyLabel = c.source === 'torre'
-            ? (c.enemy_name ?? `Piso ${c.floor}`)
-            : c.source === 'practica'
-              ? (c.enemy_name ?? 'Rival')
-              : (c.enemy_name ?? `Rival R${c.round}`)
-
-          const detail = c.source === 'torre'
-            ? `Piso ${c.floor}`
-            : c.source === 'practica'
-              ? 'C. Rápido'
-              : (ROUND_LABELS[c.round] ?? `R${c.round}`)
+          const enemyLabel = c.enemy_name ?? `Piso ${c.floor}`
+          const detail = `Piso ${c.floor}`
 
           const tactics = extractTactics(c.log)
           const hasTactics = tactics.hero.length > 0 || tactics.enemy.length > 0

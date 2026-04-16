@@ -137,23 +137,6 @@ export const buildingRateAndCap = buildingRate
 /** Slots de crafteo disponibles (base 2, expansible con investigación). */
 export const CRAFTING_SLOTS_BASE = 2
 
-/** Tipos de edificio de refinado */
-export const REFINING_BUILDING_TYPES = ['carpinteria', 'fundicion', 'destileria_arcana', 'herbolario']
-
-/** Slots de refinado por edificio (1 base, 2 a nivel 4+) */
-export const REFINING_SLOTS_BASE = 1
-export const REFINING_SLOTS_EXPANDED_LEVEL = 4
-
-/** Bonus de velocidad de refinado: 15% más rápido por cada nivel por encima del mínimo de la receta */
-export const REFINING_SPEED_BONUS_PER_LEVEL = 0.15
-
-/** Calcula los minutos efectivos de una receta según el nivel del edificio */
-export function refiningCraftMinutes(recipeCraftMinutes, recipeMinLevel, buildingLevel) {
-  const levelsAbove = Math.max(0, buildingLevel - recipeMinLevel)
-  const multiplier = Math.max(0.4, 1 - levelsAbove * REFINING_SPEED_BONUS_PER_LEVEL)
-  return Math.round(recipeCraftMinutes * multiplier * 10) / 10
-}
-
 // ── Edificios: costes y tiempos de mejora ─────────────────────────────────────
 
 /**
@@ -166,10 +149,6 @@ const BUILDING_BASE_TIME_MINUTES = {
   gold_mine:         20,  // recurso fundamental
   mana_well:         25,  // recurso especial
   herb_garden:       20,  // jardín de hierbas
-  carpinteria:       15,  // refinado de madera
-  fundicion:         20,  // refinado de mineral
-  destileria_arcana: 25,  // refinado de maná
-  herbolario:        20,  // refinado de hierbas
   laboratory:        60,  // edificio de alto nivel — 1h construcción
   library:           45,  // edificio final
 }
@@ -210,18 +189,6 @@ export function buildingUpgradeCost(type, currentLevel) {
         iron:  Math.round(20 * Math.pow(currentLevel, 1.4)),
         ...(currentLevel >= 2 && { herbs: currentLevel * 12 }),
       }
-    case 'carpinteria':
-      if (currentLevel === 0) return { wood: 40, iron: 20 }
-      return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(20 * Math.pow(currentLevel, 1.4)) }
-    case 'fundicion':
-      if (currentLevel === 0) return { wood: 45, iron: 25 }
-      return { wood: Math.round(45 * Math.pow(currentLevel, 1.5)), iron: Math.round(25 * Math.pow(currentLevel, 1.4)) }
-    case 'destileria_arcana':
-      if (currentLevel === 0) return { wood: 50, iron: 25, mana: 15 }
-      return { wood: Math.round(50 * Math.pow(currentLevel, 1.5)), iron: Math.round(22 * Math.pow(currentLevel, 1.4)), mana: Math.round(15 * Math.pow(currentLevel, 1.3)) }
-    case 'herbolario':
-      if (currentLevel === 0) return { wood: 45, iron: 20 }
-      return { wood: Math.round(40 * Math.pow(currentLevel, 1.5)), iron: Math.round(18 * Math.pow(currentLevel, 1.4)) }
     case 'laboratory':
       if (currentLevel === 0) return { wood: 200, iron: 80 }
       return { wood: Math.round(60 * Math.pow(currentLevel, 1.6)), iron: Math.round(30 * Math.pow(currentLevel, 1.5)), mana: Math.round(30 * Math.pow(currentLevel, 1.4)) }
@@ -239,12 +206,6 @@ export function buildingUpgradeCost(type, currentLevel) {
 /** Nivel de base mínimo requerido para construir el Jardín de Hierbas */
 export const HERB_GARDEN_BASE_LEVEL_REQUIRED = 2
 
-/** Nivel de base mínimo requerido para construir la Destilería Arcana */
-export const DESTILERIA_BASE_LEVEL_REQUIRED = 2
-
-/** Nivel de base mínimo requerido para construir el Herbolario */
-export const HERBOLARIO_BASE_LEVEL_REQUIRED = 2
-
 /** Nivel de base mínimo requerido para construir el Laboratorio */
 export const LAB_BASE_LEVEL_REQUIRED = 2
 
@@ -254,8 +215,7 @@ export const LIBRARY_BASE_LEVEL_REQUIRED = 0
 /** Nivel máximo de cualquier edificio de base */
 export const BUILDING_MAX_LEVEL = 5
 
-/** Edificios de refinado y taller solo tienen nivel 1 (construir = desbloquear) */
-export const REFINING_MAX_LEVEL = 1
+/** El laboratorio solo tiene nivel 1 (construir = desbloquear) */
 export const LAB_MAX_LEVEL = 1
 
 /** Nivel máximo de cualquier sala de entrenamiento */
@@ -325,7 +285,7 @@ export const RECIPE_MIN_BASE_LEVEL = {
  * Lista completa de tipos de edificio que se crean al registrar un jugador.
  * Incluye los edificios de base más library, que arranca bloqueada.
  */
-export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'laboratory', 'library', ...REFINING_BUILDING_TYPES]
+export const ALL_BUILDING_TYPES = [...BASE_BUILDING_TYPES, 'laboratory', 'library']
 
 /**
  * Edificios desbloqueados desde el inicio.
@@ -339,7 +299,7 @@ export const INITIALLY_UNLOCKED_BUILDINGS = ALL_BUILDING_TYPES.filter(t => !TRIG
  * Edificios que empiezan en nivel 0 aunque estén desbloqueados.
  * El jugador los construye manualmente cuando cumple el requisito de base level.
  */
-export const STARTS_AT_LEVEL_ZERO = new Set(['laboratory', 'destileria_arcana', 'herbolario'])
+export const STARTS_AT_LEVEL_ZERO = new Set(['laboratory'])
 
 // ── Inventario ───────────────────────────────────────────────────────────────
 
@@ -362,6 +322,7 @@ export const TACTIC_SLOT_COUNT = 5
 
 /** Nivel máximo de una táctica (base, sin investigación) */
 export const TACTIC_MAX_LEVEL = 5
+export const TACTIC_PRESTIGE_LEVEL = 6
 
 /** Coste en oro por cambiar una táctica de slot (mover de un slot a otro) */
 export const TACTIC_SWAP_COST = 50
@@ -658,17 +619,6 @@ export const TRAINING_ROOM_STATS = ['strength', 'agility', 'attack', 'defense', 
 
 // ── Clases ───────────────────────────────────────────────────────────────────
 
-/**
- * Arquetipos de enemigo disponibles según las clases desbloqueadas del jugador.
- * El pool de quick-combat se construye uniendo los arquetipos de todas las clases desbloqueadas.
- */
-export const CLASS_ARCHETYPE_POOL = {
-  caudillo:  ['berserker', 'tank'],
-  sombra:    ['assassin'],
-  arcanista: ['mage'],
-  domador:   ['berserker', 'assassin'],
-  universal: ['berserker', 'tank', 'assassin', 'mage'],
-}
 
 export const CLASS_COLORS = {
   caudillo:  '#dc2626',

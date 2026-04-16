@@ -2,8 +2,8 @@ import { requireAuth } from './_auth.js'
 
 /**
  * POST /api/refining-collect-all
- * Recoge todos los items completados de los slots de un edificio concreto.
- * Body: { buildingType: 'carpinteria' | 'fundicion' | ... | 'laboratory' }
+ * Recoge todos los items completados de los slots del laboratorio.
+ * Body: { buildingType: 'laboratory' }
  */
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)

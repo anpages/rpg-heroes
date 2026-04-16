@@ -10,7 +10,7 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   const [heroRes, itemsRes, tacticsRes] = await Promise.all([
     supabase
       .from('heroes')
-      .select('attack, defense, strength, agility, intelligence, max_hp, class, class_level')
+      .select('attack, defense, strength, agility, intelligence, max_hp, class, class_level, training_bonuses')
       .eq('id', heroId)
       .single(),
     supabase
@@ -29,6 +29,15 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   if (!hero) return null
 
   const stats = { ...hero }
+
+  // Bonos de entrenamiento (acumulados en training_bonuses, separados del stat base)
+  const tb = hero.training_bonuses ?? {}
+  stats.strength     += tb.strength     ?? 0
+  stats.agility      += tb.agility      ?? 0
+  stats.attack       += tb.attack       ?? 0
+  stats.defense      += tb.defense      ?? 0
+  stats.max_hp       += tb.max_hp       ?? 0
+  stats.intelligence += tb.intelligence ?? 0
 
   // Bonos de nivel de clase (por encima de nivel 1)
   const classBonuses = computeClassLevelBonuses(hero.class, hero.class_level ?? 1)

@@ -4,8 +4,6 @@ import {
   simulateCombat,
   floorEnemyStats,
   floorEnemyName,
-  floorEnemyArchetype,
-  applyArchetype,
   decoratedEnemyName,
 } from './_combat.js'
 import { interpolateHP, canPlay } from './_hp.js'
@@ -67,11 +65,10 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Stats base del enemigo + arquetipo determinista por piso
-  const baseEnemyStats = floorEnemyStats(targetFloor)
-  const archetypeKey   = floorEnemyArchetype(targetFloor)
-  const enemyStats     = applyArchetype(baseEnemyStats, archetypeKey)
-  const enemyName      = decoratedEnemyName(floorEnemyName(targetFloor), archetypeKey)
+  // Stats del enemigo: perfil de la clase del héroe + boost de boss en pisos clave
+  const archetypeKey = hero.class
+  const enemyStats   = floorEnemyStats(targetFloor, hero.class)
+  const enemyName    = decoratedEnemyName(floorEnemyName(targetFloor), hero.class, targetFloor)
 
   // Tácticas del héroe y del enemigo (VL ≈ floor para escala de dificultad)
   const { data: heroTacticRows } = await supabase

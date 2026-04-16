@@ -5,13 +5,9 @@ import {
   buildingUpgradeCost,
   buildingUpgradeDurationMs,
   HERB_GARDEN_BASE_LEVEL_REQUIRED,
-  DESTILERIA_BASE_LEVEL_REQUIRED,
-  HERBOLARIO_BASE_LEVEL_REQUIRED,
   LAB_BASE_LEVEL_REQUIRED,
   BUILDING_MAX_LEVEL,
-  REFINING_MAX_LEVEL,
   LAB_MAX_LEVEL,
-  REFINING_BUILDING_TYPES,
 } from '../src/lib/gameConstants.js'
 
 export default async function handler(req, res) {
@@ -32,9 +28,7 @@ export default async function handler(req, res) {
   if (!building) return res.status(404).json({ error: 'Edificio no encontrado' })
   if (building.player_id !== user.id) return res.status(403).json({ error: 'No autorizado' })
   if (!building.unlocked) return res.status(403).json({ error: 'Este edificio no está desbloqueado todavía' })
-  const maxLevel = REFINING_BUILDING_TYPES.includes(building.type) ? REFINING_MAX_LEVEL
-    : building.type === 'laboratory' ? LAB_MAX_LEVEL
-    : BUILDING_MAX_LEVEL
+  const maxLevel = building.type === 'laboratory' ? LAB_MAX_LEVEL : BUILDING_MAX_LEVEL
   if (building.level >= maxLevel) return res.status(409).json({ error: `Nivel máximo alcanzado (${maxLevel})` })
   if (building.upgrade_ends_at && new Date(building.upgrade_ends_at) > new Date()) {
     return res.status(409).json({ error: 'El edificio ya está mejorando' })
@@ -43,7 +37,6 @@ export default async function handler(req, res) {
   // Solo se puede mejorar un edificio a la vez dentro de la misma zona
   const ZONE_MAP = {
     gold_mine: 'recursos', lumber_mill: 'recursos', mana_well: 'recursos', herb_garden: 'recursos',
-    carpinteria: 'refinado', fundicion: 'refinado', destileria_arcana: 'refinado', herbolario: 'refinado',
     laboratory: 'laboratorio', library: 'biblioteca',
   }
   const zone = ZONE_MAP[building.type]
@@ -58,10 +51,8 @@ export default async function handler(req, res) {
   // Edificios con requisito de nivel de base
   // Biblioteca: no tiene requisito de base level, solo necesita el trigger de lab Nv1
   const BASE_LEVEL_CHECKS = {
-    herb_garden:       { min: HERB_GARDEN_BASE_LEVEL_REQUIRED, label: 'el Jardín de Hierbas' },
-    destileria_arcana: { min: DESTILERIA_BASE_LEVEL_REQUIRED,  label: 'la Destilería Arcana' },
-    herbolario:        { min: HERBOLARIO_BASE_LEVEL_REQUIRED,  label: 'el Herbolario' },
-    laboratory:        { min: LAB_BASE_LEVEL_REQUIRED,         label: 'el Laboratorio' },
+    herb_garden: { min: HERB_GARDEN_BASE_LEVEL_REQUIRED, label: 'el Jardín de Hierbas' },
+    laboratory:  { min: LAB_BASE_LEVEL_REQUIRED,         label: 'el Laboratorio' },
   }
   const baseLevelCheck = BASE_LEVEL_CHECKS[building.type]
   if (baseLevelCheck) {

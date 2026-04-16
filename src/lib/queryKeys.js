@@ -17,7 +17,6 @@ export const queryKeys = {
   dungeons:        ()       => ['dungeons'],
   activeExpedition:(heroId) => ['expedition-active', heroId],
   craftedItems:    (userId) => ['crafted-items', userId],
-  bountyState:     (heroId) => ['bounty-state', heroId],
   towerProgress:   (heroId) => ['tower-progress', heroId],
   classes:         ()       => ['classes'],
   combatHistory:   (heroId) => ['combat-history', heroId],

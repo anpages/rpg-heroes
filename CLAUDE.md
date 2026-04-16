@@ -194,17 +194,13 @@ supabase/migrations/           # ~126 migraciones SQL
 - Crafteo de **1 unidad a la vez** por receta — sin selector de cantidad
 - Botón único por receta: "Craftear" → deshabilitado con timer → "Recoger" (verde al terminar)
 - Categorías en UI: **Consumibles** (poción de vida + provisiones), **Runas**, **Mejora de tier**
-- Ingredientes: solo recursos brutos (iron, wood, mana, herbs, fragments, essence) — sin refinados
+- Ingredientes: solo recursos brutos (iron, wood, mana, herbs, fragments, essence)
 - Piedras de forja (forge_stone_t2, forge_stone_t3) para upgrade de tier de ítems
+- Pergamino Táctico (tactic_scroll): 20 maná + 5 fragmentos, 20 min — sube 1 nivel una táctica
 
 ### Biblioteca
 - Requiere base nivel 3
 - Árbol de investigación con bonos permanentes
-
-### Refinado — ELIMINADO
-- Las zonas de Carpintería, Fundición, Destilería Arcana y Herbolario están ocultas del nav
-- Los edificios siguen en la DB pero no tienen función activa
-- No hay materiales intermedios (lingotes, tablones, cristales, extractos)
 
 ## Patrones técnicos
 

@@ -60,13 +60,13 @@ export default async function handler(req, res) {
 
   if (updateError) return res.status(500).json({ error: updateError.message })
 
-  // Aplicar +1 al stat del héroe
-  const { error: rpcError } = await supabase.rpc('apply_training_gains', {
+  // Aplicar +1 al training_bonuses del héroe
+  const { data: newBonuses, error: rpcError } = await supabase.rpc('apply_training_gains', {
     p_hero_id: heroId,
     p_gains:   { [stat]: 1 },
   })
 
   if (rpcError) return res.status(500).json({ error: rpcError.message })
 
-  return res.status(200).json({ ok: true, stat, newBank, totalGained: newTotalGained })
+  return res.status(200).json({ ok: true, stat, newBank, totalGained: newTotalGained, trainingBonuses: newBonuses })
 }

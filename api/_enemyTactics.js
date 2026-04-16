@@ -49,6 +49,19 @@ const MIXED_POOL = [
   ...ARCHETYPE_POOLS.assassin.slice(0, 1),
 ]
 
+// Mapeo de clase → arquetipo de tácticas
+const CLASS_TO_ARCHETYPE = {
+  caudillo:  'tank',
+  sombra:    'assassin',
+  arcanista: 'mage',
+  domador:   'berserker',
+  universal: null,  // → MIXED_POOL
+}
+
+function resolveArchetype(archetypeOrClass) {
+  return CLASS_TO_ARCHETYPE[archetypeOrClass] ?? archetypeOrClass ?? null
+}
+
 /**
  * Combos sinérgicos por arquetipo.
  * Cuando el enemigo tiene suficientes slots, el sistema garantiza al menos
@@ -140,9 +153,10 @@ function buildTactics(pool, count, minLevel, maxLevel, rng, archetypeKey) {
  * @param {Function} [rng]
  */
 export function generateEnemyTactics(vl, archetypeKey, rng = Math.random) {
+  const resolved = resolveArchetype(archetypeKey)
   const { count, minLevel, maxLevel } = tacticScaling(vl, rng)
-  const pool = ARCHETYPE_POOLS[archetypeKey] ?? MIXED_POOL
-  return buildTactics(pool, count, minLevel, maxLevel, rng, archetypeKey)
+  const pool = ARCHETYPE_POOLS[resolved] ?? MIXED_POOL
+  return buildTactics(pool, count, minLevel, maxLevel, rng, resolved)
 }
 
 /**
@@ -161,8 +175,9 @@ export function generateEnemyTactics(vl, archetypeKey, rng = Math.random) {
  * @param {Function} [rng]
  */
 export function generateCounterTactics(vl, archetypeKey, heroStats = {}, rng = Math.random) {
+  const resolved = resolveArchetype(archetypeKey)
   const { count, minLevel, maxLevel } = tacticScaling(vl, rng)
-  const basePool = ARCHETYPE_POOLS[archetypeKey] ?? MIXED_POOL
+  const basePool = ARCHETYPE_POOLS[resolved] ?? MIXED_POOL
 
   const { attack = 50, defense = 50, max_hp = 300 } = heroStats
 
@@ -190,5 +205,5 @@ export function generateCounterTactics(vl, archetypeKey, heroStats = {}, rng = M
     finalPool = basePool
   }
 
-  return buildTactics(finalPool, count, minLevel, maxLevel, rng, archetypeKey)
+  return buildTactics(finalPool, count, minLevel, maxLevel, rng, resolved)
 }
