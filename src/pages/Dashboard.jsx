@@ -636,12 +636,10 @@ function Dashboard({ session }) {
           </div>
 
           <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>
-            <div className="flex flex-col gap-4 pb-8">
-              <div className="section-header">
-                <h2 className="section-title">Arena PvP</h2>
-                <p className="section-subtitle">Los combates entre jugadores llegarán próximamente. Entrena a tu héroe y prepárate para el desafío.</p>
-              </div>
-              <div className="flex items-center justify-center py-16 text-text-3 text-[15px]">Próximamente</div>
+            <div className="flex flex-col items-center gap-4 py-20 px-6 text-center">
+              <Swords size={48} strokeWidth={1.2} className="text-text-3 opacity-60" />
+              <h2 className="section-title">Arena PvP</h2>
+              <p className="text-text-2 text-[14px] max-w-xs">Los combates entre jugadores llegarán próximamente. Entrena a tu héroe y prepárate para el desafío.</p>
             </div>
           </div>
 
