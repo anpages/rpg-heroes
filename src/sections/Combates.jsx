@@ -1,17 +1,14 @@
-import { Scroll, Swords, Trophy, Zap, Users } from 'lucide-react'
+import { Scroll, Trophy, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ScrollHint from '../components/ScrollHint'
 import { useAppStore } from '../store/appStore'
 import QuickCombat from './QuickCombat'
-import TeamCombat from './TeamCombat'
 import CombatHistorial from './CombatHistorial'
 import Torneos from './Torneos'
 import Ranking from './Ranking'
 
 const MODES = [
   { id: 'practica',       label: 'C. Rápido',      sublabel: 'PvE',      Icon: Zap,          color: '#10b981' },
-  { id: '3v3',            label: '3v3',            sublabel: 'Equipo',   Icon: Users,        color: '#2563eb' },
-  { id: '5v5',            label: '5v5',            sublabel: 'Equipo',   Icon: Users,        color: '#7c3aed' },
   { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#a855f7' },
   { id: 'clasificacion',  label: 'Clasificación',  sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
 ]
@@ -67,8 +64,6 @@ export default function Combates() {
           transition={{ duration: 0.18 }}
         >
           {tab === 'practica'      && <QuickCombat />}
-          {tab === '3v3'           && <TeamCombat size={3} />}
-          {tab === '5v5'           && <TeamCombat size={5} />}
           {tab === 'torneos'       && <Torneos />}
           {tab === 'historial'     && <CombatHistorial />}
           {tab === 'clasificacion' && <Ranking />}

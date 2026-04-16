@@ -168,6 +168,10 @@ export const EFFECT_COLOR = {
   gold_boost:        '#d97706',
   hp_cost_reduction: '#059669',
   tower_shield:      '#64748b',
+  crit_boost:        '#f59e0b',
+  armor_pen:         '#dc2626',
+  combat_shield:     '#7c3aed',
+  lifesteal_pct:     '#be185d',
 }
 
 // Descripción corta del beneficio de una poción — se usa en el inventario del
@@ -185,6 +189,10 @@ export function describePotionEffect(effectType, effectValue) {
     case 'gold_boost':        return `+${pct}% oro`
     case 'hp_cost_reduction': return `−${pct}% coste HP`
     case 'tower_shield':      return `−${pct}% durabilidad`
+    case 'crit_boost':        return `+${effectValue ?? 0} rondas crit`
+    case 'armor_pen':         return `+${pct}% penetración`
+    case 'combat_shield':     return 'Esquiva inicial'
+    case 'lifesteal_pct':     return `+${pct}% robo de vida`
     default:                  return ''
   }
 }

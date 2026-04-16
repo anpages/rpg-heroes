@@ -4,9 +4,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
 import { useHero } from '../hooks/useHero'
+import { useHeroId } from '../hooks/useHeroId'
 import { useInventory } from '../hooks/useInventory'
 import { useCraftedItems } from '../hooks/useCraftedItems'
-import { useHeroTactics } from '../hooks/useHeroTactics'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { tierForRating } from '../lib/combatRating'
 import { PotionPanel } from '../components/PotionPanel'
-import { HeroCombatPicker } from '../components/HeroPicker'
 
 /* ─── Matchmaking overlay (buscar → 3 2 1) ───────────────────────────────────── */
 
@@ -129,17 +128,51 @@ function MatchmakingOverlay({ rivalFound, onReady }) {
   )
 }
 
+/* ─── Constantes de presentación ────────────────────────────────────────────── */
+
+const CLASS_LABEL = {
+  caudillo:  'Caudillo',
+  sombra:    'Sombra',
+  arcanista: 'Arcanista',
+  domador:   'Domador',
+  universal: 'Universal',
+}
+const CLASS_COLOR = {
+  caudillo:  '#dc2626',
+  sombra:    '#0369a1',
+  arcanista: '#7c3aed',
+  domador:   '#16a34a',
+  universal: '#d97706',
+}
+const ARCHETYPE_LABEL = {
+  berserker: 'Berserker',
+  tank:      'Tanque',
+  assassin:  'Asesino',
+  mage:      'Mago',
+}
+const ARCHETYPE_ICON = {
+  berserker: '⚔️',
+  tank:      '🛡️',
+  assassin:  '🗡️',
+  mage:      '🔮',
+}
+
 /* ─── Main component ─────────────────────────────────────────────────────────── */
 
 export default function QuickCombat() {
   const userId               = useAppStore(s => s.userId)
   const triggerResourceFlash = useAppStore(s => s.triggerResourceFlash)
-  const [heroId, setHeroId]  = useState(null)
+  const heroId               = useHeroId()
   const queryClient          = useQueryClient()
   const { hero }             = useHero(heroId)
   const { items }            = useInventory(heroId)
-  const { tactics }          = useHeroTactics(heroId)
   const { catalog, inventory } = useCraftedItems(userId)
+
+  // Fases: 'idle' | 'preview' | 'fighting'
+  const [phase, setPhase]             = useState('idle')
+  const [previewData, setPreviewData] = useState(null)   // { token, enemyName, enemyClass, enemyArchetype }
+  const [strategy, setStrategy]       = useState(null)   // estrategia elegida para este combate
+
   const [matchmaking, setMatchmaking]     = useState(false)
   const [rivalFound, setRivalFound]       = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
@@ -151,6 +184,13 @@ export default function QuickCombat() {
     const id = setInterval(forceUpdate, 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Reset al cambiar de héroe
+  useEffect(() => {
+    setPhase('idle')
+    setPreviewData(null)
+    setStrategy(null)
+  }, [heroId])
 
   const nowMs          = Date.now()
   const effectiveMaxHp = hero ? hero.max_hp + (items ?? [])
@@ -176,26 +216,41 @@ export default function QuickCombat() {
     onError: err => notify.error(err.message),
   })
 
-  // Al pulsar "Combatir": busca rival y lucha en una sola acción
-  const combatMutation = useMutation({
-    mutationFn: async () => {
-      const preview = await apiPost('/api/quick-combat-preview', {})
-      return apiPost('/api/quick-combat', { heroId, previewToken: preview.token })
+  // Fase 1: buscar rival (obtener preview)
+  const previewMutation = useMutation({
+    mutationFn: () => apiPost('/api/quick-combat-preview', {}),
+    onSuccess: (data) => {
+      setPreviewData(data)
+      setStrategy(hero?.combat_strategy ?? 'balanced')
+      setPhase('preview')
     },
-    onSuccess:  (data) => { setPendingResult(data); setRivalFound(true) },
+    onError: (err) => notify.error(err.message),
+  })
+
+  // Fase 2: luchar con la estrategia elegida
+  const combatMutation = useMutation({
+    mutationFn: ({ token, chosenStrategy }) =>
+      apiPost('/api/quick-combat', { heroId, previewToken: token, strategy: chosenStrategy }),
+    onSuccess: (data) => { setPendingResult(data); setRivalFound(true) },
     onError: (err) => {
       setMatchmaking(false)
       setRivalFound(false)
+      setPhase('preview')
       notify.error(err.message)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     },
   })
 
+  function fetchPreview() {
+    previewMutation.mutate()
+  }
+
   function startCombat() {
     setPendingResult(null)
     setRivalFound(false)
     setMatchmaking(true)
-    combatMutation.mutate()
+    setPhase('fighting')
+    combatMutation.mutate({ token: previewData.token, chosenStrategy: strategy })
   }
 
   function revealResult(data) {
@@ -204,6 +259,7 @@ export default function QuickCombat() {
     setResult(data)
     setPendingResult(null)
     setWaitingForApi(false)
+    setPhase('idle')
   }
 
   function applyPostCombat(data) {
@@ -227,20 +283,11 @@ export default function QuickCombat() {
 
   const tier = tierForRating(hero?.combat_rating ?? 0)
 
-  const activeExtras = heroId && hero ? (() => {
-    const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
-    const durPct   = equipped.length
-      ? Math.round(equipped.reduce((s, i) => s + i.current_durability / i.item_catalog.max_durability, 0) / equipped.length * 100)
-      : null
-    const equippedTactics = (tactics ?? []).filter(t => t.slot_index != null && t.tactic_catalog)
-    return { durPct, equippedTactics, tier }
-  })() : null
-
   return (
     <div className="flex flex-col gap-4 pb-8">
       <div className="section-header">
         <h2 className="section-title">Combate Rápido</h2>
-        <p className="section-subtitle">Elige tu héroe y combate.</p>
+        <p className="section-subtitle">Pon a prueba a tu héroe contra rivales aleatorios.</p>
       </div>
 
       <AnimatePresence>
@@ -280,119 +327,191 @@ export default function QuickCombat() {
         </div>
       </div>
 
-      {/* Héroe */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">
-          {heroId ? 'Tu héroe' : 'Elige tu héroe'}
-        </span>
+      {/* Héroe — cambia según fase */}
+      <AnimatePresence mode="wait">
 
-        <HeroCombatPicker activeId={heroId} onSelect={setHeroId} activeExtras={activeExtras} />
-
-        {!heroId && (
-          <p className="text-[13px] text-text-3 text-center py-1">
-            Selecciona el héroe que enviará a combatir
-          </p>
-        )}
-
-        {heroId && hero?.combat_strategy && (() => {
-          const s = COMBAT_STRATEGIES[hero.combat_strategy]
-          return s ? (
-            <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-lg">
-              <span className="text-[15px] leading-none">{s.icon}</span>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-text-3">Estrategia defensiva</span>
-                <span className="text-[12px] font-semibold text-text-2">{s.label} — {s.description}</span>
+        {/* Fase preview: info del rival + selector de estrategia */}
+        {phase === 'preview' && previewData && (
+          <motion.div
+            key="preview"
+            className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            {/* Rival */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rival encontrado</span>
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-lg border"
+                style={{
+                  borderColor: `color-mix(in srgb, ${CLASS_COLOR[previewData.enemyClass] ?? '#6b7280'} 30%, var(--border))`,
+                  background:  `color-mix(in srgb, ${CLASS_COLOR[previewData.enemyClass] ?? '#6b7280'} 6%, var(--surface-2))`,
+                }}
+              >
+                <span className="text-[24px] leading-none select-none">
+                  {ARCHETYPE_ICON[previewData.enemyArchetype] ?? '⚔️'}
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[14px] font-bold text-text">{previewData.enemyName}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded border"
+                      style={{
+                        color: CLASS_COLOR[previewData.enemyClass] ?? '#6b7280',
+                        borderColor: `color-mix(in srgb, ${CLASS_COLOR[previewData.enemyClass] ?? '#6b7280'} 30%, var(--border))`,
+                        background:  `color-mix(in srgb, ${CLASS_COLOR[previewData.enemyClass] ?? '#6b7280'} 12%, var(--surface-2))`,
+                      }}
+                    >
+                      {CLASS_LABEL[previewData.enemyClass] ?? previewData.enemyClass}
+                    </span>
+                    {previewData.enemyArchetype && (
+                      <span className="text-[12px] text-text-3 font-semibold">
+                        {ARCHETYPE_LABEL[previewData.enemyArchetype] ?? previewData.enemyArchetype}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          ) : null
-        })()}
 
-        {heroId && hero && (() => {
-          const pct      = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
-          const hpColor  = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
-          const full     = hpNow >= effectiveMaxHp
-          const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
-          const durPct   = equipped.length
-            ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
-            : null
-          const durColor = durPct == null ? '#6b7280' : durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
-          return (
-            <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-              <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
-                <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={hpColor} /> HP</span>
-                <span className="font-medium" style={{ color: hpColor }}>{hpNow} / {effectiveMaxHp}</span>
+            {/* Estrategia */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Elige tu estrategia</span>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(COMBAT_STRATEGIES).map(([key, s]) => {
+                  const active = strategy === key
+                  return (
+                    <button
+                      key={key}
+                      className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-lg border transition-[background,border-color] duration-150 font-[inherit] cursor-pointer"
+                      style={{
+                        borderColor: active ? '#2563eb' : 'var(--border)',
+                        background:  active ? 'color-mix(in srgb, #2563eb 10%, var(--surface-2))' : 'var(--surface-2)',
+                      }}
+                      onClick={() => setStrategy(key)}
+                    >
+                      <span className="text-[20px] leading-none select-none">{s.icon}</span>
+                      <span className="text-[12px] font-bold leading-tight" style={{ color: active ? '#2563eb' : 'var(--text-2)' }}>{s.label}</span>
+                      <span className="text-[10px] text-text-3 text-center leading-tight">{s.description}</span>
+                    </button>
+                  )
+                })}
               </div>
-              <div className="h-2 bg-border rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-[width,background] duration-[400ms] animate-hp-regen-pulse"
-                  style={{ width: `${pct}%`, background: hpColor }}
-                />
-              </div>
-              {durPct != null && (
-                <>
-                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
-                    <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                    <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+            </div>
+
+            {/* Acciones */}
+            <motion.button
+              className="btn btn--primary btn--lg btn--full"
+              onClick={startCombat}
+              disabled={!strategy || combatMutation.isPending}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            >
+              <Swords size={16} strokeWidth={2} />
+              ¡Luchar!
+            </motion.button>
+          </motion.div>
+        )}
+
+        {/* Fase idle / fighting: estado del héroe + botón */}
+        {(phase === 'idle' || phase === 'fighting') && (
+          <motion.div
+            key="idle"
+            className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Tu héroe</span>
+
+            {heroId && hero && (() => {
+              const pct      = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
+              const hpColor  = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
+              const full     = hpNow >= effectiveMaxHp
+              const equipped = (items ?? []).filter(i => i.equipped_slot != null && (i.item_catalog?.max_durability ?? 0) > 0)
+              const durPct   = equipped.length
+                ? Math.round(equipped.reduce((s, i) => s + (i.current_durability / i.item_catalog.max_durability), 0) / equipped.length * 100)
+                : null
+              const durColor = durPct == null ? '#6b7280' : durPct > 60 ? '#16a34a' : durPct > 30 ? '#d97706' : '#dc2626'
+              return (
+                <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+                  <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
+                    <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={hpColor} /> HP</span>
+                    <span className="font-medium" style={{ color: hpColor }}>{hpNow} / {effectiveMaxHp}</span>
                   </div>
                   <div className="h-2 bg-border rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-[width,background] duration-[400ms]"
-                      style={{ width: `${durPct}%`, background: durColor }}
+                      className="h-full rounded-full transition-[width,background] duration-[400ms] animate-hp-regen-pulse"
+                      style={{ width: `${pct}%`, background: hpColor }}
                     />
                   </div>
-                </>
-              )}
-              {hpPotions.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap mt-1">
-                  {hpPotions.map(p => {
-                    const disabled = full || isBusy || itemUseMutation.isPending
-                    return (
-                      <motion.button
-                        key={p.id}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
-                        style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        onClick={() => !disabled && itemUseMutation.mutate(p.id)}
-                        disabled={disabled}
-                        whileTap={disabled ? {} : { scale: 0.95 }}
-                      >
-                        <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
-                        {p.name}
-                        <span className="opacity-60">×{p.quantity}</span>
-                      </motion.button>
-                    )
-                  })}
+                  {durPct != null && (
+                    <>
+                      <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
+                        <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
+                        <span className="font-medium" style={{ color: durColor }}>{durPct}%</span>
+                      </div>
+                      <div className="h-2 bg-border rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width,background] duration-[400ms]"
+                          style={{ width: `${durPct}%`, background: durColor }}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {hpPotions.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      {hpPotions.map(p => {
+                        const disabled = full || isBusy || itemUseMutation.isPending
+                        return (
+                          <motion.button
+                            key={p.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
+                            style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            onClick={() => !disabled && itemUseMutation.mutate(p.id)}
+                            disabled={disabled}
+                            whileTap={disabled ? {} : { scale: 0.95 }}
+                          >
+                            <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
+                            {p.name}
+                            <span className="opacity-60">×{p.quantity}</span>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })()}
+              )
+            })()}
 
-        {heroId && (
-          <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} title="Pociones de combate" />
+            {heroId && (
+              <PotionPanel heroId={heroId} userId={userId} activeEffects={hero?.active_effects ?? {}} effectTypes={['atk_boost', 'def_boost', 'crit_boost', 'armor_pen', 'combat_shield', 'lifesteal_pct']} title="Pociones de combate" />
+            )}
+
+            {heroId && (
+              <motion.button
+                className="btn btn--primary btn--lg btn--full"
+                onClick={fetchPreview}
+                disabled={previewMutation.isPending || phase === 'fighting' || isBusy || !hasEnoughHp}
+                whileTap={previewMutation.isPending || phase === 'fighting' || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
+                whileHover={previewMutation.isPending || phase === 'fighting' || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              >
+                <Swords size={16} strokeWidth={2} />
+                {previewMutation.isPending
+                  ? 'Buscando rival...'
+                  : hero?.status === 'training'
+                    ? 'Entrenando'
+                    : isBusy
+                    ? 'En expedición'
+                    : !hasEnoughHp
+                      ? 'HP insuficiente (20% mín.)'
+                      : '¡Combatir!'}
+              </motion.button>
+            )}
+          </motion.div>
         )}
 
-        {heroId && (
-          <motion.button
-            className="btn btn--primary btn--lg btn--full"
-            onClick={startCombat}
-            disabled={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp}
-            whileTap={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 0.96 }}
-            whileHover={combatMutation.isPending || matchmaking || isBusy || !hasEnoughHp ? {} : { scale: 1.01 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          >
-            <Swords size={16} strokeWidth={2} />
-            {combatMutation.isPending || matchmaking
-              ? 'Buscando rival...'
-              : hero?.status === 'training'
-                ? 'Entrenando'
-                : isBusy
-                ? 'En expedición'
-                : !hasEnoughHp
-                  ? 'HP insuficiente (20% mín.)'
-                  : '¡Combatir!'}
-          </motion.button>
-        )}
-      </div>
+      </AnimatePresence>
     </div>
   )
 }

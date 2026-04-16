@@ -722,7 +722,7 @@ function Hero() {
   })
 
   const startTrainingMutation = useMutation({
-    mutationKey: ['class-training'],
+    mutationKey: ['class-training', heroId],
     mutationFn: () => apiPost('/api/training-start', { heroId: hero?.id }),
     onMutate: async () => {
       const key = queryKeys.hero(heroId)
@@ -742,7 +742,7 @@ function Hero() {
   })
 
   const collectTrainingMutation = useMutation({
-    mutationKey: ['class-training'],
+    mutationKey: ['class-training', heroId],
     mutationFn: (stop) => apiPost('/api/training-collect', { heroId: hero?.id, stop }),
     onMutate: async (stop) => {
       const key = queryKeys.hero(heroId)

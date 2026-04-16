@@ -9,7 +9,6 @@ import { useTournament } from '../hooks/useTournament'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { useAppStore } from '../store/appStore'
-import { HeroCombatPicker } from '../components/HeroPicker'
 import { CombatReplay } from '../components/CombatReplay'
 import { CombatCountdown } from '../components/CombatCountdown'
 import { PotionPanel } from '../components/PotionPanel'
@@ -481,8 +480,6 @@ export default function Torneos() {
                 </div>
               ))}
             </div>
-
-            <HeroCombatPicker locked={isRegistered} />
 
             {isRegistrationOpen() ? (
               <motion.button

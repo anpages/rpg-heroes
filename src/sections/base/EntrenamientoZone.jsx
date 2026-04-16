@@ -92,7 +92,7 @@ export default function EntrenamientoZone({ trainingRooms, trainingProgress, res
 
   const collectMutation = useMutation({
     mutationKey: ['training-collect'],
-    mutationFn: (stat) => apiPost('/api/training-collect', { heroId, stat }),
+    mutationFn: (stat) => apiPost('/api/training-room-collect', { heroId, stat }),
     onMutate: (stat) => {
       setCollectingStats(prev => new Set([...prev, stat]))
       const prev = queryClient.getQueryData(tpKey)

@@ -26,13 +26,15 @@ export const useAppStore = create((set) => ({
   // Sub-tab de Mundo: practica | torre | torneos | historial | clasificacion
   activeWorldTab: 'practica',
 
+  // Sub-tab de Equipos: 3v3 | 5v5
+  activeTeamTab: '3v3',
+
   navigateTo: (tab, opts = {}) => set((state) => {
     const next = {
       activeTab: tab,
       mountedTabs: new Set([...state.mountedTabs, tab]),
     }
-    // Al navegar a heroes/mundo, reset al sub-tab por defecto salvo que se indique uno explícito.
-    // Si opts.heroTab / opts.worldTab está definido, se usa ese (navegación programática directa).
+    // Al navegar a heroes/mundo/equipos, reset al sub-tab por defecto salvo que se indique uno explícito.
     if (tab === 'heroes') {
       const heroTab = opts.heroTab ?? 'ficha'
       next.activeHeroTab = heroTab
@@ -42,6 +44,11 @@ export const useAppStore = create((set) => ({
       const worldTab = opts.worldTab ?? 'practica'
       next.activeWorldTab = worldTab
       next.mountedTabs.add(`mundo:${worldTab}`)
+    }
+    if (tab === 'equipos') {
+      const teamTab = opts.teamTab ?? '3v3'
+      next.activeTeamTab = teamTab
+      next.mountedTabs.add(`equipos:${teamTab}`)
     }
     return next
   }),
@@ -56,6 +63,12 @@ export const useAppStore = create((set) => ({
     activeTab: 'mundo',
     activeWorldTab: worldTab,
     mountedTabs: new Set([...state.mountedTabs, 'mundo', `mundo:${worldTab}`]),
+  })),
+
+  navigateToTeamTab: (teamTab) => set((state) => ({
+    activeTab: 'equipos',
+    activeTeamTab: teamTab,
+    mountedTabs: new Set([...state.mountedTabs, 'equipos', `equipos:${teamTab}`]),
   })),
 
   // ── Drawers / modales ─────────────────────────────────────────

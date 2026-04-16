@@ -13,7 +13,7 @@ import Hero from '../sections/Hero'
 import Dungeons from '../sections/Dungeons'
 import Equipo from '../sections/Equipo'
 import Combates from '../sections/Combates'
-// import Escuadron from '../sections/Escuadron'
+import Equipos from '../sections/Equipos'
 import Shop from '../sections/Shop'
 import Misiones from '../sections/Misiones'
 import Tacticas from '../sections/Tacticas'
@@ -297,10 +297,11 @@ function getHeroExpeditionState(hero, now) {
 }
 
 const NAV_ITEMS = [
-  { id: 'base',      label: 'Base',      icon: Castle },
-  { id: 'heroes',    label: 'Héroes',    icon: Sword  },
-  { id: 'mundo',     label: 'Combates',  icon: Globe  },
-  { id: 'arena',     label: 'Arena',     icon: Swords },
+  { id: 'base',     label: 'Base',      icon: Castle,  minHeroes: 0 },
+  { id: 'heroes',   label: 'Héroes',    icon: Sword,   minHeroes: 0 },
+  { id: 'mundo',    label: 'Combates',  icon: Globe,   minHeroes: 0 },
+  { id: 'equipos',  label: 'Equipos',   icon: Users,   minHeroes: 3 },
+  { id: 'arena',    label: 'Arena',     icon: Swords,  minHeroes: 0 },
 ]
 
 const HERO_SUB_TABS = [
@@ -380,7 +381,7 @@ function Dashboard({ session }) {
   const navAlerts = { base: baseHasAlert, heroes: selExpReady }
 
   const heroCount = heroes?.length ?? 0
-  const visibleNavItems = NAV_ITEMS.filter(n => !n.minHeroes || heroCount >= n.minHeroes)
+  const visibleNavItems = NAV_ITEMS.filter(n => heroCount >= (n.minHeroes ?? 0))
 
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
@@ -588,10 +589,18 @@ function Dashboard({ session }) {
 
           {/* Mundo */}
           <div className={activeTab === 'mundo' ? 'block animate-section-in' : 'hidden'}>
-            {mountedTabs.has('mundo') && <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>}
+            {mountedTabs.has('mundo') && (
+              <div className="flex flex-col gap-1">
+                <HeroSelector />
+                <ErrorBoundary><Combates key={mundoKey.current} /></ErrorBoundary>
+              </div>
+            )}
           </div>
 
-          {/* Escuadrón (oculto temporalmente) */}
+          {/* Equipos */}
+          <div className={activeTab === 'equipos' ? 'block animate-section-in' : 'hidden'}>
+            {mountedTabs.has('equipos') && <ErrorBoundary><Equipos /></ErrorBoundary>}
+          </div>
 
           {/* Arena */}
           <div className={activeTab === 'arena' ? 'block animate-section-in' : 'hidden'}>

@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import {
   Swords, ShieldCheck, FlaskConical,
-  Clock, Package, Coins, Star, Sparkles, Heart, Shield,
+  Clock, Package, Coins, Star, Sparkles, Heart, Shield, Zap, Droplets,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useCraftedItems } from '../hooks/useCraftedItems'
@@ -28,6 +28,10 @@ const EFFECT_META = {
   gold_boost:        { icon: Coins,       color: '#d97706', activeLabel: v => `+${Math.round(v * 100)}% oro activo` },
   hp_cost_reduction: { icon: Heart,       color: '#059669', activeLabel: v => `−${Math.round(v * 100)}% coste HP activo` },
   tower_shield:      { icon: Shield,      color: '#64748b', activeLabel: v => `−${Math.round(v * 100)}% durabilidad activo` },
+  crit_boost:        { icon: Zap,         color: '#f59e0b', activeLabel: v => `+${v} rondas crit activo` },
+  armor_pen:         { icon: Swords,      color: '#dc2626', activeLabel: v => `+${Math.round(v * 100)}% penetración activo` },
+  combat_shield:     { icon: Shield,      color: '#7c3aed', activeLabel: () => 'Escudo inicial activo' },
+  lifesteal_pct:     { icon: Droplets,    color: '#be185d', activeLabel: v => `+${Math.round(v * 100)}% robo de vida activo` },
 }
 
 const DEFAULT_COMBAT_EFFECTS = ['atk_boost', 'def_boost']

@@ -6,7 +6,7 @@ import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
 import { COMBAT_HP_COST, WEAR_PROFILE, COMBAT_STRATEGIES } from '../src/lib/gameConstants.js'
-import { generateEnemyTactics } from './_enemyTactics.js'
+import { generateCounterTactics } from './_enemyTactics.js'
 import { rollTacticDrop } from './_loot.js'
 import { verifyCombatToken } from './_combatSign.js'
 
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   if (!auth) return
   const { user, supabase } = auth
 
-  const { heroId, previewToken } = req.body
+  const { heroId, previewToken, strategy: bodyStrategy } = req.body
   if (!heroId)         return res.status(400).json({ error: 'heroId requerido' })
   if (!isUUID(heroId)) return res.status(400).json({ error: 'heroId inválido' })
   if (!previewToken)   return res.status(400).json({ error: 'previewToken requerido' })
@@ -53,8 +53,9 @@ export default async function handler(req, res) {
     })
   }
 
-  // Aplicar estrategia de combate del héroe
-  const strategy = COMBAT_STRATEGIES[hero.combat_strategy ?? 'balanced']
+  // Estrategia: priorizar la elegida en el momento del combate; fallback a la del héroe
+  const strategyKey = (bodyStrategy && COMBAT_STRATEGIES[bodyStrategy]) ? bodyStrategy : (hero.combat_strategy ?? 'balanced')
+  const strategy = COMBAT_STRATEGIES[strategyKey]
   heroStats.attack  = Math.round(heroStats.attack  * strategy.atkMult)
   heroStats.defense = Math.round(heroStats.defense * strategy.defMult)
 
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
   if (effects.atk_boost) heroStats.attack  = Math.round(heroStats.attack  * (1 + effects.atk_boost))
   if (effects.def_boost) heroStats.defense = Math.round(heroStats.defense * (1 + effects.def_boost))
   const usedBoosts = Object.fromEntries(
-    ['atk_boost', 'def_boost'].filter(k => effects[k]).map(k => [k, effects[k]])
+    ['atk_boost', 'def_boost', 'crit_boost', 'armor_pen', 'combat_shield', 'lifesteal_pct'].filter(k => effects[k]).map(k => [k, effects[k]])
   )
 
   // Bonos de investigación
@@ -81,6 +82,13 @@ export default async function handler(req, res) {
   const fullStats  = await getFullStats(supabase, hero.id)
   const enemyStats = applyArchetype(heroAnchoredEnemyStats(fullStats ?? heroStats), archetypeKey)
 
+  // Estrategia de combate del enemigo según su arquetipo
+  const ARCHETYPE_STRATEGY = { berserker: 'aggressive', assassin: 'aggressive', tank: 'defensive', mage: 'balanced' }
+  const enemyStrategyKey = ARCHETYPE_STRATEGY[archetypeKey] ?? 'balanced'
+  const enemyStrategy = COMBAT_STRATEGIES[enemyStrategyKey]
+  enemyStats.attack  = Math.round(enemyStats.attack  * enemyStrategy.atkMult)
+  enemyStats.defense = Math.round(enemyStats.defense * enemyStrategy.defMult)
+
   // Tácticas del héroe y del enemigo
   const { data: heroTacticRows } = await supabase
     .from('hero_tactics')
@@ -91,16 +99,20 @@ export default async function handler(req, res) {
     name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
     level: r.level, combat_effect: r.tactic_catalog.combat_effect,
   }))
-  const enemyTactics = generateEnemyTactics(vl, archetypeKey)
+  const enemyTactics = generateCounterTactics(vl, archetypeKey, heroStats)
 
   // Simular combate — pasar clases para sistema de habilidades
   const result = simulateCombat(heroStats, enemyStats, {
-    critBonus: rb.crit_pct,
-    dmgMultiplier: rb.tower_dmg_pct,
-    classA: hero.class,
-    classB: archetypeKey,
-    tacticsA: heroTactics,
-    tacticsB: enemyTactics,
+    critBonus:        rb.crit_pct,
+    dmgMultiplier:    rb.tower_dmg_pct,
+    classA:           hero.class,
+    classB:           archetypeKey,
+    tacticsA:         heroTactics,
+    tacticsB:         enemyTactics,
+    critBoostRoundsA: effects.crit_boost    ?? 0,
+    armorPenBonusA:   effects.armor_pen     ?? 0,
+    initialDodgeA:    !!effects.combat_shield,
+    lifeStealA:       effects.lifesteal_pct ?? 0,
   })
   const won = result.winner === 'a'
 

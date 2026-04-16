@@ -20,7 +20,6 @@ import { CombatCountdown } from '../components/CombatCountdown'
 import RatingBanner from '../components/RatingBanner'
 import { PotionPanel } from '../components/PotionPanel'
 import { TacticsStrip } from '../components/TacticsStrip'
-import { HeroCombatPicker } from '../components/HeroPicker'
 
 const MILESTONES = [5, 10, 25, 50, 100]
 // Posición % de cada milestone en la barra (relativa al máximo = 100)
@@ -309,11 +308,6 @@ export default function Torre() {
             </span>
           </div>
         </div>
-
-        {/* Preparación */}
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3 px-1 -mb-1">Preparación</span>
-
-        <HeroCombatPicker />
 
         {/* HP bar + equipment durability + heal potions */}
         {hero && (() => {

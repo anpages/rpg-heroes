@@ -307,7 +307,7 @@ export const ENEMY_ARCHETYPES = {
       max_hp:       Math.max(1, Math.round(s.max_hp  * 0.90)),
       defense:      Math.max(1, Math.round(s.defense * 0.75)),
       attack:       Math.max(1, Math.round(s.attack  * 1.10)),
-      intelligence: (s.intelligence ?? 0) + 25,
+      intelligence: Math.max(1, Math.round((s.intelligence ?? 0) * 1.50)),
     }),
   },
 }

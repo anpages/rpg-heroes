@@ -583,7 +583,7 @@ export const CLASS_LEVEL_BONUSES = {
   sombra:    { agility: 1, attack: 1 },
   arcanista: { intelligence: 1, attack: 1 },
   domador:   { agility: 1, strength: 1 },
-  universal: { strength: 1, agility: 1, intelligence: 1 },
+  universal: { agility: 1, intelligence: 1 },
 }
 
 /**

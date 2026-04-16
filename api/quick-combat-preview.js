@@ -35,5 +35,5 @@ export default async function handler(req, res) {
     enemyName,
   })
 
-  return res.status(200).json({ ok: true, token, enemyName, enemyClass })
+  return res.status(200).json({ ok: true, token, enemyName, enemyClass, enemyArchetype: archetypeKey })
 }

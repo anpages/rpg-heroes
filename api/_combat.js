@@ -80,7 +80,7 @@ export function simulateCombat(a, b, opts = {}) {
     hasAttackedB: false,
     shieldA: 0,
     shieldB: 0,
-    dodgeA: 0,
+    dodgeA: opts.initialDodgeA ? 1 : 0,
     dodgeB: 0,
     prevStanceA: null,
     prevStanceB: null,
@@ -131,6 +131,11 @@ function runCombatLoop(a, b, state, opts) {
   // Active tactic buffs: { effect_key: { remainingRounds, value } }
   const tacticBuffsA = { ...(state.tacticBuffsA ?? {}) }
   const tacticBuffsB = { ...(state.tacticBuffsB ?? {}) }
+
+  // Consumibles de combate: pre-poblar buffs permanentes desde opts
+  if ((opts.lifeStealA ?? 0) > 0 && !tacticBuffsA.lifesteal) {
+    tacticBuffsA.lifesteal = { value: opts.lifeStealA, duration: 999, tacticName: 'Elixir de Sangre', tacticIcon: '🩸' }
+  }
 
   const dmgMult = 1 + (opts.dmgMultiplier ?? 0)
 
@@ -216,7 +221,7 @@ function runCombatLoop(a, b, state, opts) {
 
   // Períodos de crítico
   const critBonusRounds = Math.floor((opts.critBonus ?? 0) * 100)
-  const critPA = Math.max(3, critPeriod(a.agility) - critBonusRounds)
+  const critPA = Math.max(3, critPeriod(a.agility) - critBonusRounds - (opts.critBoostRoundsA ?? 0))
   const critPB = critPeriod(b.agility)
 
   // Doble ataque: >= 20 puntos de ventaja en agility = +1 ataque extra cada 6 rondas
@@ -224,7 +229,7 @@ function runCombatLoop(a, b, state, opts) {
   const doubleB = Math.max(0, (b.agility ?? 0) - (a.agility ?? 0)) >= 20
 
   // Penetración de armadura
-  const penA = armorPen(a.strength)
+  const penA = armorPen(a.strength) + (opts.armorPenBonusA ?? 0)
   const penB = armorPen(b.strength)
 
   for (let round = state.round + 1; round <= 30 && hpA > 0 && hpB > 0; round++) {
@@ -384,16 +389,16 @@ function runCombatLoop(a, b, state, opts) {
     }
 
     // ── Ataques ──
-    // Pasiva liderazgo (caudillo): reducción fija de daño recibido
-    const passiveDmgTakenA = abilitiesA?.passive?.key === 'liderazgo' ? 0.88 : 1
-    const passiveDmgTakenB = abilitiesB?.passive?.key === 'liderazgo' ? 0.88 : 1
+    // Pasivas de reducción de daño: liderazgo (caudillo, −12%) y versatilidad (universal, −8%)
+    const PASSIVE_DMG_TAKEN = { liderazgo: 0.88, versatilidad: 0.92 }
+    const passiveDmgTakenA = PASSIVE_DMG_TAKEN[abilitiesA?.passive?.key] ?? 1
+    const passiveDmgTakenB = PASSIVE_DMG_TAKEN[abilitiesB?.passive?.key] ?? 1
 
     // Shield activo de habilidad
     const shieldMultA = shieldA > 0 ? abilityDmgTakenMultA : 1
     const shieldMultB = shieldB > 0 ? abilityDmgTakenMultB : 1
 
     // Tactic modifiers precalculated for this round
-    const tacDmgMultA = 1 + getBuff(tacticBuffsA, 'damage_mult') / (getBuff(tacticBuffsA, 'damage_mult') > 0 ? (1 / (getBuff(tacticBuffsA, 'damage_mult') - 1 || 1)) : 1)
     const tacPenA = penA + getBuff(tacticBuffsA, 'armor_pen_boost')
     const tacPenB = penB + getBuff(tacticBuffsB, 'armor_pen_boost')
     const tacDmgRedA = 1 - getBuff(tacticBuffsA, 'damage_reduction')

@@ -29,6 +29,14 @@ function classColor(cls) {
   return CLASS_COLORS[cls] ?? 'var(--text-2)'
 }
 
+const CLASS_LABEL = {
+  caudillo:  'Caudillo',
+  sombra:    'Sombra',
+  arcanista: 'Arcanista',
+  domador:   'Domador',
+  universal: 'Universal',
+}
+
 function FighterBar({ name, hp, maxHp, side, stance, cls }) {
   const pct   = maxHp > 0 ? Math.max(0, (hp / maxHp) * 100) : 0
   const color = hpColor(pct)
@@ -39,11 +47,23 @@ function FighterBar({ name, hp, maxHp, side, stance, cls }) {
     <div className={`flex flex-col gap-1 flex-1 min-w-0 ${isLeft ? '' : 'items-end'}`}>
       <div className={`flex items-center gap-1.5 ${isLeft ? '' : 'flex-row-reverse'}`}>
         <span
-          className="text-[13px] font-bold truncate max-w-full"
+          className="text-[13px] font-bold truncate"
           style={{ color: cls ? classColor(cls) : (isLeft ? 'var(--blue-700)' : '#dc2626') }}
         >
           {name}
         </span>
+        {cls && CLASS_LABEL[cls] && (
+          <span
+            className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-[1px] rounded-full border flex-shrink-0"
+            style={{
+              color: classColor(cls),
+              borderColor: `color-mix(in srgb, ${classColor(cls)} 35%, var(--border))`,
+              background:  `color-mix(in srgb, ${classColor(cls)} 10%, var(--surface))`,
+            }}
+          >
+            {CLASS_LABEL[cls]}
+          </span>
+        )}
         {abilities?.passive && (
           <span className="text-[10px] opacity-70 flex-shrink-0" title={abilities.passive.label}>
             {abilities.passive.icon}
