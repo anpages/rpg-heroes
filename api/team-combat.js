@@ -4,7 +4,7 @@ import { simulateCombat } from './_combat.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
-import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
+import { COMBAT_HP_COST, WEAR_PROFILE, COMBAT_STRATEGIES } from '../src/lib/gameConstants.js'
 import { computeRatingUpdate, teamCombatDifficulty } from './_rating.js'
 import { computeSynergy, applySynergyToStats } from '../src/lib/teamSynergy.js'
 import { trainingRewards } from '../src/lib/gameFormulas.js'
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
   // Cargar héroes
   const { data: heroesRows, error: heroesErr } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining, combat_strategy')
     .in('id', heroIds)
     .eq('player_id', user.id)
 
@@ -90,9 +90,14 @@ export default async function handler(req, res) {
   for (const { heroId, enemyIndex } of matchups) {
     const hero   = heroesById[heroId]
     const enemy  = enemyTeam[enemyIndex]
-    const base   = effectiveStats[heroId]
+    const base      = effectiveStats[heroId]
     const heroStats = applySynergyToStats({ ...base }, playerSynergy)
     heroStats.max_hp = base.max_hp
+
+    // Aplicar estrategia de combate del héroe
+    const strategy = COMBAT_STRATEGIES[hero.combat_strategy ?? 'balanced']
+    heroStats.attack  = Math.round(heroStats.attack  * strategy.atkMult)
+    heroStats.defense = Math.round(heroStats.defense * strategy.defMult)
 
     const enemyTactics = generateEnemyTactics(avgLevel, enemy.archetypeKey)
 

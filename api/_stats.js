@@ -1,4 +1,5 @@
 import { getResearchBonuses } from './_research.js'
+import { computeClassLevelBonuses } from '../src/lib/gameConstants.js'
 
 /**
  * Calcula las stats efectivas del heroe:
@@ -9,7 +10,7 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   const [heroRes, itemsRes, tacticsRes] = await Promise.all([
     supabase
       .from('heroes')
-      .select('attack, defense, strength, agility, intelligence, max_hp')
+      .select('attack, defense, strength, agility, intelligence, max_hp, class, class_level')
       .eq('id', heroId)
       .single(),
     supabase
@@ -28,6 +29,12 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   if (!hero) return null
 
   const stats = { ...hero }
+
+  // Bonos de nivel de clase (por encima de nivel 1)
+  const classBonuses = computeClassLevelBonuses(hero.class, hero.class_level ?? 1)
+  for (const [stat, val] of Object.entries(classBonuses)) {
+    if (stat in stats) stats[stat] += val
+  }
 
   const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
 
@@ -96,4 +103,59 @@ export async function getEffectiveStats(supabase, heroId, playerId = null) {
   stats.agility = Math.max(0, stats.agility - weightPenalty)
 
   return { ...stats, totalWeight, weightPenalty, durabilityMod, itemDropRateBonus }
+}
+
+/**
+ * Stats del héroe con equipo equipado al 100% de durabilidad.
+ * Se usa para anclar al enemigo en combate rápido: el rival se genera
+ * como si el héroe llevara el equipo en perfecto estado, de modo que
+ * el desgaste real supone una desventaja efectiva en combate.
+ * No incluye investigación ni tácticas (esos bonos no se degradan).
+ */
+export async function getFullStats(supabase, heroId) {
+  const [heroRes, itemsRes] = await Promise.all([
+    supabase
+      .from('heroes')
+      .select('attack, defense, strength, agility, intelligence, max_hp')
+      .eq('id', heroId)
+      .single(),
+    supabase
+      .from('inventory_items')
+      .select('current_durability, equipped_slot, enchantments, item_catalog(attack_bonus, defense_bonus, hp_bonus, strength_bonus, agility_bonus, intelligence_bonus, weight, max_durability)')
+      .eq('hero_id', heroId)
+      .not('equipped_slot', 'is', null),
+  ])
+
+  const hero = heroRes.data
+  if (!hero) return null
+
+  const stats = { ...hero }
+  let totalWeight = 0
+
+  for (const item of itemsRes.data ?? []) {
+    if (item.current_durability <= 0) continue
+    const c = item.item_catalog
+    totalWeight += c.weight ?? 0
+
+    // Bonos al 100% de durabilidad
+    stats.attack       += c.attack_bonus       ?? 0
+    stats.defense      += c.defense_bonus      ?? 0
+    stats.max_hp       += c.hp_bonus           ?? 0
+    stats.strength     += c.strength_bonus     ?? 0
+    stats.agility      += c.agility_bonus      ?? 0
+    stats.intelligence += c.intelligence_bonus ?? 0
+
+    const enc = item.enchantments ?? {}
+    if (enc.attack_bonus)       stats.attack       += enc.attack_bonus
+    if (enc.defense_bonus)      stats.defense      += enc.defense_bonus
+    if (enc.hp_bonus)           stats.max_hp       += enc.hp_bonus
+    if (enc.strength_bonus)     stats.strength     += enc.strength_bonus
+    if (enc.agility_bonus)      stats.agility      += enc.agility_bonus
+    if (enc.intelligence_bonus) stats.intelligence += enc.intelligence_bonus
+  }
+
+  const weightPenalty = Math.floor(totalWeight / 4)
+  stats.agility = Math.max(0, stats.agility - weightPenalty)
+
+  return stats
 }

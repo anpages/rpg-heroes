@@ -12,7 +12,6 @@ const MODES = [
   { id: 'practica',       label: 'C. Rápido',      sublabel: 'PvE',      Icon: Zap,          color: '#10b981' },
   { id: '3v3',            label: '3v3',            sublabel: 'Equipo',   Icon: Users,        color: '#2563eb' },
   { id: '5v5',            label: '5v5',            sublabel: 'Equipo',   Icon: Users,        color: '#7c3aed' },
-  { id: 'torneos',        label: 'Torneo',         sublabel: 'PvE',      Icon: Swords,       color: '#dc2626' },
   { id: 'historial',      label: 'Historial',      sublabel: 'Combates', Icon: Scroll,       color: '#a855f7' },
   { id: 'clasificacion',  label: 'Clasificación',  sublabel: 'Global',   Icon: Trophy,       color: '#d97706' },
 ]

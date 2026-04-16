@@ -6,7 +6,7 @@ import { ChevronRight } from 'lucide-react'
  * Shows a gradient + arrow on the right when more content is available,
  * and a subtle left gradient when scrolled past the start.
  */
-export default function ScrollHint({ children, className = '', activeKey }) {
+export default function ScrollHint({ children, className = '' }) {
   const ref = useRef(null)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -31,18 +31,6 @@ export default function ScrollHint({ children, className = '', activeKey }) {
       ro.disconnect()
     }
   }, [check])
-
-  // Cuando cambia activeKey, asegurar que el botón activo es visible
-  useEffect(() => {
-    const el = ref.current
-    if (!el || activeKey == null) return
-    const target = el.querySelector(`[data-scroll-key="${CSS.escape(String(activeKey))}"]`)
-    if (!target) return
-    const elRect     = el.getBoundingClientRect()
-    const targetRect = target.getBoundingClientRect()
-    const offset     = targetRect.left - elRect.left + el.scrollLeft - 8
-    el.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' })
-  }, [activeKey])
 
   return (
     <div className={`relative ${className}`}>

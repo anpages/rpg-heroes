@@ -1,12 +1,11 @@
 import { requireAuth } from './_auth.js'
-import { getEffectiveStats } from './_stats.js'
+import { getEffectiveStats, getFullStats } from './_stats.js'
 import { simulateCombat } from './_combat.js'
 import { trainingRewards, heroAnchoredEnemyStats, applyArchetype, decoratedEnemyName } from '../src/lib/gameFormulas.js'
 import { interpolateHP, canPlay, applyCombatHpCost } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { progressMissions } from './_missions.js'
-import { COMBAT_HP_COST, WEAR_PROFILE } from '../src/lib/gameConstants.js'
-import { computeRatingUpdate, quickCombatDifficulty, quickCombatVirtualLevel } from './_rating.js'
+import { COMBAT_HP_COST, WEAR_PROFILE, COMBAT_STRATEGIES } from '../src/lib/gameConstants.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
 import { rollTacticDrop } from './_loot.js'
 import { verifyCombatToken } from './_combatSign.js'
@@ -32,7 +31,7 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_rating, combats_played, combats_won, last_combat_at, tier_grace_remaining')
+    .select('id, name, player_id, status, experience, level, current_hp, max_hp, hp_last_updated_at, active_effects, class, combat_strategy')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -54,6 +53,11 @@ export default async function handler(req, res) {
     })
   }
 
+  // Aplicar estrategia de combate del héroe
+  const strategy = COMBAT_STRATEGIES[hero.combat_strategy ?? 'balanced']
+  heroStats.attack  = Math.round(heroStats.attack  * strategy.atkMult)
+  heroStats.defense = Math.round(heroStats.defense * strategy.defMult)
+
   // Aplicar boosts de pociones activas
   const effects = hero.active_effects ?? {}
   if (effects.atk_boost) heroStats.attack  = Math.round(heroStats.attack  * (1 + effects.atk_boost))
@@ -69,8 +73,13 @@ export default async function handler(req, res) {
   // Clase y arquetipo del rival vienen del token; stats se calculan ahora
   // ancladas al héroe que el jugador eligió para combatir
   const { archetypeKey, enemyClass, enemyName } = preview
-  const { vl, shift } = quickCombatVirtualLevel(hero)
-  const enemyStats    = applyArchetype(heroAnchoredEnemyStats(heroStats), archetypeKey)
+
+  // VL del enemigo basado en nivel del héroe (1-21, escala lineal sobre nivel 1-50)
+  const vl = Math.max(1, Math.min(21, Math.ceil(hero.level * 21 / 50)))
+
+  // Anclar al enemigo con stats al 100% de durabilidad — el desgaste real es desventaja
+  const fullStats  = await getFullStats(supabase, hero.id)
+  const enemyStats = applyArchetype(heroAnchoredEnemyStats(fullStats ?? heroStats), archetypeKey)
 
   // Tácticas del héroe y del enemigo
   const { data: heroTacticRows } = await supabase
@@ -118,27 +127,11 @@ export default async function handler(req, res) {
   const newEffects = { ...effects }
   Object.keys(usedBoosts).forEach(k => delete newEffects[k])
 
-  // Rating de combate — la dificultad se calcula a partir del RESULTADO real:
-  // si el héroe termina con casi toda la HP, está por debajo de su tier y sube
-  // rápido (+25); si apenas sobrevive, el tier es ajustado y la subida se
-  // frena (+5). Paliza → sales del low-tier en decenas de combates en vez de
-  // cientos, sin tener que inflar los deltas base.
-  const quickDifficulty = quickCombatDifficulty({
-    won,
-    hpLeftA:   result.hpLeftA,
-    heroMaxHp: heroStats.max_hp,
-  })
-  const ratingResult = computeRatingUpdate(hero, {
-    won,
-    difficulty: quickDifficulty,
-    nowMs,
-  })
-  // Etiqueta narrativa para el cliente: por qué ese delta (solo en victoria).
-  const ratingReason = won
-    ? (quickDifficulty === 'superior' ? 'crush'
-    :  quickDifficulty === 'trivial'  ? 'clutch'
-    :  'fair')
-    : null
+  // Clave de desgaste basada en HP final del héroe
+  const hpPct = heroStats.max_hp > 0 ? result.hpLeftA / heroStats.max_hp : 0
+  const durKey = won
+    ? (hpPct > 0.70 ? 'crush' : hpPct >= 0.30 ? 'fair' : 'clutch')
+    : 'loss'
 
   const { error: hpError, count: hpCount } = await supabase
     .from('heroes')
@@ -146,7 +139,6 @@ export default async function handler(req, res) {
       current_hp:         hpAfterCombat,
       hp_last_updated_at: new Date(nowMs).toISOString(),
       active_effects:     newEffects,
-      ...ratingResult.updates,
     })
     .eq('id', hero.id)
     .eq('status', 'idle')
@@ -159,9 +151,6 @@ export default async function handler(req, res) {
   // Paliza (>70% HP) → 0: dominaste, el equipo no sufre. Fair → 1. Al límite
   // o derrota → 2. Así farmear low-tier no destroza equipo, pero al llegar al
   // tier justo los combates cobran su precio → loop reparar/mejorar.
-  const durKey = won
-    ? (quickDifficulty === 'superior' ? 'crush' : quickDifficulty === 'trivial' ? 'clutch' : 'fair')
-    : 'loss'
   const durLoss = WEAR_PROFILE.quick[durKey]
   if (durLoss > 0) {
     const { error: durError } = await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: durLoss })
@@ -199,23 +188,10 @@ export default async function handler(req, res) {
     enemyName,
     archetype:    archetypeKey,
     heroClass:    hero.class,
-    tierShift:    shift,
     durabilityLoss: durLoss,
     enemyTactics: enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
     rewards:      won ? rewards : null,
     heroCurrentHp:  hpAfterCombat,
     heroRealMaxHp:  hero.max_hp,
-    rating: {
-      prev:      ratingResult.tierBefore.rating,
-      current:   ratingResult.updates.combat_rating,
-      delta:     ratingResult.delta,
-      reason:    ratingReason,
-      decay:     ratingResult.decayApplied,
-      graceUsed: ratingResult.graceUsed,
-      promoted:  ratingResult.promoted,
-      tier:      ratingResult.tierAfter.tier,
-      division:  ratingResult.tierAfter.division,
-      label:     ratingResult.tierAfter.label,
-    },
   })
 }

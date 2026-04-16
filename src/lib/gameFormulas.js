@@ -5,6 +5,7 @@
  * Backend: import desde '../../src/lib/gameFormulas.js'
  * Frontend: import desde '../lib/gameFormulas.js'
  */
+import { computeClassLevelBonuses } from './gameConstants.js'
 
 /**
  * Calcula las stats efectivas del héroe en el frontend, con la misma lógica exacta
@@ -26,6 +27,12 @@ export function computeEffectiveStats(hero, items = [], tactics = [], researchBo
     agility:      hero.agility      ?? 0,
     intelligence: hero.intelligence ?? 0,
     max_hp:       hero.max_hp       ?? 0,
+  }
+
+  // Bonos de nivel de clase (encima del nivel 1)
+  const classBonuses = computeClassLevelBonuses(hero.class, hero.class_level ?? 1)
+  for (const [stat, val] of Object.entries(classBonuses)) {
+    if (stat in stats) stats[stat] += val
   }
 
   const STAT_MAP = { attack: 'attack', defense: 'defense', max_hp: 'max_hp', strength: 'strength', agility: 'agility', intelligence: 'intelligence' }
@@ -572,6 +579,30 @@ export const DUNGEON_TYPE_SLOTS = {
  * Descripción del loot principal por tipo de mazmorra.
  * El frontend usa esto para mostrar qué slots de equipo prioriza cada tipo.
  */
+/**
+ * Combat Power (CP) — indicador de fuerza del héroe.
+ * Pesos derivados del motor de combate (_combatMath.js):
+ *   attack ×4  → multiplicador principal de daño físico
+ *   defense ×3 → reducción de daño via def/(def+100)
+ *   strength ×2 → contribuye 0.3× al daño + penetración de armadura
+ *   agility ×2  → frecuencia de críticos y ataques dobles
+ *   intelligence ×2 → daño mágico (ignora defensa)
+ *   max_hp ×0.5 → supervivencia (valores más grandes, peso menor)
+ *
+ * @param {object} stats — { attack, defense, strength, agility, intelligence, max_hp }
+ * @returns {number} CP redondeado al entero más cercano
+ */
+export function computeCP(stats) {
+  return Math.round(
+    (stats.attack       ?? 0) * 4   +
+    (stats.defense      ?? 0) * 3   +
+    (stats.strength     ?? 0) * 2   +
+    (stats.agility      ?? 0) * 2   +
+    (stats.intelligence ?? 0) * 2   +
+    (stats.max_hp       ?? 0) * 0.5
+  )
+}
+
 export const DUNGEON_LOOT_FOCUS = {
   combat:     { label: 'Combate',    slots: ['main_hand', 'off_hand'],             description: 'Armas y escudos' },
   wilderness: { label: 'Naturaleza', slots: ['legs', 'arms', 'accessory'],         description: 'Armadura ligera y accesorios' },

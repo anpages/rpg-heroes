@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore'
 import { useHeroId } from '../hooks/useHeroId'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
-import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS } from '../lib/gameConstants'
+import { INVENTORY_BASE_LIMIT, BAG_SLOTS_PER_UPGRADE, computeResearchBonuses, CLASS_COLORS, COMBAT_STRATEGIES, CLASS_LEVEL_BONUSES, CLASS_TRAINING_MAX_LEVEL, classLevelXpRequired, computeTrainingProgress } from '../lib/gameConstants'
 import { useCraftedItems } from '../hooks/useCraftedItems'
 import DismantleChoiceModal from '../components/DismantleChoiceModal'
 import { useHero } from '../hooks/useHero'
@@ -20,10 +20,11 @@ import {
   Sword, Shield, Heart, Dumbbell, Wind, Brain, CircleDot,
   Crown, Shirt, Hand, Move, Gem, Trash2, Backpack, X,
   Wrench, Info, Pencil, Check, Telescope, Map, Swords, Trophy,
+  GraduationCap, Play, Square,
 } from 'lucide-react'
 import { tierForRating, pointsToNextTier, TIERS } from '../lib/combatRating'
 import { interpolateHp } from '../lib/hpInterpolation'
-import { xpRequiredForLevel, computeEffectiveStats } from '../lib/gameFormulas'
+import { xpRequiredForLevel, computeEffectiveStats, computeCP } from '../lib/gameFormulas'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ItemDetailModal } from '../components/ItemDetailModal'
 
@@ -56,7 +57,7 @@ const ALL_STATS = [
 ]
 
 
-function StatsDetailModal({ hero, items, effectiveStats = {}, researchBonuses = {}, tactics = [], onClose }) {
+function StatsDetailModal({ hero, items, effectiveStats = {}, researchBonuses = {}, tactics = [], classLevel, onClose }) {
   const RESEARCH_PCT_MAP = { attack: 'attack_pct', defense: 'defense_pct', intelligence: 'intelligence_pct' }
 
   // Equipo equipado con durabilidad aplicada (igual que computeEffectiveStats)
@@ -116,6 +117,13 @@ function StatsDetailModal({ hero, items, effectiveStats = {}, researchBonuses = 
 
               if (trainingPts > 0) {
                 rows.push({ label: 'Entrenamiento', value: trainingPts, source: 'training' })
+              }
+
+              // Bono de nivel de clase
+              const lvl = classLevel ?? 1
+              const classBonusVal = (CLASS_LEVEL_BONUSES[hero.class] ?? {})[key]
+              if (classBonusVal && lvl > 1) {
+                rows.push({ label: `Nv. clase ${lvl}`, value: classBonusVal * (lvl - 1), source: 'classlevel' })
               }
 
               // Equipo escalado por durabilidad (incl. encantamientos)
@@ -189,10 +197,11 @@ function StatsDetailModal({ hero, items, effectiveStats = {}, researchBonuses = 
                       {rows.map((r, i) => (
                         <div key={i} className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1 min-w-0">
-                            {r.source === 'training' && <Dumbbell size={10} strokeWidth={2} className="text-[#dc2626] flex-shrink-0" />}
-                            {r.source === 'research' && <Telescope size={10} strokeWidth={2} className="text-[#0f766e] flex-shrink-0" />}
-                            {r.source === 'tactic' && <Gem size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
-                            <span className={`text-[11px] truncate ${r.source === 'training' ? 'text-[#dc2626]' : r.source === 'research' ? 'text-[#0f766e]' : r.source === 'tactic' ? 'text-[#7c3aed]' : 'text-text-2'}`}>{r.label}</span>
+                            {r.source === 'training'   && <Dumbbell       size={10} strokeWidth={2} className="text-[#dc2626] flex-shrink-0" />}
+                            {r.source === 'research'   && <Telescope      size={10} strokeWidth={2} className="text-[#0f766e] flex-shrink-0" />}
+                            {r.source === 'tactic'     && <Gem            size={10} strokeWidth={2} className="text-[#7c3aed] flex-shrink-0" />}
+                            {r.source === 'classlevel' && <GraduationCap  size={10} strokeWidth={2} className="text-[#0369a1] flex-shrink-0" />}
+                            <span className={`text-[11px] truncate ${r.source === 'training' ? 'text-[#dc2626]' : r.source === 'research' ? 'text-[#0f766e]' : r.source === 'tactic' ? 'text-[#7c3aed]' : r.source === 'classlevel' ? 'text-[#0369a1]' : 'text-text-2'}`}>{r.label}</span>
                           </div>
                           <span className={`text-[13px] font-extrabold tabular-nums flex-shrink-0 ${r.value > 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
                             {r.value > 0 ? '+' : ''}{r.value}
@@ -259,6 +268,7 @@ const STATUS_META = {
   idle:       { label: 'En reposo',  color: '#16a34a' },
   exploring:  { label: 'Explorando', color: '#d97706' },
   ready:      { label: 'Listo',      color: '#16a34a' },
+  training:   { label: 'Entrenando', color: '#0369a1' },
 }
 
 /* ─── Inventory constants ─────────────────────────────────────────────────────── */
@@ -694,6 +704,78 @@ function Hero() {
   const [renameDraft, setRenameDraft] = useState('')
   const [, forceUpdate] = useReducer(x => x + 1, 0)
 
+  const strategyMutation = useMutation({
+    mutationKey: ['strategy'],
+    mutationFn: (strategy) => apiPost('/api/hero-strategy', { heroId: hero?.id, strategy }),
+    onMutate: async (strategy) => {
+      const key = queryKeys.hero(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, old => old ? { ...old, combat_strategy: strategy } : old)
+      return { previous }
+    },
+    onError: (err, _, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
+  })
+
+  const startTrainingMutation = useMutation({
+    mutationKey: ['class-training'],
+    mutationFn: () => apiPost('/api/training-start', { heroId: hero?.id }),
+    onMutate: async () => {
+      const key = queryKeys.hero(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, old => old ? { ...old, status: 'training', training_started_at: new Date().toISOString() } : old)
+      return { previous }
+    },
+    onError: (err, _, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
+  })
+
+  const collectTrainingMutation = useMutation({
+    mutationKey: ['class-training'],
+    mutationFn: (stop) => apiPost('/api/training-collect', { heroId: hero?.id, stop }),
+    onMutate: async (stop) => {
+      const key = queryKeys.hero(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      const current  = queryClient.getQueryData(key)
+      if (current) {
+        const elapsedMin = current.training_started_at
+          ? Math.max(0, Math.floor((Date.now() - new Date(current.training_started_at).getTime()) / 60000))
+          : 0
+        const { classLevel, classXp } = computeTrainingProgress(current.class_level ?? 1, current.class_xp ?? 0, elapsedMin)
+        queryClient.setQueryData(key, old => old ? {
+          ...old,
+          class_level: classLevel,
+          class_xp:    classXp,
+          ...(stop ? { status: 'idle', training_started_at: null } : { training_started_at: new Date().toISOString() }),
+        } : old)
+      }
+      return { previous }
+    },
+    onSuccess: (data, stop) => {
+      // Actualizar desde respuesta autoritativa del servidor para evitar race con refetch
+      queryClient.setQueryData(queryKeys.hero(heroId), old => old ? {
+        ...old,
+        class_level: data.classLevel,
+        class_xp:    data.classXp,
+        ...(stop ? { status: 'idle', training_started_at: null } : { training_started_at: new Date().toISOString() }),
+      } : old)
+    },
+    onError: (err, _, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData(queryKeys.hero(heroId), context.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) }),
+  })
+
   const renameMutation = useMutation({
     mutationFn: (name) => apiPost('/api/hero-rename', { heroId: hero?.id, name }),
     onSuccess: () => {
@@ -756,8 +838,9 @@ function Hero() {
   const cls          = hero.classes
   const activeExp    = hero.expeditions?.find(e => e.status === 'traveling')
   const expReady     = activeExp && new Date(activeExp.ends_at) <= Date.now()
-  const derivedStatus = expReady ? 'ready'
-    : activeExp ? 'exploring'
+  const derivedStatus = expReady    ? 'ready'
+    : activeExp                    ? 'exploring'
+    : hero.status === 'training'   ? 'training'
     : hero.status
   const status     = STATUS_META[derivedStatus] ?? STATUS_META.idle
   const isOccupied = derivedStatus === 'exploring'
@@ -892,6 +975,72 @@ function Hero() {
             </div>
 
             <XpBar level={hero.level} experience={hero.experience} />
+
+            {/* Entrenamiento de clase — inline */}
+            {(() => {
+              const classLevel = hero.class_level ?? 1
+              const classXp    = hero.class_xp    ?? 0
+              const isTraining = hero.status === 'training'
+              const atMax      = classLevel >= CLASS_TRAINING_MAX_LEVEL
+
+              const elapsedSec = isTraining && hero.training_started_at
+                ? Math.max(0, Math.floor((Date.now() - new Date(hero.training_started_at).getTime()) / 1000))
+                : 0
+              const elapsedMin = Math.floor(elapsedSec / 60)
+              const live       = computeTrainingProgress(classLevel, classXp, elapsedMin)
+              const xpNeeded   = classLevelXpRequired(live.classLevel)
+              const xpPct      = atMax ? 100 : Math.min(100, Math.round((live.classXp / xpNeeded) * 100))
+
+              const remainingXp  = xpNeeded - live.classXp
+              const remainingMin = Math.max(0, remainingXp - elapsedMin)
+              const fmtRemaining = (min) => {
+                if (min <= 0) return 'listo'
+                if (min < 60) return `${min}m`
+                return `${Math.floor(min / 60)}h${min % 60 > 0 ? ` ${min % 60}m` : ''}`
+              }
+
+              const canStart = hero.status === 'idle' && !atMax
+
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={13} strokeWidth={2} style={{ color: '#0369a1' }} />
+                    <span className="text-[13px] font-semibold text-text-2 flex-1">
+                      Entrenamiento · <span className="font-black tabular-nums" style={{ color: '#0369a1' }}>Nv.{live.classLevel}</span>
+                      {atMax && <span className="ml-1 text-[11px] font-bold" style={{ color: '#0369a1' }}>MAX</span>}
+                    </span>
+                    {!atMax && (
+                      <span className="text-[12px] text-text-3 tabular-nums">
+                        {isTraining ? `→ Nv.${live.classLevel + 1} en ${fmtRemaining(remainingMin)}` : fmtRemaining(remainingXp)}
+                      </span>
+                    )}
+                    <button
+                      className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors flex-shrink-0"
+                      style={isTraining
+                        ? { background: 'color-mix(in srgb, #0369a1 10%, var(--surface-2))', border: '1px solid color-mix(in srgb, #0369a1 28%, var(--border))' }
+                        : { background: canStart ? 'var(--btn-primary)' : 'var(--surface-2)', border: canStart ? 'none' : '1px solid var(--border)', opacity: canStart ? 1 : 0.4 }
+                      }
+                      onClick={() => {
+                        if (isTraining) { !collectTrainingMutation.isPending && collectTrainingMutation.mutate(true) }
+                        else { canStart && !startTrainingMutation.isPending && startTrainingMutation.mutate() }
+                      }}
+                    >
+                      {isTraining
+                        ? <Square size={12} strokeWidth={2.5} style={{ color: '#0369a1' }} />
+                        : <Play size={12} strokeWidth={2.5} style={{ color: canStart ? 'white' : 'var(--text-3)' }} />
+                      }
+                    </button>
+                  </div>
+                  {!atMax && (
+                    <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-[width] duration-[600ms]"
+                        style={{ width: `${xpPct}%`, background: isTraining ? '#0369a1' : 'color-mix(in srgb, #0369a1 55%, var(--border))' }} />
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             <HpBar current={hpNow ?? hero.current_hp} max={effective.max_hp} recovering={hero.status === 'idle'} />
 
             {hpPotions.length > 0 && (
@@ -937,93 +1086,107 @@ function Hero() {
 
           </div>
 
-          {statsDetailOpen && (
-            <StatsDetailModal
-              hero={hero}
-              items={items}
-              effectiveStats={effective}
-              researchBonuses={researchBonuses}
-              tactics={tactics ?? []}
-              onClose={() => setStatsDetailOpen(false)}
-            />
-          )}
+          {statsDetailOpen && (() => {
+            const liveLevel = (() => {
+              if (hero.status !== 'training' || !hero.training_started_at) return hero.class_level ?? 1
+              const elapsed = Math.max(0, Math.floor((Date.now() - new Date(hero.training_started_at).getTime()) / 60000))
+              return computeTrainingProgress(hero.class_level ?? 1, hero.class_xp ?? 0, elapsed).classLevel
+            })()
+            return (
+              <StatsDetailModal
+                hero={hero}
+                items={items}
+                effectiveStats={effective}
+                researchBonuses={researchBonuses}
+                tactics={tactics ?? []}
+                classLevel={liveLevel}
+                onClose={() => setStatsDetailOpen(false)}
+              />
+            )
+          })()}
 
         </div>
 
-        {/* Right column: rating + expedition + history */}
+        {/* Right column: CP + rating + expedition + history */}
         <div className="flex flex-col gap-4">
+
           {(() => {
-            const rating   = hero.combat_rating ?? 0
-            const t        = tierForRating(rating)
-            const tierIdx  = TIERS.findIndex(e => rating >= e.min)
-            const nextMin  = tierIdx > 0 ? TIERS[tierIdx - 1].min : null
-            const tierPct  = nextMin
-              ? Math.min(100, Math.round(((rating - t.min) / (nextMin - t.min)) * 100))
-              : 100
-            const ptsLeft  = pointsToNextTier(rating)
-            const played   = hero.combats_played ?? 0
-            const won      = hero.combats_won ?? 0
-            const winRate  = played > 0 ? Math.round((won / played) * 100) : null
+            const played  = hero.combats_played ?? 0
+            const won     = hero.combats_won ?? 0
+            const winRate = played > 0 ? Math.round((won / played) * 100) : null
 
-            return (
-              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-4">
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Rating de combate</span>
+            return (<>
 
-                {/* Tier badge grande */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: `color-mix(in srgb, ${t.color} 14%, var(--surface-2))`,
-                      border: `1.5px solid color-mix(in srgb, ${t.color} 35%, var(--border))`,
-                    }}
-                  >
-                    <Shield size={22} strokeWidth={1.8} style={{ color: t.color }} />
-                  </div>
-                  <div>
-                    <p className="text-[18px] font-black leading-tight" style={{ color: t.color }}>{t.label}</p>
-                    <p className="text-[13px] font-semibold text-text-3 tabular-nums">{rating} pts</p>
-                  </div>
+          {/* Combat Power */}
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'color-mix(in srgb, #d97706 12%, var(--surface-2))', border: '1.5px solid color-mix(in srgb, #d97706 28%, var(--border))' }}>
+                  <Swords size={15} strokeWidth={1.8} style={{ color: '#d97706' }} />
                 </div>
-
-                {/* Barra de progreso al siguiente tier */}
-                <div>
-                  <div className="h-2 bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-500"
-                      style={{ width: `${tierPct}%`, background: t.color }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-text-3 mt-1.5">
-                    {ptsLeft != null
-                      ? <><span className="font-semibold text-text tabular-nums">{ptsLeft} pts</span> para {TIERS[tierIdx - 1].label}</>
-                      : 'Rango máximo alcanzado'
-                    }
-                  </p>
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Poder de combate</span>
+              </div>
+              <span className="text-[22px] font-black tabular-nums leading-none" style={{ color: '#d97706' }}>
+                {computeCP(effective).toLocaleString()}
+              </span>
+            </div>
+            {played > 0 && (
+              <div className="flex items-center gap-4 pt-1 border-t border-border">
+                <div className="flex flex-col">
+                  <span className="text-[11px] text-text-3">Victorias</span>
+                  <span className="text-[14px] font-bold text-[#16a34a] tabular-nums">{won}</span>
                 </div>
-
-                {/* Récord */}
-                {played > 0 && (
-                  <div className="flex items-center gap-4 pt-1 border-t border-border">
-                    <div className="flex flex-col">
-                      <span className="text-[11px] text-text-3">Victorias</span>
-                      <span className="text-[14px] font-bold text-[#16a34a] tabular-nums">{won}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[11px] text-text-3">Derrotas</span>
-                      <span className="text-[14px] font-bold text-[#dc2626] tabular-nums">{played - won}</span>
-                    </div>
-                    {winRate != null && (
-                      <div className="flex flex-col ml-auto text-right">
-                        <span className="text-[11px] text-text-3">Winrate</span>
-                        <span className="text-[14px] font-bold text-text tabular-nums">{winRate}%</span>
-                      </div>
-                    )}
+                <div className="flex flex-col">
+                  <span className="text-[11px] text-text-3">Derrotas</span>
+                  <span className="text-[14px] font-bold text-[#dc2626] tabular-nums">{played - won}</span>
+                </div>
+                {winRate != null && (
+                  <div className="flex flex-col ml-auto text-right">
+                    <span className="text-[11px] text-text-3">Winrate</span>
+                    <span className="text-[14px] font-bold text-text tabular-nums">{winRate}%</span>
                   </div>
                 )}
               </div>
+            )}
+          </div>
+
+            </>)
+          })()}
+
+          {/* Estrategia defensiva */}
+          {(() => {
+            const current = hero.combat_strategy ?? 'balanced'
+            return (
+              <div className="bg-surface border border-border rounded-xl p-4 shadow-[var(--shadow-sm)] flex flex-col gap-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-text-3">Estrategia defensiva</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(COMBAT_STRATEGIES).map(([key, s]) => {
+                    const active = current === key
+                    return (
+                      <button
+                        key={key}
+                        className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-center transition-[border-color,background] duration-150 disabled:opacity-50"
+                        style={active ? {
+                          borderColor: 'color-mix(in srgb, var(--btn-primary) 55%, var(--border))',
+                          background:  'color-mix(in srgb, var(--btn-primary) 10%, var(--surface-2))',
+                        } : {
+                          borderColor: 'var(--border)',
+                          background:  'var(--surface-2)',
+                        }}
+                        onClick={() => !active && !strategyMutation.isPending && strategyMutation.mutate(key)}
+                      >
+                        <span className="text-[18px] leading-none">{s.icon}</span>
+                        <span className="text-[12px] font-bold text-text leading-tight">{s.label}</span>
+                        <span className="text-[10px] text-text-3 leading-tight">{s.description}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })()}
+
 
           {/* Expedición activa */}
           {expedition && (() => {

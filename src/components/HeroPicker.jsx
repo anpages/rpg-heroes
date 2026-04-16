@@ -84,18 +84,22 @@ const STATUS_COLOR = {
   idle:        '#16a34a',
   exploring:   '#d97706',
   ready:       '#16a34a',
+  training:    '#0369a1',
 }
 const STATUS_LABEL = {
   idle:        'Reposo',
   exploring:   'Explorando',
   ready:       '¡Recoger!',
+  training:    'Entrenando',
 }
 
-/* ─── Scroll-hint inline (igual que ScrollHint.jsx pero sin dependencia extra) ── */
-function HeroScrollRow({ activeId, children }) {
-  const ref = useRef(null)
+/* ─── Scroll row sin auto-scroll + triángulo activo fuera del overflow ──────── */
+function HeroScrollRow({ activeId, activeColor, children }) {
+  const ref       = useRef(null)
+  const outerRef  = useRef(null)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const [canScrollLeft,  setCanScrollLeft]  = useState(false)
+  const [triangleX, setTriangleX]           = useState(null)
 
   const check = useCallback(() => {
     const el = ref.current
@@ -105,42 +109,60 @@ function HeroScrollRow({ activeId, children }) {
     setCanScrollLeft(el.scrollLeft > tol)
   }, [])
 
+  // Medir posición horizontal del botón activo para el triángulo
+  const updateTriangle = useCallback(() => {
+    const el    = ref.current
+    const outer = outerRef.current
+    if (!el || !outer || activeId == null) { setTriangleX(null); return }
+    const target = el.querySelector(`[data-hero-id="${activeId}"]`)
+    if (!target) { setTriangleX(null); return }
+    const outerRect  = outer.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    setTriangleX(targetRect.left + targetRect.width / 2 - outerRect.left)
+  }, [activeId])
+
   useEffect(() => {
     const el = ref.current
     if (!el) return
     check()
-    el.addEventListener('scroll', check, { passive: true })
-    const ro = new ResizeObserver(check)
+    updateTriangle()
+    el.addEventListener('scroll', check,          { passive: true })
+    el.addEventListener('scroll', updateTriangle, { passive: true })
+    const ro = new ResizeObserver(() => { check(); updateTriangle() })
     ro.observe(el)
-    return () => { el.removeEventListener('scroll', check); ro.disconnect() }
-  }, [check])
-
-  // Scroll al elemento activo cuando cambia
-  useEffect(() => {
-    const el = ref.current
-    if (!el || activeId == null) return
-    const target = el.querySelector(`[data-hero-id="${activeId}"]`)
-    if (!target) return
-    const elRect     = el.getBoundingClientRect()
-    const targetRect = target.getBoundingClientRect()
-    const offset     = targetRect.left - elRect.left + el.scrollLeft - 8
-    el.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' })
-  }, [activeId])
+    return () => {
+      el.removeEventListener('scroll', check)
+      el.removeEventListener('scroll', updateTriangle)
+      ro.disconnect()
+    }
+  }, [check, updateTriangle])
 
   return (
-    <div className="relative">
+    <div ref={outerRef} className="relative pb-3">
       <div
         ref={ref}
         className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-6"
       >
         {children}
       </div>
+      {triangleX !== null && (
+        <span
+          className="absolute bottom-0 w-0 h-0 pointer-events-none -translate-x-1/2"
+          style={{
+            left: triangleX,
+            borderLeft:  '5px solid transparent',
+            borderRight: '5px solid transparent',
+            borderTop:   `5px solid ${activeColor ?? 'var(--blue-400)'}`,
+            opacity: 0.7,
+          }}
+        />
+      )}
       {canScrollLeft && (
-        <div className="absolute left-0 top-0 bottom-0 w-6 pointer-events-none"
+        <div className="absolute left-0 top-0 bottom-3 w-6 pointer-events-none"
           style={{ background: 'linear-gradient(to right, var(--color-surface), transparent)' }} />
       )}
       {canScrollRight && (
-        <div className="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-end pointer-events-none pr-0.5"
+        <div className="absolute right-0 top-0 bottom-3 w-10 flex items-center justify-end pointer-events-none pr-0.5"
           style={{ background: 'linear-gradient(to left, var(--color-surface) 30%, transparent)' }}>
           <ChevronRight size={14} strokeWidth={2.5} className="text-text-3 animate-pulse" />
         </div>
@@ -199,10 +221,13 @@ export function HeroSelector() {
   // Ocultar si solo hay 1 héroe sin posibilidad de más
   if (heroes.length <= 1 && !canRecruit && lockedSlots.length === 0) return null
 
-  const heroId = selectedHeroId ?? heroes?.[0]?.id ?? null
+  const heroId      = selectedHeroId ?? heroes?.[0]?.id ?? null
+  const activeHero  = heroes.find(h => h.id === heroId)
+  const activeStatus = activeHero ? getDerivedStatus(activeHero) : 'idle'
+  const activeColor  = activeStatus === 'ready' ? '#16a34a' : 'var(--blue-400)'
 
   return (
-    <HeroScrollRow activeId={heroId}>
+    <HeroScrollRow activeId={heroId} activeColor={activeColor}>
       {heroes.map(hero => {
         const status   = getDerivedStatus(hero)
         const isActive = hero.id === heroId
@@ -387,6 +412,7 @@ export function HeroCombatPicker({ locked = false, activeId: activeIdProp, onSel
         const hpColor   = hpPct > 60 ? '#16a34a' : hpPct > 30 ? '#d97706' : '#dc2626'
         const statusLabel = status === 'ready'     ? '¡Recoger pendiente!'
                           : status === 'exploring' ? 'En expedición'
+                          : hero.status === 'training' ? 'Entrenando'
                           : hero.status !== 'idle' ? 'Ocupado'
                           : 'Listo'
 

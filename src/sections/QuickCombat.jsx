@@ -11,6 +11,7 @@ import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { trainingRewards } from '../lib/gameFormulas'
+import { COMBAT_STRATEGIES } from '../lib/gameConstants'
 import { Swords, Coins, Star, Shield, Flame, Layers, Heart } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
@@ -68,7 +69,7 @@ function MatchmakingOverlay({ rivalFound, onReady }) {
       transition={{ duration: 0.2 }}
     >
       <motion.div
-        className="flex flex-col items-center gap-6 bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] px-14 py-12 min-w-[260px]"
+        className="flex flex-col items-center justify-center bg-surface border border-border rounded-2xl shadow-[var(--shadow-lg)] w-[300px] h-[220px]"
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
       >
@@ -293,6 +294,19 @@ export default function QuickCombat() {
           </p>
         )}
 
+        {heroId && hero?.combat_strategy && (() => {
+          const s = COMBAT_STRATEGIES[hero.combat_strategy]
+          return s ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-lg">
+              <span className="text-[15px] leading-none">{s.icon}</span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-text-3">Estrategia defensiva</span>
+                <span className="text-[12px] font-semibold text-text-2">{s.label} — {s.description}</span>
+              </div>
+            </div>
+          ) : null
+        })()}
+
         {heroId && hero && (() => {
           const pct      = Math.min(100, Math.round((hpNow / effectiveMaxHp) * 100))
           const hpColor  = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626'
@@ -369,8 +383,10 @@ export default function QuickCombat() {
             <Swords size={16} strokeWidth={2} />
             {combatMutation.isPending || matchmaking
               ? 'Buscando rival...'
-              : isBusy
-                ? 'Héroe ocupado'
+              : hero?.status === 'training'
+                ? 'Entrenando'
+                : isBusy
+                ? 'En expedición'
                 : !hasEnoughHp
                   ? 'HP insuficiente (20% mín.)'
                   : '¡Combatir!'}

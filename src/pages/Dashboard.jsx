@@ -523,7 +523,8 @@ function Dashboard({ session }) {
           <div className={activeTab === 'heroes' ? 'block animate-section-in' : 'hidden'}>
             {mountedTabs.has('heroes') && (
               <div className="flex flex-col gap-6">
-                {/* Selector de héroe */}
+                {/* Selector de héroe + sub-nav agrupados */}
+                <div className="flex flex-col gap-1">
                 <HeroSelector />
                 {/* Sub-nav */}
                 <div className="border-b border-border">
@@ -557,6 +558,7 @@ function Dashboard({ session }) {
                     )
                   })}
                 </ScrollHint>
+                </div>
                 </div>
                 {/* Sub-content */}
                 <AnimatePresence mode="wait">

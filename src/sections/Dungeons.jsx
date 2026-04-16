@@ -27,7 +27,7 @@ import {
 import {
   Coins, Star, Clock, ChevronRight, PackageOpen, X, Sword,
   Layers, Sparkles, FlaskConical, Heart, Brain,
-  Wrench, AlertTriangle, Lock, Compass, TrendingUp,
+  Wrench, AlertTriangle, Lock, Compass, TrendingUp, GraduationCap,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -235,7 +235,7 @@ function ActiveExpeditionBanner({ expedition, activeDungeon, onCollect }) {
 function DungeonCard({
   dungeon, effectiveMins, hpCost, goldMin, goldMax, xpReward,
   equipChance, tacticChance, materialData,
-  locked, busy, lowHp, isExploring,
+  locked, busy, lowHp, isExploring, heroStatus,
   onOpen,
 }) {
   const meta      = DUNGEON_TYPE_META[dungeon.type]
@@ -304,6 +304,7 @@ function DungeonCard({
           {locked
             ? <><Lock size={13} strokeWidth={2} /><span>Nv. {dungeon.min_hero_level}</span></>
             : isExploring ? <><Compass size={14} strokeWidth={2} className="animate-[spin_8s_linear_infinite]" /><span>Explorando…</span></>
+            : heroStatus === 'training' ? <><GraduationCap size={13} strokeWidth={2} /><span>Entrenando</span></>
             : busy ? <><Compass size={13} strokeWidth={2} /><span>En expedición</span></>
             : lowHp ? <><Heart size={13} strokeWidth={2} /><span>HP insuficiente</span></>
             : <><span>Preparar</span><ChevronRight size={15} strokeWidth={2} /></>}
@@ -712,13 +713,15 @@ function Dungeons() {
     const materialData = MATERIAL_DROP_DATA[d.type] ?? null
     const heroHpNow    = interpolateHp(hero, Date.now())
     const isLocked     = heroLevel < d.min_hero_level
-    const busy         = (expedition ? 'exploring' : hero?.status ?? 'idle') !== 'idle'
+    const heroStatus   = expedition ? 'exploring' : (hero?.status ?? 'idle')
+    const busy         = heroStatus !== 'idle'
     const lowHp        = !isLocked && !busy && (heroHpNow ?? 0) <= hpCost
 
     let disabledReason = null
-    if (isLocked)   disabledReason = `Nv. ${d.min_hero_level} requerido`
-    else if (busy)  disabledReason = 'Héroe ocupado'
-    else if (lowHp) disabledReason = 'HP insuficiente'
+    if (isLocked)                    disabledReason = `Nv. ${d.min_hero_level} requerido`
+    else if (heroStatus === 'training')  disabledReason = 'Entrenando'
+    else if (busy)                   disabledReason = 'En expedición'
+    else if (lowHp)                  disabledReason = 'HP insuficiente'
 
     return {
       effectiveMins, agilityPct,
@@ -846,6 +849,7 @@ function Dungeons() {
                 equipChance={p.equipChance} tacticChance={p.tacticChance}
                 materialData={p.materialData}
                 locked={false} busy={p.busy} lowHp={p.lowHp}
+                heroStatus={hero?.status}
                 isExploring={expedition?.dungeon_id === dungeon.id}
                 onOpen={setPrepDungeon}
               />

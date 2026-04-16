@@ -558,6 +558,96 @@ export function towerWearForFloor(floor) {
 }
 
 
+// ── Entrenamiento de clase ────────────────────────────────────────────────────
+
+/** XP de clase ganada por minuto de entrenamiento */
+export const CLASS_TRAINING_XP_PER_MIN = 1
+
+/** Nivel máximo de clase */
+export const CLASS_TRAINING_MAX_LEVEL = 20
+
+/**
+ * XP necesaria para avanzar DESDE este nivel al siguiente.
+ * Nv1→2: 60min, Nv10→11: 600min, Nv19→20: 1140min (total: ~210h)
+ */
+export function classLevelXpRequired(level) {
+  return level * 120
+}
+
+/**
+ * Bonos de stat por nivel de clase, por encima del nivel 1 (base = 0 bonus).
+ * A nivel N: stat += bonusBase × (N - 1)
+ */
+export const CLASS_LEVEL_BONUSES = {
+  caudillo:  { strength: 1, defense: 1 },
+  sombra:    { agility: 1, attack: 1 },
+  arcanista: { intelligence: 1, attack: 1 },
+  domador:   { agility: 1, strength: 1 },
+  universal: { strength: 1, agility: 1, intelligence: 1 },
+}
+
+/**
+ * Calcula los bonos de stat de nivel de clase para un héroe dado.
+ * Nivel 1 → sin bonus. Nivel 2 → 1× base. Nivel 20 → 19× base.
+ */
+export function computeClassLevelBonuses(heroClass, classLevel) {
+  const bonuses = CLASS_LEVEL_BONUSES[heroClass] ?? {}
+  const levels  = Math.max(0, (classLevel ?? 1) - 1)
+  const result  = {}
+  for (const [stat, val] of Object.entries(bonuses)) {
+    result[stat] = val * levels
+  }
+  return result
+}
+
+/**
+ * Simula el avance de nivel de clase dado XP acumulada.
+ * Usado tanto en el backend (training-collect) como en el frontend (vista live).
+ */
+export function computeTrainingProgress(classLevel, classXp, earnedXp) {
+  let level = classLevel ?? 1
+  let xp    = (classXp ?? 0) + earnedXp
+  while (level < CLASS_TRAINING_MAX_LEVEL) {
+    const needed = classLevelXpRequired(level)
+    if (xp >= needed) { xp -= needed; level++ }
+    else break
+  }
+  if (level >= CLASS_TRAINING_MAX_LEVEL) xp = 0
+  return { classLevel: level, classXp: xp }
+}
+
+// ── Estrategia de combate ─────────────────────────────────────────────────────
+
+/**
+ * Estrategias de combate configurables por héroe.
+ * Los multiplicadores se aplican a las stats antes de entrar al motor.
+ * atkMult: multiplicador sobre attack
+ * defMult: multiplicador sobre defense
+ */
+export const COMBAT_STRATEGIES = {
+  aggressive: {
+    label:       'Agresivo',
+    description: '+15% ataque, -10% defensa',
+    icon:        '⚔️',
+    atkMult:     1.15,
+    defMult:     0.90,
+  },
+  balanced: {
+    label:       'Equilibrado',
+    description: 'Sin modificadores',
+    icon:        '⚖️',
+    atkMult:     1.00,
+    defMult:     1.00,
+  },
+  defensive: {
+    label:       'Defensivo',
+    description: '-10% ataque, +15% defensa',
+    icon:        '🛡️',
+    atkMult:     0.90,
+    defMult:     1.15,
+  },
+}
+
 // ── Pociones ─────────────────────────────────────────────────────────────────
 
 /** Máximo de unidades de una misma poción en el inventario del laboratorio. */

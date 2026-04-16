@@ -409,6 +409,7 @@ export default function Torneos() {
 
   const { bracket, matches = [] } = data ?? {}
   const matchByRound = Object.fromEntries(matches.map(m => [m.round, m]))
+  const isRegistered = !!(data?.registered)
 
   /* ── Sin inscripción ────────────────────────────────────────────────────── */
   if (!bracket) {
@@ -520,8 +521,6 @@ export default function Torneos() {
     { icon: Sparkles, color: '#7c3aed', text: '200 oro + 20 maná',        label: 'Semifinal', round: 2 },
     { icon: Trophy,   color: '#d97706', text: '500 oro + táctica garantizada', label: 'Final',  round: 3 },
   ]
-
-  const isRegistered = !!(data?.registered)
 
   return (
     <div className="flex flex-col gap-4">
