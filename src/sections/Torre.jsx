@@ -33,7 +33,7 @@ function ProgressStrip({ maxFloor }) {
   const pct     = nextMs === prevMs ? 100 : Math.min(100, Math.round(((reached - prevMs) / (nextMs - prevMs)) * 100))
 
   return (
-    <div className="bg-surface border border-border rounded-xl px-5 pt-4 pb-5 flex flex-col gap-2.5 shadow-[var(--shadow-sm)]">
+    <div className="bg-surface border border-border rounded-xl px-3 pt-3 pb-4 sm:px-5 sm:pt-4 sm:pb-5 flex flex-col gap-2.5 shadow-[var(--shadow-sm)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Trophy size={15} color="#d97706" strokeWidth={2} />
@@ -198,7 +198,7 @@ export default function Torre() {
   if (heroLoading || towerLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando torre...</div>
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    <div className="flex flex-col gap-3 sm:gap-4 pb-4 sm:pb-8">
       <div className="section-header">
         <h2 className="section-title">Torre de Desafíos</h2>
         <p className="section-subtitle">Escala la torre para medir el poder de tu héroe. Cada piso es más difícil que el anterior.</p>
@@ -234,7 +234,7 @@ export default function Torre() {
       )}
 
       {/* Battle panel */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
+      <div className="bg-surface border border-border rounded-xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4 shadow-[var(--shadow-sm)]">
 
         {/* Floor + milestone */}
         <div className="flex items-center justify-between">

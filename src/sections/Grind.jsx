@@ -257,7 +257,7 @@ export default function Grind() {
   const full     = hpNow >= effectiveMaxHp
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    <div className="flex flex-col gap-3 sm:gap-4 pb-4 sm:pb-8">
       <div className="section-header">
         <h2 className="section-title">Combate de Grindeo</h2>
         <p className="section-subtitle">Combates rápidos contra un rival de tu clase para acumular drops mientras juegas activo.</p>
@@ -296,7 +296,7 @@ export default function Grind() {
       </AnimatePresence>
 
       {/* Panel de combate */}
-      <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
+      <div className="bg-surface border border-border rounded-xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4 shadow-[var(--shadow-sm)]">
 
         {/* Enemigo */}
         <div className="flex items-center gap-3 px-1">
