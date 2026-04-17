@@ -6,16 +6,23 @@
  */
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats } from './_stats.js'
-import { simulateCombat, floorEnemyStats, floorEnemyName, decoratedEnemyName } from './_combat.js'
+import { simulateCombat, floorEnemyName, decoratedEnemyName } from './_combat.js'
 import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
 import { rollItemDrop } from './_loot.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
 
-/** Mapea nivel de héroe a piso virtual de dificultad */
-function heroLevelToFloor(level) {
-  return Math.max(1, Math.round(level * 0.65))
+/** Enemy stats derivados de las stats reales del héroe × escalar */
+function enemyStatsFromHero(heroStats, scale = 0.85) {
+  return {
+    max_hp:       Math.max(1, Math.round(heroStats.max_hp       * scale)),
+    attack:       Math.max(1, Math.round(heroStats.attack       * scale)),
+    defense:      Math.max(1, Math.round(heroStats.defense      * scale)),
+    strength:     Math.max(1, Math.round(heroStats.strength     * scale)),
+    agility:      Math.max(1, Math.round(heroStats.agility      * scale)),
+    intelligence: Math.max(1, Math.round(heroStats.intelligence * scale)),
+  }
 }
 
 export default async function handler(req, res) {
@@ -55,11 +62,12 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Enemigo: misma clase, escalado por nivel del héroe
-  const vFloor     = heroLevelToFloor(hero.level)
-  const enemyStats = floorEnemyStats(vFloor, hero.class)
-  const enemyBase  = floorEnemyName(vFloor)
-  const enemyName  = decoratedEnemyName(enemyBase, hero.class)
+  // Stats igualadas al héroe; tácticas escalan agresivamente (×3, cap 21)
+  const vFloor      = Math.max(1, hero.level)
+  const vTactics    = Math.min(21, hero.level * 3)
+  const enemyStats  = enemyStatsFromHero(heroStats, 1.0)
+  const enemyBase   = floorEnemyName(vFloor)
+  const enemyName   = decoratedEnemyName(enemyBase, hero.class)
 
   // Tácticas del héroe
   const { data: heroTacticRows } = await supabase
@@ -71,7 +79,7 @@ export default async function handler(req, res) {
     name: r.tactic_catalog.name, icon: r.tactic_catalog.icon,
     level: r.level, combat_effect: r.tactic_catalog.combat_effect,
   }))
-  const enemyTactics = generateEnemyTactics(vFloor, hero.class)
+  const enemyTactics = generateEnemyTactics(vTactics, hero.class)
 
   const result = simulateCombat(heroStats, enemyStats, {
     critBonus: rb.crit_pct,
