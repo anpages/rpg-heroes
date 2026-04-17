@@ -180,25 +180,23 @@ export default function Grind() {
     if (data.rewards?.drop?.item_catalog) notify.itemDrop(data.rewards.drop.item_catalog)
     if (data.rewards?.drop?.full)         notify.bagFull()
     triggerResourceFlash()
+    // Aplicar HP al instante desde la respuesta (durabilidad llega con el refetch de inventory)
+    queryClient.setQueryData(queryKeys.hero(heroId), h => h ? {
+      ...h,
+      current_hp:         data.heroCurrentHp,
+      hp_last_updated_at: new Date().toISOString(),
+    } : h)
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.combatHistory(heroId) })
-    if (data.rewards?.drop)    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
-    if (data.rewards?.tactic)  queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
+    if (data.rewards?.tactic) queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
   }
 
   const fightMutation = useMutation({
     mutationFn: () => apiPost('/api/grind-combat', { heroId: hero?.id }),
     onSuccess: (data) => {
       setResult(data)
-      // Aplicar HP y durabilidad al instante desde la respuesta, sin esperar el refetch
-      queryClient.setQueryData(queryKeys.hero(heroId), h => h ? {
-        ...h,
-        current_hp:         data.heroCurrentHp,
-        hp_last_updated_at: new Date().toISOString(),
-      } : h)
-      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     },
     onError: (err) => {
       notify.error(err.message)
