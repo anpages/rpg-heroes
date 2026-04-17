@@ -1,7 +1,8 @@
 /**
  * Combate de grindeo — PvE rápido con drops para farming activo.
  * Enemigo: misma clase que el héroe, nivel proporcional al nivel del héroe.
- * Recompensas: oro + XP siempre; fragmentos (30%) e ítem (6%) en victoria.
+ * Recompensas: oro + XP siempre; fragmentos 15%, ítem 15%, táctica 8% en victoria.
+ * Calidad del ítem escala con nivel del héroe (dif 2→8), sin techo de rareza.
  * Coste: 8% max_hp en victoria, 12% en derrota. Desgaste de equipo: 1 punto.
  */
 import { requireAuth } from './_auth.js'
@@ -10,8 +11,25 @@ import { simulateCombat, floorEnemyName, decoratedEnemyName } from './_combat.js
 import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
-import { rollItemDrop, rollTacticDrop } from './_loot.js'
+import { rollItemDrop, rollTacticDrop, getDropConfig } from './_loot.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+
+/**
+ * Dificultad de drop según nivel del héroe.
+ * Controla la distribución de rareza y tier — la tasa del 15% se normaliza aparte.
+ * Nv.1-5:  dif 2 → tier 1, sin épica
+ * Nv.6-12: dif 4 → tier 1-2, sin épica
+ * Nv.13-20: dif 6 → tier 1-2, épica ~7%
+ * Nv.21-30: dif 7 → tier 2-3, épica ~12%, legendaria ~2%
+ * Nv.31+:   dif 8 → tier 2-3, épica ~17%, legendaria ~5%
+ */
+function grindDropDifficulty(level) {
+  if (level <= 5)  return 2
+  if (level <= 12) return 4
+  if (level <= 20) return 6
+  if (level <= 30) return 7
+  return 8
+}
 
 /** Enemy stats derivados de las stats reales del héroe × escalar */
 function enemyStatsFromHero(heroStats, scale = 0.85) {
@@ -142,14 +160,15 @@ export default async function handler(req, res) {
       })
     }
 
-    // Ítem: 15% → common/uncommon
-    if (Math.random() < 0.15) {
-      drop = await rollItemDrop(supabase, hero.id, user.id, {
-        difficulty: 2,
-        poolKey:    'combat',
-        heroClass:  hero.class,
-      })
-    }
+    // Ítem: 15% fijo — calidad escala con nivel del héroe
+    const dropDif  = grindDropDifficulty(hero.level)
+    const dropMult = 0.15 / getDropConfig(dropDif).chance  // normaliza a 15% real
+    drop = await rollItemDrop(supabase, hero.id, user.id, {
+      difficulty:   dropDif,
+      poolKey:      'combat',
+      heroClass:    hero.class,
+      dropRateMult: dropMult,
+    })
 
     // Táctica: 8%
     if (Math.random() < 0.08) {
