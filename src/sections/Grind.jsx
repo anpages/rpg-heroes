@@ -81,8 +81,14 @@ export default function Grind() {
 
   const fightMutation = useMutation({
     mutationFn: () => apiPost('/api/grind-combat', { heroId: hero?.id }),
-    onSuccess: (data) => setResult(data),
-    onError:   (err)  => notify.error(err.message),
+    onSuccess: (data) => {
+      setResult(data)
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    },
+    onError: (err) => {
+      notify.error(err.message)
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    },
   })
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
