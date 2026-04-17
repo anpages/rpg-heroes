@@ -130,13 +130,15 @@ function EventRow({ ev, heroName, enemyName, index }) {
 
   // Dodge event
   if (type === 'dodge') {
-    const dodgerName = ev.dodger === 'a' ? heroName : enemyName
+    const dodgerName    = ev.dodger === 'a' ? heroName : enemyName
+    const dodgerIsHero  = ev.dodger === 'a'
     return (
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.14 }}
         className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#7c3aed_10%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_25%,var(--border))]"
+        style={{ borderLeft: `3px solid ${dodgerIsHero ? 'var(--blue-700)' : '#dc2626'}` }}
       >
         <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
         <span className="text-[15px] flex-shrink-0 leading-none select-none">💨</span>
@@ -155,6 +157,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.14 }}
         className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#d97706_10%,var(--bg))] border border-[color-mix(in_srgb,#d97706_30%,var(--border))]"
+        style={{ borderLeft: `3px solid ${isHero ? 'var(--blue-700)' : '#dc2626'}` }}
       >
         <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
         <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '⚡'}</span>
@@ -186,6 +189,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.14 }}
         className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#a855f7_8%,var(--bg))] border border-[color-mix(in_srgb,#a855f7_25%,var(--border))]"
+        style={{ borderLeft: `3px solid ${isHero ? 'var(--blue-700)' : '#dc2626'}` }}
       >
         <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
         <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '✨'}</span>
@@ -218,6 +222,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.14 }}
         className="flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] bg-[color-mix(in_srgb,#7c3aed_10%,var(--bg))] border border-[color-mix(in_srgb,#7c3aed_30%,var(--border))]"
+        style={{ borderLeft: `3px solid ${isHero ? 'var(--blue-700)' : '#dc2626'}` }}
       >
         <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
         <span className="text-[15px] flex-shrink-0 leading-none select-none">{ev.icon ?? '⚔'}</span>
@@ -253,6 +258,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.14 }}
         className="flex items-center gap-2 px-3 py-[5px] rounded-lg text-[12px] text-text-3"
+        style={{ borderLeft: `3px solid ${isHero ? 'var(--blue-700)' : '#dc2626'}` }}
       >
         <span className="text-[10px] font-bold w-[22px] flex-shrink-0 tabular-nums">R{ev.round}</span>
         <span className="text-[13px] flex-shrink-0 leading-none select-none">
@@ -276,6 +282,7 @@ function EventRow({ ev, heroName, enemyName, index }) {
           ? 'bg-[color-mix(in_srgb,#d97706_14%,var(--bg))] border border-[color-mix(in_srgb,#d97706_35%,var(--border))]'
           : index % 2 === 0 ? 'bg-[var(--bg)]' : 'bg-transparent'
       }`}
+      style={{ borderLeft: `3px solid ${isHero ? 'var(--blue-700)' : '#dc2626'}` }}
     >
       {/* Round badge */}
       <span className="text-[10px] font-bold text-text-3 w-[22px] flex-shrink-0 tabular-nums">
