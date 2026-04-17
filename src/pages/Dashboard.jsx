@@ -20,10 +20,11 @@ import Entrenamiento from '../sections/Entrenamiento'
 import Logros from '../sections/Logros'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ThemeToggle from '../components/ThemeToggle'
+import AccountSwitcher from '../components/AccountSwitcher'
 import { RecruitModal, HeroSelector } from '../components/HeroPicker'
 import ScrollHint from '../components/ScrollHint'
 import { useTheme } from '../hooks/useTheme'
-import { Castle, Sword, Globe, Map, FlaskConical, X, LogOut, ClipboardList, Shield, Layers, Swords, Dumbbell, Trophy } from 'lucide-react'
+import { Castle, Sword, Globe, Map, FlaskConical, X, ClipboardList, Shield, Layers, Swords, Dumbbell, Trophy } from 'lucide-react'
 import { PRODUCTION_BUILDING_TYPES, buildingRate } from '../lib/gameConstants'
 
 function DiscordIcon({ size = 20 }) {
@@ -348,7 +349,7 @@ const HERO_SUB_TABS = [
 
 
 
-function Dashboard({ session }) {
+function Dashboard({ session, onAccountSwitch }) {
   const activeTab         = useAppStore(s => s.activeTab)
   const activeHeroTab     = useAppStore(s => s.activeHeroTab)
   const mountedTabs       = useAppStore(s => s.mountedTabs)
@@ -419,7 +420,6 @@ function Dashboard({ session }) {
 
   const isMobileDrawer = typeof window !== 'undefined' && window.innerWidth <= 600
 
-  async function handleLogout() { await supabase.auth.signOut() }
 
   return (
     <div className="h-dvh flex flex-col world-bg overflow-hidden">
@@ -469,15 +469,7 @@ function Dashboard({ session }) {
             )}
           </button>
           <ThemeToggle theme={theme} setTheme={setTheme} />
-
-          <button
-            className="btn btn--ghost btn--sm hover:text-error-text hover:border-[color-mix(in_srgb,var(--error-text)_40%,var(--border))] hover:bg-[color-mix(in_srgb,var(--error-text)_6%,transparent)]"
-            onClick={handleLogout}
-            title="Cerrar sesión"
-          >
-            <LogOut size={14} strokeWidth={2} />
-            <span className="hidden md:inline">Salir</span>
-          </button>
+          <AccountSwitcher session={session} onSwitch={onAccountSwitch} />
         </div>
       </header>
 

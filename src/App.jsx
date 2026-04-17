@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { useAppStore } from './store/appStore'
 import { queryClient } from './lib/queryClient'
+import { saveAccount } from './lib/accountManager'
 import LoginPage from './pages/LoginPage'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
@@ -27,18 +28,41 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [playerExists, setPlayerExists] = useState(null)
   const setUserId = useAppStore(s => s.setUserId)
+  const prevUserIdRef = useRef(null)
+
+  // Callback explícito para cambio de cuenta — no depende de onAuthStateChange
+  const handleAccountSwitch = useCallback((newSession) => {
+    saveAccount(newSession)
+    queryClient.clear()
+    prevUserIdRef.current = newSession.user.id
+    setPlayerExists(null)
+    setSession(newSession)
+    setUserId(newSession.user.id)
+  }, [setUserId])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) saveAccount(session)
       setSession(session)
       setUserId(session?.user?.id ?? null)
+      prevUserIdRef.current = session?.user?.id ?? null
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) saveAccount(session)
+      const newId = session?.user?.id ?? null
+      const prevId = prevUserIdRef.current
+      if (!session) {
+        setPlayerExists(null)
+        queryClient.clear()
+      } else if (prevId && prevId !== newId) {
+        setPlayerExists(null)
+        queryClient.clear()
+      }
+      prevUserIdRef.current = newId
       setSession(session)
-      setUserId(session?.user?.id ?? null)
-      if (!session) { setPlayerExists(null); queryClient.clear() }
+      setUserId(newId)
     })
 
     return () => subscription.unsubscribe()
@@ -76,7 +100,7 @@ function App() {
   } else {
     pageContent = (
       <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ height: '100vh' }}>
-        <Dashboard session={session} />
+        <Dashboard session={session} onAccountSwitch={handleAccountSwitch} />
         <InstallPrompt />
       </motion.div>
     )
