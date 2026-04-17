@@ -6,7 +6,7 @@
  * Coste: 8% max_hp en victoria, 12% en derrota. Desgaste de equipo: 1 punto.
  */
 import { requireAuth } from './_auth.js'
-import { getEffectiveStats } from './_stats.js'
+import { getEffectiveStats, getFullStats } from './_stats.js'
 import { simulateCombat, floorEnemyName, decoratedEnemyName } from './_combat.js'
 import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
@@ -80,10 +80,11 @@ export default async function handler(req, res) {
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Stats igualadas al héroe; tácticas escalan agresivamente (×3, cap 21)
+  // Enemigo anclado a stats a durabilidad 100% — el desgaste penaliza al héroe
   const vFloor      = Math.max(1, hero.level)
   const vTactics    = Math.min(21, hero.level * 3)
-  const enemyStats  = enemyStatsFromHero(heroStats, 1.0)
+  const fullStats   = await getFullStats(supabase, hero.id)
+  const enemyStats  = enemyStatsFromHero(fullStats ?? heroStats, 1.0)
   const enemyBase   = floorEnemyName(vFloor)
   const enemyName   = decoratedEnemyName(enemyBase, hero.class)
 
