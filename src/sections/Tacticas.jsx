@@ -109,6 +109,7 @@ function describeCombatEffect(fx) {
   else if (e === 'stat_buff') parts.push(`+${Math.round((fx.value ?? 0) * 100)}% ${STAT_LABELS[fx.stat] ?? fx.stat}`)
   else if (e === 'first_hit_mult') parts.push(`primer golpe ×${fx.value}`)
   else if (e === 'pure_magic_burst') parts.push(`explosión ${Math.round((fx.value ?? 0) * 100)}%`)
+  else if (e === 'guaranteed_crit_next') parts.push('próx. crítico guar.')
   else parts.push(e)
   if (fx.duration && fx.duration < 99) parts.push(`${fx.duration}t`)
   return parts.join(' · ')
