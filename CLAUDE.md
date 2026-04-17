@@ -95,8 +95,10 @@ src/
     hpInterpolation.js         # Interpolación HP idle
     missionPool.js             # Pool de misiones (sincronizado con _missions.js)
     teamSynergy.js             # Sinergias de equipo
+    accountManager.js          # Gestión de cuentas múltiples (localStorage: rpg-accounts)
 
   components/                  # Componentes reutilizables (modales, combat replay, etc.)
+    AccountSwitcher.jsx        # Selector multicuenta en header (bottom sheet, portal)
   store/appStore.js            # Zustand: tabs, modales, hero seleccionado
 
 supabase/migrations/           # ~130 migraciones SQL
@@ -170,6 +172,14 @@ supabase/migrations/           # ~130 migraciones SQL
 - 3 misiones por día con seed determinista (jugador + fecha)
 - Recompensas variables por tier: gold + xp siempre; fragmentos en tiers medio/difícil; esencia/pergamino en difícil
 - Tipos con recompensas especiales: `dungeon_type_combat/magic` (frags), `item_drop` (frags/esencia), `tower_attempt` (pergamino en difícil)
+
+### Selector multicuenta
+- El botón "Salir" ha sido reemplazado por el avatar del usuario en el header
+- Al pulsar abre un bottom sheet (portal sobre `document.body`) con: cuenta activa, otras cuentas guardadas, "Añadir cuenta" y "Cerrar sesión"
+- Las sesiones se persisten en `localStorage` bajo la clave `rpg-accounts` mediante `accountManager.js`
+- El cambio usa `supabase.auth.setSession(tokens)` + callback `onSwitch` → `handleAccountSwitch` en App.jsx
+- "Añadir cuenta" lanza `signInWithOAuth` (redirect OAuth sin perder las sesiones guardadas)
+- "Cerrar sesión": si hay otras cuentas guardadas, cambia a la primera; si no, hace signOut normal
 
 ### Bonus de regreso
 - Se comprueba al montar Dashboard (`useComebackBonus`)
