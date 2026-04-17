@@ -19,18 +19,12 @@ export default async function handler(req, res) {
 
   if (!hero) return res.status(404).json({ error: 'Héroe no encontrado' })
 
-  const { data: towerData } = await supabase
-    .from('tower_attempts')
-    .select('id, floor, won, rounds, log, hero_name, enemy_name, hero_max_hp, enemy_max_hp, attempted_at')
+  const { data } = await supabase
+    .from('combat_log')
+    .select('id, source, won, enemy_name, floor, rounds, created_at')
     .eq('hero_id', heroId)
-    .order('attempted_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(30)
 
-  const combats = (towerData ?? []).map(c => ({
-    ...c,
-    source:     'torre',
-    created_at: c.attempted_at,
-  }))
-
-  return res.status(200).json({ combats })
+  return res.status(200).json({ combats: data ?? [] })
 }

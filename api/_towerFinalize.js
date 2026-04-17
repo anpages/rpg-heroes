@@ -49,6 +49,18 @@ export async function finalizeTowerAttempt({
     enemy_max_hp:  enemyStats.max_hp,
   })
 
+  // Historial genérico + contadores de combate
+  await supabase.from('combat_log').insert({
+    hero_id:    hero.id,
+    player_id:  user.id,
+    source:     'torre',
+    won,
+    enemy_name: enemyName,
+    floor:      targetFloor,
+    rounds:     result.rounds,
+  })
+  await supabase.rpc('increment_combat_stats', { p_hero_id: hero.id, p_won: won })
+
   // Deducir HP — coste plano fijo, gane o pierda
   const costPct       = won ? COMBAT_HP_COST.tower.win : COMBAT_HP_COST.tower.loss
   const hpAfterCombat = applyCombatHpCost(currentHp, hero.max_hp, costPct)

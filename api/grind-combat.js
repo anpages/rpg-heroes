@@ -177,6 +177,17 @@ export default async function handler(req, res) {
     }
   }
 
+  // Historial genérico + contadores de combate
+  await supabase.from('combat_log').insert({
+    hero_id:    hero.id,
+    player_id:  user.id,
+    source:     'grind',
+    won,
+    enemy_name: enemyName,
+    rounds:     result.rounds,
+  })
+  await supabase.rpc('increment_combat_stats', { p_hero_id: hero.id, p_won: won })
+
   return res.status(200).json({
     ok: true,
     won,
