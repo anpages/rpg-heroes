@@ -34,6 +34,7 @@ api/                          # Serverless functions (Vercel)
   _research.js                # Lógica de investigación
   _stats.js                   # Stats efectivas del héroe (durabilidad, peso, equipo, encantamientos)
   _validate.js                # Validación de inputs
+  _grindFinalize.js           # Lógica post-combate de grindeo (compartida entre grind-combat y combat-resume)
   achievements.js             # GET logros con progreso calculado en tiempo real
   achievements-claim.js       # POST reclamar logro completado
   building-*.js               # Edificios: collect, upgrade
@@ -199,6 +200,15 @@ supabase/migrations/           # ~130 migraciones SQL
 - Formato activo: 1v1 (Torre). PvP futuro en Arena (pendiente)
 - Firma HMAC para verificar resultados
 - **No hay estrategia defensiva** — eliminada. El héroe combate con sus stats tal cual.
+- **Historial unificado**: tabla `combat_log` recibe entradas de torre y grindeo. RPC `increment_combat_stats(p_hero_id, p_won)` actualiza contadores `combats_played`/`combats_won` en heroes.
+
+### Momento clave (grindeo)
+- Se activa cuando el combate es reñido (un luchador baja del 50% HP) y `grind_km_cooldown === 0`
+- Al activarse: cooldown se pone a 3, decrementa 1 por combate
+- **Decisiones duales**: jugador y enemigo eligen simultáneamente. La IA del enemigo usa pesos por HP (`enemyAIDecision` en `combat-resume.js`): HP bajo → prioriza defensa, HP alto → más agresivo
+- 4 opciones: `estocada_final`, `defensa_ferrea`, `concentracion_arcana`, `impulso_veloz` — definidas en `src/lib/combatDecisions.js`
+- Flujo: `grind-combat.js` pausa y firma token HMAC → frontend muestra panel → `combat-resume.js` aplica ambas decisiones y reanuda
+- Post-resume: respuesta incluye `playerDecision` y `enemyDecision` → `CombatReplay` muestra banner `DecisionsReveal` entre HP bars y log
 
 ### Laboratorio (antes "Taller")
 - Requiere base nivel 3
