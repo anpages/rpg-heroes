@@ -13,6 +13,23 @@ import { interpolateHP } from './_hp.js'
 import { finalizeTowerAttempt } from './_towerFinalize.js'
 import { finalizeGrindCombat } from './_grindFinalize.js'
 
+/** IA del enemigo: elige decisión según su HP actual */
+function enemyAIDecision(enemyStats, hpB) {
+  const hpPct = hpB / enemyStats.max_hp
+  // Pesos: [estocada_final, defensa_ferrea, concentracion_arcana, impulso_veloz]
+  const weights = hpPct < 0.35
+    ? [0.10, 0.50, 0.15, 0.25]   // HP bajo: prioriza defensa/curación
+    : hpPct > 0.65
+      ? [0.35, 0.10, 0.30, 0.25]  // HP alto: más agresivo
+      : [0.25, 0.25, 0.25, 0.25]  // equilibrado
+  let roll = Math.random() * weights.reduce((a, b) => a + b, 0)
+  for (let i = 0; i < KEY_MOMENT_OPTIONS.length; i++) {
+    roll -= weights[i]
+    if (roll <= 0) return KEY_MOMENT_OPTIONS[i]
+  }
+  return KEY_MOMENT_OPTIONS[0]
+}
+
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
   if (!auth) return
@@ -53,22 +70,38 @@ export default async function handler(req, res) {
   const nowMs     = Date.now()
   const currentHp = interpolateHP(hero, nowMs, heroStats.max_hp)
 
-  const applied  = decisionDef.apply(heroStats, enemyStats, state.hpA, state.hpB)
-  const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }
-  const result   = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
+  // Decisión del jugador aplicada al héroe (lado A)
+  const playerApplied = decisionDef.apply(heroStats, enemyStats, state.hpA, state.hpB)
+
+  // Decisión de la IA del enemigo aplicada al enemigo (tratado como lado A)
+  const enemyDecisionKey = enemyAIDecision(enemyStats, state.hpB)
+  const enemyDecisionDef = COMBAT_DECISIONS[enemyDecisionKey]
+  const enemyApplied = enemyDecisionDef.apply(
+    playerApplied.b,   // enemy stats
+    playerApplied.a,   // hero stats (como "b", no se modifica)
+    playerApplied.hpB, // enemy HP
+    playerApplied.hpA, // hero HP
+  )
+
+  const newState = { ...state, hpA: enemyApplied.hpB, hpB: enemyApplied.hpA }
+  const result   = resumeCombat(playerApplied.a, enemyApplied.a, newState, combatOpts ?? {})
 
   // ── Torre ────────────────────────────────────────────────────────────────────
   if (payload.type === 'tower') {
     const { targetFloor, enemyName, archetypeKey, prevMaxFloor } = payload
     const finalize = await finalizeTowerAttempt({
       supabase, user, hero, currentHp,
-      heroStats:  applied.a,
-      enemyStats: applied.b,
+      heroStats:  playerApplied.a,
+      enemyStats: enemyApplied.a,
       targetFloor, enemyName, archetypeKey,
       result, nowMs, prevMaxFloor,
     })
     if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
-    return res.status(200).json(finalize.payload)
+    return res.status(200).json({
+      ...finalize.payload,
+      playerDecision: decision,
+      enemyDecision:  enemyDecisionKey,
+    })
   }
 
   // ── Grindeo ──────────────────────────────────────────────────────────────────
@@ -76,15 +109,17 @@ export default async function handler(req, res) {
     const { enemyName } = payload
     const finalize = await finalizeGrindCombat({
       supabase, user, hero, currentHp,
-      heroStats:  applied.a,
-      enemyStats: applied.b,
+      heroStats:  playerApplied.a,
+      enemyStats: enemyApplied.a,
       enemyName, result, nowMs,
-      kmCooldownNext: 6, // ya se puso a 6 cuando se pausó, aquí se mantiene hasta que baje
+      kmCooldownNext: 3, // ya se puso a 3 cuando se pausó, aquí se mantiene hasta que baje
     })
     if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
     return res.status(200).json({
       ...finalize.payload,
-      enemyTactics: [],
+      enemyTactics:   [],
+      playerDecision: decision,
+      enemyDecision:  enemyDecisionKey,
     })
   }
 

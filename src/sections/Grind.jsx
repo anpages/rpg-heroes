@@ -279,6 +279,7 @@ export default function Grind() {
           decisions={result.decisions}
           onDecide={(d) => resumeMutation.mutate(d)}
           resolving={resumeMutation.isPending}
+          decisionsReveal={result.playerDecision ? { player: result.playerDecision, enemy: result.enemyDecision } : null}
           onClose={() => { applyPostCombat(result); setResult(null); setPauseToken(null) }}
         />
       )}

@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
   // Momento clave — devolver estado pausado con token firmado
   if (result.paused) {
-    await supabase.from('heroes').update({ grind_km_cooldown: 6 }).eq('id', hero.id)
+    await supabase.from('heroes').update({ grind_km_cooldown: 3 }).eq('id', hero.id)
     const token = signCombatToken({
       type:       'grind',
       heroId:     hero.id,

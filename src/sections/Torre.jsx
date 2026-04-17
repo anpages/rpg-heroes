@@ -229,6 +229,7 @@ export default function Torre() {
           decisions={result.decisions}
           onDecide={(d) => resumeMutation.mutate(d)}
           resolving={resumeMutation.isPending}
+          decisionsReveal={result.playerDecision ? { player: result.playerDecision, enemy: result.enemyDecision } : null}
         />
       )}
 

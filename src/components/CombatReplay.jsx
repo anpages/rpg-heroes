@@ -325,6 +325,39 @@ function EventRow({ ev, heroName, enemyName, index }) {
   )
 }
 
+function DecisionsReveal({ playerDecision, enemyDecision, heroName, enemyName }) {
+  const pd = COMBAT_DECISIONS[playerDecision]
+  const ed = COMBAT_DECISIONS[enemyDecision]
+  if (!pd || !ed) return null
+  return (
+    <motion.div
+      className="flex items-center gap-2 px-4 py-2 border-b border-border bg-[color-mix(in_srgb,#f59e0b_6%,var(--surface))] flex-shrink-0"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      {/* Hero side */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <span className="text-[15px] leading-none">{pd.icon}</span>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--blue-700)] opacity-70">{heroName}</span>
+          <span className="text-[11px] font-extrabold leading-tight truncate" style={{ color: pd.color }}>{pd.label}</span>
+        </div>
+      </div>
+      {/* VS separator */}
+      <span className="text-[9px] font-extrabold text-text-3 tracking-[0.12em] flex-shrink-0">VS</span>
+      {/* Enemy side */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+        <div className="flex flex-col items-end min-w-0">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[#dc2626] opacity-70">{enemyName}</span>
+          <span className="text-[11px] font-extrabold leading-tight truncate" style={{ color: ed.color }}>{ed.label}</span>
+        </div>
+        <span className="text-[15px] leading-none">{ed.icon}</span>
+      </div>
+    </motion.div>
+  )
+}
+
 function KeyMomentPanel({ decisions, onDecide, loading }) {
   return (
     <motion.div
@@ -462,6 +495,7 @@ export function CombatReplay({
   won, rewards, onClose,
   heroClass, archetype,
   keyMomentPause, decisions, onDecide, resolving,
+  decisionsReveal,
   enemyTactics,
 }) {
   const resolvedHeroClass  = heroClass ?? null
@@ -565,6 +599,16 @@ export function CombatReplay({
             ))}
           </AnimatePresence>
         </div>
+
+        {/* ── Reveal de decisiones del Momento clave ── */}
+        {decisionsReveal && (
+          <DecisionsReveal
+            playerDecision={decisionsReveal.player}
+            enemyDecision={decisionsReveal.enemy}
+            heroName={heroName}
+            enemyName={enemyName}
+          />
+        )}
 
         {/* ── Log — siempre visible, ocupa el espacio disponible ── */}
         <div
