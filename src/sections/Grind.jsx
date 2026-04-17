@@ -120,14 +120,37 @@ export default function Grind() {
     .map(c => ({ ...c, quantity: inventory[c.id] ?? 0 }))
 
   const itemUseMutation = useMutation({
-    mutationFn: async (recipeId) => {
-      await apiPost('/api/item-use', { heroId: hero?.id, recipeId })
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: queryKeys.craftedItems(userId) }),
-        queryClient.refetchQueries({ queryKey: queryKeys.hero(heroId) }),
-      ])
+    mutationKey: ['item-use', heroId],
+    mutationFn: (recipeId) => apiPost('/api/item-use', { heroId: hero?.id, recipeId }),
+    onMutate: async (recipeId) => {
+      const heroKey    = queryKeys.hero(heroId)
+      const craftedKey = queryKeys.craftedItems(userId)
+      await queryClient.cancelQueries({ queryKey: heroKey })
+      await queryClient.cancelQueries({ queryKey: craftedKey })
+      const prevHero    = queryClient.getQueryData(heroKey)
+      const prevCrafted = queryClient.getQueryData(craftedKey)
+      // HP optimista: +40% max_hp, cap a effectiveMaxHp
+      queryClient.setQueryData(heroKey, h => h ? {
+        ...h,
+        current_hp:         Math.min(effectiveMaxHp, (h.current_hp ?? 0) + Math.round(effectiveMaxHp * 0.40)),
+        hp_last_updated_at: new Date().toISOString(),
+      } : h)
+      // Cantidad optimista: -1 poción
+      queryClient.setQueryData(craftedKey, d => d ? {
+        ...d,
+        inventory: { ...d.inventory, [recipeId]: Math.max(0, (d.inventory?.[recipeId] ?? 1) - 1) },
+      } : d)
+      return { prevHero, prevCrafted }
     },
-    onError: err => notify.error(err.message),
+    onError: (err, _recipeId, ctx) => {
+      if (ctx?.prevHero)    queryClient.setQueryData(queryKeys.hero(heroId), ctx.prevHero)
+      if (ctx?.prevCrafted) queryClient.setQueryData(queryKeys.craftedItems(userId), ctx.prevCrafted)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.craftedItems(userId) })
+    },
   })
 
   const nowMs          = Date.now()
@@ -178,14 +201,27 @@ export default function Grind() {
   })
 
   const repairMutation = useMutation({
+    mutationKey: ['repair'],
     mutationFn: () => apiPost('/api/item-repair-all', { heroId: hero?.id }),
-    onSuccess: () => {
+    onMutate: async () => {
       setShowRepair(false)
-      triggerResourceFlash()
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      const key = queryKeys.inventory(heroId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, (previous ?? []).map(i =>
+        i.equipped_slot ? { ...i, current_durability: i.item_catalog.max_durability } : i
+      ))
+      return { previous }
     },
-    onError: err => { notify.error(err.message); setShowRepair(false) },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) queryClient.setQueryData(queryKeys.inventory(heroId), ctx.previous)
+      notify.error(err.message)
+    },
+    onSettled: () => {
+      triggerResourceFlash()
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+    },
   })
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
@@ -362,6 +398,7 @@ export default function Grind() {
                       whileTap={damagedEquipped.length === 0 ? {} : { scale: 0.92 }}
                     >
                       <Wrench size={10} strokeWidth={2.5} />
+                      Reparar
                     </motion.button>
                     <span className="text-[13px] font-semibold tabular-nums" style={{ color: durColor }}>{durPct}%</span>
                   </div>
