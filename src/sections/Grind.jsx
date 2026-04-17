@@ -169,6 +169,7 @@ export default function Grind() {
     onSuccess: (data) => {
       setResult(data)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     },
     onError: (err) => {
       notify.error(err.message)
@@ -328,20 +329,7 @@ export default function Grind() {
               <>
                 <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
                   <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                  <div className="flex items-center gap-2">
-                    <span style={{ color: durColor }}>{durPct}%</span>
-                    {damagedEquipped.length > 0 && (
-                      <motion.button
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-opacity duration-150"
-                        style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
-                        onClick={() => setShowRepair(true)}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Wrench size={10} strokeWidth={2.5} />
-                        Reparar
-                      </motion.button>
-                    )}
-                  </div>
+                  <span style={{ color: durColor }}>{durPct}%</span>
                 </div>
                 <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div
@@ -351,8 +339,21 @@ export default function Grind() {
                 </div>
               </>
             )}
-            {hpPotions.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* Acciones: reparar + pociones */}
+            {(durPct != null || hpPotions.length > 0) && (
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                {durPct != null && (
+                  <motion.button
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-opacity duration-150 disabled:opacity-40"
+                    style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
+                    onClick={() => damagedEquipped.length > 0 && setShowRepair(true)}
+                    disabled={damagedEquipped.length === 0}
+                    whileTap={damagedEquipped.length === 0 ? {} : { scale: 0.95 }}
+                  >
+                    <Wrench size={11} strokeWidth={2.5} />
+                    Reparar
+                  </motion.button>
+                )}
                 {hpPotions.map(p => {
                   const disabled = full || isBusy || itemUseMutation.isPending
                   return (
