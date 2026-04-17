@@ -294,6 +294,11 @@ export function floorEnemyName(floor) {
   return pool[floor % pool.length]
 }
 
+export function randomEnemyName(level) {
+  const pool = ENEMY_POOLS.find(p => level <= p.max)?.names ?? ENEMY_POOLS[ENEMY_POOLS.length - 1].names
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
 /* ─── Arquetipos de enemigos ────────────────────────────────────────────────── */
 
 /**
