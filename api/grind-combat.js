@@ -7,7 +7,7 @@
  */
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats, getFullStats } from './_stats.js'
-import { simulateCombat, decoratedEnemyName } from './_combat.js'
+import { simulateCombat } from './_combat.js'
 import { randomEnemyName } from '../src/lib/gameFormulas.js'
 import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
@@ -85,8 +85,7 @@ export default async function handler(req, res) {
   const vTactics    = Math.min(21, hero.level * 3)
   const fullStats   = await getFullStats(supabase, hero.id)
   const enemyStats  = enemyStatsFromHero(fullStats ?? heroStats, 1.0)
-  const enemyBase   = randomEnemyName(hero.level)
-  const enemyName   = decoratedEnemyName(enemyBase, hero.class)
+  const enemyName   = randomEnemyName(hero.level)
 
   // Tácticas del héroe
   const { data: heroTacticRows } = await supabase
