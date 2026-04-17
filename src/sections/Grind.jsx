@@ -11,7 +11,7 @@ import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { COMBAT_HP_COST } from '../lib/gameConstants'
 import { CLASS_ENEMY_PROFILES } from '../lib/gameFormulas'
-import { Swords, Heart, Shield, Coins, Star, Sparkles, Package } from 'lucide-react'
+import { Swords, Heart, Shield, Coins, Star, Sparkles, Package, Wrench } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { TacticsStrip } from '../components/TacticsStrip'
@@ -69,6 +69,12 @@ export default function Grind() {
   const hpCostWin  = hero ? Math.round(hero.max_hp * COMBAT_HP_COST.grind.win)  : 0
   const hpCostLoss = hero ? Math.round(hero.max_hp * COMBAT_HP_COST.grind.loss) : 0
 
+  // Coste de reparar todo el equipo (misma fórmula que item-repair-all.js)
+  const RARITY_GOLD = { common: 2, uncommon: 3, rare: 6, epic: 12, legendary: 22 }
+  const repairCost = (items ?? [])
+    .filter(i => i.equipped_slot && (i.item_catalog?.max_durability ?? 0) > 0 && i.current_durability < i.item_catalog.max_durability)
+    .reduce((sum, i) => sum + (i.item_catalog.max_durability - i.current_durability) * (RARITY_GOLD[i.item_catalog.rarity] ?? 2), 0)
+
   const applyPostCombat = (data) => {
     if (!data) return
     if (data.rewards?.drop?.item_catalog) notify.itemDrop(data.rewards.drop.item_catalog)
@@ -91,6 +97,16 @@ export default function Grind() {
       notify.error(err.message)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
     },
+  })
+
+  const repairMutation = useMutation({
+    mutationFn: () => apiPost('/api/item-repair-all', { heroId: hero?.id }),
+    onSuccess: () => {
+      triggerResourceFlash()
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    },
+    onError: err => notify.error(err.message),
   })
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
@@ -223,7 +239,21 @@ export default function Grind() {
               <>
                 <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
                   <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                  <span style={{ color: durColor }}>{durPct}%</span>
+                  <div className="flex items-center gap-2">
+                    <span style={{ color: durColor }}>{durPct}%</span>
+                    {repairCost > 0 && (
+                      <motion.button
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-opacity duration-150 disabled:opacity-40"
+                        style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
+                        onClick={() => !repairMutation.isPending && repairMutation.mutate()}
+                        disabled={repairMutation.isPending}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Wrench size={10} strokeWidth={2.5} />
+                        {repairCost}g
+                      </motion.button>
+                    )}
+                  </div>
                 </div>
                 <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div
