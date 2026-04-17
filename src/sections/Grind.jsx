@@ -191,6 +191,12 @@ export default function Grind() {
     mutationFn: () => apiPost('/api/grind-combat', { heroId: hero?.id }),
     onSuccess: (data) => {
       setResult(data)
+      // Aplicar HP y durabilidad al instante desde la respuesta, sin esperar el refetch
+      queryClient.setQueryData(queryKeys.hero(heroId), h => h ? {
+        ...h,
+        current_hp:         data.heroCurrentHp,
+        hp_last_updated_at: new Date().toISOString(),
+      } : h)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     },
