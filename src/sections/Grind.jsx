@@ -76,6 +76,7 @@ export default function Grind() {
     triggerResourceFlash()
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.combatHistory(heroId) })
     if (data.rewards?.drop)    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     if (data.rewards?.tactic)  queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
   }
@@ -181,6 +182,29 @@ export default function Grind() {
             <span>Coste HP: <span className="font-semibold text-text-2">{hpCostWin} victoria</span> / <span className="font-semibold text-text-2">{hpCostLoss} derrota</span></span>
           </div>
         </div>
+
+        {/* Estadísticas de grindeo */}
+        {hero && (hero.combats_played ?? 0) > 0 && (() => {
+          const played  = hero.combats_played ?? 0
+          const won     = hero.combats_won ?? 0
+          const winRate = Math.round((won / played) * 100)
+          return (
+            <div className="flex items-center gap-4 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
+              <div className="flex flex-col">
+                <span className="text-[11px] text-text-3">Victorias</span>
+                <span className="text-[14px] font-bold tabular-nums text-[#16a34a]">{won}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] text-text-3">Derrotas</span>
+                <span className="text-[14px] font-bold tabular-nums text-[#dc2626]">{played - won}</span>
+              </div>
+              <div className="flex flex-col ml-auto text-right">
+                <span className="text-[11px] text-text-3">Winrate</span>
+                <span className="text-[14px] font-bold tabular-nums text-text">{winRate}%</span>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* HP + equipo + pociones */}
         {hero && (
