@@ -8,8 +8,8 @@ import Ranking from './Ranking'
 import Grind from './Grind'
 
 const MODES = [
-  { id: 'torre',        label: 'Torre',          sublabel: 'PvE',           Icon: TowerControl, color: '#f59e0b' },
   { id: 'grind',        label: 'Grindeo',        sublabel: 'Farming',       Icon: Swords,       color: '#dc2626' },
+  { id: 'torre',        label: 'Torre',          sublabel: 'PvE',           Icon: TowerControl, color: '#f59e0b' },
   { id: 'historial',    label: 'Historial',       sublabel: 'Combates',      Icon: Scroll,       color: '#a855f7' },
   { id: 'clasificacion',label: 'Clasificación',   sublabel: 'Ranking',       Icon: Trophy,       color: '#0369a1' },
 ]
