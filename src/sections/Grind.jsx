@@ -76,7 +76,8 @@ export default function Grind() {
     triggerResourceFlash()
     queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
-    if (data.rewards?.drop) queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    if (data.rewards?.drop)    queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
+    if (data.rewards?.tactic)  queryClient.invalidateQueries({ queryKey: queryKeys.heroTactics(heroId) })
   }
 
   const fightMutation = useMutation({

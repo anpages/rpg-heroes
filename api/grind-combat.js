@@ -10,7 +10,7 @@ import { simulateCombat, floorEnemyName, decoratedEnemyName } from './_combat.js
 import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
-import { rollItemDrop } from './_loot.js'
+import { rollItemDrop, rollTacticDrop } from './_loot.js'
 import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
 
 /** Enemy stats derivados de las stats reales del héroe × escalar */
@@ -128,6 +128,7 @@ export default async function handler(req, res) {
 
   let fragments = 0
   let drop      = null
+  let tactic    = null
 
   if (won) {
     // Fragmentos: 15% → 1-3
@@ -141,13 +142,18 @@ export default async function handler(req, res) {
       })
     }
 
-    // Ítem: 6% → common/uncommon
-    if (Math.random() < 0.06) {
+    // Ítem: 15% → common/uncommon
+    if (Math.random() < 0.15) {
       drop = await rollItemDrop(supabase, hero.id, user.id, {
-        difficulty:   2,
-        poolKey:      'combat',
-        heroClass:    hero.class,
+        difficulty: 2,
+        poolKey:    'combat',
+        heroClass:  hero.class,
       })
+    }
+
+    // Táctica: 8%
+    if (Math.random() < 0.08) {
+      tactic = await rollTacticDrop(supabase, hero.id, hero.class, { chance: 1.0 })
     }
   }
 
@@ -168,6 +174,7 @@ export default async function handler(req, res) {
       experience: xp,
       fragments:  fragments || null,
       drop:       drop ?? null,
+      tactic:     tactic ?? null,
       levelUp:    rpcResult?.level_up ?? false,
     },
     heroCurrentHp: hpAfterCombat,

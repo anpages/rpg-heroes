@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Coins, Star, Zap, Loader, Sparkles, Package } from 'lucide-react'
+import { Coins, Star, Zap, Loader, Sparkles, Package, Scroll } from 'lucide-react'
 import { COMBAT_DECISIONS } from '../lib/combatDecisions'
 import { CLASS_ABILITIES, getStance } from '../lib/combatAbilities'
 import { CLASS_COLORS } from '../lib/gameConstants'
@@ -382,6 +382,10 @@ function ResultPanel({ won, rewards, onClose }) {
   const hasFragments = rewards?.fragments > 0
   const hasDrop      = !!rewards?.drop?.item_catalog
   const dropName     = hasDrop ? (rewards.drop.item_catalog?.name ?? 'Ítem') : null
+  const hasTactic    = !!rewards?.tactic?.tactic
+  const tacticName   = hasTactic ? (rewards.tactic.tactic.name ?? 'Táctica') : null
+  const tacticIsNew  = hasTactic && rewards.tactic.isNew
+  const tacticLevel  = hasTactic ? rewards.tactic.newLevel : null
 
   return (
     <div className="flex items-start gap-3">
@@ -408,6 +412,13 @@ function ResultPanel({ won, rewards, onClose }) {
             {hasDrop && (
               <span className="flex items-center gap-1 text-[12px] font-semibold text-[#a855f7] tabular-nums">
                 <Package size={11} strokeWidth={2} />{dropName}
+              </span>
+            )}
+            {hasTactic && (
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-[#06b6d4] tabular-nums">
+                <Scroll size={11} strokeWidth={2} />
+                {tacticName}
+                {tacticIsNew ? ' (nueva)' : ` → Nv.${tacticLevel}`}
               </span>
             )}
           </div>
