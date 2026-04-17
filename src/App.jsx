@@ -28,17 +28,21 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [playerExists, setPlayerExists] = useState(null)
   const setUserId = useAppStore(s => s.setUserId)
+  const resetNavigation = useAppStore(s => s.navigateTo)
+  const setSelectedHeroId = useAppStore(s => s.setSelectedHeroId)
   const prevUserIdRef = useRef(null)
 
   // Callback explícito para cambio de cuenta — no depende de onAuthStateChange
   const handleAccountSwitch = useCallback((newSession) => {
     saveAccount(newSession)
     queryClient.clear()
+    setSelectedHeroId(null)
+    resetNavigation('base')
     prevUserIdRef.current = newSession.user.id
     setPlayerExists(null)
     setSession(newSession)
     setUserId(newSession.user.id)
-  }, [setUserId])
+  }, [setUserId, setSelectedHeroId, resetNavigation])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
