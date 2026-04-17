@@ -106,9 +106,10 @@ export default function Grind() {
   const { catalog, inventory }         = useCraftedItems(userId)
   const { resources }                  = useResources(userId)
 
-  const [result, setResult]       = useState(null)
+  const [result, setResult]         = useState(null)
+  const [pauseToken, setPauseToken] = useState(null)
   const [showRepair, setShowRepair] = useState(false)
-  const [, forceUpdate]           = useReducer(x => x + 1, 0)
+  const [, forceUpdate]             = useReducer(x => x + 1, 0)
 
   useEffect(() => {
     const id = setInterval(forceUpdate, 10000)
@@ -196,11 +197,26 @@ export default function Grind() {
   const fightMutation = useMutation({
     mutationFn: () => apiPost('/api/grind-combat', { heroId: hero?.id }),
     onSuccess: (data) => {
+      if (data.paused) {
+        setPauseToken(data.token)
+      }
       setResult(data)
     },
     onError: (err) => {
       notify.error(err.message)
       queryClient.invalidateQueries({ queryKey: queryKeys.hero(heroId) })
+    },
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (decision) => apiPost('/api/combat-resume', { token: pauseToken, decision }),
+    onSuccess: (data) => {
+      setPauseToken(null)
+      setResult(prev => ({ ...data, enemyTactics: prev?.enemyTactics }))
+    },
+    onError: (err) => {
+      notify.error(err.message)
+      setPauseToken(null)
     },
   })
 
@@ -259,7 +275,11 @@ export default function Grind() {
           heroClass={result.heroClass}
           archetype={result.heroClass}
           enemyTactics={result.enemyTactics}
-          onClose={() => { applyPostCombat(result); setResult(null) }}
+          keyMomentPause={result.paused === true}
+          decisions={result.decisions}
+          onDecide={(d) => resumeMutation.mutate(d)}
+          resolving={resumeMutation.isPending}
+          onClose={() => { applyPostCombat(result); setResult(null); setPauseToken(null) }}
         />
       )}
 

@@ -11,6 +11,7 @@ import { verifyCombatToken } from './_combatSign.js'
 import { COMBAT_DECISIONS, KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
 import { interpolateHP } from './_hp.js'
 import { finalizeTowerAttempt } from './_towerFinalize.js'
+import { finalizeGrindCombat } from './_grindFinalize.js'
 
 export default async function handler(req, res) {
   const auth = await requireAuth(req, res)
@@ -37,11 +38,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'No autorizado' })
   }
 
-  if (payload.type !== 'tower') {
-    return res.status(400).json({ error: 'Tipo de combate desconocido' })
-  }
-
-  const { heroId, targetFloor, enemyName, archetypeKey, heroStats, enemyStats, state, combatOpts, prevMaxFloor } = payload
+  const { heroId, heroStats, enemyStats, state, combatOpts } = payload
 
   const { data: hero } = await supabase
     .from('heroes')
@@ -60,14 +57,36 @@ export default async function handler(req, res) {
   const newState = { ...state, hpA: applied.hpA, hpB: applied.hpB }
   const result   = resumeCombat(applied.a, applied.b, newState, combatOpts ?? {})
 
-  const finalize = await finalizeTowerAttempt({
-    supabase, user, hero, currentHp,
-    heroStats:  applied.a,
-    enemyStats: applied.b,
-    targetFloor, enemyName, archetypeKey,
-    result, nowMs, prevMaxFloor,
-  })
+  // ── Torre ────────────────────────────────────────────────────────────────────
+  if (payload.type === 'tower') {
+    const { targetFloor, enemyName, archetypeKey, prevMaxFloor } = payload
+    const finalize = await finalizeTowerAttempt({
+      supabase, user, hero, currentHp,
+      heroStats:  applied.a,
+      enemyStats: applied.b,
+      targetFloor, enemyName, archetypeKey,
+      result, nowMs, prevMaxFloor,
+    })
+    if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
+    return res.status(200).json(finalize.payload)
+  }
 
-  if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
-  return res.status(200).json(finalize.payload)
+  // ── Grindeo ──────────────────────────────────────────────────────────────────
+  if (payload.type === 'grind') {
+    const { enemyName } = payload
+    const finalize = await finalizeGrindCombat({
+      supabase, user, hero, currentHp,
+      heroStats:  applied.a,
+      enemyStats: applied.b,
+      enemyName, result, nowMs,
+      kmCooldownNext: 6, // ya se puso a 6 cuando se pausó, aquí se mantiene hasta que baje
+    })
+    if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
+    return res.status(200).json({
+      ...finalize.payload,
+      enemyTactics: [],
+    })
+  }
+
+  return res.status(400).json({ error: 'Tipo de combate desconocido' })
 }

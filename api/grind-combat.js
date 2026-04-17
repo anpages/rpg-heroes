@@ -4,36 +4,20 @@
  * Recompensas: oro + XP siempre; fragmentos 15%, ítem 15%, táctica 8% en victoria.
  * Calidad del ítem escala con nivel del héroe (dif 2→8), sin techo de rareza.
  * Coste: 8% max_hp en victoria, 12% en derrota. Desgaste de equipo: 1 punto.
+ * Momento clave: se activa cuando el cooldown llega a 0 y el combate es reñido.
  */
 import { requireAuth } from './_auth.js'
 import { getEffectiveStats, getFullStats } from './_stats.js'
-import { simulateCombat } from './_combat.js'
-import { randomEnemyName } from '../src/lib/gameFormulas.js'
-import { interpolateHP, applyCombatHpCost, canPlay } from './_hp.js'
+import { simulateCombat, decoratedEnemyName } from './_combat.js'
+import { interpolateHP, canPlay } from './_hp.js'
 import { isUUID } from './_validate.js'
 import { generateEnemyTactics } from './_enemyTactics.js'
-import { rollItemDrop, rollTacticDrop, getDropConfig } from './_loot.js'
-import { COMBAT_HP_COST } from '../src/lib/gameConstants.js'
+import { signCombatToken } from './_combatSign.js'
+import { KEY_MOMENT_OPTIONS } from '../src/lib/combatDecisions.js'
+import { randomEnemyName } from '../src/lib/gameFormulas.js'
+import { finalizeGrindCombat } from './_grindFinalize.js'
 
-/**
- * Dificultad de drop según nivel del héroe.
- * Controla la distribución de rareza y tier — la tasa del 15% se normaliza aparte.
- * Nv.1-5:  dif 2 → tier 1, sin épica
- * Nv.6-12: dif 4 → tier 1-2, sin épica
- * Nv.13-20: dif 6 → tier 1-2, épica ~7%
- * Nv.21-30: dif 7 → tier 2-3, épica ~12%, legendaria ~2%
- * Nv.31+:   dif 8 → tier 2-3, épica ~17%, legendaria ~5%
- */
-function grindDropDifficulty(level) {
-  if (level <= 5)  return 2
-  if (level <= 12) return 4
-  if (level <= 20) return 6
-  if (level <= 30) return 7
-  return 8
-}
-
-/** Enemy stats derivados de las stats reales del héroe × escalar */
-function enemyStatsFromHero(heroStats, scale = 0.85) {
+function enemyStatsFromHero(heroStats, scale = 1.0) {
   return {
     max_hp:       Math.max(1, Math.round(heroStats.max_hp       * scale)),
     attack:       Math.max(1, Math.round(heroStats.attack       * scale)),
@@ -57,7 +41,7 @@ export default async function handler(req, res) {
 
   const { data: hero } = await supabase
     .from('heroes')
-    .select('id, name, player_id, status, level, current_hp, max_hp, hp_last_updated_at, class')
+    .select('id, name, player_id, status, level, current_hp, max_hp, hp_last_updated_at, class, grind_km_cooldown')
     .eq('id', heroId)
     .eq('player_id', user.id)
     .single()
@@ -77,17 +61,14 @@ export default async function handler(req, res) {
     })
   }
 
-  // Bonos de investigación
   const { getResearchBonuses } = await import('./_research.js')
   const rb = await getResearchBonuses(supabase, user.id)
 
-  // Enemigo anclado a stats a durabilidad 100% — el desgaste penaliza al héroe
-  const vTactics    = Math.min(21, hero.level * 3)
-  const fullStats   = await getFullStats(supabase, hero.id)
-  const enemyStats  = enemyStatsFromHero(fullStats ?? heroStats, 1.0)
-  const enemyName   = randomEnemyName(hero.level)
+  const vTactics   = Math.min(21, hero.level * 3)
+  const fullStats  = await getFullStats(supabase, hero.id)
+  const enemyStats = enemyStatsFromHero(fullStats ?? heroStats, 1.0)
+  const enemyName  = randomEnemyName(hero.level)
 
-  // Tácticas del héroe
   const { data: heroTacticRows } = await supabase
     .from('hero_tactics')
     .select('level, tactic_catalog(name, icon, combat_effect)')
@@ -99,115 +80,62 @@ export default async function handler(req, res) {
   }))
   const enemyTactics = generateEnemyTactics(vTactics, hero.class)
 
+  const kmCooldown       = hero.grind_km_cooldown ?? 0
+  const keyMomentEnabled = kmCooldown === 0
+
   const result = simulateCombat(heroStats, enemyStats, {
-    critBonus: rb.crit_pct,
-    classA:    hero.class,
-    classB:    hero.class,
-    tacticsA:  heroTactics,
-    tacticsB:  enemyTactics,
+    critBonus:        rb.crit_pct,
+    classA:           hero.class,
+    classB:           hero.class,
+    tacticsA:         heroTactics,
+    tacticsB:         enemyTactics,
+    keyMomentEnabled,
   })
 
-  const won = result.winner === 'a'
-
-  // Deducir HP
-  const costPct       = won ? COMBAT_HP_COST.grind.win : COMBAT_HP_COST.grind.loss
-  const hpAfterCombat = applyCombatHpCost(currentHp, heroStats.max_hp, costPct)
-
-  const { error: hpError, count: hpCount } = await supabase
-    .from('heroes')
-    .update({
-      current_hp:         hpAfterCombat,
-      hp_last_updated_at: new Date(nowMs).toISOString(),
+  // Momento clave — devolver estado pausado con token firmado
+  if (result.paused) {
+    await supabase.from('heroes').update({ grind_km_cooldown: 6 }).eq('id', hero.id)
+    const token = signCombatToken({
+      type:       'grind',
+      heroId:     hero.id,
+      userId:     user.id,
+      enemyName,
+      heroStats,
+      enemyStats,
+      heroLevel:  hero.level,
+      heroClass:  hero.class,
+      heroMaxHp:  hero.max_hp,
+      currentHp,
+      state:      result.state,
+      combatOpts: { critBonus: rb.crit_pct, classA: hero.class, classB: hero.class, tacticsA: heroTactics, tacticsB: enemyTactics },
     })
-    .eq('id', hero.id)
-    .eq('status', 'idle')
-
-  if (hpError)       return { error: hpError.message, status: 500 }
-  if (hpCount === 0) return res.status(409).json({ error: 'El héroe cambió de estado durante el combate' })
-
-  // Reducir durabilidad: 1 punto fijo (como torre piso 1-10)
-  await supabase.rpc('reduce_equipment_durability_scaled', { p_hero_id: hero.id, amount: 1 })
-
-  // Recompensas
-  const gold = won
-    ? 20 + Math.floor(Math.random() * 21)   // 20-40
-    : 5  + Math.floor(Math.random() * 8)    // 5-12
-  const xp = won
-    ? 30 + Math.floor(Math.random() * 21)   // 30-50
-    : 10 + Math.floor(Math.random() * 11)   // 10-20
-
-  const { data: rpcResult, error: rpcError } = await supabase.rpc('reward_gold_and_xp', {
-    p_player_id: user.id,
-    p_hero_id:   hero.id,
-    p_gold:      gold,
-    p_xp:        xp,
-  })
-  if (rpcError) return res.status(500).json({ error: rpcError.message })
-
-  let fragments = 0
-  let drop      = null
-  let tactic    = null
-
-  if (won) {
-    // Fragmentos: 15% → 1-3
-    if (Math.random() < 0.15) {
-      fragments = 1 + Math.floor(Math.random() * 3)
-      await supabase.rpc('add_resources', {
-        p_player_id: user.id,
-        p_gold:      0,
-        p_fragments: fragments,
-        p_essence:   0,
-      })
-    }
-
-    // Ítem: 15% fijo — calidad escala con nivel del héroe
-    const dropDif  = grindDropDifficulty(hero.level)
-    const dropMult = 0.15 / getDropConfig(dropDif).chance  // normaliza a 15% real
-    drop = await rollItemDrop(supabase, hero.id, user.id, {
-      difficulty:   dropDif,
-      poolKey:      'combat',
-      heroClass:    hero.class,
-      dropRateMult: dropMult,
+    return res.status(200).json({
+      ok:          true,
+      paused:      true,
+      token,
+      decisions:   KEY_MOMENT_OPTIONS,
+      log:         result.log,
+      heroHpLeft:  result.hpLeftA,
+      enemyHpLeft: result.hpLeftB,
+      heroMaxHp:   heroStats.max_hp,
+      enemyMaxHp:  enemyStats.max_hp,
+      enemyName,
+      heroClass:   hero.class,
+      enemyTactics: enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
     })
-
-    // Táctica: 8%
-    if (Math.random() < 0.08) {
-      tactic = await rollTacticDrop(supabase, hero.id, hero.class, { chance: 1.0 })
-    }
   }
 
-  // Historial genérico + contadores de combate
-  await supabase.from('combat_log').insert({
-    hero_id:    hero.id,
-    player_id:  user.id,
-    source:     'grind',
-    won,
-    enemy_name: enemyName,
-    rounds:     result.rounds,
+  // Cooldown: decrementa 1 por combate (mínimo 0)
+  const kmCooldownNext = Math.max(0, kmCooldown - 1)
+
+  const finalize = await finalizeGrindCombat({
+    supabase, user, hero, currentHp, heroStats, enemyStats, enemyName, result, nowMs,
+    kmCooldownNext,
   })
-  await supabase.rpc('increment_combat_stats', { p_hero_id: hero.id, p_won: won })
+  if (finalize.error) return res.status(finalize.status).json({ error: finalize.error })
 
   return res.status(200).json({
-    ok: true,
-    won,
-    rounds:        result.rounds,
-    log:           result.log,
-    heroHpLeft:    result.hpLeftA,
-    enemyHpLeft:   result.hpLeftB,
-    heroMaxHp:     heroStats.max_hp,
-    enemyMaxHp:    enemyStats.max_hp,
-    enemyName,
-    heroClass:     hero.class,
-    enemyTactics:  enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
-    rewards: {
-      gold,
-      experience: xp,
-      fragments:  fragments || null,
-      drop:       drop ?? null,
-      tactic:     tactic ?? null,
-      levelUp:    rpcResult?.level_up ?? false,
-    },
-    heroCurrentHp: hpAfterCombat,
-    heroRealMaxHp: hero.max_hp,
+    ...finalize.payload,
+    enemyTactics: enemyTactics.map(t => ({ name: t.name, icon: t.icon })),
   })
 }
