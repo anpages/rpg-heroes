@@ -312,12 +312,33 @@ export default function Grind() {
           )
         })()}
 
-        {/* HP + equipo + pociones */}
+        {/* HP + equipo */}
         {hero && (
           <div className="flex flex-col gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-lg">
-            <div className="flex justify-between items-center text-[13px] font-semibold text-text-2">
-              <span className="flex items-center gap-[5px]"><Heart size={13} strokeWidth={2} color={hpColor} /> HP</span>
-              <span style={{ color: hpColor }}>{hpNow} / {effectiveMaxHp}</span>
+
+            {/* HP row */}
+            <div className="flex items-center gap-2">
+              <Heart size={13} strokeWidth={2} color={hpColor} className="flex-shrink-0" />
+              <span className="text-[13px] font-semibold text-text-2 flex-shrink-0">HP</span>
+              <div className="flex items-center gap-1.5 flex-1 justify-end">
+                {hpPotions.map(p => {
+                  const disabled = full || isBusy || itemUseMutation.isPending
+                  return (
+                    <motion.button
+                      key={p.id}
+                      className="flex items-center gap-1 px-1.5 py-[3px] rounded border text-[11px] font-bold transition-opacity duration-150 disabled:opacity-35"
+                      style={{ color: '#16a34a', borderColor: 'color-mix(in srgb, #16a34a 30%, var(--border))', background: 'color-mix(in srgb, #16a34a 8%, var(--surface))' }}
+                      onClick={() => !disabled && itemUseMutation.mutate(p.id)}
+                      disabled={disabled}
+                      whileTap={disabled ? {} : { scale: 0.92 }}
+                    >
+                      <Heart size={10} strokeWidth={2.5} />
+                      ×{p.quantity}
+                    </motion.button>
+                  )
+                })}
+                <span className="text-[13px] font-semibold tabular-nums" style={{ color: hpColor }}>{hpNow}/{effectiveMaxHp}</span>
+              </div>
             </div>
             <div className="h-2 bg-border rounded-full overflow-hidden">
               <div
@@ -325,11 +346,25 @@ export default function Grind() {
                 style={{ width: `${hpPct}%`, background: hpColor }}
               />
             </div>
+
+            {/* Equipo row */}
             {durPct != null && (
               <>
-                <div className="flex justify-between items-center text-[13px] font-semibold text-text-2 mt-1">
-                  <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
-                  <span style={{ color: durColor }}>{durPct}%</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <Shield size={13} strokeWidth={2} color={durColor} className="flex-shrink-0" />
+                  <span className="text-[13px] font-semibold text-text-2 flex-shrink-0">Equipo</span>
+                  <div className="flex items-center gap-1.5 flex-1 justify-end">
+                    <motion.button
+                      className="flex items-center gap-1 px-1.5 py-[3px] rounded border text-[11px] font-bold transition-opacity duration-150 disabled:opacity-35"
+                      style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
+                      onClick={() => damagedEquipped.length > 0 && setShowRepair(true)}
+                      disabled={damagedEquipped.length === 0}
+                      whileTap={damagedEquipped.length === 0 ? {} : { scale: 0.92 }}
+                    >
+                      <Wrench size={10} strokeWidth={2.5} />
+                    </motion.button>
+                    <span className="text-[13px] font-semibold tabular-nums" style={{ color: durColor }}>{durPct}%</span>
+                  </div>
                 </div>
                 <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div
@@ -338,40 +373,6 @@ export default function Grind() {
                   />
                 </div>
               </>
-            )}
-            {/* Acciones: reparar + pociones */}
-            {(durPct != null || hpPotions.length > 0) && (
-              <div className="flex items-center gap-2 flex-wrap pt-1">
-                {durPct != null && (
-                  <motion.button
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-opacity duration-150 disabled:opacity-40"
-                    style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
-                    onClick={() => damagedEquipped.length > 0 && setShowRepair(true)}
-                    disabled={damagedEquipped.length === 0}
-                    whileTap={damagedEquipped.length === 0 ? {} : { scale: 0.95 }}
-                  >
-                    <Wrench size={11} strokeWidth={2.5} />
-                    Reparar
-                  </motion.button>
-                )}
-                {hpPotions.map(p => {
-                  const disabled = full || isBusy || itemUseMutation.isPending
-                  return (
-                    <motion.button
-                      key={p.id}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold transition-[opacity] duration-150 disabled:opacity-40"
-                      style={{ color: 'var(--text-2)', borderColor: 'var(--border)', background: 'var(--surface)' }}
-                      onClick={() => !disabled && itemUseMutation.mutate(p.id)}
-                      disabled={disabled}
-                      whileTap={disabled ? {} : { scale: 0.95 }}
-                    >
-                      <Heart size={11} strokeWidth={2.5} style={{ color: '#16a34a' }} />
-                      {p.name}
-                      <span className="opacity-60">×{p.quantity}</span>
-                    </motion.button>
-                  )
-                })}
-              </div>
             )}
           </div>
         )}
