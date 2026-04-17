@@ -715,7 +715,7 @@ function Dungeons() {
     const isLocked     = heroLevel < d.min_hero_level
     const heroStatus   = expedition ? 'exploring' : (hero?.status ?? 'idle')
     const busy         = heroStatus !== 'idle'
-    const lowHp        = !isLocked && !busy && (heroHpNow ?? 0) <= hpCost
+    const lowHp        = !isLocked && !busy && (heroHpNow ?? 0) < hpCost
 
     let disabledReason = null
     if (isLocked)                    disabledReason = `Nv. ${d.min_hero_level} requerido`

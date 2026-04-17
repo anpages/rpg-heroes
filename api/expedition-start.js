@@ -136,7 +136,7 @@ export default async function handler(req, res) {
   const hpCostReduction = hero.active_effects?.hp_cost_reduction ?? 0
   const baseHpDamage = expeditionHpDamage(stats?.max_hp ?? hero.max_hp, dungeon.duration_minutes, dungeon.difficulty, stats?.strength)
   const hpDamage = Math.round(baseHpDamage * (1 - hpCostReduction))
-  if (currentHp <= hpDamage) {
+  if (currentHp < hpDamage) {
     return res.status(409).json({
       error: `HP insuficiente. Esta expedición cuesta ${hpDamage} HP y tienes ${currentHp}.`,
       code: 'LOW_HP',
