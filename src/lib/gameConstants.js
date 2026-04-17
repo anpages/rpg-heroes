@@ -487,6 +487,7 @@ export const HERO_SLOT_CLASS = {
  */
 export const COMBAT_HP_COST = {
   tower: { win: 0.10, loss: 0.17 },
+  grind: { win: 0.08, loss: 0.12 },
 }
 
 /**

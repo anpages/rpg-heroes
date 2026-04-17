@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Coins, Star, Zap, Loader } from 'lucide-react'
+import { Coins, Star, Zap, Loader, Sparkles, Package } from 'lucide-react'
 import { COMBAT_DECISIONS } from '../lib/combatDecisions'
 import { CLASS_ABILITIES, getStance } from '../lib/combatAbilities'
 import { CLASS_COLORS } from '../lib/gameConstants'
@@ -379,25 +379,40 @@ function KeyMomentPanel({ decisions, onDecide, loading }) {
 }
 
 function ResultPanel({ won, rewards, onClose }) {
+  const hasFragments = rewards?.fragments > 0
+  const hasDrop      = !!rewards?.drop?.item_catalog
+  const dropName     = hasDrop ? (rewards.drop.item_catalog?.name ?? 'Ítem') : null
+
   return (
-    <div className="flex items-center gap-3">
-      {/* Icono + texto resultado */}
-      <span className="text-[24px] leading-none select-none flex-shrink-0">{won ? '🏆' : '💀'}</span>
-      <div className="flex-1 min-w-0">
+    <div className="flex items-start gap-3">
+      <span className="text-[24px] leading-none select-none flex-shrink-0 mt-0.5">{won ? '🏆' : '💀'}</span>
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
         <p className={`text-[15px] font-extrabold tracking-tight ${won ? 'text-[#15803d]' : 'text-[#dc2626]'}`}>
           {won ? '¡Victoria!' : 'Derrota'}
         </p>
-        {/* Recompensas inline */}
-        {won && rewards && (
-          <p className="text-[12px] text-text-2 font-semibold tabular-nums truncate">
-            +{rewards.gold} oro · +{rewards.experience} XP
-            {rewards.milestone ? ' · ★×2' : ''}
-            {rewards.levelUp ? ' · ¡Nivel!' : ''}
-          </p>
+        {rewards && (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 tabular-nums">
+              <Coins size={11} color="#d97706" strokeWidth={2} />+{rewards.gold} oro
+            </span>
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-text-2 tabular-nums">
+              <Star size={11} color="#0369a1" strokeWidth={2} />+{rewards.experience} XP
+              {rewards.milestone && <span className="text-[#d97706]"> ×2</span>}
+              {rewards.levelUp   && <span className="text-[#16a34a]"> · ¡Nivel!</span>}
+            </span>
+            {hasFragments && (
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-[#f59e0b] tabular-nums">
+                <Sparkles size={11} strokeWidth={2} />+{rewards.fragments} frags
+              </span>
+            )}
+            {hasDrop && (
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-[#a855f7] tabular-nums">
+                <Package size={11} strokeWidth={2} />{dropName}
+              </span>
+            )}
+          </div>
         )}
-        {!won && <p className="text-[11px] text-text-3">El enemigo aguantó este asalto.</p>}
       </div>
-      {/* Botón */}
       <button className="btn btn--primary btn--sm flex-shrink-0" onClick={onClose}>
         Continuar
       </button>

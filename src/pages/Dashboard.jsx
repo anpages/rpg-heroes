@@ -336,7 +336,6 @@ const NAV_ITEMS = [
   { id: 'heroes', label: 'Héroes',   icon: Sword,  minHeroes: 0 },
   { id: 'mundo',  label: 'Combates', icon: Globe,  minHeroes: 0 },
   { id: 'arena',  label: 'Arena',    icon: Swords,  minHeroes: 0 },
-  { id: 'logros', label: 'Logros',   icon: Trophy,  minHeroes: 0 },
 ]
 
 const HERO_SUB_TABS = [
