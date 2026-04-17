@@ -1,4 +1,5 @@
 import { useState, useEffect, useReducer } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notify } from '../lib/notifications'
 import { useAppStore } from '../store/appStore'
@@ -6,15 +7,92 @@ import { useHeroId } from '../hooks/useHeroId'
 import { useHero } from '../hooks/useHero'
 import { useInventory } from '../hooks/useInventory'
 import { useCraftedItems } from '../hooks/useCraftedItems'
+import { useResources } from '../hooks/useResources'
 import { queryKeys } from '../lib/queryKeys'
 import { apiPost } from '../lib/api'
 import { interpolateHp } from '../lib/hpInterpolation'
 import { COMBAT_HP_COST } from '../lib/gameConstants'
 import { CLASS_ENEMY_PROFILES } from '../lib/gameFormulas'
-import { Swords, Heart, Shield, Coins, Star, Sparkles, Package, Wrench } from 'lucide-react'
+import { Swords, Heart, Shield, Coins, Star, Sparkles, Package, Wrench, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CombatReplay } from '../components/CombatReplay'
 import { TacticsStrip } from '../components/TacticsStrip'
+
+const RARITY_GOLD_PER_POINT = { common: 2, uncommon: 3, rare: 6, epic: 12, legendary: 22 }
+function repairItemCost(item) {
+  const missing = item.item_catalog.max_durability - item.current_durability
+  return missing * (RARITY_GOLD_PER_POINT[item.item_catalog.rarity] ?? 2)
+}
+
+const overlayVariants = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+const sheetVariants   = {
+  initial: { y: '100%' },
+  animate: { y: 0,      transition: { type: 'tween', ease: [0.0, 0.0, 0.2, 1], duration: 0.26 } },
+  exit:    { y: '100%', transition: { type: 'tween', ease: [0.4, 0.0, 1, 1],   duration: 0.18 } },
+}
+
+function RepairAllModal({ damagedItems, gold, onConfirm, onCancel }) {
+  const totalGold = damagedItems.reduce((sum, i) => sum + repairItemCost(i), 0)
+  const hasGold   = gold >= totalGold
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center sm:p-5"
+      variants={overlayVariants} initial="initial" animate="animate" exit="exit"
+      transition={{ duration: 0.15 }}
+      onClick={onCancel}
+    >
+      <motion.div
+        className="bg-bg border border-border-2 rounded-t-2xl sm:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] flex flex-col gap-4 p-5 w-full"
+        style={{ maxWidth: 'min(360px, 100vw)' }}
+        variants={sheetVariants} initial="initial" animate="animate" exit="exit"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-text">Reparar todo el equipo</span>
+          <button className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-text-3" onClick={onCancel}>
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
+            {damagedItems.map(i => (
+              <div key={i.id} className="flex items-center justify-between gap-3">
+                <span className="text-[12px] text-text-2 truncate">{i.item_catalog.name}</span>
+                <span className="text-[12px] font-medium text-text flex-shrink-0">{repairItemCost(i)} oro</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border pt-2 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-text">Total</span>
+              <span className={`text-[13px] font-bold ${hasGold ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                {totalGold} oro
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-text-2">Tu oro</span>
+              <span className="text-[13px] font-semibold text-text">{gold}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end items-center">
+          {!hasGold && (
+            <span className="text-[11px] font-semibold text-[#dc2626] mr-auto">Oro insuficiente</span>
+          )}
+          <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancelar</button>
+          <button
+            className="btn btn--primary btn--sm disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={onConfirm}
+            disabled={!hasGold}
+          >
+            Reparar todo
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
 
 export default function Grind() {
   const userId               = useAppStore(s => s.userId)
@@ -26,9 +104,11 @@ export default function Grind() {
   const { hero, loading: heroLoading } = useHero(heroId)
   const { items }                      = useInventory(hero?.id)
   const { catalog, inventory }         = useCraftedItems(userId)
+  const { resources }                  = useResources(userId)
 
-  const [result, setResult] = useState(null)
-  const [, forceUpdate]     = useReducer(x => x + 1, 0)
+  const [result, setResult]       = useState(null)
+  const [showRepair, setShowRepair] = useState(false)
+  const [, forceUpdate]           = useReducer(x => x + 1, 0)
 
   useEffect(() => {
     const id = setInterval(forceUpdate, 10000)
@@ -65,15 +145,12 @@ export default function Grind() {
   const hasEnoughHp    = hpNow >= minHp
   const isBusy         = hero?.status !== 'idle'
 
-  // Coste de HP estimado (porcentaje del max_hp base)
   const hpCostWin  = hero ? Math.round(hero.max_hp * COMBAT_HP_COST.grind.win)  : 0
   const hpCostLoss = hero ? Math.round(hero.max_hp * COMBAT_HP_COST.grind.loss) : 0
 
-  // Coste de reparar todo el equipo (misma fórmula que item-repair-all.js)
-  const RARITY_GOLD = { common: 2, uncommon: 3, rare: 6, epic: 12, legendary: 22 }
-  const repairCost = (items ?? [])
-    .filter(i => i.equipped_slot && (i.item_catalog?.max_durability ?? 0) > 0 && i.current_durability < i.item_catalog.max_durability)
-    .reduce((sum, i) => sum + (i.item_catalog.max_durability - i.current_durability) * (RARITY_GOLD[i.item_catalog.rarity] ?? 2), 0)
+  const damagedEquipped = (items ?? []).filter(
+    i => i.equipped_slot && (i.item_catalog?.max_durability ?? 0) > 0 && i.current_durability < i.item_catalog.max_durability
+  )
 
   const applyPostCombat = (data) => {
     if (!data) return
@@ -102,11 +179,12 @@ export default function Grind() {
   const repairMutation = useMutation({
     mutationFn: () => apiPost('/api/item-repair-all', { heroId: hero?.id }),
     onSuccess: () => {
+      setShowRepair(false)
       triggerResourceFlash()
       queryClient.invalidateQueries({ queryKey: queryKeys.resources(userId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory(heroId) })
     },
-    onError: err => notify.error(err.message),
+    onError: err => { notify.error(err.message); setShowRepair(false) },
   })
 
   if (heroLoading) return <div className="text-text-3 text-[14px] p-10 text-center">Cargando...</div>
@@ -143,6 +221,17 @@ export default function Grind() {
           onClose={() => { applyPostCombat(result); setResult(null) }}
         />
       )}
+
+      <AnimatePresence>
+        {showRepair && (
+          <RepairAllModal
+            damagedItems={damagedEquipped}
+            gold={resources?.gold ?? 0}
+            onConfirm={() => repairMutation.mutate()}
+            onCancel={() => setShowRepair(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Panel de combate */}
       <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 shadow-[var(--shadow-sm)]">
@@ -186,12 +275,12 @@ export default function Grind() {
             <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
               <Sparkles size={13} color="#f59e0b" strokeWidth={2} />
               <span>Fragmentos</span>
-              <span className="text-text-3 font-normal text-[12px]">30% · solo victoria</span>
+              <span className="text-text-3 font-normal text-[12px]">15% · solo victoria</span>
             </div>
             <div className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
               <Package size={13} color="#6b7280" strokeWidth={2} />
               <span>Ítem</span>
-              <span className="text-text-3 font-normal text-[12px]">6% · solo victoria</span>
+              <span className="text-text-3 font-normal text-[12px]">15% · solo victoria</span>
             </div>
           </div>
           <div className="flex items-center gap-3 mt-1 pt-1.5 border-t border-border text-[12px] text-text-3">
@@ -241,16 +330,15 @@ export default function Grind() {
                   <span className="flex items-center gap-[5px]"><Shield size={13} strokeWidth={2} color={durColor} /> Equipo</span>
                   <div className="flex items-center gap-2">
                     <span style={{ color: durColor }}>{durPct}%</span>
-                    {repairCost > 0 && (
+                    {damagedEquipped.length > 0 && (
                       <motion.button
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-opacity duration-150 disabled:opacity-40"
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-opacity duration-150"
                         style={{ color: '#d97706', borderColor: 'color-mix(in srgb, #d97706 30%, var(--border))', background: 'color-mix(in srgb, #d97706 8%, var(--surface))' }}
-                        onClick={() => !repairMutation.isPending && repairMutation.mutate()}
-                        disabled={repairMutation.isPending}
+                        onClick={() => setShowRepair(true)}
                         whileTap={{ scale: 0.95 }}
                       >
                         <Wrench size={10} strokeWidth={2.5} />
-                        {repairCost}g
+                        Reparar
                       </motion.button>
                     )}
                   </div>
